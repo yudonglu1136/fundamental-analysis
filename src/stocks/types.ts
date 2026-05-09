@@ -111,7 +111,7 @@ export interface StockValuationConfig {
   priceMetadata?: PriceMetadata;
   assumptions: ValuationAssumption[];
   scenarios: ValuationScenario[];
-  calculateValuation: (assumptions: Record<string, number>, data: unknown) => ValuationResult;
+  calculateValuation: (assumptions: Record<string, number>, data: unknown, scenario?: Scenario) => ValuationResult;
 }
 
 export type DashboardInterpretation = {

@@ -104,15 +104,18 @@ export function InteractiveValuationDashboard({
     }
   }, [activePreset, modeStorageKey, storageKey, values]);
 
-  const valuation = useMemo<ValuationResult>(() => config.calculateValuation(values, data), [config, values, data]);
+  const valuation = useMemo<ValuationResult>(() => config.calculateValuation(values, data, activePreset === "Custom" ? scenario : activePreset), [activePreset, config, values, data, scenario]);
   const scenarioCards = useMemo(() => {
     return (["Bear", "Base", "Bull"] as Scenario[]).map((preset) => ({
       scenario: preset,
-      result: config.calculateValuation(scenarioFromConfig(config, preset), data).fairValues.find((item) => item.scenario === preset) ?? config.calculateValuation(scenarioFromConfig(config, preset), data).fairValues[0],
+      result:
+        config.calculateValuation(scenarioFromConfig(config, preset), data, preset).fairValues.find((item) => item.scenario === preset) ??
+        config.calculateValuation(scenarioFromConfig(config, preset), data, preset).fairValues[0],
     }));
   }, [config, data]);
 
-  const currentResult = valuation.fairValues.find((item) => item.scenario === "Base") ?? valuation.fairValues[0];
+  const selectedScenario = activePreset === "Custom" ? scenario : activePreset;
+  const currentResult = valuation.fairValues.find((item) => item.scenario === selectedScenario) ?? valuation.fairValues[0];
   const decoratedValuation: ValuationResult = {
     ...valuation,
     fairValues: scenarioCards.map(({ scenario: preset, result }) => ({

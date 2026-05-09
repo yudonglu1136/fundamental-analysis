@@ -72,11 +72,11 @@ export function LsegDashboard({ module, scenario, period, onDataSourceChange }: 
   const valuationConfig = useMemo(
     () => ({
       ...module.valuationConfig,
-      calculateValuation: (assumptions: Record<string, number>, data: unknown) =>
+      calculateValuation: (assumptions: Record<string, number>, data: unknown, activeScenario = scenario) =>
         calculateLsegValuation(
           data as typeof lsegMockData,
           period,
-          scenario,
+          activeScenario,
           { ...defaultLsegValuationAssumptions, ...(assumptions as Partial<LsegValuationAssumptions>) },
         ),
     }),
