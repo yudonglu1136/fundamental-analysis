@@ -13,6 +13,7 @@ export type MetaCapexEconomics = {
   aiCapexIntensity: number;
   aiCapexMix: number;
   fcfMargin: number;
+  incrementalAiCapex: number;
   aiInfrastructureBurden: number;
   aiAdjustedFcf: number;
   aiAdjustedFcfMargin: number;
@@ -22,7 +23,7 @@ export type MetaCapexEconomics = {
 export function calculateCapexEconomics(
   row: MetaQuarterRow,
   assumptions: MetaAssumptions,
-  aiAfterTaxOperatingProfitAnnual: number,
+  incrementalAiAfterTaxOperatingProfitAnnual: number,
 ) {
   const annualRevenue = annualizeQuarterly(row.totalRevenue);
   const annualFcf = annualizeQuarterly(row.fcf);
@@ -33,8 +34,9 @@ export function calculateCapexEconomics(
   const capexIntensity = safeDivide(annualCapex, Math.max(annualRevenue, 1));
   const aiCapexIntensity = safeDivide(annualAiCapex, Math.max(annualRevenue, 1));
   const aiCapexMix = safeDivide(annualAiCapex, Math.max(annualCapex, 1));
-  const aiInfrastructureBurden = annualAiCapex * assumptions.aiCapexGrowth + annualGpuCapex * 0.18 + annualDataCenterCapex * 0.12;
-  const aiAdjustedFcf = annualFcf + aiAfterTaxOperatingProfitAnnual - aiInfrastructureBurden;
+  const incrementalAiCapex = annualAiCapex * assumptions.aiCapexGrowth;
+  const aiInfrastructureBurden = incrementalAiCapex;
+  const aiAdjustedFcf = annualFcf + incrementalAiAfterTaxOperatingProfitAnnual - aiInfrastructureBurden;
   const aiAdjustedFcfMargin = safeDivide(aiAdjustedFcf, Math.max(annualRevenue, 1));
   const burdenScore = clamp(
     60
@@ -56,6 +58,7 @@ export function calculateCapexEconomics(
     aiCapexIntensity,
     aiCapexMix,
     fcfMargin: row.fcfMargin,
+    incrementalAiCapex,
     aiInfrastructureBurden,
     aiAdjustedFcf,
     aiAdjustedFcfMargin,

@@ -113,7 +113,11 @@ function buildEvaluatedRows(data: MetaData, assumptions: MetaAssumptions): MetaE
     const adEconomics = calculateAdEconomics(row, prior, assumptions);
     const engagementEconomics = calculateEngagementEconomics(row, prior, assumptions);
     const reelsEconomics = calculateReelsEconomics(row, prior);
-    const capexEconomics = calculateCapexEconomics(row, assumptions, adEconomics.aiAfterTaxOperatingProfitAnnual);
+    const capexEconomics = calculateCapexEconomics(
+      row,
+      assumptions,
+      Math.max(0, adEconomics.aiAfterTaxOperatingProfitAnnual - adEconomics.aiEmbeddedAfterTaxProfitAnnual),
+    );
     const aiRoic = calculateAiAdRoic(row, assumptions, adEconomics, engagementEconomics, capexEconomics);
     const scenarioReadThrough =
       aiRoic.aiAdRoic > assumptions.wacc
@@ -237,12 +241,13 @@ export function buildMetaDashboardData(
   data: MetaData = metaData,
   assumptions: MetaAssumptions = defaultMetaAssumptions,
   periodId = data.currentPeriodId,
+  activeScenario: "Bear" | "Base" | "Bull" = "Base",
 ): MetaModel {
   const rows = buildEvaluatedRows(data, assumptions);
   const selectedRow = rows.find((row) => row.periodId === periodId) ?? rows[rows.length - 1];
   const selectedIndex = rows.findIndex((row) => row.periodId === selectedRow.periodId);
   const priorRow = rows[Math.max(selectedIndex - 1, 0)] ?? selectedRow;
-  const valuation = calculateMetaValuation(valuationInput(selectedRow, priorRow, data), assumptions, "Base");
+  const valuation = calculateMetaValuation(valuationInput(selectedRow, priorRow, data), assumptions, activeScenario);
   const validationWarnings = validateMetaData({ ...data, rows, selectedRow, latestReferenceDate: data.latestReferenceDate }, assumptions);
   const dataStatus: DataStatus = {
     sourceType: "mock",
@@ -261,7 +266,11 @@ export function buildMetaDashboardData(
   const adEconomics = calculateAdEconomics(selectedRow, priorRow, assumptions);
   const engagementEconomics = calculateEngagementEconomics(selectedRow, priorRow, assumptions);
   const reelsEconomics = calculateReelsEconomics(selectedRow, priorRow);
-  const capexEconomics = calculateCapexEconomics(selectedRow, assumptions, adEconomics.aiAfterTaxOperatingProfitAnnual);
+  const capexEconomics = calculateCapexEconomics(
+    selectedRow,
+    assumptions,
+    Math.max(0, adEconomics.aiAfterTaxOperatingProfitAnnual - adEconomics.aiEmbeddedAfterTaxProfitAnnual),
+  );
   const aiRoic = calculateAiAdRoic(selectedRow, assumptions, adEconomics, engagementEconomics, capexEconomics);
   const whatsapp = calculateWhatsappEconomics(selectedRow, assumptions);
   const realityLabs = calculateRealityLabsEconomics(selectedRow, assumptions);
@@ -325,7 +334,11 @@ export function buildMetaDashboardData(
 
   const capexFcfBridge = [
     { label: "Reported FCF", value: capexEconomics.annualFcf, type: "base" as const },
-    { label: "AI ad after-tax profit", value: adEconomics.aiAfterTaxOperatingProfitAnnual, type: "positive" as const },
+    {
+      label: "Incremental AI after-tax profit",
+      value: Math.max(0, adEconomics.aiAfterTaxOperatingProfitAnnual - adEconomics.aiEmbeddedAfterTaxProfitAnnual),
+      type: "positive" as const,
+    },
     { label: "AI infrastructure burden", value: -capexEconomics.aiInfrastructureBurden, type: "negative" as const },
     { label: "AI-adjusted FCF", value: capexEconomics.aiAdjustedFcf, type: "total" as const },
   ];
@@ -333,7 +346,11 @@ export function buildMetaDashboardData(
   const scenarioLabCards = (["Bear", "Base", "Bull"] as const).map((scenario) => {
     const scenarioAssumptions = metaScenarioDefaults[scenario];
     const scenarioAd = calculateAdEconomics(selectedRow, priorRow, scenarioAssumptions);
-    const scenarioCapex = calculateCapexEconomics(selectedRow, scenarioAssumptions, scenarioAd.aiAfterTaxOperatingProfitAnnual);
+    const scenarioCapex = calculateCapexEconomics(
+      selectedRow,
+      scenarioAssumptions,
+      Math.max(0, scenarioAd.aiAfterTaxOperatingProfitAnnual - scenarioAd.aiEmbeddedAfterTaxProfitAnnual),
+    );
     const scenarioEngagement = calculateEngagementEconomics(selectedRow, priorRow, scenarioAssumptions);
     const scenarioRoic = calculateAiAdRoic(selectedRow, scenarioAssumptions, scenarioAd, scenarioEngagement, scenarioCapex);
     const scenarioValuation = calculateMetaValuation(valuationInput(selectedRow, priorRow, data), scenarioAssumptions, scenario);

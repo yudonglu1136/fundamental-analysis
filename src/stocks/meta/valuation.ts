@@ -4,7 +4,7 @@ import { clamp, safeDivide } from "../../utils/financialMath";
 import { checkImpossibleCagrCombination, checkPeSanity } from "../../utils/validation";
 import { buildPriceValidationWarnings, computeExpectedShareholderCagr, computeUpsideDownside } from "../../utils/valuation";
 import type { MetaAssumptions } from "./assumptions";
-import { metaScenarioDefaults } from "./assumptions";
+import { matchMetaScenario, metaScenarioDefaults } from "./assumptions";
 import { calculateAdEconomics } from "./adEconomicsEngine";
 import { calculateAiAdRoic } from "./aiAdRoicEngine";
 import { calculateCapexEconomics } from "./capexEngine";
@@ -73,7 +73,11 @@ function calculateScenarioEconomics(
 
   const adEconomics = calculateAdEconomics(row, prior, assumptions);
   const engagementEconomics = calculateEngagementEconomics(row, prior, assumptions);
-  const capexEconomics = calculateCapexEconomics(row, assumptions, adEconomics.aiAfterTaxOperatingProfitAnnual);
+  const capexEconomics = calculateCapexEconomics(
+    row,
+    assumptions,
+    Math.max(0, adEconomics.aiAfterTaxOperatingProfitAnnual - adEconomics.aiEmbeddedAfterTaxProfitAnnual),
+  );
   const aiAdRoic = calculateAiAdRoic(row, assumptions, adEconomics, engagementEconomics, capexEconomics);
   const whatsapp = calculateWhatsappEconomics(row, assumptions);
   const realityLabs = calculateRealityLabsEconomics(row, assumptions);
@@ -221,6 +225,8 @@ export function calculateMetaValuation(
   }));
   const activeScenarioResult =
     scenarioResults.find((item) => item.scenario === activeScenario)?.result ?? selected;
+  const matchedScenario = matchMetaScenario(assumptions);
+  const primaryResult = matchedScenario === activeScenario ? activeScenarioResult : selected;
 
   const scenarioWarnings = scenarioResults.flatMap((item) => item.result.warnings);
   if (Math.abs(scenarioResults[0].result.blendedFairValue - scenarioResults[1].result.blendedFairValue) < 15
@@ -240,18 +246,18 @@ export function calculateMetaValuation(
   return {
     currentPrice,
     warning: currentPrice < 300 || currentPrice > 850 ? "Current price may be stale or incorrect." : undefined,
-    validationWarnings: [...selected.warnings, ...scenarioWarnings],
+    validationWarnings: [...primaryResult.warnings, ...scenarioWarnings],
     methodCards: [
-      { key: "current-fair", label: "Current Fair Value", value: selected.blendedFairValue, format: "currency", description: "Weighted blend of core Ads, FCF yield, AI Ad uplift value, SOTP, and DCF." },
-      { key: "target-3y", label: "3Y Target Price", value: selected.targetPrice3Y, format: "currency", description: "Three-year target price driven by forward EPS growth, exit multiple, and optionality." },
-      { key: "core-ads", label: "Core Ads P/E", value: selected.coreAdsFairValue, format: "currency", description: "Core Ads earnings valued independently of AI uplift optionality." },
-      { key: "fcf-yield", label: "FCF Yield Fair Value", value: selected.fcfYieldFairValue, format: "currency", description: "Annual FCF per share capitalized at the target FCF yield." },
-      { key: "ai-uplift", label: "AI Ad Uplift Value", value: selected.aiAdRoicUpliftValue, format: "currency", description: "PV of AI profit above the embedded run-rate less incremental AI capital." },
-      { key: "sotp", label: "SOTP Value", value: selected.sotpValue, format: "currency", description: "Ads, engagement/reels monetization, WhatsApp optionality, Reality Labs drag, and net cash." },
-      { key: "dcf", label: "AI-Adjusted DCF", value: selected.dcfValue, format: "currency", description: "Five-year DCF on scenario FCF per share. AI CapEx is embedded in FCF, not deducted a second time." },
-      { key: "roic", label: "AI Ad ROIC", value: selected.aiAdRoic, format: "percent", description: "After-tax AI ad profit divided by AI invested capital." },
-      { key: "payback", label: "AI Payback Period", value: selected.aiPaybackYears, format: "number", description: "Years required to recover AI capital from AI ad after-tax operating profit." },
-      { key: "revenue-per-capex", label: "AI Revenue / AI Capital", value: selected.aiRevenuePerCapital, format: "number", description: "Incremental AI ad revenue throughput relative to AI invested capital." },
+      { key: "current-fair", label: "Current Fair Value", value: primaryResult.blendedFairValue, format: "currency", description: "Weighted blend of core Ads, FCF yield, AI Ad uplift value, SOTP, and DCF." },
+      { key: "target-3y", label: "3Y Target Price", value: primaryResult.targetPrice3Y, format: "currency", description: "Three-year target price driven by forward EPS growth, exit multiple, and optionality." },
+      { key: "core-ads", label: "Core Ads P/E", value: primaryResult.coreAdsFairValue, format: "currency", description: "Core Ads earnings valued independently of AI uplift optionality." },
+      { key: "fcf-yield", label: "FCF Yield Fair Value", value: primaryResult.fcfYieldFairValue, format: "currency", description: "Annual FCF per share capitalized at the target FCF yield." },
+      { key: "ai-uplift", label: "AI Ad Uplift Value", value: primaryResult.aiAdRoicUpliftValue, format: "currency", description: "PV of AI profit above the embedded run-rate less incremental AI capital." },
+      { key: "sotp", label: "SOTP Value", value: primaryResult.sotpValue, format: "currency", description: "Ads, engagement/reels monetization, WhatsApp optionality, Reality Labs drag, and net cash." },
+      { key: "dcf", label: "AI-Adjusted DCF", value: primaryResult.dcfValue, format: "currency", description: "Five-year DCF on scenario FCF per share. AI CapEx is embedded in FCF, not deducted a second time." },
+      { key: "roic", label: "AI Ad ROIC", value: primaryResult.aiAdRoic, format: "percent", description: "After-tax AI ad profit divided by AI invested capital." },
+      { key: "payback", label: "AI Payback Period", value: primaryResult.aiPaybackYears, format: "number", description: "Years required to recover AI capital from AI ad after-tax operating profit." },
+      { key: "revenue-per-capex", label: "AI Revenue / AI Capital", value: primaryResult.aiRevenuePerCapital, format: "number", description: "Incremental AI ad revenue throughput relative to AI invested capital." },
     ],
     expectedReturnBridge: [
       { key: "core-growth", label: "Core Revenue Growth", value: assumptions.revenueGrowth, format: "percent", description: "Family of Apps revenue growth contribution." },
@@ -262,7 +268,7 @@ export function calculateMetaValuation(
       { key: "dividend", label: "Dividend Yield", value: assumptions.dividendYield, format: "percent", description: "Cash dividend contribution to shareholder return." },
     ],
     fairValues,
-    customSummary: activeScenarioResult.summary,
+    customSummary: matchedScenario === activeScenario ? activeScenarioResult.summary : selected.summary,
     sensitivityTables: [
       {
         title: "Forward EPS x Target P/E",

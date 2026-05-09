@@ -6,6 +6,9 @@ export type MetaAdEconomics = {
   annualAdRevenue: number;
   impressionsGrowth: number;
   cpmGrowth: number;
+  observedRoasImprovement: number;
+  advertiserBudgetRate: number;
+  engagementInventoryRate: number;
   conversionUpliftRate: number;
   cpmUpliftRate: number;
   engagementUpliftRate: number;
@@ -39,11 +42,23 @@ export function calculateAdEconomics(
   const annualAdRevenue = annualizeQuarterly(row.adRevenue);
   const impressionsGrowth = safeDivide(row.adImpressions, Math.max(prior.adImpressions, 1)) - 1;
   const cpmGrowth = safeDivide(row.cpm, Math.max(prior.cpm, 0.01)) - 1;
-  const conversionUpliftRate = clamp(assumptions.aiConversionUplift + row.aiTargetingUplift * 0.35, 0, 0.09);
-  const cpmUpliftRate = clamp(assumptions.aiCpmUplift + row.avgPricePerAdGrowth * 0.25, 0, 0.1);
-  const engagementUpliftRate = clamp(assumptions.aiEngagementUplift + row.aiRecommendationUplift * 0.35, 0, 0.07);
+  const observedRoasImprovement = safeDivide(row.roas, Math.max(prior.roas, 0.1)) - 1;
+  const conversionRateDelta = safeDivide(row.conversionRate, Math.max(prior.conversionRate, 0.001)) - 1;
+  const advertiserBudgetRate = clamp(
+    observedRoasImprovement * 0.35 + conversionRateDelta * 0.3 + assumptions.aiConversionUplift * 0.75 + row.aiTargetingUplift * 0.35,
+    0,
+    0.12,
+  );
+  const engagementInventoryRate = clamp(
+    (safeDivide(row.timeSpent, Math.max(prior.timeSpent, 1)) - 1) * 0.45 + assumptions.aiEngagementUplift * 0.7 + Math.max(0, row.adLoad - prior.adLoad) * 0.9 + row.aiRecommendationUplift * 0.3,
+    0,
+    0.09,
+  );
+  const conversionUpliftRate = advertiserBudgetRate;
+  const cpmUpliftRate = clamp(assumptions.aiCpmUplift + observedRoasImprovement * 0.45 + row.avgPricePerAdGrowth * 0.3, 0, 0.11);
+  const engagementUpliftRate = engagementInventoryRate;
   const creativeUpliftRate = clamp(
-    assumptions.aiCreativeAutomationUplift + assumptions.advantagePlusAdoption * 0.03 + row.aiCreativeAutomationAdoption * 0.02,
+    assumptions.aiCreativeAutomationUplift + assumptions.advantagePlusAdoption * 0.05 + row.aiCreativeAutomationAdoption * 0.04,
     0,
     0.07,
   );
@@ -56,16 +71,20 @@ export function calculateAdEconomics(
   const aiServingCostAnnual = Math.max(assumptions.aiServingCost, annualizeQuarterly(row.aiServingCost));
   const aiInferenceCostAnnual = Math.max(assumptions.aiInferenceCost, annualizeQuarterly(row.aiInferenceCost));
   const aiAdOpexAnnual = Math.max(assumptions.aiAdOpex, annualizeQuarterly(row.aiAdStackOpex));
-  const aiOperatingProfitAnnual = totalIncrementalRevenue * assumptions.incrementalAdMargin - aiServingCostAnnual - aiInferenceCostAnnual - aiAdOpexAnnual;
+  const incrementalAdMargin = clamp(
+    assumptions.incrementalAdMargin + cpmUpliftRate * 0.35 + observedRoasImprovement * 0.2 - safeDivide(aiInferenceCostAnnual, Math.max(totalIncrementalRevenue, 1)) * 0.08,
+    0.38,
+    0.72,
+  );
+  const aiOperatingProfitAnnual = totalIncrementalRevenue * incrementalAdMargin - aiServingCostAnnual - aiInferenceCostAnnual - aiAdOpexAnnual;
   const aiAfterTaxOperatingProfitAnnual = aiOperatingProfitAnnual * (1 - assumptions.taxRate);
   const aiEmbeddedRevenueAnnual = annualizeQuarterly(row.aiAdRevenueUplift);
   const aiEmbeddedAfterTaxProfitAnnual = Math.max(
     0,
-    (aiEmbeddedRevenueAnnual * assumptions.incrementalAdMargin - annualizeQuarterly(row.aiServingCost) - annualizeQuarterly(row.aiInferenceCost) - annualizeQuarterly(row.aiAdStackOpex))
+    (aiEmbeddedRevenueAnnual * incrementalAdMargin - annualizeQuarterly(row.aiServingCost) - annualizeQuarterly(row.aiInferenceCost) - annualizeQuarterly(row.aiAdStackOpex))
       * (1 - assumptions.taxRate),
   );
-  const roasImprovement = assumptions.aiConversionUplift + assumptions.aiCpmUplift + row.aiTargetingUplift * 0.5;
-  const conversionRateDelta = row.conversionRate - prior.conversionRate;
+  const roasImprovement = observedRoasImprovement + assumptions.aiConversionUplift * 0.4 + assumptions.aiCpmUplift * 0.25;
   const cpmRealization = row.avgPricePerAdGrowth + assumptions.aiCpmUplift;
   const qualityScore = clamp(
     50
@@ -82,6 +101,9 @@ export function calculateAdEconomics(
     annualAdRevenue,
     impressionsGrowth,
     cpmGrowth,
+    observedRoasImprovement,
+    advertiserBudgetRate,
+    engagementInventoryRate,
     conversionUpliftRate,
     cpmUpliftRate,
     engagementUpliftRate,
@@ -95,7 +117,7 @@ export function calculateAdEconomics(
     aiServingCostAnnual,
     aiInferenceCostAnnual,
     aiAdOpexAnnual,
-    incrementalAdMargin: assumptions.incrementalAdMargin,
+    incrementalAdMargin,
     aiOperatingProfitAnnual,
     aiAfterTaxOperatingProfitAnnual,
     aiRevenueNetOfCostAnnual: totalIncrementalRevenue - aiServingCostAnnual - aiInferenceCostAnnual - aiAdOpexAnnual,

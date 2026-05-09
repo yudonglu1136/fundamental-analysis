@@ -73,8 +73,8 @@ export function MetaDashboard({ module, scenario, period, onDataSourceChange }: 
   const [tab, setTab] = useState(module.tabs[0]?.value ?? "overview");
   const [valuationAssumptions, setValuationAssumptions] = useState<MetaAssumptions>(loadSavedMetaValuationAssumptions);
   const dashboard = useMemo(
-    () => buildMetaDashboardData(metaData, valuationAssumptions, period || metaData.currentPeriodId),
-    [period, valuationAssumptions],
+    () => buildMetaDashboardData(metaData, valuationAssumptions, period || metaData.currentPeriodId, scenario),
+    [period, scenario, valuationAssumptions],
   );
   const activeScenario = matchMetaScenario(valuationAssumptions);
 
@@ -289,7 +289,7 @@ export function MetaDashboard({ module, scenario, period, onDataSourceChange }: 
           <InteractiveValuationDashboard
             ticker={module.ticker}
             config={module.valuationConfig}
-            data={metaData}
+            data={{ ...metaData, currentPeriodId: period || metaData.currentPeriodId }}
             scenario={scenario}
             currency="USD"
             values={valuationAssumptions}
