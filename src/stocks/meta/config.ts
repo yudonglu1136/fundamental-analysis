@@ -14,7 +14,11 @@ const metaValuationConfig: StockValuationConfig = {
     name: scenario,
     assumptions: Object.fromEntries(metaValuationAssumptionKeys.map((key) => [key, metaScenarioDefaults[scenario][key]])),
   })),
-  calculateValuation: (assumptions, data) => buildMetaDashboardData(data as typeof metaData, { ...defaultMetaAssumptions, ...(assumptions as Partial<typeof defaultMetaAssumptions>) }).valuation,
+  calculateValuation: (assumptions, data, scenario) => buildMetaDashboardData(
+    data as typeof metaData,
+    { ...defaultMetaAssumptions, ...(assumptions as Partial<typeof defaultMetaAssumptions>) },
+    (data as typeof metaData).currentPeriodId,
+  ).valuation,
 };
 
 export const metaModule: StockModule = {
@@ -39,7 +43,7 @@ export const metaModule: StockModule = {
   data: metaData,
   getDefaultPeriod: () => metaData.currentPeriodId,
   calculateSummary: (data) => calculateMetaSummary(buildMetaDashboardData(data as typeof metaData, defaultMetaAssumptions, metaData.currentPeriodId) as never, defaultMetaAssumptions),
-  calculateValuation: (data, assumptions) => buildMetaDashboardData(data as typeof metaData, { ...defaultMetaAssumptions, ...(assumptions as Partial<typeof defaultMetaAssumptions>) }, metaData.currentPeriodId).valuation,
+  calculateValuation: (data, assumptions, scenario) => buildMetaDashboardData(data as typeof metaData, { ...defaultMetaAssumptions, ...(assumptions as Partial<typeof defaultMetaAssumptions>) }, metaData.currentPeriodId).valuation,
   valuationConfig: metaValuationConfig,
   Dashboard: MetaDashboard,
 };

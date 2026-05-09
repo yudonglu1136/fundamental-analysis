@@ -21,11 +21,13 @@ export type MetaQuarterRow = {
   timeSpent: number;
   reelsWatchTime: number;
   reelsMonetizationGap: number;
+  advantagePlusAdoption: number;
   aiRecommendationUplift: number;
   aiTargetingUplift: number;
   aiCreativeAutomationAdoption: number;
   aiAdRevenueUplift: number;
   aiServingCost: number;
+  aiInferenceCost: number;
   aiAdStackOpex: number;
   aiInvestedCapital: number;
   totalCapex: number;
@@ -92,11 +94,13 @@ export const metaData: MetaData = {
       timeSpent: 63,
       reelsWatchTime: 18.4,
       reelsMonetizationGap: 0.18,
+      advantagePlusAdoption: 0.12,
       aiRecommendationUplift: 0.028,
       aiTargetingUplift: 0.024,
       aiCreativeAutomationAdoption: 0.16,
       aiAdRevenueUplift: 1.15,
       aiServingCost: 1.2,
+      aiInferenceCost: 0.72,
       aiAdStackOpex: 0.78,
       aiInvestedCapital: 104,
       totalCapex: 14.1,
@@ -135,11 +139,13 @@ export const metaData: MetaData = {
       timeSpent: 64.4,
       reelsWatchTime: 19.7,
       reelsMonetizationGap: 0.165,
+      advantagePlusAdoption: 0.16,
       aiRecommendationUplift: 0.031,
       aiTargetingUplift: 0.028,
       aiCreativeAutomationAdoption: 0.2,
       aiAdRevenueUplift: 1.34,
       aiServingCost: 1.35,
+      aiInferenceCost: 0.79,
       aiAdStackOpex: 0.84,
       aiInvestedCapital: 112,
       totalCapex: 15.0,
@@ -178,11 +184,13 @@ export const metaData: MetaData = {
       timeSpent: 65.6,
       reelsWatchTime: 20.9,
       reelsMonetizationGap: 0.15,
+      advantagePlusAdoption: 0.19,
       aiRecommendationUplift: 0.034,
       aiTargetingUplift: 0.031,
       aiCreativeAutomationAdoption: 0.23,
       aiAdRevenueUplift: 1.55,
       aiServingCost: 1.5,
+      aiInferenceCost: 0.88,
       aiAdStackOpex: 0.9,
       aiInvestedCapital: 118,
       totalCapex: 15.9,
@@ -221,11 +229,13 @@ export const metaData: MetaData = {
       timeSpent: 66.8,
       reelsWatchTime: 22.1,
       reelsMonetizationGap: 0.14,
+      advantagePlusAdoption: 0.24,
       aiRecommendationUplift: 0.038,
       aiTargetingUplift: 0.034,
       aiCreativeAutomationAdoption: 0.28,
       aiAdRevenueUplift: 1.82,
       aiServingCost: 1.7,
+      aiInferenceCost: 0.96,
       aiAdStackOpex: 1.0,
       aiInvestedCapital: 120,
       totalCapex: 16.8,
@@ -264,11 +274,13 @@ export const metaData: MetaData = {
       timeSpent: 68.2,
       reelsWatchTime: 23.5,
       reelsMonetizationGap: 0.12,
+      advantagePlusAdoption: 0.29,
       aiRecommendationUplift: 0.042,
       aiTargetingUplift: 0.037,
       aiCreativeAutomationAdoption: 0.32,
       aiAdRevenueUplift: 2.04,
       aiServingCost: 1.84,
+      aiInferenceCost: 1.03,
       aiAdStackOpex: 1.06,
       aiInvestedCapital: 124,
       totalCapex: 17.3,
@@ -307,11 +319,13 @@ export const metaData: MetaData = {
       timeSpent: 69.6,
       reelsWatchTime: 24.7,
       reelsMonetizationGap: 0.11,
+      advantagePlusAdoption: 0.34,
       aiRecommendationUplift: 0.046,
       aiTargetingUplift: 0.04,
       aiCreativeAutomationAdoption: 0.36,
       aiAdRevenueUplift: 2.28,
       aiServingCost: 1.95,
+      aiInferenceCost: 1.1,
       aiAdStackOpex: 1.12,
       aiInvestedCapital: 128,
       totalCapex: 17.7,

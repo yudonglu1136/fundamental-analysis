@@ -15,8 +15,10 @@ export type MetaAssumptions = {
   aiCpmUplift: number;
   aiEngagementUplift: number;
   aiCreativeAutomationUplift: number;
+  advantagePlusAdoption: number;
   incrementalAdMargin: number;
   aiServingCost: number;
+  aiInferenceCost: number;
   aiAdOpex: number;
   aiCapexGrowth: number;
   aiInvestedCapital: number;
@@ -51,8 +53,10 @@ export const metaScenarioDefaults: Record<Scenario, MetaAssumptions> = {
     aiCpmUplift: 0.015,
     aiEngagementUplift: 0.01,
     aiCreativeAutomationUplift: 0.01,
+    advantagePlusAdoption: 0.2,
     incrementalAdMargin: 0.48,
     aiServingCost: 10,
+    aiInferenceCost: 4.6,
     aiAdOpex: 4.2,
     aiCapexGrowth: 0.28,
     aiInvestedCapital: 140,
@@ -85,8 +89,10 @@ export const metaScenarioDefaults: Record<Scenario, MetaAssumptions> = {
     aiCpmUplift: 0.03,
     aiEngagementUplift: 0.02,
     aiCreativeAutomationUplift: 0.02,
+    advantagePlusAdoption: 0.32,
     incrementalAdMargin: 0.55,
     aiServingCost: 8,
+    aiInferenceCost: 3.8,
     aiAdOpex: 3.6,
     aiCapexGrowth: 0.2,
     aiInvestedCapital: 120,
@@ -119,8 +125,10 @@ export const metaScenarioDefaults: Record<Scenario, MetaAssumptions> = {
     aiCpmUplift: 0.04,
     aiEngagementUplift: 0.03,
     aiCreativeAutomationUplift: 0.03,
+    advantagePlusAdoption: 0.42,
     incrementalAdMargin: 0.6,
     aiServingCost: 7,
+    aiInferenceCost: 3.1,
     aiAdOpex: 3,
     aiCapexGrowth: 0.14,
     aiInvestedCapital: 105,
@@ -157,8 +165,10 @@ export const metaAssumptionDefinitions: ValuationAssumption[] = [
   { key: "aiCpmUplift", label: "AI CPM Uplift", value: defaultMetaAssumptions.aiCpmUplift, min: 0, max: 0.08, step: 0.001, format: "percent", source: "assumption", description: "Pricing lift from better targeting and higher-value auctions.", category: "AI Ad Stack", periodicity: "annual" },
   { key: "aiEngagementUplift", label: "AI Engagement Uplift", value: defaultMetaAssumptions.aiEngagementUplift, min: 0, max: 0.05, step: 0.001, format: "percent", source: "assumption", description: "Incremental engagement from better recommendation quality.", category: "Engagement / Reels", periodicity: "annual" },
   { key: "aiCreativeAutomationUplift", label: "AI Creative Automation Uplift", value: defaultMetaAssumptions.aiCreativeAutomationUplift, min: 0, max: 0.05, step: 0.001, format: "percent", source: "assumption", description: "Ad creative automation and SMB adoption uplift.", category: "AI Ad Stack", periodicity: "annual" },
+  { key: "advantagePlusAdoption", label: "Advantage+ Adoption", value: defaultMetaAssumptions.advantagePlusAdoption, min: 0.1, max: 0.65, step: 0.005, format: "percent", source: "actual", description: "Estimated share of ad demand using AI-driven campaign automation and targeting products.", category: "AI Ad Stack", periodicity: "annual" },
   { key: "incrementalAdMargin", label: "Incremental Ad Margin", value: defaultMetaAssumptions.incrementalAdMargin, min: 0.35, max: 0.7, step: 0.005, format: "percent", source: "derived", description: "Margin on incremental AI-driven ad revenue.", category: "AI Ad Stack", periodicity: "annual" },
   { key: "aiServingCost", label: "AI Serving Cost", value: defaultMetaAssumptions.aiServingCost, min: 4, max: 14, step: 0.1, format: "currency", source: "actual", description: "Annual AI inference and serving cost burden.", category: "AI Ad Stack", unit: "USD", periodicity: "annual", asOfDate: metaData.latestReferenceDate, provenance: "Internal model estimate." },
+  { key: "aiInferenceCost", label: "AI Inference Cost", value: defaultMetaAssumptions.aiInferenceCost, min: 1.5, max: 8, step: 0.1, format: "currency", source: "actual", description: "Direct annual inference cost burden from recommendation, ranking, and ad targeting models.", category: "AI Ad Stack", unit: "USD", periodicity: "annual", asOfDate: metaData.latestReferenceDate, provenance: "Internal model estimate." },
   { key: "aiAdOpex", label: "AI Ad Stack Opex", value: defaultMetaAssumptions.aiAdOpex, min: 1, max: 8, step: 0.1, format: "currency", source: "derived", description: "Annual AI ad stack operating expense beyond serving cost.", category: "AI Ad Stack", unit: "USD", periodicity: "annual" },
   { key: "aiCapexGrowth", label: "AI CapEx Growth", value: defaultMetaAssumptions.aiCapexGrowth, min: 0.05, max: 0.4, step: 0.005, format: "percent", source: "actual", description: "Annual growth in AI infrastructure investment intensity.", category: "CapEx / FCF", periodicity: "annual" },
   { key: "aiInvestedCapital", label: "AI Invested Capital", value: defaultMetaAssumptions.aiInvestedCapital, min: 80, max: 200, step: 1, format: "currency", source: "actual", description: "Capital base supporting AI infrastructure and model training assets.", category: "AI Ad ROIC", unit: "USD", periodicity: "annual", asOfDate: metaData.latestReferenceDate },
@@ -192,8 +202,10 @@ export const metaValuationAssumptionKeys = [
   "aiCpmUplift",
   "aiEngagementUplift",
   "aiCreativeAutomationUplift",
+  "advantagePlusAdoption",
   "incrementalAdMargin",
   "aiServingCost",
+  "aiInferenceCost",
   "aiAdOpex",
   "aiCapexGrowth",
   "aiInvestedCapital",
