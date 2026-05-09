@@ -22,6 +22,12 @@ import { calculateWhatsappEconomics } from "./whatsappEngine";
 
 export type MetaEvaluatedRow = MetaQuarterRow & {
   adRevenueFromFormula: number;
+  reportedAdRevenue: number;
+  reportedCpm: number;
+  effectiveCpm: number;
+  adRevenueReconciliationGap: number;
+  adRevenueReconciled: boolean;
+  bridgePrecision: "precise" | "reconciled";
   adRevenueYoYGrowth: number;
   familyAppsOperatingIncome: number;
   aiAdRevenueUpliftAnnualized: number;
@@ -43,7 +49,8 @@ export type MetaEvaluatedRow = MetaQuarterRow & {
   scenarioReadThrough: string;
 };
 
-export type MetaDataset = MetaData & {
+export type MetaDataset = Omit<MetaData, "rows"> & {
+  rows: MetaEvaluatedRow[];
   selectedRow: MetaEvaluatedRow;
   latestReferenceDate: string;
 };
@@ -54,6 +61,7 @@ export type MetaModel = {
   rows: MetaEvaluatedRow[];
   selectedRow: MetaEvaluatedRow;
   statusBanner: { title: string; detail: string; signal: Signal };
+  bridgeStatus: { title: string; detail: string; signal: Signal };
   investmentReadThrough: DashboardInterpretation[];
   adRevenueBridge: Array<{ label: string; value: number; type: "base" | "positive" | "negative" | "total" }>;
   aiAdBridge: Array<{ label: string; value: number; type: "base" | "positive" | "negative" | "total" }>;
@@ -107,9 +115,37 @@ function detectMetaPhase(current: MetaEvaluatedRow, prior: MetaEvaluatedRow, ass
   return { title: "Balanced monetization phase", detail: "AI economics and infrastructure burden are broadly balanced, with better upside if CPM and ROAS keep improving.", signal: "Neutral" as const };
 }
 
+function normalizeMetaRow(row: MetaQuarterRow) {
+  const reportedAdRevenue = row.adRevenue;
+  const reportedCpm = row.cpm;
+  const impliedQuarterlyAdRevenue = row.adImpressions * row.cpm / 1000;
+  if (row.isForecast) {
+    const familyAppsExAd = row.familyAppsRevenue - row.adRevenue;
+    const totalExFamilyApps = row.totalRevenue - row.familyAppsRevenue;
+    const adjustedAdRevenue = impliedQuarterlyAdRevenue;
+    const adjustedFamilyAppsRevenue = adjustedAdRevenue + familyAppsExAd;
+    const adjustedTotalRevenue = adjustedFamilyAppsRevenue + totalExFamilyApps;
+    return {
+      ...row,
+      adRevenue: adjustedAdRevenue,
+      familyAppsRevenue: adjustedFamilyAppsRevenue,
+      totalRevenue: adjustedTotalRevenue,
+      reportedAdRevenue,
+      reportedCpm,
+    };
+  }
+  return {
+    ...row,
+    cpm: safeDivide(row.adRevenue, Math.max(row.adImpressions, 1)) * 1000,
+    reportedAdRevenue,
+    reportedCpm,
+  };
+}
+
 function buildEvaluatedRows(data: MetaData, assumptions: MetaAssumptions): MetaEvaluatedRow[] {
-  return data.rows.map((row, index) => {
-    const prior = data.rows[Math.max(index - 1, 0)] ?? row;
+  const normalizedRows = data.rows.map((row) => normalizeMetaRow(row));
+  return normalizedRows.map((row, index) => {
+    const prior = normalizedRows[Math.max(index - 1, 0)] ?? row;
     const adEconomics = calculateAdEconomics(row, prior, assumptions);
     const engagementEconomics = calculateEngagementEconomics(row, prior, assumptions);
     const reelsEconomics = calculateReelsEconomics(row, prior);
@@ -127,6 +163,12 @@ function buildEvaluatedRows(data: MetaData, assumptions: MetaAssumptions): MetaE
     return {
       ...row,
       adRevenueFromFormula: row.adImpressions * row.cpm / 1000,
+      reportedAdRevenue: row.reportedAdRevenue ?? row.adRevenue,
+      reportedCpm: row.reportedCpm ?? row.cpm,
+      effectiveCpm: adEconomics.effectiveCpm,
+      adRevenueReconciliationGap: adEconomics.adRevenueReconciliationGap,
+      adRevenueReconciled: adEconomics.adRevenueReconciled,
+      bridgePrecision: adEconomics.bridgePrecision,
       adRevenueYoYGrowth: index === 0 ? row.adRevenueGrowth : safeDivide(row.adRevenue, Math.max(prior.adRevenue, 1)) - 1,
       familyAppsOperatingIncome: row.familyAppsRevenue * row.familyAppsOperatingMargin,
       aiAdRevenueUpliftAnnualized: adEconomics.totalIncrementalRevenue,
@@ -212,6 +254,16 @@ export function validateMetaData(data: MetaDataset, assumptions: MetaAssumptions
       severity: "high",
     });
   }
+  data.rows
+    .filter((row) => row.adRevenueReconciliationGap > 0.02)
+    .forEach((row) => {
+      warnings.push({
+        id: `ad-revenue-reconciliation-${row.periodId}`,
+        title: `Ad revenue does not reconcile in ${row.periodId}`,
+        detail: "Reported ad revenue differs materially from impressions x CPM. The dashboard will fall back to a reconciled bridge instead of presenting the CPM bridge as precise.",
+        severity: row.periodId === current.periodId ? "high" : "medium",
+      });
+    });
   return warnings;
 }
 
@@ -224,7 +276,7 @@ export function calculateMetaSummary(data: MetaDataset, assumptions: MetaAssumpt
     metric("Revenue", current.totalRevenue, current.totalRevenue - prior.totalRevenue, "currency", "Quarterly revenue base funding the AI ad stack and infrastructure burden.", "Actual"),
     metric("Ad Revenue Growth", current.adRevenueGrowth, current.adRevenueGrowth - prior.adRevenueGrowth, "percent", "Growth in Family of Apps ad revenue.", "Actual"),
     metric("Family Apps Operating Margin", current.familyAppsOperatingMargin, current.familyAppsOperatingMargin - prior.familyAppsOperatingMargin, "percent", "Core advertising margin before Reality Labs drag.", "Derived"),
-    metric("CPM Growth", current.cpmGrowth, current.cpmGrowth - prior.cpmGrowth, "percent", "Auction pricing and monetization quality improvement.", "Derived"),
+    metric("CPM Growth", current.cpmGrowth, current.cpmGrowth - prior.cpmGrowth, "percent", "Auction pricing and monetization quality improvement using implied CPM for actual periods and modeled CPM for forecasts.", "Derived"),
     metric("ROAS", current.roas, current.roas - prior.roas, "number", "Advertiser return on ad spend, a key proof-point for AI targeting economics.", "Actual"),
     metric("AI Revenue Uplift", current.aiAdRevenueUpliftAnnualized, current.aiAdRevenueUpliftAnnualized - prior.aiAdRevenueUpliftAnnualized, "currency", "Incremental AI-driven ad revenue on an annualized run-rate.", "Derived"),
     metric("AI Ad ROIC", current.aiAdRoic, current.aiAdRoic - prior.aiAdRoic, "percent", "Incremental after-tax ad profit divided by AI invested capital.", "Derived"),
@@ -232,8 +284,8 @@ export function calculateMetaSummary(data: MetaDataset, assumptions: MetaAssumpt
     metric("CapEx / Revenue", current.capexIntensity, current.capexIntensity - prior.capexIntensity, "percent", "Capital intensity including GPU and data center buildout.", "Derived"),
     metric("Reality Labs Operating Loss", annualizeQuarterly(current.realityLabsOperatingLoss), annualizeQuarterly(current.realityLabsOperatingLoss - prior.realityLabsOperatingLoss), "currency", "Structural drag from Reality Labs in the base case.", "Actual"),
     metric("Forward EPS", assumptions.forwardEps, assumptions.forwardEps - defaultMetaAssumptions.forwardEps, "currency", "Annual forward EPS anchor used in the core Ads valuation method.", "Assumption"),
-    metric("Blended Fair Value", blendedFairValue, blendedFairValue - valuation.currentPrice, "currency", "Blended valuation across core Ads, FCF, AI uplift, SOTP, and DCF.", "Derived"),
-    metric("Upside / Downside", valuation.fairValues.find((row) => row.scenario === "Base")?.upsideDownside ?? 0, 0, "percent", "Blended fair value versus the current share price.", "Derived"),
+    metric("Total Fair Value", blendedFairValue, blendedFairValue - valuation.currentPrice, "currency", "Core ex-AI blended value plus AI uplift and optionality, net of Reality Labs drag and incremental AI capital burden.", "Derived"),
+    metric("Upside / Downside", valuation.fairValues.find((row) => row.scenario === "Base")?.upsideDownside ?? 0, 0, "percent", "Total fair value versus the current share price.", "Derived"),
   ];
 }
 
@@ -263,6 +315,17 @@ export function buildMetaDashboardData(
   };
 
   const statusBanner = detectMetaPhase(selectedRow, priorRow, assumptions);
+  const bridgeStatus = selectedRow.adRevenueReconciliationGap > 0.02
+    ? {
+        title: "Ad bridge is reconciled, not precise",
+        detail: "Ad revenue and impressions x CPM differ by more than 2%. Historical periods use implied CPM, and forecast periods derive revenue directly from impressions x CPM.",
+        signal: "Needs Review" as const,
+      }
+    : {
+        title: "Ad bridge reconciles cleanly",
+        detail: "Historical periods use implied CPM from reported ad revenue and impressions, while forecast periods derive revenue directly from modeled impressions x CPM.",
+        signal: "Positive" as const,
+      };
   const adEconomics = calculateAdEconomics(selectedRow, priorRow, assumptions);
   const engagementEconomics = calculateEngagementEconomics(selectedRow, priorRow, assumptions);
   const reelsEconomics = calculateReelsEconomics(selectedRow, priorRow);
@@ -375,6 +438,7 @@ export function buildMetaDashboardData(
     rows,
     selectedRow,
     statusBanner,
+    bridgeStatus,
     investmentReadThrough,
     adRevenueBridge,
     aiAdBridge,
@@ -400,10 +464,10 @@ export function buildMetaDashboardData(
       businessMessagingRevenue: annualizeQuarterly(row.businessMessagingRevenue),
     })),
     adsEngineCards: [
-      { label: "Ad Revenue Formula", value: selectedRow.adRevenueFromFormula, format: "currency", detail: "Impressions x CPM / 1,000 cross-check for ad revenue quality.", badge: "Derived" },
+      { label: "Ad Revenue Formula", value: selectedRow.adRevenueFromFormula, format: "currency", detail: "Forecast periods derive revenue from impressions x CPM. Historical periods use reported revenue and implied CPM.", badge: "Derived" },
       { label: "ROAS", value: selectedRow.roas, format: "number", detail: "Advertiser return on ad spend should improve if targeting AI is working.", badge: "Actual" },
       { label: "Conversion Uplift", value: adEconomics.conversionUpliftRate, format: "percent", detail: "Incremental conversion lift from AI targeting and ranking.", badge: "Assumption" },
-      { label: "CPM Realization", value: adEconomics.cpmRealization, format: "percent", detail: "Pricing power from better recommendation and auction quality.", badge: "Derived" },
+      { label: "Effective CPM", value: selectedRow.effectiveCpm, format: "number", detail: "Historical periods use implied CPM from reported revenue and impressions; forecast periods use modeled CPM.", badge: "Derived" },
     ],
     aiAdStackCards: [
       { label: "Advantage+ Adoption", value: engagementEconomics.advantagePlusAdoption, format: "percent", detail: "Proxy for how much of the demand stack is benefiting from AI automation.", badge: "Actual" },

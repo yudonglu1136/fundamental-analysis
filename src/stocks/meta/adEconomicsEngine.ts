@@ -4,6 +4,12 @@ import type { MetaQuarterRow } from "./data";
 
 export type MetaAdEconomics = {
   annualAdRevenue: number;
+  reportedAdRevenueAnnual: number;
+  impliedAdRevenueAnnual: number;
+  effectiveCpm: number;
+  adRevenueReconciliationGap: number;
+  adRevenueReconciled: boolean;
+  bridgePrecision: "precise" | "reconciled";
   impressionsGrowth: number;
   cpmGrowth: number;
   observedRoasImprovement: number;
@@ -35,13 +41,21 @@ export type MetaAdEconomics = {
 };
 
 export function calculateAdEconomics(
-  row: MetaQuarterRow,
-  prior: MetaQuarterRow,
+  row: MetaQuarterRow & { reportedAdRevenue?: number; reportedCpm?: number },
+  prior: MetaQuarterRow & { reportedAdRevenue?: number; reportedCpm?: number },
   assumptions: MetaAssumptions,
 ): MetaAdEconomics {
-  const annualAdRevenue = annualizeQuarterly(row.adRevenue);
+  const rawReportedAdRevenue = row.reportedAdRevenue ?? row.adRevenue;
+  const rawReportedCpm = row.reportedCpm ?? row.cpm;
+  const reportedAdRevenueAnnual = annualizeQuarterly(rawReportedAdRevenue);
+  const impliedAdRevenueAnnual = row.adImpressions * rawReportedCpm / 1000 * 4;
+  const adRevenueReconciliationGap = safeDivide(Math.abs(reportedAdRevenueAnnual - impliedAdRevenueAnnual), Math.max(reportedAdRevenueAnnual, 1));
+  const annualAdRevenue = row.isForecast ? impliedAdRevenueAnnual : reportedAdRevenueAnnual;
+  const effectiveCpm = row.isForecast ? row.cpm : safeDivide(row.adRevenue, Math.max(row.adImpressions, 1)) * 1000;
+  const adRevenueReconciled = adRevenueReconciliationGap <= 0.02;
   const impressionsGrowth = safeDivide(row.adImpressions, Math.max(prior.adImpressions, 1)) - 1;
-  const cpmGrowth = safeDivide(row.cpm, Math.max(prior.cpm, 0.01)) - 1;
+  const priorEffectiveCpm = prior.isForecast ? prior.cpm : safeDivide(prior.adRevenue, Math.max(prior.adImpressions, 1)) * 1000;
+  const cpmGrowth = safeDivide(effectiveCpm, Math.max(priorEffectiveCpm, 0.01)) - 1;
   const observedRoasImprovement = safeDivide(row.roas, Math.max(prior.roas, 0.1)) - 1;
   const conversionRateDelta = safeDivide(row.conversionRate, Math.max(prior.conversionRate, 0.001)) - 1;
   const advertiserBudgetRate = clamp(
@@ -85,7 +99,7 @@ export function calculateAdEconomics(
       * (1 - assumptions.taxRate),
   );
   const roasImprovement = observedRoasImprovement + assumptions.aiConversionUplift * 0.4 + assumptions.aiCpmUplift * 0.25;
-  const cpmRealization = row.avgPricePerAdGrowth + assumptions.aiCpmUplift;
+  const cpmRealization = cpmGrowth + assumptions.aiCpmUplift;
   const qualityScore = clamp(
     50
       + totalUpliftRate * 240
@@ -99,6 +113,12 @@ export function calculateAdEconomics(
 
   return {
     annualAdRevenue,
+    reportedAdRevenueAnnual,
+    impliedAdRevenueAnnual,
+    effectiveCpm,
+    adRevenueReconciliationGap,
+    adRevenueReconciled,
+    bridgePrecision: adRevenueReconciled ? "precise" : "reconciled",
     impressionsGrowth,
     cpmGrowth,
     observedRoasImprovement,

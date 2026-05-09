@@ -149,6 +149,15 @@ export function MetaDashboard({ module, scenario, period, onDataSourceChange }: 
 
         <Tabs.Content value="overview" className="mt-6 space-y-6">
           <SectionCard title="AI Ad Revenue Bridge" description="The core question is whether AI is lifting ad profit through CPM, conversion, and ROAS rather than just driving engagement.">
+            <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-ink">{dashboard.bridgeStatus.title}</p>
+                  <p className="mt-1 text-sm text-slate-600">{dashboard.bridgeStatus.detail}</p>
+                </div>
+                <MetaSignalBadge signal={dashboard.bridgeStatus.signal} />
+              </div>
+            </div>
             <WaterfallCards rows={dashboard.adRevenueBridge} />
           </SectionCard>
           <SectionCard title="Engagement and Reels" description="Recommendation quality should raise both time spent and monetization quality if the AI stack is working.">
@@ -172,7 +181,16 @@ export function MetaDashboard({ module, scenario, period, onDataSourceChange }: 
           <SectionCard title="Ads Engine" description="CPM, conversion, and ROAS should explain why ad revenue quality is improving.">
             <ScoreCards items={dashboard.adsEngineCards} />
           </SectionCard>
-          <SectionCard title="Ad Revenue Composition" description="This bridge shows how impression growth, pricing, and AI revenue uplift combine to produce the current revenue run-rate.">
+          <SectionCard title="Ad Revenue Composition" description="This bridge shows how impression growth, pricing, and AI revenue uplift combine to produce the current revenue run-rate. Historical periods use implied CPM from reported revenue and impressions; forecast periods derive ad revenue from impressions x CPM.">
+            <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-ink">{dashboard.bridgeStatus.title}</p>
+                  <p className="mt-1 text-sm text-slate-600">{dashboard.bridgeStatus.detail}</p>
+                </div>
+                <MetaSignalBadge signal={dashboard.bridgeStatus.signal} />
+              </div>
+            </div>
             <WaterfallCards rows={dashboard.adRevenueBridge} />
           </SectionCard>
         </Tabs.Content>
