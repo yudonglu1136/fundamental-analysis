@@ -144,7 +144,8 @@ function calculateScenarioEconomics(
   dcfValue += terminalValue / (1 + assumptions.wacc) ** 5;
   const coreExAiBlendedFairValue = (coreExAiPeFairValue * 0.35) + (coreExAiFcfFairValue * 0.3) + (dcfValue * 0.2) + (coreExAiSotpValue * 0.15);
 
-  const whatsappOptionalityPerShare = perShare(assumptions.whatsappOptionalityValue, shares);
+  const whatsappManualOverridePerShare = perShare(Math.max(0, assumptions.whatsappOptionalityValue), shares);
+  const whatsappOptionalityPerShare = perShare(whatsapp.optionalityValue, shares) + whatsappManualOverridePerShare;
   const realityLabsOptionalityPerShare = perShare(Math.max(0, assumptions.realityLabsOptionalityValue), shares);
   const realityLabsDragValuePerShare = perShare(assumptions.realityLabsLoss * 2, shares);
   const totalFairValue =
@@ -203,6 +204,14 @@ function calculateScenarioEconomics(
           title: "Reality Labs drag may be omitted",
           detail: "Reality Labs should remain visible in the institutional model unless you intentionally assume break-even.",
           severity: "medium" as const,
+        }]
+      : []),
+    ...((assumptions.cpmGrowth > 0.045 && scenario === "Base")
+      ? [{
+          id: `meta-cpm-sensitivity-${scenario}`,
+          title: "Base case remains sensitive to strong CPM assumptions",
+          detail: "Base valuation is still quite dependent on a strong CPM path. Review the lower-CPM downside sensitivity alongside the base case.",
+          severity: "low" as const,
         }]
       : []),
   ];
@@ -277,8 +286,9 @@ export function calculateMetaValuation(
       { key: "core-ads", label: "Core Ex-AI P/E", value: primaryResult.coreExAiPeFairValue, format: "currency", description: "Core Ads earnings valued before incremental AI uplift and optionality components." },
       { key: "fcf-yield", label: "Core Ex-AI FCF Yield", value: primaryResult.coreExAiFcfFairValue, format: "currency", description: "Core ex-AI FCF per share capitalized at the target FCF yield." },
       { key: "ai-uplift", label: "AI Ad Uplift Value", value: primaryResult.aiAdRoicUpliftValue, format: "currency", description: "PV of incremental AI after-tax ad profit above the embedded run-rate." },
+      { key: "ai-overlap-haircut", label: "AI Uplift Haircut", value: assumptions.aiUpliftCorrelationHaircut, format: "percent", description: "Overlap haircut applied to gross AI uplift to avoid double-counting correlated advertiser-value drivers." },
       { key: "ai-capex", label: "Incremental AI CapEx Burden", value: primaryResult.incrementalAiCapexBurdenValuePerShare, format: "currency", description: "PV of incremental AI capital burden deducted from total fair value." },
-      { key: "whatsapp", label: "WhatsApp Optionality", value: primaryResult.whatsappOptionalityPerShare, format: "currency", description: "Per-share optionality value from WhatsApp monetization beyond the core base business." },
+      { key: "whatsapp", label: "WhatsApp Optionality", value: primaryResult.whatsappOptionalityPerShare, format: "currency", description: "Per-share WhatsApp value from the engine-derived revenue, margin, and multiple path, plus any manual override." },
       { key: "reality-labs-drag", label: "Reality Labs Drag", value: primaryResult.realityLabsDragValuePerShare, format: "currency", description: "Per-share drag deducted for ongoing Reality Labs losses." },
       { key: "dcf", label: "Core Ex-AI DCF", value: primaryResult.dcfValue, format: "currency", description: "Five-year DCF on ex-AI baseline FCF. Incremental AI uplift is added separately." },
       { key: "roic", label: "AI Ad ROIC", value: primaryResult.aiAdRoic, format: "percent", description: "After-tax AI ad profit divided by AI invested capital." },
@@ -330,6 +340,49 @@ export function calculateMetaValuation(
           ],
           [assumptions.incrementalAdMargin - 0.08, assumptions.incrementalAdMargin - 0.04, assumptions.incrementalAdMargin, assumptions.incrementalAdMargin + 0.04, assumptions.incrementalAdMargin + 0.08],
           (rate, margin) => perShare((annualize(model.selectedRow.adRevenue) * rate * margin - assumptions.aiServingCost - assumptions.aiInferenceCost - assumptions.aiAdOpex) * (1 - assumptions.taxRate), model.selectedRow.sharesOutstanding),
+        ),
+      },
+      {
+        title: "Downside CPM x AI Uplift Value",
+        table: buildSensitivityTable(
+          "CPM Growth",
+          "Uplift Haircut",
+          [Math.max(assumptions.cpmGrowth - 0.03, -0.01), Math.max(assumptions.cpmGrowth - 0.02, 0), Math.max(assumptions.cpmGrowth - 0.01, 0.005), assumptions.cpmGrowth, assumptions.cpmGrowth + 0.01],
+          [Math.max(assumptions.aiUpliftCorrelationHaircut - 0.05, 0), Math.max(assumptions.aiUpliftCorrelationHaircut - 0.025, 0), assumptions.aiUpliftCorrelationHaircut, Math.min(assumptions.aiUpliftCorrelationHaircut + 0.025, 0.4), Math.min(assumptions.aiUpliftCorrelationHaircut + 0.05, 0.4)],
+          (cpmGrowth, haircut) => {
+            const downsideRate = clamp(
+              (assumptions.aiConversionUplift + assumptions.aiEngagementUplift + assumptions.aiCreativeAutomationUplift + Math.max(cpmGrowth, 0) * 0.8) * (1 - haircut),
+              0,
+              0.25,
+            );
+            const downsideProfit = perShare(
+              (annualize(model.selectedRow.adRevenue) * downsideRate * assumptions.incrementalAdMargin - assumptions.aiServingCost - assumptions.aiInferenceCost - assumptions.aiAdOpex) * (1 - assumptions.taxRate),
+              model.selectedRow.sharesOutstanding,
+            );
+            return downsideProfit;
+          },
+        ),
+      },
+      {
+        title: "Downside CPM x Total Fair Value",
+        table: buildSensitivityTable(
+          "CPM Growth",
+          "Impression Growth",
+          [Math.max(assumptions.cpmGrowth - 0.03, -0.01), Math.max(assumptions.cpmGrowth - 0.02, 0), Math.max(assumptions.cpmGrowth - 0.01, 0.005), assumptions.cpmGrowth, assumptions.cpmGrowth + 0.01],
+          [Math.max(assumptions.adImpressionsGrowth - 0.02, 0.02), Math.max(assumptions.adImpressionsGrowth - 0.01, 0.03), assumptions.adImpressionsGrowth, assumptions.adImpressionsGrowth + 0.01, assumptions.adImpressionsGrowth + 0.02],
+          (cpmGrowth, impressionGrowth) => {
+            const downsideRate = clamp(
+              (assumptions.aiConversionUplift + assumptions.aiEngagementUplift + assumptions.aiCreativeAutomationUplift + Math.max(cpmGrowth, 0) * 0.8) * (1 - assumptions.aiUpliftCorrelationHaircut),
+              0,
+              0.25,
+            );
+            const downsideProfitPerShare = perShare(
+              (annualize(model.selectedRow.adRevenue) * (1 + impressionGrowth * 0.15) * downsideRate * assumptions.incrementalAdMargin - assumptions.aiServingCost - assumptions.aiInferenceCost - assumptions.aiAdOpex) * (1 - assumptions.taxRate),
+              model.selectedRow.sharesOutstanding,
+            );
+            const core = primaryResult.coreExAiBlendedFairValue;
+            return core + downsideProfitPerShare + primaryResult.whatsappOptionalityPerShare + primaryResult.realityLabsOptionalityPerShare - primaryResult.realityLabsDragValuePerShare - primaryResult.incrementalAiCapexBurdenValuePerShare;
+          },
         ),
       },
       {

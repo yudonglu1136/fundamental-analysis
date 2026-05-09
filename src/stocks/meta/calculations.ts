@@ -468,11 +468,12 @@ export function buildMetaDashboardData(
       { label: "ROAS", value: selectedRow.roas, format: "number", detail: "Advertiser return on ad spend should improve if targeting AI is working.", badge: "Actual" },
       { label: "Conversion Uplift", value: adEconomics.conversionUpliftRate, format: "percent", detail: "Incremental conversion lift from AI targeting and ranking.", badge: "Assumption" },
       { label: "Effective CPM", value: selectedRow.effectiveCpm, format: "number", detail: "Historical periods use implied CPM from reported revenue and impressions; forecast periods use modeled CPM.", badge: "Derived" },
+      { label: "Uplift Overlap Haircut", value: adEconomics.upliftOverlapHaircut, format: "percent", detail: "Heuristic correlation haircut to keep overlapping CPM, conversion, ROAS, engagement, and creative effects from being over-capitalized.", badge: "Assumption" },
     ],
     aiAdStackCards: [
       { label: "Advantage+ Adoption", value: engagementEconomics.advantagePlusAdoption, format: "percent", detail: "Proxy for how much of the demand stack is benefiting from AI automation.", badge: "Actual" },
-      { label: "AI Serving Cost", value: adEconomics.aiServingCostAnnual, format: "currency", detail: "Serving cost burden from recommendation and targeting models.", badge: "Actual" },
-      { label: "AI Inference Cost", value: adEconomics.aiInferenceCostAnnual, format: "currency", detail: "Direct inference burden from model calls and ranking intensity.", badge: "Actual" },
+      { label: "AI Serving Cost", value: adEconomics.aiServingCostAnnual, format: "currency", detail: "Serving cost burden from recommendation and targeting models.", badge: "Assumption" },
+      { label: "AI Inference Cost", value: adEconomics.aiInferenceCostAnnual, format: "currency", detail: "Direct inference burden from model calls and ranking intensity.", badge: "Assumption" },
       { label: "AI Ad Stack Opex", value: adEconomics.aiAdOpexAnnual, format: "currency", detail: "Incremental opex supporting the AI ad stack beyond model serving.", badge: "Derived" },
     ],
     capexCards: [

@@ -19,6 +19,8 @@ export type MetaAdEconomics = {
   cpmUpliftRate: number;
   engagementUpliftRate: number;
   creativeUpliftRate: number;
+  grossUpliftRate: number;
+  upliftOverlapHaircut: number;
   totalUpliftRate: number;
   conversionRevenue: number;
   cpmRevenue: number;
@@ -76,7 +78,11 @@ export function calculateAdEconomics(
     0,
     0.07,
   );
-  const totalUpliftRate = clamp(conversionUpliftRate + cpmUpliftRate + engagementUpliftRate + creativeUpliftRate, 0, 0.25);
+  const grossUpliftRate = clamp(conversionUpliftRate + cpmUpliftRate + engagementUpliftRate + creativeUpliftRate, 0, 0.25);
+  // Heuristic guardrail: CPM, conversion, ROAS, recommendation, and creative gains are correlated.
+  // We haircut the gross sum to avoid capitalizing overlapping advertiser-value drivers twice.
+  const upliftOverlapHaircut = clamp(assumptions.aiUpliftCorrelationHaircut, 0, 0.4);
+  const totalUpliftRate = clamp(grossUpliftRate * (1 - upliftOverlapHaircut), 0, 0.25);
   const conversionRevenue = annualAdRevenue * conversionUpliftRate;
   const cpmRevenue = annualAdRevenue * cpmUpliftRate;
   const engagementRevenue = annualAdRevenue * engagementUpliftRate;
@@ -128,6 +134,8 @@ export function calculateAdEconomics(
     cpmUpliftRate,
     engagementUpliftRate,
     creativeUpliftRate,
+    grossUpliftRate,
+    upliftOverlapHaircut,
     totalUpliftRate,
     conversionRevenue,
     cpmRevenue,
