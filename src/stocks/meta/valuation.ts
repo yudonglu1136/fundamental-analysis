@@ -101,7 +101,7 @@ export function calculateMetaValuation(model: MetaDataset, assumptions: MetaAssu
           severity: "high" as const,
         }]
       : []),
-    ...((assumptions.aiAdRoic > 0.3 && upliftRate < 0.08)
+    ...((aiAdRoic > 0.3 && upliftRate < 0.08)
       ? [{
           id: "meta-ai-roic-sanity",
           title: "AI Ad ROIC looks too high for the current uplift assumptions",

@@ -128,7 +128,7 @@ export function validateMetaData(data: MetaDataset, assumptions: MetaAssumptions
 
 export function calculateMetaSummary(data: MetaDataset, assumptions: MetaAssumptions): SummaryMetric[] {
   const current = data.selectedRow;
-  const prior = data.rows[data.rows.length - 2] ?? current;
+  const prior = (data.rows[data.rows.length - 2] as MetaEvaluatedRow | undefined) ?? current;
   const valuation = calculateMetaValuation(data, assumptions);
   const blendedFairValue = valuation.fairValues.find((row) => row.scenario === "Base")?.fairValue ?? valuation.currentPrice;
   return [
@@ -143,8 +143,8 @@ export function calculateMetaSummary(data: MetaDataset, assumptions: MetaAssumpt
     metric("CapEx / Revenue", current.totalCapex / Math.max(current.totalRevenue, 1), 0, "percent", "Capital intensity relative to revenue.", "Derived"),
     metric("FCF Margin", current.fcfMargin, current.fcfMargin - prior.fcfMargin, "percent", "Free cash flow margin after the AI buildout.", "Actual"),
     metric("Reality Labs Operating Loss", current.realityLabsOperatingLoss, current.realityLabsOperatingLoss - prior.realityLabsOperatingLoss, "currency", "Reality Labs remains a structural drag in the base case.", "Actual"),
-    metric("AI Ad ROIC", current.aiAdRoic, current.aiAdRoic - prior.aiAdRoic, "percent", "After-tax AI ad operating profit divided by AI invested capital.", "Derived"),
-    metric("Forward EPS", assumptions.forwardEps, assumptions.forwardEps - (prior.totalRevenue / Math.max(prior.sharesOutstanding, 1)) / 4, "currency", "Annual forward EPS valuation anchor.", "Consensus"),
+    metric("AI Ad ROIC", current.aiAdRoic, current.aiAdRoic - (prior.aiAdRoic ?? 0), "percent", "After-tax AI ad operating profit divided by AI invested capital.", "Derived"),
+    metric("Forward EPS", assumptions.forwardEps, assumptions.forwardEps - (prior.totalRevenue / Math.max(prior.sharesOutstanding, 1)) / 4, "currency", "Annual forward EPS valuation anchor.", "Assumption"),
     metric("Blended Fair Value", blendedFairValue, blendedFairValue - valuation.currentPrice, "currency", "Blended valuation across core Ads, FCF, AI uplift, SOTP, and DCF.", "Derived"),
     metric("Upside / Downside", valuation.fairValues.find((row) => row.scenario === "Base")?.upsideDownside ?? 0, 0, "percent", "Blended fair value versus the current price.", "Derived"),
   ];
