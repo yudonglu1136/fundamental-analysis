@@ -104,7 +104,14 @@ export function InteractiveValuationDashboard({
     }
   }, [activePreset, modeStorageKey, storageKey, values]);
 
-  const valuation = useMemo<ValuationResult>(() => config.calculateValuation(values, data, activePreset === "Custom" ? scenario : activePreset), [activePreset, config, values, data, scenario]);
+  const valuationInputs = useMemo(
+    () => (activePreset === "Custom" ? values : scenarioFromConfig(config, activePreset)),
+    [activePreset, config, values],
+  );
+  const valuation = useMemo<ValuationResult>(
+    () => config.calculateValuation(valuationInputs, data, activePreset === "Custom" ? scenario : activePreset),
+    [activePreset, config, valuationInputs, data, scenario],
+  );
   const scenarioCards = useMemo(() => {
     return (["Bear", "Base", "Bull"] as Scenario[]).map((preset) => ({
       scenario: preset,
