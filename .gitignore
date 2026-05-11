@@ -1,4 +1,16 @@
 node_modules/
 dist/
+.pythonlibs/
+__pycache__/
+*.pyc
 *.tsbuildinfo
 .DS_Store
+*.log
+*.tmp
+.vite/
+coverage/
+.env
+.env.*
+!.env.example
+*.sqlite-wal
+*.sqlite-shm

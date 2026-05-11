@@ -7,14 +7,19 @@ export function StockDashboard() {
   const { ticker } = useParams();
   const module = ticker ? stockRegistry[ticker as keyof typeof stockRegistry] : undefined;
   const { setCurrentModule, scenario, setScenario, period, setPeriod, dataSourceType, setDataSourceType } = useAppShell();
+  const effectivePeriod = module && module.periods.some((option) => option.value === period)
+    ? period
+    : module?.getDefaultPeriod() ?? period;
 
   useEffect(() => {
     setCurrentModule(module);
     if (module) {
-      setPeriod(module.getDefaultPeriod());
+      if (period !== effectivePeriod) {
+        setPeriod(effectivePeriod);
+      }
     }
     return () => setCurrentModule(undefined);
-  }, [module, setCurrentModule, setPeriod]);
+  }, [module, effectivePeriod, period, setCurrentModule, setPeriod]);
 
   if (!module) {
     return <div className="panel p-8 text-sm text-slate-500">Stock module not found.</div>;
@@ -25,7 +30,7 @@ export function StockDashboard() {
       module={module}
       scenario={scenario}
       onScenarioChange={setScenario}
-      period={period}
+      period={effectivePeriod}
       onPeriodChange={setPeriod}
       dataSourceType={dataSourceType}
       onDataSourceChange={setDataSourceType}

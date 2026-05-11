@@ -14,13 +14,13 @@ export const priceMetadataByTicker: Record<string, PriceMetadata> = {
   },
   LSEG: {
     ticker: "LSEG",
-    currentPrice: 107.8,
+    currentPrice: 92.26,
     currency: "GBP",
     unit: "share",
-    asOfDate: "2026-05-09",
+    asOfDate: "2026-05-07",
     source: "actual",
-    marketReference: 107.8,
-    provenance: "Local mock market reference in GBP.",
+    marketReference: 92.26,
+    provenance: "Dated local LSEG market snapshot in GBP.",
   },
   MSFT: {
     ticker: "MSFT",

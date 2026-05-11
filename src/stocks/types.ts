@@ -49,6 +49,7 @@ export type ValuationScenarioPoint = {
 export type ValuationResult = {
   warning?: string;
   currentPrice: number;
+  priceDate?: string;
   validationWarnings?: ValidationWarning[];
   fairValues: ValuationScenarioPoint[];
   methodCards: Array<{
@@ -70,6 +71,49 @@ export type ValuationResult = {
     title: string;
     table: Array<Array<string | number>>;
   }[];
+  peFairValue?: number;
+  fcfFairValue?: number;
+  dcfValue?: number;
+  sotpFairValue?: number;
+  operatingSotpFairValue?: number;
+  conservativeOperatingSotpFairValue?: number;
+  baseOperatingSotpFairValue?: number;
+  premiumOperatingSotpFairValue?: number;
+  strategicSotpFairValue?: number;
+  coreValueExSotp?: number;
+  operatingSotpUpliftVsCore?: number;
+  blendedFairValue25Sotp?: number;
+  blendedFairValueHalfSotp?: number;
+  blendedFairValue75Sotp?: number;
+  blendedFairValueExSotp?: number;
+  strategicOptionalityPerShare?: number;
+  strategicOptionalityValue?: number;
+  strategicUpsideFairValue?: number;
+  selectedSotpForBlended?: number;
+  selectedSotpPolicy?: string;
+  reasonForSelectedSotpPolicy?: string;
+  targetPrice3Y?: number;
+  recommendedFairValue?: number;
+  recommendedFairValueMethod?: string;
+  recommendedFairValueReason?: string;
+  valuationRangeLow?: number;
+  valuationRangeBase?: number;
+  valuationRangeHigh?: number;
+  primaryUnderwritingValue?: number;
+  secondaryUpsideValue?: number;
+  sotpWarnings?: ValidationWarning[];
+  sotpAudit?: unknown;
+  blendedFairValue?: number;
+  probabilityWeightedFairValue?: number;
+  expectedReturn3Y?: number;
+  upsideDownside?: number;
+  methodDispersion?: number;
+  overallIntegrityScore?: number;
+  sotpIntegrityScore?: number;
+  sotpConfidenceScore?: number;
+  dataQualityScore?: number;
+  recommendedValuationConfidence?: number;
+  integrityScore?: number;
 };
 
 export type PriceMetadata = {

@@ -1,0 +1,195 @@
+{
+  "generatedAt": "2026-05-10T19:14:54Z",
+  "records": [
+    {
+      "originalPath": "/Users/yudonglu/Documents/fundamental-analysis/lseg-h1-2024-interim-results-transcript-1aug2024.pdf",
+      "stagedPath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-h1-2024-interim-results-transcript-1aug2024.pdf",
+      "fileName": "lseg-h1-2024-interim-results-transcript-1aug2024.pdf",
+      "fileExtension": ".pdf",
+      "fileSize": 2196849,
+      "modifiedTime": "2026-05-10T17:56:07Z",
+      "detectedCompany": "London Stock Exchange Group",
+      "detectedTicker": "LSEG.L",
+      "detectedEventDate": "2024-08-01",
+      "detectedFiscalPeriod": "H1 2024",
+      "detectedEventType": "interim_results",
+      "detectedSource": "manual_upload",
+      "confidence": "medium",
+      "warnings": [
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot."
+      ],
+      "isDuplicate": false,
+      "duplicateOf": null,
+      "sha256": "8aaa7f85771abf689527d35311f199372618816cf98102e2a62ac347ed5cf08f"
+    },
+    {
+      "originalPath": "/Users/yudonglu/Documents/fundamental-analysis/lseg-q1-2025-trading-update-transcript-01may2025.pdf",
+      "stagedPath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-q1-2025-trading-update-transcript-01may2025.pdf",
+      "fileName": "lseg-q1-2025-trading-update-transcript-01may2025.pdf",
+      "fileExtension": ".pdf",
+      "fileSize": 255043,
+      "modifiedTime": "2026-05-10T17:53:42Z",
+      "detectedCompany": "London Stock Exchange Group",
+      "detectedTicker": "LSEG.L",
+      "detectedEventDate": "2025-05-01",
+      "detectedFiscalPeriod": "Q1 2025",
+      "detectedEventType": null,
+      "detectedSource": "manual_upload",
+      "confidence": "medium",
+      "warnings": [
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot."
+      ],
+      "isDuplicate": false,
+      "duplicateOf": null,
+      "sha256": "b192b509b3d9a396e74c2b4ef097177e5c6432e2b1aa44e945423267ceb4d70e"
+    },
+    {
+      "originalPath": "/Users/yudonglu/Documents/fundamental-analysis/lseg-q1-2026-trading-update-transcript-23apr2026.pdf",
+      "stagedPath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-q1-2026-trading-update-transcript-23apr2026.pdf",
+      "fileName": "lseg-q1-2026-trading-update-transcript-23apr2026.pdf",
+      "fileExtension": ".pdf",
+      "fileSize": 1445416,
+      "modifiedTime": "2026-05-10T17:51:58Z",
+      "detectedCompany": "London Stock Exchange Group",
+      "detectedTicker": "LSEG.L",
+      "detectedEventDate": "2026-04-23",
+      "detectedFiscalPeriod": "Q1 2026",
+      "detectedEventType": null,
+      "detectedSource": "manual_upload",
+      "confidence": "medium",
+      "warnings": [
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot."
+      ],
+      "isDuplicate": false,
+      "duplicateOf": null,
+      "sha256": "58b93a0a347e2b021f4fb9d276e11a5704788a4b98c621618cf0dd21c63ee67c"
+    },
+    {
+      "originalPath": "/Users/yudonglu/Documents/fundamental-analysis/lseg-q3-2025-trading-update-transcript-23oct2025.pdf",
+      "stagedPath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-q3-2025-trading-update-transcript-23oct2025.pdf",
+      "fileName": "lseg-q3-2025-trading-update-transcript-23oct2025.pdf",
+      "fileExtension": ".pdf",
+      "fileSize": 1660429,
+      "modifiedTime": "2026-05-10T17:53:00Z",
+      "detectedCompany": "London Stock Exchange Group",
+      "detectedTicker": "LSEG.L",
+      "detectedEventDate": "2025-10-23",
+      "detectedFiscalPeriod": "Q3 2025",
+      "detectedEventType": null,
+      "detectedSource": "manual_upload",
+      "confidence": "medium",
+      "warnings": [
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot."
+      ],
+      "isDuplicate": false,
+      "duplicateOf": null,
+      "sha256": "56c4c151afd04b7d591b7ab0a93f63a463f6596ef9bcd9d37956aea220cc6e4e"
+    },
+    {
+      "originalPath": "/Users/yudonglu/Documents/fundamental-analysis/lseg-2024-preliminary-results-transcript-27feb2025.pdf",
+      "stagedPath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-2024-preliminary-results-transcript-27feb2025.pdf",
+      "fileName": "lseg-2024-preliminary-results-transcript-27feb2025.pdf",
+      "fileExtension": ".pdf",
+      "fileSize": 2779946,
+      "modifiedTime": "2026-05-10T17:55:42Z",
+      "detectedCompany": "London Stock Exchange Group",
+      "detectedTicker": "LSEG.L",
+      "detectedEventDate": "2025-02-27",
+      "detectedFiscalPeriod": null,
+      "detectedEventType": null,
+      "detectedSource": "manual_upload",
+      "confidence": "medium",
+      "warnings": [
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot."
+      ],
+      "isDuplicate": false,
+      "duplicateOf": null,
+      "sha256": "9c0387b9566cfdc8a1495060ab011825248dbb63267d1ac8652fdf06c30283fa"
+    },
+    {
+      "originalPath": "/Users/yudonglu/Documents/fundamental-analysis/lseg-2025-preliminary-results-transcript-26feb2026.pdf",
+      "stagedPath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-2025-preliminary-results-transcript-26feb2026.pdf",
+      "fileName": "lseg-2025-preliminary-results-transcript-26feb2026.pdf",
+      "fileExtension": ".pdf",
+      "fileSize": 4429943,
+      "modifiedTime": "2026-05-10T17:52:40Z",
+      "detectedCompany": "London Stock Exchange Group",
+      "detectedTicker": "LSEG.L",
+      "detectedEventDate": "2026-02-26",
+      "detectedFiscalPeriod": null,
+      "detectedEventType": null,
+      "detectedSource": "manual_upload",
+      "confidence": "medium",
+      "warnings": [
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot."
+      ],
+      "isDuplicate": false,
+      "duplicateOf": null,
+      "sha256": "d88dc110d132e76851bab4a0ec2675ebe80e886b43eedfe4dddc9e3acd6755fa"
+    },
+    {
+      "originalPath": "/Users/yudonglu/Documents/fundamental-analysis/lseg-h1-2025-interim-results-transcript-31july2025.pdf",
+      "stagedPath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-h1-2025-interim-results-transcript-31july2025.pdf",
+      "fileName": "lseg-h1-2025-interim-results-transcript-31july2025.pdf",
+      "fileExtension": ".pdf",
+      "fileSize": 2346730,
+      "modifiedTime": "2026-05-10T17:53:14Z",
+      "detectedCompany": "London Stock Exchange Group",
+      "detectedTicker": "LSEG.L",
+      "detectedEventDate": "2025-07-31",
+      "detectedFiscalPeriod": "H1 2025",
+      "detectedEventType": "interim_results",
+      "detectedSource": "manual_upload",
+      "confidence": "medium",
+      "warnings": [
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot."
+      ],
+      "isDuplicate": false,
+      "duplicateOf": null,
+      "sha256": "5d53d62b91e121be2d17f46fef224f6d24c1821acea5eed1310325df64893014"
+    },
+    {
+      "originalPath": "/Users/yudonglu/Documents/fundamental-analysis/lseg-q4-2024-trading-update-transcript-25april2024.pdf",
+      "stagedPath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-q4-2024-trading-update-transcript-25april2024.pdf",
+      "fileName": "lseg-q4-2024-trading-update-transcript-25april2024.pdf",
+      "fileExtension": ".pdf",
+      "fileSize": 433136,
+      "modifiedTime": "2026-05-10T17:56:26Z",
+      "detectedCompany": "London Stock Exchange Group",
+      "detectedTicker": "LSEG.L",
+      "detectedEventDate": "2024-04-25",
+      "detectedFiscalPeriod": "Q4 2024",
+      "detectedEventType": null,
+      "detectedSource": "manual_upload",
+      "confidence": "medium",
+      "warnings": [
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot."
+      ],
+      "isDuplicate": false,
+      "duplicateOf": null,
+      "sha256": "24601f97e188e504f07a095b67f39b8f3d5e2c961b84b0e80f0de69c2a909c47"
+    },
+    {
+      "originalPath": "/Users/yudonglu/Documents/fundamental-analysis/lseg-h1-2024-interim-results-transcript-1aug2024 (1).pdf",
+      "stagedPath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-h1-2024-interim-results-transcript-1aug2024.pdf",
+      "fileName": "lseg-h1-2024-interim-results-transcript-1aug2024 (1).pdf",
+      "fileExtension": ".pdf",
+      "fileSize": 2196849,
+      "modifiedTime": "2026-05-10T17:56:55Z",
+      "detectedCompany": "London Stock Exchange Group",
+      "detectedTicker": "LSEG.L",
+      "detectedEventDate": "2024-08-01",
+      "detectedFiscalPeriod": "H1 2024",
+      "detectedEventType": "interim_results",
+      "detectedSource": "manual_upload",
+      "confidence": "medium",
+      "warnings": [
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot.",
+        "Duplicate transcript file detected; reusing previously staged copy."
+      ],
+      "isDuplicate": true,
+      "duplicateOf": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-h1-2024-interim-results-transcript-1aug2024.pdf",
+      "sha256": "8aaa7f85771abf689527d35311f199372618816cf98102e2a62ac347ed5cf08f"
+    }
+  ]
+}

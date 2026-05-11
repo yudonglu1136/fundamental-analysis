@@ -1,0 +1,134 @@
+{
+  "provenance": {
+    "datasetId": "peer_multiples_snapshot",
+    "source": "yfinance",
+    "sourceType": "yahoo_finance_snapshot",
+    "fetchedAt": "2026-05-10T18:11:39Z",
+    "ticker": "PEER_SET",
+    "currency": null,
+    "qualityTag": "Derived",
+    "notes": null
+  },
+  "data": [
+    {
+      "ticker": "ICE",
+      "currency": "USD",
+      "marketCap": 88118165504,
+      "enterpriseValue": 108324159488,
+      "trailingPE": 22.681225,
+      "forwardPE": 17.734732,
+      "enterpriseToEbitda": 16.353,
+      "priceToSalesTrailing12Months": 8.444481,
+      "dividendYield": 1.33,
+      "beta": 0.964
+    },
+    {
+      "ticker": "CME",
+      "currency": "USD",
+      "marketCap": 101913567232,
+      "enterpriseValue": 103140368384,
+      "trailingPE": 23.976982,
+      "forwardPE": 21.845406,
+      "enterpriseToEbitda": 21.521,
+      "priceToSalesTrailing12Months": 15.112635,
+      "dividendYield": 1.85,
+      "beta": 0.26
+    },
+    {
+      "ticker": "SPGI",
+      "currency": "USD",
+      "marketCap": 124355518464,
+      "enterpriseValue": 141477527552,
+      "trailingPE": 26.589872,
+      "forwardPE": 18.920591,
+      "enterpriseToEbitda": 17.97,
+      "priceToSalesTrailing12Months": 7.9056273,
+      "dividendYield": 0.92,
+      "beta": 1.105
+    },
+    {
+      "ticker": "MCO",
+      "currency": "USD",
+      "marketCap": 78834966528,
+      "enterpriseValue": 84876967936,
+      "trailingPE": 32.352688,
+      "forwardPE": 24.305521,
+      "enterpriseToEbitda": 22.254,
+      "priceToSalesTrailing12Months": 10.013332,
+      "dividendYield": 0.91,
+      "beta": 1.37
+    },
+    {
+      "ticker": "TRI",
+      "currency": "USD",
+      "marketCap": 40571920384,
+      "enterpriseValue": 42781921280,
+      "trailingPE": 26.706898,
+      "forwardPE": 18.414244,
+      "enterpriseToEbitda": 19.715,
+      "priceToSalesTrailing12Months": 5.294522,
+      "dividendYield": 2.82,
+      "beta": 0.201
+    },
+    {
+      "ticker": "RELX",
+      "currency": "USD",
+      "marketCap": 59562958848,
+      "enterpriseValue": 68244082688,
+      "trailingPE": 22.092106,
+      "forwardPE": 15.5100355,
+      "enterpriseToEbitda": 21.306,
+      "priceToSalesTrailing12Months": 6.2109447,
+      "dividendYield": 2.74,
+      "beta": 0.257
+    },
+    {
+      "ticker": "EXPN.L",
+      "currency": "GBp",
+      "marketCap": 23716880384,
+      "enterpriseValue": 29632516096,
+      "trailingPE": 24.270641,
+      "forwardPE": 17.885674,
+      "enterpriseToEbitda": 12.21,
+      "priceToSalesTrailing12Months": 2.977637,
+      "dividendYield": 1.79,
+      "beta": 0.824
+    },
+    {
+      "ticker": "NDAQ",
+      "currency": "USD",
+      "marketCap": 50282233856,
+      "enterpriseValue": 59273232384,
+      "trailingPE": 26.780123,
+      "forwardPE": 20.093884,
+      "enterpriseToEbitda": 18.431,
+      "priceToSalesTrailing12Months": 9.278877,
+      "dividendYield": 1.26,
+      "beta": 0.99
+    },
+    {
+      "ticker": "DB1.DE",
+      "currency": "EUR",
+      "marketCap": 44197109760,
+      "enterpriseValue": 48864374784,
+      "trailingPE": 21.650312,
+      "forwardPE": 18.324492,
+      "enterpriseToEbitda": 15.017,
+      "priceToSalesTrailing12Months": 5.8624635,
+      "dividendYield": 1.73,
+      "beta": 0.275
+    },
+    {
+      "ticker": "ENX.PA",
+      "currency": "EUR",
+      "marketCap": 13833953280,
+      "enterpriseValue": 16047985664,
+      "trailingPE": 22.085985,
+      "forwardPE": 16.17955,
+      "enterpriseToEbitda": 15.258,
+      "priceToSalesTrailing12Months": 7.606126,
+      "dividendYield": 2.29,
+      "beta": 0.852
+    }
+  ]
+}
