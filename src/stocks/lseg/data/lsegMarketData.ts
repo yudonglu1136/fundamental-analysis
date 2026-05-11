@@ -12,8 +12,8 @@ type YfinanceDataset<T> = {
     datasetId?: string;
     source?: string;
     sourceType?: string;
-    fetchedAt?: string;
-    ticker?: string;
+    fetchedAt?: string | null;
+    ticker?: string | null;
     currency?: string | null;
     qualityTag?: "Actual" | "Derived" | "Assumption" | "Placeholder";
     notes?: string | null;

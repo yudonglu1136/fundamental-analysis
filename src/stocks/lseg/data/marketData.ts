@@ -2,15 +2,14 @@ import yfinanceMarketSnapshot from "../../../../data/local/lseg/yfinance/curated
 import yfinancePeerMultiplesSnapshot from "../../../../data/local/lseg/yfinance/curated/peer_multiples_snapshot.json";
 import yfinanceProvenanceManifest from "../../../../data/local/lseg/yfinance/curated/provenance.json";
 import yfinanceWarningManifest from "../../../../data/local/lseg/yfinance/curated/warnings.json";
-import rawLsegInfoSnapshot from "../../../../data/local/lseg/yfinance/raw/lseg_info.json";
 
 type YfinanceDataset<T> = {
   provenance?: {
     datasetId?: string;
     source?: string;
     sourceType?: string;
-    fetchedAt?: string;
-    ticker?: string;
+    fetchedAt?: string | null;
+    ticker?: string | null;
     currency?: string | null;
     qualityTag?: "Actual" | "Derived" | "Assumption" | "Placeholder";
     notes?: string | null;
@@ -66,7 +65,21 @@ export type LsegYfinancePeerAudit = {
 export const lsegYfinanceMarketSnapshot = yfinanceMarketSnapshot;
 export const lsegYfinanceProvenanceManifest = yfinanceProvenanceManifest;
 export const lsegYfinanceWarningManifest = yfinanceWarningManifest;
-export const lsegRawInfoSnapshot = rawLsegInfoSnapshot;
+// Raw Yahoo Finance dumps are intentionally optional local artifacts and may be
+// excluded from Git. The live LSEG data layer must compile without them.
+export const lsegRawInfoSnapshot = {
+  provenance: {
+    datasetId: "raw_lseg_info_optional",
+    source: "yfinance",
+    sourceType: "yahoo_finance_snapshot",
+    fetchedAt: null,
+    ticker: "LSEG.L",
+    currency: null,
+    qualityTag: "Placeholder" as const,
+    notes: "Optional raw Yahoo Finance info snapshot not committed in clean checkouts.",
+  },
+  data: {},
+};
 
 export const LSEG_YFINANCE_EXPECTED_PEER_TICKERS = [
   "ICE",
