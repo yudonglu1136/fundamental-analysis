@@ -1,0 +1,155 @@
+{
+  "provenance": {
+    "datasetId": "consensus_snapshot",
+    "source": "yfinance",
+    "sourceType": "yahoo_finance_snapshot",
+    "fetchedAt": "2026-05-10T18:11:39Z",
+    "ticker": "LSEG.L",
+    "currency": "GBp",
+    "qualityTag": "Assumption",
+    "notes": "Yahoo Finance analyst/target/recommendation snapshot for research use only."
+  },
+  "data": {
+    "ticker": "LSEG.L",
+    "currency": "GBp",
+    "analystPriceTargets": {
+      "current": 9038.0,
+      "high": 13750.0,
+      "low": 11000.0,
+      "mean": 12346.354,
+      "median": 12000.0
+    },
+    "earningsEstimate": [
+      {
+        "period": "avg",
+        "0q": null,
+        "+1q": null,
+        "0y": 4.74305,
+        "+1y": 5.36354
+      },
+      {
+        "period": "low",
+        "0q": null,
+        "+1q": null,
+        "0y": 4.6791,
+        "+1y": 5.137
+      },
+      {
+        "period": "high",
+        "0q": null,
+        "+1q": null,
+        "0y": 4.82558,
+        "+1y": 5.4901
+      },
+      {
+        "period": "yearAgoEps",
+        "0q": null,
+        "+1q": null,
+        "0y": 4.182,
+        "+1y": 4.74305
+      },
+      {
+        "period": "numberOfAnalysts",
+        "0q": null,
+        "+1q": null,
+        "0y": 11.0,
+        "+1y": 12.0
+      },
+      {
+        "period": "growth",
+        "0q": null,
+        "+1q": null,
+        "0y": 0.1342,
+        "+1y": 0.1308
+      }
+    ],
+    "revenueEstimate": [
+      {
+        "period": "avg",
+        "0q": 2418333330.0,
+        "+1q": 0.0,
+        "0y": 9872649840.0,
+        "+1y": 10502185700.0
+      },
+      {
+        "period": "low",
+        "0q": 2353000000.0,
+        "+1q": 0.0,
+        "0y": 9576000000.0,
+        "+1y": 10207000000.0
+      },
+      {
+        "period": "high",
+        "0q": 2457000000.0,
+        "+1q": 0.0,
+        "0y": 9975000000.0,
+        "+1y": 10668884720.0
+      },
+      {
+        "period": "numberOfAnalysts",
+        "0q": 3.0,
+        "+1q": 0.0,
+        "0y": 11.0,
+        "+1y": 11.0
+      },
+      {
+        "period": "yearAgoRevenue",
+        "0q": 2354000000.0,
+        "+1q": null,
+        "0y": 9346000000.0,
+        "+1y": 9872649840.0
+      },
+      {
+        "period": "growth",
+        "0q": 0.0273,
+        "+1q": null,
+        "0y": 0.056399997,
+        "+1y": 0.0638
+      }
+    ],
+    "recommendationsSummary": [
+      {
+        "period": "period",
+        "0": "0m",
+        "1": "-1m",
+        "2": "-2m",
+        "3": "-3m"
+      },
+      {
+        "period": "strongBuy",
+        "0": 6,
+        "1": 6,
+        "2": 6,
+        "3": 6
+      },
+      {
+        "period": "buy",
+        "0": 11,
+        "1": 11,
+        "2": 11,
+        "3": 11
+      },
+      {
+        "period": "hold",
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0
+      },
+      {
+        "period": "sell",
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0
+      },
+      {
+        "period": "strongSell",
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0
+      }
+    ]
+  }
+}

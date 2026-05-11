@@ -1,0 +1,1882 @@
+[[PAGE:1]]
+LSEG H1 2024 Interim Results –
+Analyst & Investor Call Transcript
+
+THURSDAY 01 AUGUST 2024
+
+David Schwimmer, CEO
+Michel-Alain Proch, CFO
+
+[[PAGE:2]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+[[PAGE:3]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+Good morning and welcome to our first half 2024 results. I am joined by Michel-Alain Proch
+or MAP, our CFO, and by Peregrine Riviere, Head of Investor Relations.
+LSEG had a strong first half – revenues were up 7.6% and we made good progress in the
+commercial and strategic transformation of our business.
+Our first half growth was broad based, with positive contributions from every business line.
+W ’ b inging ong off ing o h ma k , d iv n by a high pac of innova ion and
+consistent customer focus.
+W ’ d iving g a di p ac m n wi h Wo k pac and h c n d a wi h Dow Jon
+expands our leadership in news.
+Our partnership with Microsoft is progressing well, delivering wider availability of the first
+products by year-end.
+We are delivering this performance with a clear and critical focus on efficiency and discipline,
+driving a 50 basis point improvement in H1 margins. We are committed to further margin
+expansion over the next few years.
+Cash flow growth was very strong, supporting significant shareholder returns. We bought
+back £1 billion of shares in the first half, and we increased our interim dividend by 15%
+today.
+I’ com back o h comm cia and a gic p og w ’ making in a mom n , b fi
+I’ hand ov o MAP o ak yo h o gh o financia p fo manc in mo d ai .
+
+ong comm cia , a gic and financia p og in
+Po i iv con ib ion f om a b in in
+apid pac of innova ion Wo k pac g a y
+di p acing comp i o
+i Mic o of p od c coming o ma k in
+a ffici ncy d iving ma gin imp ov m n
+ignifican ha ho d n
+
+o a Incom
+g ow h in
+
+nd ying ma gin
+imp ov m n
+
+A g ow h a
+
+n d via
+b yback in
+
+divid nd g ow h
+in
+
+. o a Incom c . cov i , con an c ncy ba i . h o gho hi p n a ion, con an c ncy g ow h i ca c a don h
+ba i of con i n a app i d ac o h c n and p io y a p iod P D . P . .
+. on an c ncy I DA ma gin pan ion.
+
+g ow h
+in
+
+[[PAGE:4]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+A c a pa hway o d iv y
+Mich A ain P och,
+
+[[PAGE:5]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+Thanks David. Good morning everyone. It has been good to meet many of you over the past
+few months.
+My key messages are partly what I have seen since I joined, and partly what our first half
+performance confirms.
+First, we have a great portfolio of assets providing critical services to our customers and with
+strong growth drivers behind them. This is clear from the 7.6 % growth derived from every
+business line in H1.
+Second, there is scope for scaling our operating model. And this is something that I have
+executed before. Again, this is apparent already in H1, as margin improvements are coming
+through as we planned.
+And third, even if LSEG is highly cash generative today, the pathway to stronger cash flow is
+well marked with higher margin and lower capital intensity.
+So, when I put all that together, as the new CFO coming in after the Capital Markets Day last
+November and seeing what the plan is. I can say the plan makes complete sense to me and
+we are going to execute it in a very disciplined way. In a nutshell, you can have confidence
+in our medium-term guidance, as we all do.
+
+y m ag
+
+[[PAGE:6]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+Turning to the n id , I’m ooking a how o g ow h ha acc a d in Q . Q wa good
+at 6.4% organic, but Q2 has been better at 7.8%. The acceleration has been driven mainly
+by Capital Markets and FTSE Russell.
+
+ong g ow h acc a ion in Q
+. on an c ncy o ganic g ow h.
+Q Q P mi ion
+
+, , , o a incom . cov i
+. . . po d g ow h
+
+[[PAGE:7]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+So now if we look at the whole of H1, division by division on the next slide, you can see a
+strong pattern, with three out of five divisions growing at double digit rate on an organic
+basis. Data & Analytics maintained a solid performance throughout the first half despite the
+known headwinds, and Post Trade was stable despite an exceptional 2023 and the first
+impact of the loss of the Euronext business.
+
+D iv ing b oad ba d g ow h in
+. on an c ncy o ganic g ow h.
+. o a inc d o h incom of m in and m in .
+ganic g ow h
+v
+ow h
+v P mi ion
+. . , , Da a Ana y ic
+. .
+. . i k In ig nc
+. . api a Ma k
+. . Po ad
+
+[[PAGE:8]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+
+Looking now at Data & Analytics in more detail:
+
+There was a really good performance from Workflows, with organic growth of 2.4%, which
+would be over 3% adjusting for Credit Suisse and the enterprise deal we mentioned at Q1.
+We are increasingly displacing other providers as Workspace becomes more powerful, and
+in Q2 we had our strongest net sales quarter for Workflows for many years. The integration
+of TORA and SDC Platinum, and the strategic partnership in news with Dow Jones, all bring
+significant enhancements to the platform.
+
+Data & Feeds maintained its good momentum. The slight slowdown this quarter reflects a
+very strong Q2 last year. We continue to invest in broadening our datasets and adding more
+low latency feeds.
+
+In Analytics, underlying growth remains solid. We expect the new Analytics API to drive an
+acceleration in H2, with initial sales looking encouraging. David will talk about that in a
+moment.
+
+Wo kf ow Da a d Ana y ic M A
+
+Da a Ana y ic p od c inv m n d iving g ow h
+ow h a on a con an c ncy o ganic ba i .
+. Di po a of .
+nhanc d off ing d iving high
+n ion and di p ac m n k y
+m n of da a acc d a .
+ong n w p od c pip in in
+a im and P off ing
+known h adwind .
+Ana y ic Wo kf ow Da a d
+Imp oving nd ying n ion
+pa y off by di i ong
+pip in fo p od c and a .
+
+[[PAGE:9]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+Turning to the next slide, I will cover FTSE Russell and Risk Intelligence, now reported as
+separate divisions.
+FTSE Russell had a very strong first half, with a real acceleration into Q2, as anticipated.
+The growth here is broad-based, with good progress in both, FTSE and Russell equity
+franchise, a strong performance in fixed income, and encouraging sales in new areas like
+interest rate benchmarks. Asset-based revenue was also up double-digits, reflecting market
+movements and inflows.
+Risk Intelligence continued to be driven by World-Check, our leading screening business.
+The market remains very attractive, although we are just seeing a normalisation of growth
+rates post the spike in activity caused by the invasion of Ukraine. Our due diligence business
+continues to be impacted by the shortage of IPOs in the Asian market, particularly in Hong
+Kong.
+
+D iving p fo manc in and i k In ig nc
+on in d ong d mand fo f ag hip i y indic
+and b nchma k . A ba d f g ow h d iv n by
+h a hy inf ow and favo ab ma k nd .
+
+ong g a o y and i k d iv n d mand fo Wo d
+h ck ongoing p od c d v opm n . Imp oving a
+mom n m in Digi a Id n i y a d.
+i k In ig nc
+
+b c ip ion A ba d
+
+ganic M A
+
+ow h a on a con an c ncy o ganic ba i .
+. Di po a of i n nboa ding.
+
+[[PAGE:10]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+
+Looking now at our ASV metric on the next slide.
+
+ASV growth was 6.4% as we exited Q2, compared to 6.0% three months earlier. The
+stronger result reflects a very good performance for sales and installs in a number of
+businesses, with limited additional headwind from Credit Suisse cancellations in the quarter.
+
+So now, we now expect a bit more impact in H2 and our guidance for the rest of the year –
+that we shared in Q1 - main “a o nd ”. W main a o nd ha fway h o gh h o a
+expected Credit Suisse impact on ASV.
+
+.
+.
+.
+. .
+Ma
+A g ow h a Impac of k ain ia conf ic
+
+ob A p fo manc
+Ann a b c ip ion va A g ow h i a con an c ncy poin in im y a on y a o ganic m a of b c ip ion g ow hin o Da a Ana y ic , and i k In ig nc b in .
+
+. .
+Q Q
+ong n imp ov m n d iv n by b n ion and
+p ic yi d inc a ing g o a con ib ion.
+oad ba d acc a ion
+di i canc a ion and Q da a acc
+ag m n .
+ff by known h adwind in
+
+[[PAGE:11]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+On the next slide, Capital Markets presents a positive picture across the board, with all
+businesses contributing to growth.
+As you can see performance has notably improved in Q2 in Equities. While the primary
+market remains relatively subdued globally, the pipeline for the Autumn is improving.
+Meanwhile, secondary volumes have picked up and so has our market share. We are
+encouraged by the significant revisions to Listing Rules announced in July, reflected in this
+w k’ a nch of h n w Main Ma k , which w b i v wi h p o n ondon remains
+a leading global exchange.
+Fixed Income had an outstanding H1, driven by the growth of Tradeweb. Tradeweb
+continued to grow share in a number of product lines in a very healthy market environment.
+We also made important strategic progress, completing the r8fin acquisition earlier in the
+year and announcing the acquisition of ICD, which completes shortly. This deal adds a fourth
+customer group for Tradeweb, expanding into the corporate treasury market. This also
+presents an attractive opportunity for other parts of LSEG, particularly for our FX business.
+Turning then to FX, we are seeing a more positive trend here, with the business returning to
+growth in Q2, supported by stronger markets and new products.
+
+i i i d Incom ,
+D iva iv h
+o ign chang M A
+
+api a Ma k a b in con ib ing o g ow h
+
+onfid nc ning o i y
+ma k ong ha gain in
+conda y ading.
+i d Incom o ign chang i i
+ow h a on a con an c ncy o ganic ba i .
+. Ac i i ion of i db ok and fin.
+
+ong ma k ac ivi y a ad w b.
+D iving con in d ha gain
+h o gh p od c innova ion.
+ong d a o c i n vo m a
+a off by ow in bank
+vo m on Ma ching.
+
+[[PAGE:12]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+Finally, looking at Post Trade on the next slide. Here the reported growth does not fully
+reflect the strength of the underlying performance, given the one-time revenue bump from
+reference rate reform in 2023, and the first impact of the Euronext exit.
+We still achieved organic growth across all our revenue lines, and only saw a decline in net
+treasury income reflecting lower levels of collateral. Just on Euronext, it is worth highlighting
+that the full year impact of £35- mi ion which w ’v p vio y talked about, is very heavily
+weighted to the second half.
+Business was good both in our core swaps franchise and in newer growth areas. CDSClear
+grew strongly after a competitor exited the market in 2023, and RepoClear increased its
+share in a buoyant market. We also made progress with the development of Post Trade
+Solutions and bought out a further minority stake in LCH Group.
+
+D iva iv c i i
+po ing
+on ca h
+co a a
+a y
+incom
+M A
+Po ad b i ding on co d p fo manc in
+
+igh c a ing vo m and p ic
+d iving g ow h a wap a .
+ignifican gain in D vo m .
+c i i po ing a yincom D iva iv
+
+ow ca h co a a d iv n by
+d c d ma k vo a i i y and ma gin
+op imi a ion by c om .
+ow h a on a con an c ncy o ganic ba i .
+. Ac i i ion of Acadia.
+ong po a vo m
+off ing on i .
+
+[[PAGE:13]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+So we are moving now from revenue to the rest of the P&L on the next slide. I will go into
+opex and margin in a bit more detail on the following slides.
+The overall message here is that the strong top line growth of 7.6% fully translates into
+similar level of earnings growth at 7.7% on a constant currency basis and this – it is
+important to note it - despite higher finance costs and tax.
+That latter impact is actually offset by the significant share buybacks we completed over the
+last 12 months, which have reduced our average share count by around 3%.
+
+ong g ow h in I DA imp oving A P p fo manc
+ow h v
+on an ccy po d m
+
+. . , , o p ofi
+
+. . Ad d d p cia ion, amo i a ion impai m n
+
+. Ad d n financ p n
+. Ad d a p n
+
+. on con o ing in
+
+[[PAGE:14]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+’ ook a o co ba in mo d ai on h n id , bo h co of a and op a ing
+expenses.
+First, cost of sales is heavily influenced by the mix of our top line growth. On a constant
+currency basis, it grew by 5.5%, a slower pace than the 7.6% growth we posted. This is
+mainly due to the improved contribution to the growth from D&A where a part of the cost of
+sales is fixed, like our Reuters news cost.
+Second, looking at operating expenses, I like to present this by nature of costs because
+ha ’ how w d iv i and I hink i h p o wha v h a o manag h co .
+Staff costs, which are our largest expense, increased by 20 bps year-on-year as a proportion
+of total income at 26.2%. This is a very good result of our global resource equation. Indeed,
+one of the strategic projects we are conducting with Irfan Hussain, our Global CIO is a
+massive insourcing of our external technology contractors in order to enhance our
+engineering expertise and create a strong product culture. And we begin to see its
+materialisation in our numbers, with a stabilisation of our third-party services, where these
+contractor costs are recognised. This is providing operating leverage overall on our resource
+cost, as I am going to show you on the next slide.
+
+Imp oving co con o
+ow h v
+ganic on an ccy po d P mi ion
+
+. . . , , aff co
+
+. . . I co
+
+. . . hi d pa y vic
+. . . h co
+
+a d i m
+
+. on an c ncy o ganic g ow h.
+. a d i m p n fai va mov m n on mb dd d d iva iv con ac and fo ign chang gain o m gain, m o . Wi hin hi , h impac of
+mb dd d d iva iv wa a mi ion gain in and o in .
+. o a o p co ba combin co of a and ad d op a ing p n .
+
+[[PAGE:15]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+So lets turn to the next slide where we bridge the effects of these cost drivers on our
+EBITDA margin rate.
+Starting from the left, the 47.3% is the reported margin rate for H1 last year. Then there are
+the adjusting FX factors, both transactional, namely embedded derivatives on our client
+contracts for a positive 40 bps and then translational with a -20 bps mainly coming from the
+evolution of the USD and EUR versus GBP. All in, it gets you to a comparable baseline of
+47.5% for H1 2023.
+Then you can see the contribution to margin from each cost line, on a constant currency
+basis. The net benefit to margin from resource cost leverage that I just mentioned is a net 30
+basis points, and from IT and other costs, another 20 basis point benefit. Taking these
+controllable movements together gives our underlying margin improvement of 50 basis
+points and all this while we continue to invest in our strategic projects, as our Microsoft
+partnership.
+So that brings us to an underlying margin in H1 at 48%, and to complete the bridge on the
+right hand side: we enjoyed this semester, a benefit of 50 basis points mainly from
+embedded derivatives – from certain non-sterling customer contracts, as over time,
+exchange rates move. That gets you to our reported 48.5%.
+
+a d
+i m
+ba d
+compa ab
+aff co hi d pa y
+vic
+I co h
+nd ying
+a d
+i m
+
+. a d i m p n fai va mov m n on mb dd d d iva iv con ac and fo ign chang gain o m gain, m o .
+. ba d on o a .
+. h inc d cov i v n , co of a and o h op a ing p n .
+D iv ing ma gin pan ion
+
+o c co
+
+h op a ing co
+bp nd ying op a ing v ag
+
+[[PAGE:16]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+Turning to net finance expense, which stepped up by about £30 million in H1.
+There are two main drivers to this increase. First, as you may remember, we refinanced a
+part of our debt in March that came to maturity. Consequently, we issued $1.25 billion of
+bonds at 3 and 10 years, at about 300 bps higher coupons than the instruments they were
+replacing – which is just the reality of where markets are.
+Second, we front-loaded our announced £1 billion buyback, to take advantage of
+ack on ’ down, which d o an inc a of h o p n d b in h m .
+Finally, I just want to mention that the net finance expense includes now swap interest costs
+when for example we swap commercial paper labelled in EUR back in GBP. We previously
+identified these as FX losses, but they are actually an ongoing financing cost of our balance
+sheet. These were around £9 million in H1, both this year and last year. And they sit in the
+“In Diff n ia ” in on hi ab . I mind yo ha h f -year impact last year was
+around £24 million, and they were reclassified from opex to net finance expense.
+So, taking all of that into account, for the full year, we expect the figure to be a little over
+£200 million.
+
+financ p n aff c d by financing
+P mi ion
+In p n on bank ba anc and o h bo owing , n of d iva iv in
+ank d po i and o h in incom
+a in p n
+In diff n ia and fo ign chang o
+h financ p n
+
+[[PAGE:17]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+On tax, on the next slide, the effective tax rate rose from 23.7% to 24.8% - in line with our
+guidance of 24- fo h f y a . h inc a i mo y a of a y a ’ p p in
+the UK corporation tax rate.
+
+a a impac d by inc a o h co po a a
+P mi ion
+
+v a in incom a on amo i a ion of in angib a i ing f om ac i i ion
+a chang on non nd ying a ib
+an ac ion , in g a ion and imi a co
+h
+
+. f c h impac of chang in h a a app i d o h p on on of h o p p n ion ch m .
+
+[[PAGE:18]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+On AEPS, I think it is worth taking a slightly longer-term view given the noise from year to
+year from FX. Here you can see that over the last three years, AEPS has grown 26% or a
+compound rate of 8%.
+ha ’ a bi ah ad of o ganic v n g ow h of . -7%.
+
+Ad d a ning p ha
+
+[[PAGE:19]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+Now looking at non-underlying items, which are similar in nature to previous years, and for
+the most part relate to Refinitiv.
+We remain on track for total integration costs across capex and opex of around £1.4 billion
+by the end of next year.
+As you know, we have already reached our cost synergy target a couple of years ahead of
+plan, and we are well set for revenue synergies.
+
+on nd ying i m fini iv in g a ion co acking a p c d
+m
+
+an ac ion co c di co
+In g a ion, pa a ion c ing co
+P ofi on di po a m a m n gain
+D p cia ion, amo i a ion impai m n of in angib and o h a
+
+mo y a d
+o h in g a ion of fini iv
+
+inc d i m a ing o h a
+of ma b in wi hin i k In ig nc
+
+a g y
+cogni d on h ac i i ion of fini iv
+
+[[PAGE:20]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+’ n o ca h f ow now. W aw a big p p in op a ing ca h f ow, g n a ing ov
+£300 million more year-on-year. Net taxes paid optically increased by about £150 million
+reaching £203 million.
+There are two reasons for such an increase: first, H1 2023 is exceptionally low due to a
+rebate we got last year, and second our UK business is now moving into statutory profit.
+Capex came in at £454 million, slightly below last year and fully in line with our full year
+guidance that capex will be 11-12% of revenue. We have a good line of sight to that number
+coming down in 2025 and beyond.
+Putting those movements together, equity free cash flow shows a strong growth of 29%
+year-on-year.
+
+igh y ca h g n a iv b in mod ong f ca h f ow
+. Inc d divid nd c iv d, divid nd paid o non con o ing in and a commi ion paid.
+P mi ion
+
+in
+a paid
+ap
+h i m
+
+[[PAGE:21]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+We have continued to be very active in our allocation of cash as well, as you can see from
+the next slide.
+We have just talked about capex. Next is the dividend, with the interim dividend increasing
+15% to 41 pence. As you know, we have slightly tweaked our policy here – the interim will
+represent around one third of the full-year dividend, and our payout ratio remains between a
+third and 40% of AEPS.
+On M&A, total spend was just over £200 million. This relates to the acquisition of r8fin, and
+the buy-out of about 3% of the LCH minorities back in Q1. The acquisition of ICD completes
+shortly, with a consideration of $785 million, therefore impacting in H2.
+And as I mentioned already, we have deployed £1 billion in the first half on buybacks,
+playing our part in ack on ’ o d y i f om h gi . In o a w ’v now n d
+£2.5 billion via buybacks in the last two years.
+We ended the period with a leverage of 2x net debt to EBITDA, exactly in the middle of our
+guided range.
+
+D p oying o ong i y f ca h f ow fo g ow h and ha ho d n
+Divid nd m
+In im divid nd of . p, p .
+ha b yback . bn
+bn of b yback comp d in
+M A m
+o d fin ac i i ion and inc a d ak
+. p n m ca h divid nd paid in .
+
+[[PAGE:22]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+So to sum up, you can see from our performance in H1 that we are well set to deliver on our
+p omi f om a y a ’ Capital Markets day.
+We see revenue in the mid to high single digits organic growth range, accelerating after this
+year. We see that acceleration coming from a number of sources, reflecting how we have
+been investing across LSEG.
+Our EBITDA margin will increase over time. We have structural levers here which will
+support this expansion while still leaving plenty of room for growth investment.
+As I mentioned just now, capex will fall as a % of revenue from its current elevated levels.
+And finally we are confident of very strong cash conversion.
+Now let me hand back to David to talk about our strategic and operational progress.
+
+M di m m g idanc
+acc a ing g ow h, good ca h conv ion
+
+Mid o high ing
+digi o ganic
+g ow h ann a y,
+acc a ing
+af
+
+nd ying
+ma gin o inc a
+ov im
+
+main a o nd
+c n v of
+of incom
+in , h n
+d c ining ov im
+o high ing digi
+of incom
+
+m a iv f
+ca h f ow o
+c dad d
+p ofi af a
+a ib ab o
+i y ho d
+
+. o a cap A and fini iv in g a ion a d cap .
+. o a incom c ding cov i .
+
+[[PAGE:23]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+Thank you, MAP.
+
+ong comm cia , a gic and financia p og
+David chwimm ,
+
+[[PAGE:24]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+I’m going o p nd h n f w min giving yo om of h high igh of o comm cia
+progress, the investments we are making to drive growth, and our partnership with Microsoft.
+
+. Acc a ing g ow h wi h Mic o of
+D iving g ow h ac o o b in
+D iv ing ong comm cia , a gic and financia p og in
+. ong comm cia p og
+.
+
+[[PAGE:25]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+At our Capital Markets Day in November last year I highlighted how the breadth of our
+business is a key competitive differentiator. With products and services along the whole
+trade lifecycle, across multiple asset classes and with global reach, we are a natural partner
+to large banks and asset managers.
+Enterprise agreements are a great example of this competitive advantage. These bespoke,
+multi-year agreements with our largest customers give access to a broad selection of our
+products and services in a single contract.
+W ’v a k d o yo b fo abo how i ha ng h n d a ion hip wi h ma o
+institutions like Barclays and HSBC.
+By removing barriers to consumption and giving certainty on cost, these agreements drive
+improvement in customer engagement and satisfaction.
+So, h a g a fo c om and a o good fo . W ’v n a p-change in growth
+from these major accounts, as well as growth in our wallet-share.
+
+a g d of n p i ag m n
+. ompa i on of y A b fo and af imp m n a ion of an n p i wid ag m n .
+. of c om co ing a a o of . v y cond c d mon h af igning an n p i wid ag m n v . v y p io o igning.
+. b c ip ion v n f om D A, and i k In ig nc d in ca c a ion of h A g ow h m ic
+
+pok , c om c n ic
+ag m n
+App oaching of
+b c ip ion v n
+
+bp acc a ion in
+v n g ow h
+a ma o i y imm dia y
+acc iv o v n
+
+v a a i fac ion
+P od c a i fac ion
+
+[[PAGE:26]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+W ’ a o foc d on how o ca can b v o ma c om , n ing a
+consistent experience and more efficient delivery.
+We opened four new service hubs and migrated an additional two thousand customers in
+H1. One quarter of our customers are now served from these locations.
+Through technology and process improvements we are raising service levels and outcomes
+for smaller customers. To give just one example, our new AI-based Question and Answer
+tool is helping us answer customer queries up to 70% more quickly, and can be applied to
+60% of all incoming queries. And, as we train it on the almost 3,000 queries a day we
+receive, it will continue to get better.
+In H1 we added new Risk Intelligence services to our ecommerce platform, which offers
+smaller customers a self-serve capability for the first time. We will add further products to the
+platform in the second half and beyond.
+
+ca ing how w v o ma c om
+
+panding off ing n w i k In ig nc
+vic add d in
+Q ick a conv ion ho a
+cyc v . adi iona chann
+oad c om ach i , a gy,
+ga , con an , ogi ic , co po a
+
+p imi ing d iv y n w g oba c om
+vic h b add d in , aking o a o
+Mig a ing c om k c om
+an i ion d o h b in o a now k
+D p oying chno ogy n w AI oo o ving
+c om i fa
+
+[[PAGE:27]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+We continue to keep a close eye on the sales environment. In a business as diversified as
+ours, with our size and breadth, there will always be puts and takes but the overall trend
+here is consistent with what we shared at the full year – no change to the length of our sales
+cycle, average deal size or win rates – and we have seen encouraging growth in our sales
+pipeline, which we expect to support our sales performance in H2 and beyond.
+
+ab a cyc and nd ma k d mand
+
+[[PAGE:28]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+In h n f w id , I’ o in om of wha w a doing o acc a ’ g ow h.
+Starting with our Data & Feeds business on slide 27. This business is built on the superior
+richness, breadth and depth of our data and the power of our distribution. And we are
+investing in both.
+v h a h and a ha f y a w ’v pand d o fi d incom co po a ac ion da a
+10-fold.
+inc ac i ing fini iv w ’v do b d h n mb of compani cov d by o da a
+and increased the number of metrics four-fold. And we have expanded our private markets
+coverage by 80%.
+At the same time as we are growing the breadth of our data, we have also improved its
+quality – cutting in half the number of data corrections over the last 18 months. This
+continuing investment in data scale and quality is driving growth and share gains in our
+Pricing and Reference business.
+W ’ a o foc d on making i a i fo c om o con m o da a in way ha wo k
+for them – meeting them where they want to be. When we make it easier for customers to
+access our datasets and gain insights from them, the usage and value of our data increases.
+We are investing from a position of strength in Real-Time data, where we are the global
+leader. We significantly expanded the footprint of our low latency business in H1, adding
+new feeds from over 70 venues to an offering that was already unmatched by peers.
+We also launched cloud distribution of our full tick Real-Time offering – meeting a need from
+compliance, risk and market surveillance teams for comprehensive full tick data, but with the
+ease of cloud distribution.
+ng h ning o advan ag in Da a d
+fo d inc a in d b co po a ac ion
+da a v n ac o k c i i
+cov ag do b d k compani ,
+inc a in m ic
+inc a in p iva company
+cov ag m n i i
+Inv ing in P icing and f nc vic panding a im di ib ion
+Ind y ading ow a ncy off ing ov
+n w f d add d in
+a im di ib ion of f ick da a via
+h c o d
+nhanc d ad w b a im da a
+a nch d in , i i ing ind y
+anda d da a a chi c
+. pan ion of da a inc comp ion of fini iv ac i i ion in Jan .
+
+[[PAGE:29]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+Turning to Workflows, th o y h i g ing b and b . h imp ov m n w ’v
+made over the last few years are having a real impact.
+’ ook a wo p cific g o p of bank and a manag
+Our offering to Bankers saw another step-change in H1, as we integrated deals and security
+ownership data – both previously hosted on separate LSEG platforms. We also integrated
+third-party presentation tools from Macabacus, a key workflow requirement of many junior
+bankers.
+Workspace already had a strong news offering, with exclusive distribution of Reuters
+content. The multi-year agreement we signed with Dow Jones a month ago takes this to the
+next level, giving Workspace an unparalleled offering.
+As part of this partnership, Dow Jones will benefit from access to our data sets and
+Workspace, making our deals data and league tables the default source in Wall Street
+Journal reporting and driving further appetite in the banking community for our products.
+For asset managers our end-to- nd off ing i now a a diff n ia o . W ’v in g a d o
+multi-asset class order and execution management services, and the FX trading capabilities
+of FXall and Advanced Dealing, into Workspace.
+This allows users to remain in Workspace while they seek liquidity, and then execute and
+manage their trades. A much neater, more seamless workflow that is helping drive
+displacements.
+
+nhancing h Wo k pac p i nc
+A p chang in f nc iona i y fo
+In g a ion of o co po a d a and c i y
+own hip da a
+ompa ibi i y wi h hi d pa y p n a ion oo
+Dow Jon pa n hip
+
+Wo k pac
+pda in
+
+Inc a in
+n ion a y
+A comp ing nd o nd o ion fo
+Addi ion of o o d and c ion
+manag m n oo
+In g a ion of a and Advanc d D a ing
+ompa ibi i y wi h ind y anda d
+chno ogy p o oco
+
+Inc a in p ima y
+ag v . ikon
+
+. ompa i on of Wo k pac v . ikon , ba d on D c c om v y. p n a ion fo f da a.
+
+[[PAGE:30]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+We have a powerful Analytics offering with around 300 models across a broad range of
+asset classes. But our offering has been fragmented across a variety of distribution platforms
+and user interfaces, making it hard for customers to find or access many of our analytics.
+In H1 we launched a single, consolidated distribution channel, via API. This makes it much
+quicker and easier for customers to connect with LSEG and find the analytics they need. The
+customer experience is further enhanced by real time updates and seamless distribution to
+data lakes and other customer locations.
+It is also an approach that makes it much easier to build AI solutions on top of our analytics
+tools.
+
+inging pow f imp ici y and ca o Ana y ic
+
+[[PAGE:31]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+Not only are we improving specific products, but we are getting better at combining them to
+build end-to-end solutions that mirror a c om ’ wo kf ow. m giv yo an amp
+from an Asia Pacific asset management customer.
+First, we combined our portfolio management tools and our Workspace desktop to create a
+ing pac fo h c om ’ ad o moni o h i po fo io in a im and p o
+pre-trade data, news and analytics.
+We then extended this seamless experience to the point of trade through a combination of
+our order and execution management tools and our trade routing capabilities.
+In the past, these have been positioned as discrete offerings – hence the product names on
+h id . y combining h m in o a ing o ion w ’v n ock d a pow f nd-to-end
+workflow that is really appealing to our customers. In this particular example, allowing us to
+replace four products from two competitors.
+This is something we now do on a regular basis.
+On the right hand side of slide 30 we show a selection of other customer wins from H1. Note
+h b oad ang of c om yp and g og aphi , and h va i y of p od c w ’
+selling. That really speaks to the breadth and strength of our end-to-end offering.
+
+D iv ing fo c om , di p acing comp i o
+
+A ian an f nd ompany wid adop ion of
+Wo kf ow , Da a d and
+Ana y ic o ion
+a g bank adop Wo k pac ,
+di p acing comp i o d k op
+ma k mak wi ching o a
+im vic , di p acing a comp i o
+ommodi i ading fi m adop Wo k pac ,
+di p acing comp i o d k op
+oba f nd admini a o Adop ing
+da a a h i ma da a
+op an w a h manag wi ching o
+Wo k pac , di p acing comp i o
+d k op
+giona bank In g a ing
+mo gag ana y ic o manag M i k
+
+am
+nd o nd
+off ing fo
+b y id
+Wo kf ow
+Di p acing
+fo comp i o
+p od c f om
+wo pa a
+p ovid
+
+[[PAGE:32]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+
+Moving to Tradeweb, which had another good half. The business sits at the heart of multiple
+strong growth vectors.
+
+T ad w b’ innova ion in n w ading p o oco and c ion oo ik Po fo io ading i
+aiding the electronification of interest rate and credit markets. As this trading evolves, it
+creates the need for new risk management tools, which Tradeweb is meeting with its
+automated pricing engine and similar innovations.
+
+More sophisticated performance and risk management is driving demand for more data and
+insights. Armed with all of these tools, new market segments, asset classes and
+geographies are opening up to electronic execution.
+
+We work with Tradeweb across every part of this industry cycle -- from the benefits of
+integrating FXall with the Tradeweb platform, to the UK and European government bond
+price benchmarks FTSE Russell is providing to Tradeweb, through to the comprehensive
+distribution of Tradeweb data by our Data & Feeds business.
+
+This a great example of our focus on partnership, and the power of our end-to-end business
+mod . W ’ i in h a y ag of a i ing o f po n ia h .
+
+ad w b pow ing an ind y g ow h f ywh
+Mod ni ingma k Imp oving i k manag m n
+nhancing in igh p ning n w ma k
+w ading p o oco , .g. Po fo io ading,
+M
+nhanc d a oma ion oo , .g. Ai
+o po a a .g. I D
+m ging Ma k
+nchma k p icing ac o , o on
+and gov . bond
+A p icing oo fo fi d incom
+an ac ion o Ana y i
+AiP ic
+
+. fo Ma k i a im an o wo way p icing and o vic .
+. A oma d In ig n c ion.
+. A oma d In ig n P icing ngin fo fi d incom c i i .
+
+[[PAGE:33]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+Post Trade is another area where we are working in partnership, in this case, with the
+industry, to transform financial markets infrastructure.
+We continue to grow our core clearing business, adding new Swapclear members,
+expanding CDS clearing in the US, taking share in repos, and working with partners such as
+FMX to offer cross-margin benefits to customers in the futures space.
+But the industry is also demanding common standards and greater capital efficiency in the
+other half of this pie chart – the uncleared space. In the first half we added five banks to our
+Smart Clearing service, helping to optimise their capital and margin in FX forwards. We
+continue to work closely with other industry partners to build out our broader suite of Post
+Trade Solutions, providing trade compression and optimisation, risk management, margining
+and collateral services across the uncleared markets.
+Together, these businesses offer a full suite of services to manage risk and capital efficiency
+across the whole OTC market, i.e. c a d and nc a d. o w ’ ff c iv y do b ing o
+market opportunity.
+
+M i y a g ow h po n ia in Po ad
+
+. ac i i ion of . of d c o d in Ma ch , own d . p io o hi .
+. I da a fo D c , g o ma k va of d iva iv .
+
+P ing c om n d fo
+o ion o ac g a o y and
+capi a d iv n p
+ppo ni y imi a in i o
+c a d pac
+in m n wi h n g o
+ma k va c n y nc a d
+
+h fo d inc a in
+v n m v .
+m in
+I DA ma gin do b d
+in v . in
+i fo d inc a in op a ing
+p ofi in v . m in
+a d nc a d
+n
+
+[[PAGE:34]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+ow, ’ n o o pa n hip wi h Mic o of . I’ giv yo an pda on o p og wi h
+the integration of Workspace with Teams and Office365 in a moment, but first I want to give
+you some insight into the products we are building in the Data & Feeds space.
+oday, i ’ ha d han i ho d b fo o c om o o da a. h a m ip
+datasets and multiple distribution channels, often based on complex underlying technology.
+And this is true across the industry.
+This can make it hard to isolate the data you need, or combine it with other data. Sometimes
+you might not even know what data is available.
+ho a h i w a add ing wi h h Da a a a vic , o Daa , p od c w ’
+be rolling out from the second half.
+We will host our key datasets in a single cloud-based platform with a single catalogue to help
+customers find what they need. They will have a single, common data structure and be
+accessible through a variety of channels, with the option to use the data on our platform or to
+export it to their own data lake.
+By removing many of the obstacles to consumption of our data, we make it easier for our
+customers to use a lot more of it.
+
+a nching n w da a vic in
+
+Acc o h f b ad h
+of o da a f om a ing c o d
+ba d a chi c
+
+n ind y no m
+a d o find da a
+Diff ing acc poin
+b w n da a
+Da a f agm n d ac o
+p od c
+ignifican c om b n fi
+p chang in da a di cov abi i y
+om ffici nci in acc ing
+and o gani ingda a
+ppo ing p a ab , ca ab
+c om p oc
+D iv ing o da a wh
+c om wan i
+
+[[PAGE:35]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+The initial launch will cover 8 of our datasets, including company fundamentals and ESG
+data. We will continue to expand the service from here, and by the end of next year we
+expect many of our most popular datasets to be live on the platform.
+The capabilities we are introducing are revolutionary for our industry and will change how
+people discover, access and maintain our data.
+We know how helpful you have found the demo videos that w ’v a d in nd anding
+the new product capabilities we are building. However, watching someone find and
+manip a da a do n’ mak fo a pa ic a y ngaging vid o. o ho of yo who
+are interested, we do have that demo video on our website.
+We know there is a lot of interest in the integration of Workspace with Microsoft Teams and
+Office365 products.
+So we thought you might like to see an update on that experience, with a particular focus on
+the way Open Directory will open up communication across our industry and the increased
+insights provided by embedded co-pilots and natural language search and prompts. This is
+very much a prototype at this stage, but gives you a good idea of where we are heading.
+’ wa ch h vid o.
+
+[VIDEO PLAYS]
+
+Many of o k y da a avai ab via Daa ov h n mon h
+
+A mig a d da a
+Di cov yvia w b
+app ica ion, ab ic p a fo m
+o a p op i a y oo
+Di ib ionvia yab
+da aba o b k d iv y
+nboa d d by nd
+omp d onboa ding
+
+h pan ionwi h ano h
+da a add d in
+con in ing pan ion h af
+Innova ingwi h addi iona da a
+manag m n oo f om
+
+[[PAGE:36]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+
+What you saw there, was the power that comes from combining our data and insights and
+Mic o of ’ p od c ivi y oo , wi h innova ion ik p n Di c o y and AI co-pilots.
+
+Augmentation with smart alerts and natural language helps users find the content they need,
+quickly.
+
+Interoperability allows users to move seamlessly between applications, removing points of
+friction and frustration from their Workflow.
+
+And by mb dding ha ing and m aging oo ik p n Di c o y w op n p o ’
+workflow, powering whole communities through closer collaboration.
+
+[[PAGE:37]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+W g a k d a o how w ’ going o mon i h p od c w ’ d v oping wi h
+Microsoft.
+The commercial framework remains unchanged: we get paid when customers consume our
+data or use our workflow, our intellectual property, and Microsoft gets paid for consumption
+of its IP and cloud services.
+How we apply that framework will look different from product to product. Where we are
+making an existing product better and more powerful, such as Workspace with the addition
+of Open Directory and Meeting Prep and other features, we will look to ensure we share in
+the value we are creating for customers.
+In other areas such as DaaS, or Data as a Service, we expect to benefit from greater
+consumption of our data.
+And fo om p od c w ’ cha g a pa a ic nc f .
+With more powerful products and broader capabilities, we will also look to take share and
+expand our addressable market over time
+
+da a
+in c a p op y and p od c
+
+I in c a p op y and p od c
+I c o d vic
+
+.g. M ing P p, p n Di c o y
+nhancing va of Wo k pac
+
+.g. Da a a a vic Daa
+ib a ing c n da a
+
+M ip m an of mon i a ion
+
+[[PAGE:38]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+
+So, to wrap up, a really good first-half for LSEG. We delivered strong growth and margin
+expansion, and returned £1.4bn to shareholders. We continue to innovate to strengthen our
+o ion ac o h b in , and w ’ making good p og in o pa n hip with
+Microsoft, where we expect our first commercial launches in the second half.
+
+I f v y good abo h p og w ’ making on o an fo ma ion and h h a hy
+momentum in the business.
+
+ow w ’ v y happy o ak yo ion , which P g in wi mod a .
+
+ong comm cia , a gic and financia p og
+
+[[PAGE:39]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Peregrine Riviere:
+Thanks David – operator please can you open the line to questions now. Thank you.
+
+Tom Mills (Jefferies):
+Hey, good morning, guys. Thanks for taking my questions. Just starting with a boring
+question. I know you're keen for people not to obsess around quarterly movements in ASV
+growth rates, which makes sense. Clearly, the 6.4% is a strong print. I get what you're
+saying around more CS headwinds to come in 2H, and sticking with 6% or around 6% guide.
+Could you just remind us though what the residual headwinds come through related is, and
+do you expect to be materially complete by year-end, any kind of quarterly lumpiness to
+expect?
+And then yeah, it's great to see the displacements coming through in desktop. I guess we've
+seen some of your competitors in that space appear to be responding to your strong position
+by tooling up their own capabilities, thinking of say S&P buying Alpha. Beyond the Microsoft
+partnership, you're clearly not standing still, you've done the Dow Jones partnership. And
+there are other mutually beneficial partnerships that you're exploring further enhance your
+data and analytics offering at minimal capital outlay.
+And then conversely on the M&A side, I guess you were, press-speculated to be in the
+bidding process for Preqin, and I guess one of your larger customers ended up winning out
+there. I'm curious though, is that the sort of asset that appeals to you, particularly thinking
+about the private markets aspect of it and was it simply price that didn't work in that
+occasion. Thanks very much.
+
+Q A
+
+[[PAGE:40]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+Great, Tom, thanks, MAP will take your first question on ASV. And then I'm happy to touch
+on the second and third.
+
+Michel-Alain Proch:
+Yeah, hi, Tom. So on ASV obviously, we're satisfied with the 6.4% for Q2, an acceleration of
+40 bps to Q1. We remain with circa 6% for the entire year. And that's mostly coming from the
+fact that to answer more precisely the impact on Credit Suisse. In this second quarter, we
+didn't have much of an impact.
+Actually, we were expecting more and it's actually more weighted towards H2. So as of now,
+we've said that the impact will be in total 100 bps on ASV on the former D&A scope,
+meaning D&A, Risk Intelligence, and FTSE Russell.
+We have 50% of that, you know about 50 bps, which are behind us. And 50 bps which are in
+front of us. Now the question is, are these 50 bps going completely to materialise into H2 or
+maybe H2 and a bit in H1 2025, I don't know, we'll see.
+And that's the reason why we keep you this this guidance at around 6% for the year on ASV.
+But I think about the Credit Suisse thing, I would just add, the Credit Suisse we're saying, I
+would just add a very positive message is that if you put that aside, we were satisfied with
+the number of net installs that we've done during this second quarter, David.
+
+David Schwimmer:
+Great. Thank you. And Tom, on your second question really around displacements and what
+our competitors might be doing, hard to speculate on what our competitors might be doing.
+We see some announcements and hear some things in the market, and of course, it
+continues to be a competitive space, no one's rolling over.
+But what you are seeing and when the reason we're talking about displacements is that we
+have seen this really picking up a bit over the last few quarters. We are making a lot of
+different changes, a lot of different improvements, a lot of investments. We talked at the full
+year about all the changes we had made in Workspace last year, more than a change a day.
+that's continuing. That pace continues in this first half, and we are constantly improving that
+product.
+And again, it's not just about Workspace. We're seeing displacements in terms of some of
+our analytics offerings. We're seeing it in terms of the Data & Feeds, and we're seeing it just
+really across the business. So we'll continue to invest in different areas. We'll continue to
+improve our product and we like how that is playing out.
+With respect to other partnerships beyond Dow Jones, we have a team, very good team that
+is focused, specifically on partnerships. And there's a lot that they do that you never hear
+about or don't come up in press releases, but that is, I would say, a consistent part of our
+model in terms of our open philosophy, our open access approach. And I think we partner
+very well and bring others into our distribution and take advantage of that and give them the
+benefits of that as well. So I think plenty more opportunity just in terms of taking advantage
+of that in the model.
+
+[[PAGE:41]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+And then on your last question on M&A, as you know, we don't comment on specific
+opportunities in the M&A markets, you should assume we look at everything. We do know
+the team at Preqin. I think they're a great team, great business, and certainly wish them very
+well.
+
+Enrico Bolzoni (JPMorgan Chase & Co):
+Hi, good morning. Thanks for taking my questions. So going back again to the
+displacements, can you give us any idea whether you saw these materialising more among
+those clients that signed a multi-year strategic partnership with you. So they are already to
+some extent, benefiting from very competitive pricing or actually if you're seeing it occurring
+also within some of the smaller clients, of course, the one you have not such a long
+contractual terms in place.
+And related to that, typically when you when you materialise these displacements, for how
+long the clients are locked in, so is this a one year renewal or actually you managed to sign
+them in for a multiyear period? So that's my first question.
+And the second question I wanted to ask you is again on monetisation of all the upcoming
+tools and innovation and functionalities that we are expecting. Can you just remind us of how
+actually you're going to monetise them? By that I mean, the existing contracts you have with
+clients, do they already embed the fact, the expectation that the product will improve and
+therefore, you have good visibility to that, at least, a portion of the revenues will be
+automatically generated. Or you think that once these products are available, they will
+require a strong commercial push, convince clients to sign up to those. And clearly, I mean,
+particularly referring to the Microsoft partnership.
+And then finally, just one question on the Post Trade opportunity, there has been a lot of
+speculation that FX clearing might at some point pick up again in light of the new regulation.
+Can you give us any update in terms of how you think this will evolve over the next 12
+months? Thank you.
+
+David Schwimmer:
+Thank you. Great, Enrico. Thank you. And let me make sure I'm keeping track of the three
+questions there. So I'll do the first one. MAP, why don't you take the second one? And I'll do
+the third one. Just with respect to displacements and you asked if it's the big enterprise
+customers in our LSEG data access agreements or smaller accounts. It's both.
+And I think if you have an enterprise type agreement with us, then it's certainly a very
+healthy incentive structure. And those are built around our providing a broader set of
+services to our customers and helping them reduce their overall costs, while we increase our
+wallet share. So what does that mean in practice? Displacements.
+But it's also with a lot of customers that don't have those kinds of agreements with us. And
+the specific example, we called out in the presentation this morning, the Asian asset
+manager, we don't have an enterprise agreement with them. That was where our sales team
+spent time with them, looked across the different capabilities they needed what they had that
+was currently in place and they realised we could do a much better job in terms of providing
+them an end-to-end offering. So it's really the short answer on that one. It's both.
+
+[[PAGE:42]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Same answer to the second part of your question there, whether it's one year or multi-year,
+some of these can just be a one year contract. Some of them can be multi-year. There tends
+to be in the data access arrangements, the enterprise arrangements, those tend to be multi-
+year. And so if it is in those, that nets us a strong correlation there with the multi-year
+timeframe. So I hope that helps on that. And then you want to take the monetisation part?
+Michel-Alain Proch:
+Sure. So on the monetisation, obviously as I've joined, I spent a lot of time on this with our
+D&A team and the Microsoft partnership. I think there are really three avenues of
+monetisation. The first one is price realisation. The second is an increased consumption.
+And the last one is new licenses.
+So if I go back a bit in each of them, price realisation is when we actually are enhancing the
+product, and enhancing the product is really relates to Workspace. Here we have -- we are
+bringing to the market Meeting Prep, we are bringing to the market Open Directory.
+You've seen in the video what can be done with our AI insight and natural language model.
+So all this is enhancement of this existing product and the price realisation is going to come
+maybe not so much about an increase of the listed price, but about a reduction of the
+discount that that we give to large clients.
+So first price realisation and that's going to happen around Workspace. The second venue is
+increased consumption and that's really about Data & Feeds. And I think there was a very
+valuable slide in the presentation related to this eight data sets that we are moving to Azure
+and Fabric, and which are going to be for the first time under one single roof, in which people
+are going to easily access the data, manipulate the data, merge the data with their own data,
+and obviously we think this is not going to come through an increase of prices, this is going
+to come through an increase of consumption. And that's mostly for Data & Feeds.
+And then obviously we'll have new licenses for new product. But that's it's a bit early to tell
+you more about this avenue.
+David Schwimmer:
+And then on your third question on FX clearing and thanks for the question on ForexClear
+because there's a lot going on there and it's actually going very well. So a couple of thoughts
+on that.
+First of all, the core business of ForexClear continues to do very well with growth in volumes,
+new members coming in, et cetera. Then I think it's important to touch a little bit on a
+relatively new offering that we have that's really gotten traction, we call this Smart Clearing.
+And so you may recall that over the past couple of years, we have talked about the incentive
+for clearing of products due to the uncleared margin rule. And the aspect of the uncleared
+margin rules is that it does not force clearing, but it makes it -- it provides a financial
+incentive for parties that are -- counterparties that are in a bilateral contract, they get a
+collateral efficiency if they do clear.
+That only applies to a roughly 7% or so of the broader FX market. So not a huge push into
+clearing, but what we've seen now is that with the SA-CCR regulations that creates a
+roughly 3 to 4 times increase in the amount of capital that banks and the trading
+counterparties have to hold against their FX positions. And so we have this offering, we've
+got smart clearing and basically our members will put their positions through our optimisation
+engine. And that will tell them what should be cleared and what should be going through our
+SwapAgent service and it provides them, I'll spare you the details right now, but it provides
+
+[[PAGE:43]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+them with very significant capital efficiencies. And so we're seeing good growth in that area
+as well. So now that's a bright spot within what is a very broad and strong franchise in Post
+Trade.
+
+Kyle Voigt (Keefe, Bruyette, & Woods):
+Hi, good morning. Maybe I'll switch gears and kind of move to EBITDA margins. My first
+question, so you generated 50 basis points of margin expansion year on year on a core
+basis, which is good to see. At your Capital Markets Day last year, I think you laid out a
+pathway to get into that 50%-plus range over the medium term on EBITDA margins, I guess
+can you help us think about the pacing of margin expansion from here. Is it fair to think that
+this margin expansion will reaccelerate from the current 50 basis point improvement level as
+ASV growth reaccelerates into 2025?
+And then I just want to follow up and circle back on some of the Workflow commentary and
+just the strongest net new sales quarter for Workflow in years and Workspace specifically. I
+guess when we were talking about these displacements, can you just kind of help us kind of
+simplify what is really resonating with these clients in terms of the value proposition? Is it
+price? Is it interface? Is it the data sets that are available? If you can kind of help us rank
+order kind of what's most important for some of these clients as we're thinking about
+additional displacements that we could start to see in coming quarters and years?
+
+David Schwimmer:
+Thanks, Kyle. MAP will take your first question. I'm happy to talk about the second one.
+
+Michel-Alain Proch:
+Sure. So you mean on the EBITDA margin. Let me first tell you that I'm satisfied with this
+improvement of you know, the underlying improvement of 50 bps on the semester. I think
+we've been quite, quite clear about the different levers we are using, obviously I can come
+back to it, but you know in a nutshell, you've got also the resource cost equation that we are
+managing and the non-personnel cost.
+I think on both we have strong levers, which obviously are different, to improve margin. And
+in terms of improvement of margin, as you may remember, our guidance that the margin will
+improve over time, the only thing I would add to this is that I'm comfortable with what the
+consensus is in this regard.
+
+David Schwimmer:
+So Kyle, on your second question on what's resonating with Workflow and the
+displacements. It's a lot of different things. And so maybe where I should start, and we
+haven't really touched on this much so far, but the migration to Workspace has gone very
+well and continues to go very well. And we're on track there to be substantially complete with
+that kind of going into 2025. And Workspace is a really good product and we continue to
+improve it, so sort of almost maybe an improvement a day or even more than that.
+
+[[PAGE:44]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+And then on top of that, we're putting more and more into the Workspace interface. And so a
+couple of examples, in the past, our deals information was in a separate product, you could
+not access it through Eikon and certainly this was in the era before Workspace.
+Similarly, we are now integrating FXall access into Workspace. Then we've gotten a great
+reception to what the partnership with Dow Jones and the notion of our customers being
+able to access Reuters and Dow Jones content as well as to thousands of other elements of
+news content that we have is very appealing and very attractive.
+And so it's just a lot of different things. There's no one item that is clinching it in most cases,
+it's just a confluence of improvements. It's improvement in the data, it's improvement in the
+interface, and our price is appropriate. So you put all those together and we're having a
+really good traction.
+
+Hubert Lam (BofA Securities)
+Hi, everyone. Thank you for taking my questions. I've got three of them. Firstly, how should
+we think about the phasing of revenue growth in 2025? You said most of your products are
+coming online at the end of this year, so probably expected, not all pickup the revenue
+growth immediately at the start of the year. So just wondering how should we think about the
+progress throughout 2025, the revenue growth guidance?
+Secondly, on private market data, how do you view your data capabilities within private
+markets? I know you said you're increasing coverage, but are you satisfied with your
+coverage today within private markets? Are you satisfied with your data sets there? And if
+you want to grow it, would you think about it organically? Or would you consider that to be an
+area of potential area for inorganic growth.
+And lastly, just again on M&A outlook, and I know you haven't done any deals recently, but
+how do you view the M&A market today? Are you seeing things that are interesting out
+there? And just given your strong free cash flow, how do you weigh that against potential
+you to do more buybacks? Thank you.
+
+David Schwimmer:
+Got it. Hubert, thank you. MAP will touch on that phasing question, number one, I'll take the
+other two.
+
+Michel-Alain Proch:
+Yeah. So on the phasing question, I mean, I go back to what we've said at the CMD, the
+revenue growth will accelerate after 2024. Maybe there is a couple of elements of colour that
+I can bring to this. You see that in this year, we have our Post Trade business, which is
+posting a stable growth due to a certain number of headwinds that we already described.
+I think that obviously going in 2025 that will help this acceleration. In the other way around
+on our D&A division, you see the progress we are doing on our two major subdivision, which
+is D&A and Workspace. We've been relatively detailed about that. And this monetisation that
+we're talking about will begin. Yet still slowly, but we'll begin in 2025, but even more so in
+2026. So I think that's the different element of this whole new planning.
+
+[[PAGE:45]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+And on private market data, as we mentioned earlier, we have increased our coverage of
+private companies, about 80% or so. And this was, I'll say, a gap when we acquired the
+Refinitiv business and we've made really good progress with it.
+I think you asked if I was satisfied with it, we're never really satisfied. There's a lot have
+growth going on in many different parts of our industry. And when you think about data and
+data sets, we're always trying to improve things. We're always investing in different areas.
+So you should expect to see us continuing to invest in this dataset and in other ones.
+I think on the M&A market broadly, well, I'm not sure I would say anything's particularly
+different, we will continue to evaluate opportunities. You've seen us do I think six or so of
+bolt-on transactions over the last few years. And we always tried to remain both strategically
+and financially disciplined. It's got to make sense for us strategically, it's got to make sense
+for us financially. But this is a business that, as you know, generates a lot of cash flow.
+We've got great internal investment opportunities, and we are continuing to pursue those,
+but we will evaluate the M&A opportunities as we see them.
+
+Russell Quelch (Redburn Atlantic):
+Hi, thanks for having me on. My first question is around the ASV. I guess there's some
+headwinds to come, particularly in the second half still, but when we think about that metric
+perhaps going into '25, the first half of '25, do you expect that to step up as some of these
+customer discount windows close, the CS/UBS impact is annualised, and then we should
+see an upsizing of some of these contracts that you've already booked. So should we see in
+this a material step up as soon as sort of Q1 of '25? That's first question.
+Second question is around the DaaS product that you've helpfully laid out in the
+presentation. Sounds like very much a consulting service built around the existing data sets.
+And I think you said you won't necessarily charge a discrete amount for the product, but
+more around greater use of data. I was wondering if you can talk more about the size of the
+revenue opportunity and maybe elaborate a bit more as to what MAP was about to say in
+that last question, when do you think that will start to really kick in?
+And if I can squeeze one more just around the costs, and obviously, a good and helpful
+break down the costs, the IT costs coming in much lower in terms of growth than some of
+your peers. And you've hinted a few times around the opportunities for further optimisation of
+staff costs. So maybe you could elaborate a bit more as to what you could do around future
+staff costs to drive sort of greater jaws in the business. Thanks.
+
+David Schwimmer:
+Thanks, Russell, I'll take your first two and then MAP can touch on your cost question.
+So we're not going to give any new guidance today on ASV. I think MAP has been very clear
+that we're comfortable with our guidance, really on all aspects of our guidance. That does
+talk about our revenue growth improving in future years, but no specific comments around
+ASV.
+And then on the second question, again, no specific comments on the size of the revenue
+opportunity. And when that's kicking in, we see meaningful opportunity on all the different
+
+[[PAGE:46]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+aspects of what we're working on in terms of our partnership with Microsoft. We're also
+making really good progress with the investments we're making in other parts of the
+business, and you'll see that in 2025. And I think the way that we report our numbers now
+should make it very clear in terms of in Data & Analytics, you have the Workflow line, you
+have the Data & Feeds line, you have the Analytics line. And so you'll see in each of these
+areas what's coming through in '25 and beyond. And as MAP said, we expect that to come in
+over time.
+
+Michel-Alain Proch:
+Yeah, maybe on cost, I think in the presentation we try to be as transparent as possible on
+the entire cost base of the company because that's the way I look at it. And you know in the
+in the last six months, I've tried to put my arms around it, putting in place reinforced cost
+control, which is really a question of process and discipline. And I have reinforced both with
+the business division and the function. So that's more in term of process.
+But when I look at the nature of course to answer your question, again it's, I really look at it
+in two parts. There is a resource equation by itself, and when I'm saying resources, I'm
+talking about our own staff plus our external contractors, which are on time and material and
+our external contractors which are on fixed price. To me that the total of -- and you see the
+total of this resource equation, you see this in the cost base in two different lines, which is
+staff cost and third-party services.
+So here, the overall idea in the years to come is to have a total of these two lines decreasing
+in percentage of income, over time. To achieve this there are several levers, I mean there is
+one which I mentioned into my script, which is we are implementing a massive in-sourcing of
+our engineering external capabilities. I'm doing this right now with Irfan, our global CIO in
+order to improve our cost and to improve the quality of our engineering. It's both things.
+The second level is really about pivoting the mix of our resources from our high cost location
+to our global delivery and excellence centres. And the third lever if you want is what I call de-
+layering. So what I mean by this is establishing a linear organisation with a reduction of legal
+entities, I mean the playbook of all this is well known. It's not rocket science. It requires
+discipline and attention. And I think we have both.
+Then David mentioned in the script, we are already moving into AI, into automation. We
+have another lever which we haven't materialised yet, we're working on it, but it's not yet into
+the number. It will be more in '25 and '26, which is automation on our content ingestion,
+which is an important point, and then our customer operation centre. But that's not for this
+year. So in a nutshell, that's on the resource equation.
+Maybe just one word quickly on the non-personnel cost in which you've pinpointed rightly,
+the IT cost. So here you have really the cost of running the group infrastructure, it goes from
+the IT cost to the property to the cost of living. So here the levers are different, but on IT
+what I want to mention is that we are engaged in a full optimisation of our IT infrastructure
+cost moving into a multi-cloud environment and obviously Azure playing a key role in there.
+On the property side, we are constantly carrying on adapting our footprint in order to adapt
+the company to a more hybrid way of working. And for our cost of living, obviously we are
+prioritising travels to client meeting and having internal meeting being by default Teams
+meeting. So you see that's different levers that are addressing these two buckets. Of course,
+
+[[PAGE:47]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+I apologise I've been a bit long, but I wanted to give you some colours about the cost base
+and the way to optimise it.
+
+Arnaud Giblat (BNP Paribas Exane):
+Yeah, good morning. I've got a few follow-up questions, please. Firstly sorry to come back,
+but on M&A, I'm just wondering if you could comment a bit about your views on the pricing of
+recent transactions and whether you've been -- perhaps if pricing, if you see that's a bit too
+aggressive, I'm just wondering around that.
+Second question is on LCH. Cash balances have come down. What's the outlook there?
+And finally, in terms of the D&A growth or the growth in Data & Analytics and ASV, I'm just
+wondering if you could break down for us or give us a bit more colour around how that's
+broken out in terms of market share gains, pricing, retention, other, just to get a bit of flavour
+as to how those dynamics are working out there. Thank you.
+
+David Schwimmer:
+Okay. Hi, Arnaud. So not sure I can really comment on any of the M&A pricing out there, I
+think that from our perspective, as I've said in the past, we want to be both strategically
+disciplined and what I mean by that is that we have great opportunities within LSEG, within
+our existing businesses. So we don't need to go out there and find something to buy to drive
+more growth. It has to really make sense for us. So that gives us the opportunity to be really
+strategically disciplined and look for things that really make sense for us.
+And then financially disciplined, we want to be very good stewards of the capital that we earn
+and that our shareholders entrust us with. And so when we are looking at M&A, we're
+thinking about return on the invested capital. It has to make strategic sense. It has to make
+financial sense.
+I think like there's been some speculation or some commentary on some of the deals that
+have been printed out there. And I'll say the very rich prices and the acquirers, though they'll
+be making their own assumptions about what kinds of returns they can handle, what kinds of
+synergies they might have, what the strategic opportunities are, but I'm not sure I can really
+comment on anything specifically.
+LCH cash balances, as you know, that goes up and down depending on volatility in the
+market. One thing that we have seen over the past few months is that a number of our
+members have really, I'll use the word optimised, from their perspective, their collateral, and
+moving over time from cash collateral into non-cash, i.e., securities. And that's a little bit
+more economically attractive for them. But then when you see volatility in the markets, when
+you see a lot of significant moves or collateral calls, then they tend to put more in cash. So
+that tends to be the driver. And one other element with respect to cash balances is that we
+are seeing a modest reduction in the cash balances as the Euronext business moves away.
+And so that's just more of a one-time aspect.
+And then on the D&A growth question and where that's coming from, again, I wish I could
+give you more specificity, but it's sort of all of the above in terms of some of it is market
+share, some of it is pricing, some of it is new products, gross new sales. And again, there's
+no one lever that we are pulling to drive the improvement in our performance or to drive our
+
+[[PAGE:48]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+growth. This is something and you all shouldn't be surprised by this, this is the same story
+we've been talking about for the last 3.5 years, we are investing across our product estate.
+We are focused on our sales team and getting the sales incentives right. We're focused on
+our customer service. I could go on, a lot of the different initiatives that we've been talking
+about for the last few years, and they're all having an impact. And that's why we're seeing
+the continuing improvement in the performance, and just to put it very simply, the strategy is
+working and the execution is working.
+
+Oliver Carruthers (Goldman Sachs):
+Hi, there. Oliver Carruthers from Goldman. Two questions I'll ask. I know you flagged that we
+should see a step-up in the FTSE Russell subscription growth this quarter, but it seems to
+have come in ahead of expectations. So it would be good to understand what drove this
+pickup and how we should think about the forward from here.
+And then second question for MAP, I think slide 13 on operating leverage is interesting,
+particularly showing the staff and IT costs as a percentage of revenues. And it sounds like
+you're looking to drive down both ratios, lower overtime. But on one of the strategic cost
+initiatives you've been talking about where you're looking to in-source external technology
+contracts, how far through this exercise are you? And how should we think about the impact
+this could have on the EBITDA margin as we look into 2H and 2025? Or is this more of a
+longer-term initiative? Thank you.
+
+Michel-Alain Proch:
+Yeah. Thank you, Oliver. So on the FTSE subscription, yeah, I mean, I think you are
+referring you are referencing to the sequence between Q1 and Q2, but you should
+remember to be really comparable that in Q1 we had between market a bad guy of £3 million
+that we have explained at Q1 call.
+So basically if you take this into account, Q1 was about 9%. It's still an improvement, and I'm
+not saying the reverse, Q2 and Q1, I mean, it's going well and it's in line with our
+expectation. I think in this quarter you see on it two legs being subscription and asset base
+of FTSE is really delivering well, on both the FTSE and Russell franchise.
+On the operating leverage, yeah so you're right, this project of reinforcing engineering talent
+is a very large one. It's not going to be done by the end of this year, it will pursue in 2025. It's
+a bit early to tell you to when it will going on, but I think it will take the largest part, I would
+say of 2025.
+It's as I have just described, I'm not going to repeat myself, it's obviously not the only lever
+we have, but it's a very important one. And I think what I would like to underline is the fact
+that it's not only a cost play. I mean, there is obviously a cost optimisation, it's quite obvious.
+But more importantly, we're talking about reinforcing our engineering culture and our
+capacity to create products and to bring them to the market quickly. I mean that's behind
+these two.
+
+[[PAGE:49]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Benjamin Bathurst (RBC Capital Markets):
+Good morning. I've got questions from two areas, if I may. Firstly, as Microsoft moves closer
+towards commercialisation, just wondered how is thinking evolving on specific metrics or
+KPIs that we get back to following to help track the commercial progress of the partnership
+going forward?
+And then secondly, really, I think just to follow-up now on costs, thanks for the extra detail on
+the third-party services. I was wondering how should we expect that £195 million to move
+now going forwards? I mean, is this a chance potentially that it could start to reduce in
+organic terms? Thanks.
+
+David Schwimmer:
+Thanks, Ben. So on your first question, the interest is noted. I don't think we have at this
+point determined if we're going to be putting any new metrics or KPIs out there. You should
+assume, of course, that we track a number of different things in terms of customer usage
+and various other aspects of telemetry. But the interest is certainly noted. And then on the
+cost side…
+
+Michel-Alain Proch:
+Yeah, on the cost side, so I won't give you a precise number on how is this £195 million
+going to grow? But I mean in terms of trajectory, it is clear that say, it's a pocket of cost that
+we'd like to reduce as I was just explaining, you know, from one semester to the other.
+I think the important KPI here. And that's the reason why I gave this transparency on the
+cost base is really to -- it's what I call the resource equation again and it's really staff plus
+third-party services to be considered together because these are the resources we are using
+to produce services for the group.
+
+Bruce Hamilton (Morgan Stanley):
+Hi there, thanks for taking my questions. I'll try and keep it brief, lots of good colour already.
+Maybe just on capex in terms of the path to sort of normalised high single digit percent, I
+think would I be right in thinking is sort of '24 as peak. And then maybe by '26, we're at that
+level. And if I take 8% randomly, that's maybe £200 million annualised sort of capex. Is that
+sort of the right way to think about it? Point one.
+And then secondly, on the displacement stuff, and clearly that's very positive as we think
+about the opportunity to price up for kind of existing subscription business, presumably that's
+something we should see kind of January 1, 2025? Or am I thinking about it incorrectly?
+And then on the DaaS stuff, because data is mostly moving across to the cloud through
+2025, that's really 2026 and beyond, just trying to think through the phasing of those different
+monetisation opportunities.
+
+David Schwimmer:
+Thanks, Bruce. First question?
+
+[[PAGE:50]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+Michel-Alain Proch:
+Sure, I'll take capex. So yeah, I mean mostly, first, we landed capex for the semester as you
+have seen at £454 million, it's about £10 million less than last year. And this is despite the
+top-line growth of 7.6%. I just want to give you a bit of colour on this. It's really one of the first
+thing I did when I joined was to reset our investment process.
+We've put in place now, a Group Investment Committee that David and I are chairing. We
+are operating it obviously with Irfan, our global CIO; with Pascal Boillat, our new COO; and
+with Balbir, our Chief Risk Officer. We're meeting twice a month. We're reviewing all the
+major projects, and obviously all the divisions, portfolio boards report to this Group
+Investment Committee.
+I think the process is in place. I'm saying this, I mean it's an explanation, again the process
+explanation, but I try to give you some colour here. I think when you look at capex, in 2022 it
+was £970 million, 2023, £1,030 million. I think this year will be just below the £1 billion mark,
+and after that it will decrease substantially in 2025. It's too early to be honest to tell you how
+much it's going to decrease in 2025, but yes, it will decrease in 2025.
+
+David Schwimmer:
+And Bruce, on your other question, so with respect to displacements and pricing, we've
+talked in the past about how, for example, our high-end desktop product is a 30% discount to
+a competitor out there. So you should not expect us as of the beginning of '25 to have a 29%
+price rise. That's not how we're going to be managing these things. This is -- we are
+investing in our product over time. And we're working with our customers. We want to make
+sure they're getting an appropriate return and value-add from the investment we're putting in.
+We want to make sure we're getting the appropriate return from the investment that we're
+putting in. But we're going through that pricing, the 2025 pricing discussion really over the
+next few weeks and months, so we'll see how that plays out.
+And then with respect to the phasing of the revenue associated with DaaS, I think you're
+pretty much on target there and that we're just launching this later this year, it's not a full
+complement of all of our datasets. And exactly as you said, we'll be rolling this out in '25 and
+beyond frankly, and so you'll see the revenue really picking up after that.
+
+Michael Werner (UBS):
+Thank you, guys. And two quick questions from me, please. Thank you for the video on
+Open Directory. We saw I guess it was couple of months ago now that the EU started to look
+at the bundling of Teams within Microsoft’s Office 365. Is there any risk of the rollout of Open
+Directory or the distribution of Open Directory if this investigation picks up and ultimately
+impacts how Microsoft interacts with Teams?
+And then second, I was just wondering, apologies if I missed this. Did you provide the
+financial details related to the Dow Jones partnership? I was just wondering how to think
+about that as that partnership comes online and any potential impact in the P&L. Thank you.
+
+[[PAGE:51]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+David Schwimmer:
+Thanks, Michael. So we've, of course, noted the review of the Teams construct. From our
+perspective, there's no requirement on our end for there to be any linkage between teams as
+a communication tool and then the 365 productivity tools. So from our perspective, we do not
+view that as a risk.
+And then with respect to the Dow Jones partnership, no we have not put out any specific
+financial terms, but just to give you some colour around that, it's a two-way relationship. And
+what I mean by that, is that we are paying Dow Jones for their news content into Workspace
+and our feeds. And then they are paying us for our workflow going into the Dow Jones
+newsrooms and the various properties' newsrooms. So they will have access to our data and
+to our deals data and league tables and various other things that will displace a competitor of
+ours.
+It's one of the displacements that we've touched on, and it also makes our deals data, our
+league tables data the default source in the Wall Street Journal and other of the Dow Jones
+properties, which is particularly relevant for many of our bank customers who track that data
+very, very carefully. So it's that kind of symmetry where it's a win-win for both sides.
+
+Julian Dobrovolschi (ABN AMRO):
+Hello. Good morning, gentlemen, and thanks for taking my questions. I have two follow-ups.
+The first one is on the Workspace and apologies for digging further on the topic. It looks like
+you made more than, a kind of about 150 updates in the Workspace over H1, bringing a step
+change of functionality, just quoting you back from the slide.
+I was just wondering how do you think about the pricing versus the uptake correlation
+formula? In another way, when do you think would be a good time to actually step up pricing
+on the Workspace license?
+So that's the first question and the second one is on the cost synergy level, you outpaced
+your initial targets two years ahead of plan, which is very good. I was wondering, is there
+anything left to be squeezed towards the end of 2025.
+And maybe also as a kind of follow-up on that one, you are now with £1.2 billion in total
+integration costs and you guide for £1.4 billion by the end of 2025. Can you please update
+us on the breakdown of the remaining £200 million in integration costs that you expect to
+book over the next couple of quarters?
+
+David Schwimmer:
+Thanks, Julian. I'll take your first question and MAP will touch on the question on cost
+synergies. So with respect to pricing and Workspace, and the notion of pricing versus the
+updates, so as we've talked about in the past, we update pricing under our current model
+once a year.
+And so as we have been migrating our Eikon customers to Workspace, they are getting a
+significantly better product, at what is in-year the same price. But then we modified the
+prices on an annual basis and we send that notification out in the fall. And then the pricing,
+the new pricing kicks in, in most cases as of January of the new year.
+
+[[PAGE:52]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+So to your question, how do we think about that? It's an active discussion and we look at the
+upgrades we've made the updates, the improvements in product, the greater integration, the
+greater availability. And we've spent a bit of time today talking about a lot of those areas of
+improvement.
+And so that goes into the conversation that we have with our customers by the same token.
+As I mentioned in response to a previous question, we are very focused on partnering with
+our customers. And you should expect us to do this in a moderated way over time, so that it
+works well for our customers as well.
+
+Michel-Alain Proch:
+Yeah. So maybe on the cost synergy. So I just confirm that we'll be landing the overall cost
+synergy at £1.4 billion as we've said in the in the past. So you were asking about this £200
+million, which are in front of us, maybe some element of for you, it's a mix of capex and
+opex.
+For the first semester of this year, H1 2024, in the amount of capex I was mentioning there is
+£85 million, which are related to integration. So I'm expecting, you know, pretty much the
+same thing in the second semester.
+So here you go, you've got £85 million out of the £200 million. We still have some integration
+opex and again they are in the financial statements. But I'm expecting pretty much the same
+thing in the second semester. So you see when you add up those £85 million in capex and
+the parts in opex, it's pretty much the £200 million we are talking about. So I think by the end
+of the year, most of the £1.4 billion will be consumed.
+
+Julian Dobrovolschi (ABN AMRO):
+And by that you mean by the end of 2025, not 2024, correct? Just to confirm.
+
+Michel-Alain Proch:
+No, I'm talking about 2024.
+
+Julian Dobrovolschi (ABN AMRO):
+Oh, got it. All right, cool. Thank you so much.
+
+Michel-Alain Proch:
+So we still have some part of it, but very small into '25, but we are intending to do the
+maximum in 2024.
+
+Johannes Thormann, HSBC:
+Hello, everybody. I'm Johannes Thormann. Three follow-up questions, please from my side.
+
+[[PAGE:53]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+First of all, on your pricing strategy, as you said, it's more about the removal of discounts. Is
+there any point in time where you envisage that you will have zero discounts anymore and
+you will reach probably a pricing relatively close to your major competitor product?
+Secondly, just to understand the EBITDA margin trend in H2 and probably in 2025, with the
+headwinds from Credit Suisse and Euronext and other things, should we expect a decline in
+the second half or still you expect a stable level or even improvement in second half of this
+year?
+And last but not least as you talk about the beauty of integrating everything into Microsoft
+product world, having 365, Open Directory, Teams, and everything, how do you protect your
+clients from events like the CrowdStrike outage last month, if they are using one log in and
+doesn't need to be Microsoft but some other provider and they can't log in anymore for the
+day and can't work, how do you protect your clients?
+
+David Schwimmer:
+Thanks, Johannes. So on your pricing strategy question, our products are getting better and
+better. And I think, let's talk about Workspace for a moment. This is a product that's
+significantly better from Eikon and it gets better literally by the day. And this is all before we
+have actually introduced the step change that you'll see in terms of functionality once it is
+embedded and then interoperable with the Microsoft productivity suite.
+So, and we've talked about this in the past, we believe that we are creating products in this
+area and other areas that are going to be meaningfully better than the competitive product
+set out there. And so we will price that appropriately.
+Again, we want to make sure that our customers feel that they are getting the appropriate
+value add, on their end. And as long as we make sure of that, we think that they will be
+comfortable with us getting an appropriate return on our investment. So when appropriate,
+zero discount and beyond, yes.
+Then with respect to EBITDA margin, let me turn that over to MAP, and then I'll come back
+to you on your CrowdStrike question.
+
+Michel-Alain Proch:
+Yeah. So Johannes just to make it very simple, in H2 of this year I do not expect the EBITDA
+margin to decrease. Actually it's going to be as stable or slightly positive, but not decline.
+
+David Schwimmer:
+And then on integrating with Microsoft, a couple of things. First of all, we're very pleased with
+the partnership with Microsoft. It's going very well. But just to be really clear, we do not have
+an exclusive relationship with Microsoft in terms of where we provide our data, how we
+provide our workflow. We work with the other cloud providers.
+I think that there's a very important industry-wide conversation to be had and this is already
+going on in many ways, in terms of making sure that we all have operational resilience and
+that we highlight single points of failure.
+
+[[PAGE:54]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+And so I think there will be lessons learned by us, but also by many others, including
+CrowdStrike, Microsoft, and probably many people on this call in terms of making sure that
+when, for example, there's a new update that's rolled out, it's rolled out in phases as
+opposed to on a global basis immediately. That's just one example. So I think some good
+risk management lessons to be learned from that, and I think it will make the broader system
+stronger.
+
+Ian White (Autonomous):
+Hi there, thanks for taking my questions. Just a few follow-ups from my side, please. And
+just also on the displacements within Workflows, is there any detail you’d share that might
+help us to understand the potential for this to continue in the near term?
+I'm thinking of sort of low to medium hanging fruit where you might have a significant
+presence with larger clients, but an underweight position within those clients’ desktop
+consumption, for example, is there any detail that would help us to understand the potential
+for this trend to continue?
+Secondly, can you provide maybe a bit more detail around what you've learned from
+stakeholders during the pilot projects so far in relation to Open Directory and Meeting Prep.
+Are you making significant enhancements to those products relative to sort of where they
+were initially? And are there any particular focus areas you would call out with respect to the
+external pilot exercises, it sounds like it's going to be ongoing in the second half of the year.
+That's question two.
+And just lastly, just a detailed question. Sorry if I misunderstood this. Was the Dow Jones
+agreements included in ASV growth in 2Q? And if it was, would you be prepared to share an
+approximation of what it contributed to the 6.4% growth rate, please? Thank you.
+
+David Schwimmer:
+Thanks, Ian. Just very quickly, the Dow Jones agreement was announced at the beginning
+of July. So after Q2, so nothing in that ASV number there. On the displacements, these are
+ongoing conversations, ongoing sales discussions with many of our customers, I'm not in a
+position to give you anything specific on the horizon. But I would say this is ongoing
+conversation with a number of customers.
+And then on the feedback during the pilot projects, lots of things. And this is why it's been
+such a useful interaction. A bunch of them are little things in terms of make this feature look
+like that. In terms of themes, Open Directory, a lot of important things around compliance
+and making sure that it works from an archiving perspective or from a regulatory monitoring
+perspective.
+And then Meeting Prep I think a lot of thought given to -- there's been a big focus on Meeting
+Prep in terms of from a risk management and from a compliance perspective, particularly
+from some of the big bank partners because as we've talked about in the past, Meeting
+Prep, the way this works is it is combining using genAI technology to combine our data with
+the customer's internal proprietary information in their emails, their files, and if they want to
+plug it in their CRM system.
+And so you can understand when highly regulated institutions are looking at that, they want
+to make sure that when a Meeting Prep memo is produced, is it transferable? Can the user
+
+[[PAGE:55]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+than email that to someone else within the institution, outside the institution. What kind of
+checks do they have on the confidential information that might be included in that memo, so
+those kinds of things.
+Andrew Coombs (Citigroup):
+Morning. I’ll have another stab at Dow Jones and then a follow-up on net finance expense as
+well. Just on the Dow Jones partnership, and I know in the notes to the accounts, you do
+quantify the Reuters news relationship for 30 years, well you talk about CPI-adjusted
+payment, I think it's £368 million in 2023. So when I think about Dow Jones, presuming it is a
+smaller quantum than that. And also how should we think about in terms of how you account
+for it, is it step-up in revenues because they're paying for your workflow into newsroom, but
+then also a step-up in costs as you pay for the newsfeed. Is there anything you can just
+clarify there?
+And then on the financing expense, I guess a couple of questions on this one, is that I note a
+movement in the derivative interest income and interest expense line, which seems to be
+related to this new swap fixed and floating you've put on. And I guess my question is firstly,
+do you expect to do any more of those?
+And secondly, in the very helpful slide, you provide on 42, you give the mix of fixed and
+floating, is that including the swap impact in floating rate? And when you think about rates
+going forward, to what extent do you think lower interest expense will offset now lower
+income on that cash and cash equivalents as rates come down? Thank you.
+
+David Schwimmer:
+Thanks, Andrew. So on the Dow Jones partnership, let me assure you that compared to the
+Reuters number, this is tiny. And just to remind everyone, the Reuters relationship that's part
+of the reason, that's of that size is the exclusivity that we have with Reuters. And Dow Jones
+provides their information to a number of other players. There's no exclusivity there, but it is
+powerful having it on the same platform with our other new sources.
+And so I think just on your accounting question, yes, I don't want to play accountant, but it's
+pretty straightforward in terms of the revenue that we're getting from it and then the cost that
+we are paying for. And on the second question…
+
+Michel-Alain Proch:
+Yeah, on the second question. So the swap costs are indeed included into the net financial
+expense. It was representing £9 million in H1 2023. It's representing £9 million in H1 2024.
+The reason why I was mentioning this in in my script is because you know as long as the
+euro rate is lower than the GBP, this is going to be a recurring cost of operating our balance
+sheet.
+And they are in the line interest differential which is on the slide of the presentation. So now
+you know when I look at the net financial expense for the year, I think that they will be a bit
+above £200 million for the year.
+Now going to 2025 making the link with your question about fixed and floating, I think that
+obviously will depend on our capital allocation policy in 2025. It's a bit early to say. I think
+with the mix we have on fixed and floating, we should be able to improve our position over
+
+[[PAGE:56]]
+LSEG H1 2024 Interim Results – Analyst & Investor Call Transcript
+
+time. And I just want to add the last point, which is purely technical, which is that indeed in
+the slide 42, they are included as it was your question.
+
+Operator
+And this concludes our Q&A session for today. I will now hand back over to David for closing
+remarks.
+
+David Schwimmer:
+Great. Well, thank you very much.
+Thank you all for your questions. A lot of good, interesting, robust questions there. We really
+appreciate the interest and really appreciate the focus. And if anyone has additional
+questions, of course, Peregrine and the team will be happy to hear from you, and we look
+forward to seeing you all soon. Thanks a lot.

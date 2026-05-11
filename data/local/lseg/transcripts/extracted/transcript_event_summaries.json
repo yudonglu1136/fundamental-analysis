@@ -1,0 +1,240 @@
+{
+  "generatedAt": "2026-05-10T19:14:58Z",
+  "items": [
+    {
+      "transcriptId": "lseg_h1_2024_interim_results_2024-08-01",
+      "eventDate": "2024-08-01",
+      "fiscalPeriod": "H1 2024",
+      "eventType": "interim_results",
+      "source": "manual_upload",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-h1-2024-interim-results-transcript-1aug2024.pdf",
+      "qualityTag": "ManualUpload",
+      "confidence": "high",
+      "topThemes": [
+        "Group-level",
+        "data_platform_progress",
+        "workspace_usage",
+        "Data & Analytics",
+        "Other / Corporate"
+      ],
+      "guidanceMentionCount": 55,
+      "kpiMentionCount": 148,
+      "riskMentionCount": 49,
+      "capitalAllocationMentionCount": 45,
+      "qaTopicCount": 14,
+      "thesisSignalCount": 117,
+      "qaBoundaryConfidence": "high",
+      "warnings": [
+        "Duplicate transcript file detected; reusing previously staged copy.",
+        "Transcript source is not verified as company IR; treat as external research snapshot.",
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot."
+      ]
+    },
+    {
+      "transcriptId": "lseg_q1_2025_trading_update_2025-05-01",
+      "eventDate": "2025-05-01",
+      "fiscalPeriod": "Q1 2025",
+      "eventType": "trading_update",
+      "source": "manual_upload",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-q1-2025-trading-update-transcript-01may2025.pdf",
+      "qualityTag": "ManualUpload",
+      "confidence": "medium",
+      "topThemes": [
+        "data_platform_progress",
+        "capital_markets_activity",
+        "workspace_usage",
+        "recurring_revenue",
+        "post_trade_activity"
+      ],
+      "guidanceMentionCount": 26,
+      "kpiMentionCount": 73,
+      "riskMentionCount": 27,
+      "capitalAllocationMentionCount": 0,
+      "qaTopicCount": 24,
+      "thesisSignalCount": 16,
+      "qaBoundaryConfidence": "medium",
+      "warnings": [
+        "Q&A-like markers were found, but analyst / management parsing was only partially confident.",
+        "Transcript source is not verified as company IR; treat as external research snapshot.",
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot."
+      ]
+    },
+    {
+      "transcriptId": "lseg_q1_2026_trading_update_2026-04-23",
+      "eventDate": "2026-04-23",
+      "fiscalPeriod": "Q1 2026",
+      "eventType": "trading_update",
+      "source": "manual_upload",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-q1-2026-trading-update-transcript-23apr2026.pdf",
+      "qualityTag": "ManualUpload",
+      "confidence": "high",
+      "topThemes": [
+        "Group-level",
+        "workspace_usage",
+        "capital_markets_activity",
+        "data_platform_progress",
+        "Data & Analytics"
+      ],
+      "guidanceMentionCount": 20,
+      "kpiMentionCount": 53,
+      "riskMentionCount": 12,
+      "capitalAllocationMentionCount": 9,
+      "qaTopicCount": 0,
+      "thesisSignalCount": 48,
+      "qaBoundaryConfidence": "medium",
+      "warnings": [
+        "Q&A-like markers were found, but analyst / management parsing was only partially confident.",
+        "Transcript source is not verified as company IR; treat as external research snapshot.",
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot."
+      ]
+    },
+    {
+      "transcriptId": "lseg_q3_2025_trading_update_2025-10-23",
+      "eventDate": "2025-10-23",
+      "fiscalPeriod": "Q3 2025",
+      "eventType": "trading_update",
+      "source": "manual_upload",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-q3-2025-trading-update-transcript-23oct2025.pdf",
+      "qualityTag": "ManualUpload",
+      "confidence": "high",
+      "topThemes": [
+        "Group-level",
+        "post_trade_activity",
+        "data_platform_progress",
+        "Post Trade",
+        "workspace_usage"
+      ],
+      "guidanceMentionCount": 34,
+      "kpiMentionCount": 94,
+      "riskMentionCount": 38,
+      "capitalAllocationMentionCount": 16,
+      "qaTopicCount": 0,
+      "thesisSignalCount": 51,
+      "qaBoundaryConfidence": "low",
+      "warnings": [
+        "No Q&A section detected confidently.",
+        "Q&A-like markers were found, but no Q&A rows were parsed confidently.",
+        "Transcript source is not verified as company IR; treat as external research snapshot.",
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot."
+      ]
+    },
+    {
+      "transcriptId": "lseg_fy_2024_preliminary_results_2025-02-27",
+      "eventDate": "2025-02-27",
+      "fiscalPeriod": "FY 2024",
+      "eventType": "preliminary_results",
+      "source": "manual_upload",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-2024-preliminary-results-transcript-27feb2025.pdf",
+      "qualityTag": "ManualUpload",
+      "confidence": "high",
+      "topThemes": [
+        "Group-level",
+        "post_trade_activity",
+        "capital_markets_activity",
+        "data_platform_progress",
+        "workspace_usage"
+      ],
+      "guidanceMentionCount": 56,
+      "kpiMentionCount": 132,
+      "riskMentionCount": 68,
+      "capitalAllocationMentionCount": 23,
+      "qaTopicCount": 0,
+      "thesisSignalCount": 77,
+      "qaBoundaryConfidence": "low",
+      "warnings": [
+        "No Q&A section detected confidently.",
+        "Q&A-like markers were found, but no Q&A rows were parsed confidently.",
+        "Transcript source is not verified as company IR; treat as external research snapshot.",
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot."
+      ]
+    },
+    {
+      "transcriptId": "lseg_fy_2025_preliminary_results_2026-02-26",
+      "eventDate": "2026-02-26",
+      "fiscalPeriod": "FY 2025",
+      "eventType": "preliminary_results",
+      "source": "manual_upload",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-2025-preliminary-results-transcript-26feb2026.pdf",
+      "qualityTag": "ManualUpload",
+      "confidence": "high",
+      "topThemes": [
+        "Group-level",
+        "Other / Corporate",
+        "capital_markets_activity",
+        "workspace_usage",
+        "integration_execution"
+      ],
+      "guidanceMentionCount": 31,
+      "kpiMentionCount": 88,
+      "riskMentionCount": 40,
+      "capitalAllocationMentionCount": 34,
+      "qaTopicCount": 0,
+      "thesisSignalCount": 136,
+      "qaBoundaryConfidence": "medium",
+      "warnings": [
+        "Q&A-like markers were found, but analyst / management parsing was only partially confident.",
+        "Transcript source is not verified as company IR; treat as external research snapshot.",
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot."
+      ]
+    },
+    {
+      "transcriptId": "lseg_h1_2025_interim_results_2025-07-31",
+      "eventDate": "2025-07-31",
+      "fiscalPeriod": "H1 2025",
+      "eventType": "interim_results",
+      "source": "manual_upload",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-h1-2025-interim-results-transcript-31july2025.pdf",
+      "qualityTag": "ManualUpload",
+      "confidence": "medium",
+      "topThemes": [
+        "Group-level",
+        "workspace_usage",
+        "Data & Analytics",
+        "data_platform_progress",
+        "Other / Corporate"
+      ],
+      "guidanceMentionCount": 62,
+      "kpiMentionCount": 137,
+      "riskMentionCount": 56,
+      "capitalAllocationMentionCount": 45,
+      "qaTopicCount": 0,
+      "thesisSignalCount": 143,
+      "qaBoundaryConfidence": "low",
+      "warnings": [
+        "No Q&A section detected confidently.",
+        "Q&A-like markers were found, but no Q&A rows were parsed confidently.",
+        "Transcript source is not verified as company IR; treat as external research snapshot.",
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot."
+      ]
+    },
+    {
+      "transcriptId": "lseg_q1_2024_trading_update_2024-04-25",
+      "eventDate": "2024-04-25",
+      "fiscalPeriod": "Q1 2024",
+      "eventType": "trading_update",
+      "source": "manual_upload",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-q4-2024-trading-update-transcript-25april2024.pdf",
+      "qualityTag": "ManualUpload",
+      "confidence": "high",
+      "topThemes": [
+        "Group-level",
+        "capital_markets_activity",
+        "recurring_revenue",
+        "workspace_usage",
+        "data_platform_progress"
+      ],
+      "guidanceMentionCount": 32,
+      "kpiMentionCount": 103,
+      "riskMentionCount": 29,
+      "capitalAllocationMentionCount": 9,
+      "qaTopicCount": 22,
+      "thesisSignalCount": 86,
+      "qaBoundaryConfidence": "high",
+      "warnings": [
+        "Filename fiscal period Q4 2024 differs from title fiscal period Q1 2024; using title fiscal period.",
+        "Transcript source is not verified as company IR; treat as external research snapshot.",
+        "Underlying transcript publisher not verified; treating as manual upload / external snapshot."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "generatedAt": "2026-05-10T19:14:58Z",
+  "items": [
+    {
+      "transcriptId": "lseg_h1_2024_interim_results_2024-08-01",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-h1-2024-interim-results-transcript-1aug2024.pdf",
+      "warningType": "source_verification",
+      "message": "Transcript source is not verified as company IR; extracted insights require human review.",
+      "severity": "medium"
+    },
+    {
+      "transcriptId": "lseg_q1_2025_trading_update_2025-05-01",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-q1-2025-trading-update-transcript-01may2025.pdf",
+      "warningType": "source_verification",
+      "message": "Transcript source is not verified as company IR; extracted insights require human review.",
+      "severity": "medium"
+    },
+    {
+      "transcriptId": "lseg_q1_2026_trading_update_2026-04-23",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-q1-2026-trading-update-transcript-23apr2026.pdf",
+      "warningType": "source_verification",
+      "message": "Transcript source is not verified as company IR; extracted insights require human review.",
+      "severity": "medium"
+    },
+    {
+      "transcriptId": "lseg_q3_2025_trading_update_2025-10-23",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-q3-2025-trading-update-transcript-23oct2025.pdf",
+      "warningType": "qa_boundary_confidence",
+      "message": "Q&A confidence is low; do not assume analyst Q&A was fully captured.",
+      "severity": "medium"
+    },
+    {
+      "transcriptId": "lseg_q3_2025_trading_update_2025-10-23",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-q3-2025-trading-update-transcript-23oct2025.pdf",
+      "warningType": "source_verification",
+      "message": "Transcript source is not verified as company IR; extracted insights require human review.",
+      "severity": "medium"
+    },
+    {
+      "transcriptId": "lseg_fy_2024_preliminary_results_2025-02-27",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-2024-preliminary-results-transcript-27feb2025.pdf",
+      "warningType": "qa_boundary_confidence",
+      "message": "Q&A confidence is low; do not assume analyst Q&A was fully captured.",
+      "severity": "medium"
+    },
+    {
+      "transcriptId": "lseg_fy_2024_preliminary_results_2025-02-27",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-2024-preliminary-results-transcript-27feb2025.pdf",
+      "warningType": "source_verification",
+      "message": "Transcript source is not verified as company IR; extracted insights require human review.",
+      "severity": "medium"
+    },
+    {
+      "transcriptId": "lseg_fy_2025_preliminary_results_2026-02-26",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-2025-preliminary-results-transcript-26feb2026.pdf",
+      "warningType": "source_verification",
+      "message": "Transcript source is not verified as company IR; extracted insights require human review.",
+      "severity": "medium"
+    },
+    {
+      "transcriptId": "lseg_h1_2025_interim_results_2025-07-31",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-h1-2025-interim-results-transcript-31july2025.pdf",
+      "warningType": "qa_boundary_confidence",
+      "message": "Q&A confidence is low; do not assume analyst Q&A was fully captured.",
+      "severity": "medium"
+    },
+    {
+      "transcriptId": "lseg_h1_2025_interim_results_2025-07-31",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-h1-2025-interim-results-transcript-31july2025.pdf",
+      "warningType": "source_verification",
+      "message": "Transcript source is not verified as company IR; extracted insights require human review.",
+      "severity": "medium"
+    },
+    {
+      "transcriptId": "lseg_q1_2024_trading_update_2024-04-25",
+      "sourcePath": "/Users/yudonglu/Documents/fundamental-analysis/data/local/lseg/transcripts/raw/user_uploaded/lseg-q4-2024-trading-update-transcript-25april2024.pdf",
+      "warningType": "source_verification",
+      "message": "Transcript source is not verified as company IR; extracted insights require human review.",
+      "severity": "medium"
+    }
+  ],
+  "skipped": []
+}

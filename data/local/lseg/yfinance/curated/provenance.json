@@ -1,0 +1,326 @@
+{
+  "provenance": {
+    "datasetId": "provenance_manifest",
+    "source": "yfinance",
+    "sourceType": "yahoo_finance_snapshot",
+    "fetchedAt": "2026-05-10T18:11:39Z",
+    "ticker": "LSEG_PIPELINE",
+    "currency": null,
+    "qualityTag": "Derived",
+    "notes": null
+  },
+  "data": [
+    {
+      "file": "data/local/lseg/yfinance/raw/lseg_info.json",
+      "provenance": {
+        "datasetId": "lseg_info",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/lseg_fast_info.json",
+      "provenance": {
+        "datasetId": "lseg_fast_info",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/lseg_income_stmt.csv",
+      "provenance": {
+        "datasetId": "lseg_income_stmt",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/lseg_income_stmt.csv.meta.json",
+      "provenance": {
+        "datasetId": "lseg_income_stmt",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/lseg_balance_sheet.csv",
+      "provenance": {
+        "datasetId": "lseg_balance_sheet",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/lseg_balance_sheet.csv.meta.json",
+      "provenance": {
+        "datasetId": "lseg_balance_sheet",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/lseg_cashflow.csv",
+      "provenance": {
+        "datasetId": "lseg_cashflow",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/lseg_cashflow.csv.meta.json",
+      "provenance": {
+        "datasetId": "lseg_cashflow",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/lseg_price_history.csv",
+      "provenance": {
+        "datasetId": "lseg_price_history",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/lseg_price_history.csv.meta.json",
+      "provenance": {
+        "datasetId": "lseg_price_history",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/lseg_dividends.csv",
+      "provenance": {
+        "datasetId": "lseg_dividends",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/lseg_dividends.csv.meta.json",
+      "provenance": {
+        "datasetId": "lseg_dividends",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/lseg_shares_history.csv",
+      "provenance": {
+        "datasetId": "lseg_shares_history",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/lseg_shares_history.csv.meta.json",
+      "provenance": {
+        "datasetId": "lseg_shares_history",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/lseg_analyst_estimates.json",
+      "provenance": {
+        "datasetId": "lseg_analyst_estimates",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Assumption",
+        "notes": "Yahoo Finance analyst/consensus style snapshot, not institutional consensus."
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/peer_info.json",
+      "provenance": {
+        "datasetId": "peer_info",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "PEER_SET",
+        "currency": null,
+        "qualityTag": "Actual",
+        "notes": "Peer multiple snapshot pulled from Yahoo Finance via yfinance."
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/peer_prices.csv",
+      "provenance": {
+        "datasetId": "peer_prices",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "PEER_SET",
+        "currency": null,
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/peer_prices.csv.meta.json",
+      "provenance": {
+        "datasetId": "peer_prices",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "PEER_SET",
+        "currency": null,
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/peer_dividends.csv",
+      "provenance": {
+        "datasetId": "peer_dividends",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "PEER_SET",
+        "currency": null,
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/raw/peer_dividends.csv.meta.json",
+      "provenance": {
+        "datasetId": "peer_dividends",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "PEER_SET",
+        "currency": null,
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/curated/market_snapshot.json",
+      "provenance": {
+        "datasetId": "market_snapshot",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/curated/peer_multiples_snapshot.json",
+      "provenance": {
+        "datasetId": "peer_multiples_snapshot",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "PEER_SET",
+        "currency": null,
+        "qualityTag": "Derived",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/curated/financial_statement_snapshot.json",
+      "provenance": {
+        "datasetId": "financial_statement_snapshot",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Actual",
+        "notes": null
+      }
+    },
+    {
+      "file": "data/local/lseg/yfinance/curated/consensus_snapshot.json",
+      "provenance": {
+        "datasetId": "consensus_snapshot",
+        "source": "yfinance",
+        "sourceType": "yahoo_finance_snapshot",
+        "fetchedAt": "2026-05-10T18:11:39Z",
+        "ticker": "LSEG.L",
+        "currency": "GBp",
+        "qualityTag": "Assumption",
+        "notes": "Yahoo Finance analyst/target/recommendation snapshot for research use only."
+      }
+    }
+  ]
+}
