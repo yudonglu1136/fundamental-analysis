@@ -1,0 +1,13 @@
+{
+  "provenance": {
+    "datasetId": "warnings",
+    "source": "yfinance",
+    "sourceType": "yahoo_finance_snapshot",
+    "fetchedAt": "2026-05-10T18:11:39Z",
+    "ticker": "LSEG_PIPELINE",
+    "currency": null,
+    "qualityTag": "Derived",
+    "notes": null
+  },
+  "data": []
+}

@@ -1,0 +1,435 @@
+[[PAGE:1]]
+Page 1 of 11
+LSEG Q1 2025 Trading Update | May 1, 2025
+Operator:
+Good morning, and welcome to the Investor and Analyst call for LSEG's 1st Quarter 2025 Trading
+Update. At this time, all participants are in listen-only mode. Later, we will conduct a question and
+answer session through the phone lines and instructions will follow at that time. I would like to remind
+all participants that this call is being recorded. I will now hand over to Peregrine Riviere, Head of
+Investor Relations, to open the presentation, please go ahead.
+Peregrine Riviere:
+Thanks. Good morning everyone, and welcome to LSEG's 1st Quarter Update. I'm here with David and
+MAP. MAP will make some brief opening remarks on our Q1 performance, and then we'll open up to
+questions on the conference call line. So let me hand over to him right now.
+MAP:
+Thanks, Peregrine, and good morning everyone. Glad to be with you today. We have started the year
+well, with total income growth of 8.7% on a constant currency basis. This includes 90 basis points of
+M&A benefit, mainly from the ICD acquisition within Tradeweb. That leaves organic growth of 7.8%, and
+I will actually refer to this metric through the rest of my comments. Our subscription businesses all
+performed well, with D&A showing continued slight acceleration, while our markets businesses captured
+the upside of higher volumes. So this good all-around performance shows the strengths of our
+diversified all-weather model. Turning first to Data & Analytics. Organic growth was 5.1%, a slight
+acceleration from the previous quarter, 4.8%. All three businesses performed well. Workflows revenue
+was up 3.4%, with commodities an area of particular strength in the quarter. We continue to enhance
+the platform with a very strong pipeline of new features in the months ahead. We are closely supporting
+customers on the final Eikon migration, and we are on track to sunset Eikon at the end of June.
+In Data & Feeds, growth of 6.6% was a little ahead of the Q4 rate, with both Real Time and PRS
+performing well. We continued to add new low latency feeds and cloud solutions, and we saw good
+demand for fixed income corporate actions data and our expanded evaluated pricing offering. And in
+Analytics, we showed strong acceleration to 7.4%, driven by demand for Yield Book and Lipper, and
+enhanced by the good take-up of our Analytics API, one of the first products we've built with Microsoft.
+Product development with Microsoft continues to make good progress, with a number of significant
+launches in the second half of 2025, including Open Directory.
+Finally, a couple of weeks ago we were delighted to announce the co-heads of D&A. We have hired
+Gianluca Biagini from S&P, bringing over 25 years of financial information industry experience with him.
+And he will be joined by Ron Lefferts, who moves over from his role running Sales & Account
+Management. They bring together highly complementary skills and track records.
+Turning now to FTSE Russell, our index and benchmark business. Overall organic growth was 9.6%, very
+similar to the growth rate through 2024. Subscription growth was 8.2%, reflecting ongoing demand for
+
+[[PAGE:2]]
+Page 2 of 11
+flagship equity indices and benchmarks. Asset-based revenue was up 12.5%, supported by good inflows
+and higher average market values. The decline in US markets over the past weeks, as well as flows from
+the US Funds into Global Funds, will likely lead to a slightly lower contribution to growth from asset-
+based fees in the coming quarters. Risk Intelligence continued to grow double-digit at 10.7%. World-
+Check maintained its strong momentum, and our digital identity and fraud business also perform well.
+Now a word on ASV, which encompasses all of the subscription business of the three divisions I just
+covered. ASV growth to 6.4% at the end of Q1, a small increase from the end of Q4. Within this, D&A has
+improved strongly year-on-year, reflecting the good progress we've made with new products and
+displacements. FTSE Russell and Risk Intelligence are showing slightly slower ASV growth than a year
+ago, which just reflects some normalisation of the growth rates.
+Moving on to our new Markets division, which combined the previous Capital Markets and Post Trade
+divisions. This reflects both their management under Daniel Maguire, and also how customers think
+about their own businesses. Growth in Q1 was 10.7%, a slight improvement on Q4, and a continuation
+of the double-digit growth over the last four quarters. Tradeweb started the year well, combining strong
+execution with favourable market conditions. The business continued to grow its share in rates and
+credit. Fixed Income growth overall was 17.3%. ICE, acquired in August last year, is performing very well,
+and the integration is progressing as planned. Equities growth was 3.1%. We saw strong volume-driven
+growth in secondary markets, although this was partly offset by subdued primary revenue growth. FX
+achieved a third consecutive quarter of double-digit growth at 12.3%, mainly reflecting a very active
+market. We have continued to see strong trading volumes across all asset classes throughout April.
+Moving on to our post-trade businesses. Performance here continued to be very strong considering the
+headwinds of the Euronext exit, which will last through August of this year, with an impact of around 30
+million pounds. OTC Derivatives was up 16.8%, reflecting elevated financial market volatility in the
+period, and greater uncertainty over the global outlook for interest rates. Swaps, FX, and CDS all
+performed well. Securities & Reporting was down 9.8%, with continued good growth in fixed income
+clearing through RepoClear more than offset by Euronext exit. As expected, this also affected the Net
+Treasury Income line, which was down 6.3%. Collateral levels roles in March, given the greater levels of
+risk in the market, but have subsequently fallen back again.
+And I will end my opening remarks on capital allocation and our balance sheet. As you know, we
+announced the buyback with our full year results in February, and as of last night, we had completed
+245 million pounds of the 500 million-pound program at an average price of 110 pounds and 31 pence.
+We also undertook another tender of our 2031 bond, buying back a further $250 million, in a repeat of
+our December tender in another NPV-positive transaction.
+So, all in all, it has been another good quarter, and we have started the year well. The combination of
+attractive growth in our subscription businesses and the market exposure in our high-quality market
+infrastructure platform is continuing to deliver positive results. The rate of investment and innovation
+remains high, ensuring a strong pipeline of new services in the months and years ahead. And we are
+reconfirming all our financial guidance, demonstrating the resilience of our all-weather model in the
+face of an uncertain outlook. And so now we are happy to take your questions again.
+Peregrine Riviere:
+Thank you, MAP. Operator, please would you open the line to questions? Again, please can you limit
+yourselves to one question and a follow-up? Thank you.
+
+[[PAGE:3]]
+Page 3 of 11
+
+Operator:
+Thank you. We will now begin the question and answer session, and if you have dialed in and would like
+to ask a question, please press Star 1 on your telephone keypad to raise your hand and join the queue.
+And if you would like to withdraw your questions, simply press Star 1 again. And your first question
+comes from the line of Arnaud Giblat from BNP Paribas Exane, please go ahead.
+Arnaud Giblat:
+Yeah, good morning. I've got my question follow-up on the FTSE Russell division, please. I was
+wondering if you could give us a bit more color on the drivers behind the subsequent growth at FTSE
+Russell. You mentioned the flagship equity products doing particularly well, but I was just wondering if
+you could split out the growth for me in terms of maybe new products, new clients, A bit more color
+there could be helpful. My second question is on the asset-based part of the business. Historically, you
+had a bit less, you weren't as sensitive to growth in AUM. You have less pass through in terms of
+revenue growth and that seems to have changed. I was just wondering what's happening? Is this a
+dilution of Vanguard contracts or are you having more AUM that are better priced? A bit more color,
+that could help us as well. Thank you.
+MAP:
+Hi. Maybe I take the first part of the question on the growth and David will answer on the second part of
+your question. So the main message here on FTSE also is that we really see a solid performance both in
+subscription and in AUM. In regards to the contribution of a price to growth, actually, it has not
+substantially changed and it's very similar to the rest of D&A. And as far as the different products are
+concerned, to give you some color, we really had an increasing usage of our flagship equity indexes
+benchmarking products, particularly global equity index series, as well as a very strong demand for our
+multi-asset offering across the board. David, you want to give more color?
+David:
+Sure. Arnaud, morning. On your second question, you're absolutely right that we do have collar
+structures on some of our relationships with respect to FTSE Russell. Just so happens that in the context
+of the flows that we've seen over the past quarter or so, we have exposure in some areas where we
+don't have those kinds of collars in place and so we're just being transparent around that. But again,
+you're right about the broader picture. We do have collars on a number of the different products, so we
+tend to see muted performance on both the upside and the downside.
+Arnaud Giblat:
+That's helpful. Thank you very much.
+David:
+Sure.
+Operator:
+Your next question is from the line of Russell Quelch from Redburn Atlantic. Your line is open.
+Russell Quelch:
+
+[[PAGE:4]]
+Page 4 of 11
+
+Yeah. Good morning MAP and David, thanks for having us on the call. I want to ask a question on the
+ASV growth. So now we fully lapped the impact of Credit Suisse and the data access deal both that came
+in the first quarter of last year. You'll have got the 70 basis points back in the ASV base in Q1, but the 10
+basis points improvement we've seen in the quarter appears about 60 basis points short all else being
+equal. I was wondering why we're not seeing that coming back. Has there been a deterioration in
+growth in subscription revenue outlook across the business to offset that? If you can unpack this as
+much as possible, that would be great around pricing retention because I think it's key to people's
+outlook for growth in the subscription businesses. Thanks.
+MAP:
+Hey Russell, thank you for the question. So a couple of data points here. So ASV this quarter is 6.4, so
+about 10 bps more than Q4 2024. When you compare with Q1 2024 to 6%, and we explained at the
+time, that Credit Suisse was dragging it down by 30 bps. So when you take the 6% plus the 30 bps, that's
+6.3, we're posting 6.4. So overall, I think we are in line there. And again, I'm just repeating what we've
+said at previous calls, which is I don't think you should be hanged on variation of ASV from one quarter
+to another. I think the most important thing is the trajectory. Now if you look at the dynamics of the
+ASV, what we have in there in this quarter is an acceleration of D&A, which is continuing on its trajectory
+and we have a normalization of FTSE and Risk Intelligence, and that's what makes the combination at
+6.4%.
+Russell Quelch:
+Okay. Thanks, MAP.
+Operator:
+Your next question is from the line of Hubert Lam, Bank of America, your line is open.
+Hubert Lam:
+Hi, good morning. Thanks for taking my questions. First one is on the sales cycle. I'm just wondering if
+you've seen any changes to the sales cycle, the sizes of the potential contracts, or any delayed decision
+making just given the macro uncertainty. Is this uncertainty delaying any potential wins they may be
+getting? And that's the first question. I guess my follow up question is on the Microsoft pipeline, I think
+MAP, you briefly mentioned around Open Directory, just wondering if the pipeline is still on track for
+most of the products to be launched by year end, particularly around Workspace. Thank you.
+David:
+Thanks, Hubert. So no real change that we're seeing in terms of the sales cycle, and again, I think
+pipeline looks good. So really nothing dramatic to report on there. In terms of Microsoft pipeline, we've
+got a lot going on this year and MAP touched on some of this in his remarks, but we are continuing to
+build out the content sets in data-as-a-service. We're adding some functionality in terms of the Excel
+add-in coming into Workspace, the interoperability with Workspace. More coming with Open Directory
+back half of this year. You've seen some early impact from the new functionality in analytics. So as I said,
+a lot of activity and we're excited to keep delivering.
+
+Hubert Lam:
+
+[[PAGE:5]]
+Page 5 of 11
+
+Great, thank you.
+David:
+Yep, thank you.
+Operator:
+Your next question is from the line of Ben Bathurst of RBC. Please go ahead.
+Ben Bathurst:
+Good morning. Thanks for taking my question. It's on the Data & Analytics division. You've recently
+announced the appointment of new co-heads there. Just wondered if you could shed some more light
+on the thinking behind that decision and perhaps how different you envisage Ron's role being going
+forwards in terms of involvement in the sales effort for Data and Analytics. Thank you.
+David:
+Sure. Thanks, Ben. So Data and Analytics is a big division. We got a lot going on there and as we looked
+at that, we thought it made sense to have a co-head structure with complimentary leaders. You all know
+Ron, who's done a great job in terms of leading the sales function over the last few years. He obviously
+knows our customers and knows our product really well. Excuse me. And then Gianluca has terrific
+experience in this industry having worked for three of our big peers or competitors and just a great level
+of expertise in the data space. So lots of complimentary skills, a good geographic mix. One will be based
+in Europe, one will be based in New York, and we think that that structure will work very, very well. We
+also have a good leadership cadre beneath them. And again, the performance of this business, this
+division continues to go well. So I'm pleased with the construct that we have in place.
+Ben Bathurst:
+Thank you.
+David:
+Thank you.
+Operator:
+Your next question is from the line of Enrico Bolzoni from JPMorgan. Please go ahead.
+Enrico Bolzoni:
+Morning and thanks for taking my question. So one on workflows, the sequential growth quarter-on-
+quarter in constant currency has stopped in Q1 after three quarters of marginal improvements
+sequentially. So I was wondering whether you could provide any color there and whether you can
+confirm that this is the line that we choose the accelerating from later part of this year, or perhaps early
+next year once the new products with Microsoft are launched. And alongside that, given the stability in
+growth quarter on quarter, can you give maybe some color on new client wins or competitor
+displacement that may have occurred during the quarter? Thank you.
+
+[[PAGE:6]]
+Page 6 of 11
+
+David:
+Sure. Thanks, Enrico. So first I wouldn't get too hung up on quarter-over-quarter trajectories here. With
+workflows, this is a business segment that you will recall very well a few years ago, was basically
+shrinking and there was a lot of skepticism about this segment and we said a few years ago that we
+would get it growing to low single digit growth. I think the performance there has been consistently
+positive and so again, I wouldn't get too hung up over one quarter where you see no change in terms of
+the quarter-over-quarter growth trajectory. As I just mentioned, we have a lot of new product coming in
+that area. Workspace is landing very well and lots of the additional features and functionality coming
+out over the back half of this year. So we've continued to feel very good about how that is performing. I
+would say the last part of your question on displacements, we continue to see displacements. We do
+not win everything, but it's a very different business today compared to what it was a few years ago,
+where this was a market share donor for many, many years and now we are gaining share. So we
+continue to feel good about that as well.
+Enrico:
+Thank you.
+David:
+Thank you.
+Operator:
+Your next question is from the line of Bruce Hamilton of Morgan Stanley. Please go ahead.
+Bruce Hamilton:
+Hi. Morning guys. Thanks for taking my question. That was useful color on the no change in the sales
+cycle. I just wanted to check on the data as a service progress. Can you give a bit of an update on where
+we are in terms of sets migrating, how many clients are signed up, maybe how that sort of momentum is
+building as we move through next year? I think previously you said sort of critical mass in terms of data
+moving to the cloud would be probably sometime in mid-2026. Is that still kind of the case? Just keen to
+get some more color on that. Thanks.
+David:
+Yeah, that still holds, Bruce. We're making good progress in terms of the migration and of the various
+data sets. We have the ESG data set up there. I think we're making progress on some of the
+fundamentals data sets, but you nailed it. Basically, if you are a customer using a number of our
+different data sets, it's not ideal for you to be partially in the old world and partially in the new world. So
+it's more likely that we'll have that critical mass in place before we see a lot of the customer activity in
+the new world, if I can put it that way.
+Bruce Hamilton:
+Great. Thank you.
+David:
+Thank you.
+
+[[PAGE:7]]
+Page 7 of 11
+
+Operator:
+You have a question from Michael Werner at UBS. Your line is open.
+Michael Werner:
+Thank you very much for the presentation, guys. A quick question on SwapAgent. Just wanted to know if
+there was an update as to the progress there within LCH and yeah, just wanted to, if any information
+with regards to kind of revenue contribution or how you anticipate the trajectory of that contribution in
+the coming quarters would be helpful. Thank you.
+David:
+Well, thanks Michael. Nothing in particular around SwapAgent and it continues to do fine and we have
+seen good strong growth across the different businesses in Post Trade. SwapClear tends to get a lot of
+the focus, but we have seen good performance in ForexClear. We've seen good performance in
+CDSClear and SwapAgent as well. It's not a clearing part of the business, but it's a nice piece of the Post
+Trade Solution capability in the uncleared space and that also continues to do well.
+Michael Werner:
+Thank you.
+David:
+Thank you.
+Operator:
+Your next question from the line of Benjamin Goy of Deutsche Bank. Please go ahead.
+Benjamin Goy:
+Yes, hi. Good morning. In workflows, you mentioned a particular strong in commodities, which is one of
+your strong businesses historically. I was wondering going forward with the product innovation, should
+we expect commodities and FX to outperform or do you expect to catch up in other business like
+equities or maybe wealth management or with you as wealth managers? Thank you.
+David:
+Thanks, Benjamin. So we have seen strong performance in commodities. We also saw pretty strong
+performance in a few other asset classes. It's hard to know exactly how that will play out over the
+coming quarters. I think it's really one of the strengths of our business that we don't have a particular
+concentration or over concentration of exposure to any particular asset class or to any particular
+customer segment, or to buy side or sell side. So I am tempted to say that your guess is as good as mine
+in terms of how the volatility will play out across different asset classes in the coming quarters. But the
+strength of our model is that we have a broad diversified platform, where we're serving customers
+across lots of different asset classes, lots of different geographies, buy side, sell side. That includes
+wealth management, that includes equities. So I think it's the strength of that diversification that is
+really an important part of our model.
+Benjamin Goy:
+Thank you.
+
+[[PAGE:8]]
+Page 8 of 11
+
+David:
+Thank you.
+Operator:
+You have a question from Andrew Coombs at Citi, your line is open.
+Andrew Coombs:
+Yeah, a couple for me please. One on the markets revenues versus volumes and then just a factual one
+on the gain on the bond purchase. Let me start with the latter because it's kind of a very quick one and
+you do you just quantified the gain on the two 50 million bond purchase in March? And then on the
+revenue versus volumes, both on the equities and the OTC derivatives line. On the equities line, the UK
+value trade is up 28% year-on-year. Obviously the revenue growth is much more subdued, which you
+flat is due to the lower primary, but perhaps you can just pick that one a little bit. And then on the OTC
+derivatives, notional trade is up 14% on SwapClear, but the number of client trades is up 37% and yet
+the revenues are up 17 in that line. So again, anything you can unpack there would be helpful. Thank
+you.
+David:
+Sure. Andrew, maybe MAP will take the bond question.
+MAP:
+Yeah, sure. So Andrew, as I was referring to, we executed a second bond buyback in this first quarter for
+the same amount in an NPV positive transaction. It will derive pretty much the same positive impact on
+the net financial expense, but overall it will compensate the increased interest cost coming from our
+debt because of the share buyback. So overall, I think we'll have a slight positive I would say, but one is
+kind of compensating the other.
+David:
+And let me unpack the question on volumes on the equities, and I'll go through this pretty high level, but
+hopefully this gets you there, Andrew. Equities volume growth about 28%. We have volume-based
+discounts for a number of our customers. So if you include that, then it's about a 16% growth there.
+Then there was a small one-time item in Q1 of 2024, and then we had a modest price decline in
+turquoise, which is in the same line. So you put all that in there, that gets you to about 8% growth
+quarter over quarter or year over year.
+And then the secondary trading revenue is roughly half of that business. And as you all are very well
+aware that the primary markets, the capital raising has been relatively subdued. So that gets you down
+to the 3% numbers. Hopefully that helps there. And then on the OTC derivatives, some sort of similar
+math, although slightly different dynamic, as you mentioned, client trades in SwapClear up 36.8%, but as
+you will recall with our members, they're on more of a fixed fee model. And so to go from that 36.8%
+down to the 16% or so is really how you get to that. Does that help?
+
+Andrew Coombs:
+Very helpful, thank you.
+
+[[PAGE:9]]
+Page 9 of 11
+
+David:
+Sure.
+Operator:
+Your next question is from the line of Ian White of Autonomous Research, your line is open.
+Ian White:
+Morning. Thanks for taking my questions. Just two from my side, please. Firstly, could you provide some
+detail around how signups and usage of MeetingPrep have developed over the last few months? I think
+this was something that you highlighted with the full year update that this was something now people
+could sign up for via Teams, if I remember correctly. And I was just trying to understand how that has
+tracked so far. And secondly, just any thoughts on evolution in the M&A dynamics, seeing more pressure
+on the private equity industry in terms of ability to exit investments. I wondered if that had created any
+new or different conversations for you in terms of looking at bolt-on acquisitions. Thank you.
+David:
+Sure. Thanks, Ian. So MeetingPrep, we've got it out there with our customers. It's really at what we call
+the minimum viable product phase, and we're looking at subsequent developments in that and adding
+additional capabilities, additional features in that as we go forward. And then on the M&A dynamics, I
+would say we continue to look at a lot, no change in terms of our capital allocation policy, and we
+continue to be very focused on what makes sense for us in terms of strategic fit and really making sense
+from a strategic perspective, but also financially what makes sense in terms of financial returns to the
+extent that we are entering an environment where sellers have more realistic value expectations. That
+would be a helpful thing for us. But I can't tell you at this point that there's a massive flow of distressed
+sellers, but we continue to evaluate the opportunities that are out there.
+Ian White:
+Thanks. Just to clarify, on MeetingPrep, is it the case at the moment that you have this with a set of core
+clients, if you like, and we wouldn't necessarily see more meaningful growth or heavier usage until you
+had done some of the developments that you mentioned? Or is this a product where you see significant
+usage and value-add for customers already? Is there any detail you can provide around that, please?
+David:
+Yeah, sure. No, that's a good question. I would say it's more the former. In other words, that's why I
+described it as MVP, minimum viable product. The technology is changing, and when we put it out
+there, there was no real concept of agentic AI. We're looking at whether there are ways that we should
+be adjusting it and changing the product and working with our key customers to evaluate what could
+make the most sense in terms of adding the most value for them.
+Ian White:
+That's great. Thank you.
+David:
+You got it.
+
+[[PAGE:10]]
+Page 10 of 11
+
+Operator:
+You have a question from Julian Dobrowolski of ABN AMRO. Your line is open.
+Julian Dobrowolski:
+Good morning, gentlemen. Thanks for taking my questions. I have a follow-up on Workspace and then
+another one on a different topic. To begin, with the Workspace, given your plan for migration away from
+Eikon by June 2025, I was just wondering if you could remind us again on the pricing but also timing
+strategy of that from, say, June 2025 onwards, assuming that all users will be on the new product as of
+the first quarter 2025. Then, one on a different topic, so the recent announcement of your partnership
+with AWS, I was wondering if you could share more color, which services you plan to migrate AWS and
+which will go to the Microsoft Cloud, broadly speaking, but also if you could share some thoughts behind
+the decision-making, for example, why sticking to AWS Cloud and not Microsoft given your long-term
+partnership agreement with them.
+David:
+Sure. First of all, the Workspace migration continues to go well and very much on track. I think implied in
+your question was an expectation of a pricing change when we switched from Eikon to Workspace, and
+that's not the way it works. I think one of the reasons we've seen a very successful migration and
+retention during the migration is that we've been giving our customers a significantly better product in
+Workspace at the same price that they were paying for Eikon. That will continue for the customers that
+are going through that migration this year. Then, the price adjustment will take place as it does every
+year on an annual basis in January. No pricing change in year during the migration. Excuse me.
+The question around AWS... AWS has long been a partner of ours, and we have been very clear
+throughout the very successful partnership with Microsoft that we will continue to work with other
+cloud providers. There's no exclusivity to the Microsoft relationship either way. It continues to be very
+productive, I think, for both sides, but the cloud relationship with AWS is also a strong one for us, an
+important one for us, and we have other cloud relationships as well. Just to break it down, and I think
+the press release on AWS mentioned this, but for a number of years, we have had cloud activity for FTSE
+risk intelligence and different parts of our market's business with AWS. That is the extension that we
+announced earlier this week.
+Julian Dobrowolski:
+Got it. Thank you.
+David:
+Thank you.
+Operator:
+Next question. It's from the line of Thomas Mills of Jefferies. Please go ahead.
+Thomas Mills:
+Good morning, guys. I hear what you were saying on sales cycle earlier, which was reassuring. I'm just
+wondering, buy and sell side end markets feel a little bit less healthy at the end of April. Perhaps people
+were expecting immediate post the US election. I'm just curious if you see any early modifications in the
+nature of the conversations you're having with either of those types of counterparties. Is there any
+
+[[PAGE:11]]
+Page 11 of 11
+
+greater willingness to expand the scope of enterprise agreements/product bundling in environments to
+try and generate incremental savings?
+David:
+These enterprise agreements tend to be multi-month discussions, in some cases longer than that. I
+wouldn't say that we have seen over the last month or so any dramatic change in terms of interest in
+those conversations. We do have a number of those conversations ongoing, but I wouldn't say it's driven
+by the volatility over the last month or two. That's why I would say we haven't seen any meaningful
+change in terms of the sales cycle or any of those dynamics.
+Thomas Mills:
+Right. Thank you.
+David:
+Thank you.
+Operator:
+And there are no further questions on the conference line. I will now hand the presentation back to
+David Schwimmer, CEO of LSEG for closing remarks.
+David:
+Well, thank you all for your questions and for your interest. Of course, you know where Peregrine and
+the team are if you have any further questions, and we look forward to seeing you all soon.

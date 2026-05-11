@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "typecheck": "tsc -b",
+    "preview": "vite preview",
+    "test": "npm run test:lseg",
+    "test:lseg": "node scripts/lseg-model-validation.mjs",
+    "test:msft": "node scripts/msft-model-validation.mjs"
   },
   "dependencies": {
     "@radix-ui/react-select": "^2.2.5",
