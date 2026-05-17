@@ -1,0 +1,51 @@
+Lockheed Martin Corporation (LMT) defense-prime module explanation
+
+1. Design logic
+The LMT module is a buy-side defense-prime research cockpit focused on backlog conversion, F-35 cadence, missile-defense demand, program-charge risk, Space growth, cash conversion, and shareholder returns. It is not a generic stock page; the central question is whether official backlog and guidance convert into cleaner profit and FCF.
+
+2. Data layers
+Official actuals:
+- FY2025 sales, operating profit, cash flow, capex, free cash flow, backlog, segment results, segment backlog, aircraft deliveries, and shareholder returns from Lockheed Martin's January 27, 2026 FY2025 release.
+- Q1 2026 sales, EPS, cash flow, capex, free cash flow, segment results, segment backlog, aircraft deliveries, and outlook from Lockheed Martin's April 21, 2026 release.
+
+Management guidance:
+- 2026 sales, business segment operating profit, EPS, operating cash flow, capex, and FCF ranges from the Q1 2026 release.
+
+Forecast assumptions:
+- Revenue CAGR, operating margin, tax rate, D&A intensity, capex intensity, working-capital drag, WACC, terminal growth, target FCF yield, P/E, EV/EBIT, net debt, share count, dividend, and valuation weights.
+
+Research-only:
+- Program matrix, eight-quarter market-focus synthesis, risk register, and scenario narratives.
+
+Market data:
+- Current price, share count, market cap, enterprise value, and dividend yield are external market-data inputs and are not official Lockheed Martin actuals.
+
+3. Engines and skills used
+The module uses the shared defensePrime cockpit framework plus buy-side initiation research, earnings-call analysis, valuation triangulation, and risk red-team workflows. Those workflows drive segment intelligence, backlog/order visibility, reporting-event trend synthesis, program exposure scoring, valuation triangulation, and risk ranking.
+
+4. Backlog and defense cycle treatment
+Lockheed Martin discloses total and segment-level backlog, so LMT can show backlog contribution by Aeronautics, Missiles and Fire Control, Rotary and Mission Systems, and Space. Order intake is derived from backlog movement plus sales because the official releases do not provide one consolidated order-intake field. Derived order intake is labeled derived and is not presented as official awards.
+
+5. Valuation model
+The valuation triangulates:
+- FCFF DCF
+- Normalized FCF yield
+- EV/EBIT
+- P/E
+- Backlog durability layer
+
+The base weights are DCF 35%, FCF yield 25%, EV/EBIT 15%, P/E 10%, and backlog durability 15%. The backlog layer is capped and adjusts risk/durability rather than mechanically adding value.
+
+6. Scenarios
+Bear case: Program charges, F-35 timing, working-capital volatility, and budget delays reduce confidence.
+Base case: 2026 guidance holds, MFC and Space offset RMS pressure, and FCF normalizes.
+Bull case: MFC and Space demand persist, F-35 deliveries normalize, charges fade, and backlog quality earns a higher multiple.
+
+7. Reporting events
+The dashboard includes eight reporting-event windows with a horizontal scrollbar and slider. FY2025 and Q1 2026 are tied directly to official releases. Earlier event summaries are research-only synthesis pending local transcript/release caching.
+
+8. Validation
+The validation script checks registration, stock-module contract, segment reconciliation, segment margin math, FCF formula, backlog coverage, derived book-to-bill, assumption ranges, terminal-value warnings, valuation weight sum, scenario probability sum, source-status coverage, research-only isolation, eight-event coverage, source mapping, English-only content, and market-data separation.
+
+9. Limitations and next improvements
+The largest gaps are local transcript caching for the eight-quarter trend, exact historical order intake, a live market-data connector, and a richer program-level bridge from official contracts to segment backlog. The next step is to add a Lockheed IR fetch pipeline for releases, presentations, transcripts, and backlog tables.

@@ -58,6 +58,10 @@ export type ValuationResult = {
     value: number;
     format: MetricFormat;
     description: string;
+    valuationBase?: string;
+    baseYear?: number;
+    forecastYear?: number;
+    sourceConfidence?: "high" | "medium" | "low";
   }>;
   expectedReturnBridge: Array<{
     key: string;

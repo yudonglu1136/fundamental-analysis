@@ -1,0 +1,190 @@
+import type { Signal } from "../../types";
+import type { LegnDataset, LegnRiskOutput } from "../types";
+import { explain } from "./helpers";
+
+export function buildLegnRiskEngine(data: LegnDataset): LegnRiskOutput {
+  const risks: LegnRiskOutput["risks"] = [
+    {
+      id: "single-product-concentration",
+      category: "Business",
+      title: "Single-product concentration",
+      probability: 0.68,
+      severity: 0.82,
+      detectability: 0.72,
+      timeToMaterialize: "Immediate",
+      mitigation: "Track quarterly CARVYKTI NTS, line mix and site productivity.",
+      killCriteria: "CARVYKTI growth slows below 20% before capacity is fully used.",
+      sourceEvidenceIds: ["legn-q4-fy2025-press-release", "jnj-q4-2025-carvykti-sales"],
+    },
+    {
+      id: "jj-dependence",
+      category: "Collaboration",
+      title: "J&J/Janssen execution dependence",
+      probability: 0.55,
+      severity: 0.74,
+      detectability: 0.58,
+      timeToMaterialize: "Quarterly",
+      mitigation: "Reconcile J&J sales, site expansion and Legend collaboration revenue every quarter.",
+      killCriteria: "Legend revenue share deteriorates without clear manufacturing or recoupment explanation.",
+      sourceEvidenceIds: ["legn-fy2025-income-statement", "jnj-q4-2025-carvykti-sales"],
+    },
+    {
+      id: "safety-label",
+      category: "Clinical / Regulatory",
+      title: "Boxed warning and safety-label burden",
+      probability: 0.58,
+      severity: 0.78,
+      detectability: 0.62,
+      timeToMaterialize: "Readouts / label updates",
+      mitigation: "Monitor IEC-EC, CRS, ICANS, secondary malignancy and infections in label updates and real-world data.",
+      killCriteria: "Frontline risk-benefit becomes unfavorable after FDA or trial safety update.",
+      sourceEvidenceIds: ["fda-carvykti-iec-ec-boxed-warning", "fda-carvykti-label-current"],
+    },
+    {
+      id: "bcma-competition",
+      category: "Competition",
+      title: "BCMA bispecific and alternate-target competition",
+      probability: 0.64,
+      severity: 0.66,
+      detectability: 0.55,
+      timeToMaterialize: "2026-2028",
+      mitigation: "Track share, referral, duration, convenience and sequencing against BCMA/GPRC5D/FcRH5 regimens.",
+      killCriteria: "CARVYKTI share falls below 40% in eligible 2L-4L CAR-T referrals.",
+      sourceEvidenceIds: ["bcma-competition-research", "cartitude4-asco-2025-high-risk"],
+    },
+    {
+      id: "manufacturing-bottleneck",
+      category: "Manufacturing",
+      title: "Capacity, OOS and release-time bottleneck",
+      probability: 0.52,
+      severity: 0.72,
+      detectability: 0.7,
+      timeToMaterialize: "Monthly / quarterly",
+      mitigation: "Track dose capacity, OOS rate, success rate, vein-to-vein timing and site waitlists.",
+      killCriteria: "Demand exceeds feasible doses for multiple quarters and gross margin fails to scale.",
+      sourceEvidenceIds: ["legn-fy2025-raritan-capacity", "legn-q4-2025-transcript-capacity-success"],
+    },
+    {
+      id: "site-logistics-reimbursement",
+      category: "Access",
+      title: "Reimbursement and site logistics friction",
+      probability: 0.48,
+      severity: 0.55,
+      detectability: 0.5,
+      timeToMaterialize: "2026-2029",
+      mitigation: "Monitor community hospital mix, patient referrals and OUS launch adoption.",
+      killCriteria: "Community expansion does not raise patients per site or increases OOS/costs.",
+      sourceEvidenceIds: ["legn-q4-2025-transcript-early-line-sites"],
+    },
+    {
+      id: "funding-advance-recoupment",
+      category: "Financial",
+      title: "Janssen funding advance recoupment drags cash contribution",
+      probability: 0.72,
+      severity: 0.45,
+      detectability: 0.8,
+      timeToMaterialize: "2026",
+      mitigation: "Treat advances as debt-like until recouped through collaboration economics.",
+      killCriteria: "Advance balance grows faster than collaboration gross profit contribution.",
+      sourceEvidenceIds: ["legn-20f-2025-funding-advance"],
+    },
+    {
+      id: "china-governance-risk",
+      category: "Governance / China",
+      title: "China, parent, related-party and governance risk",
+      probability: 0.4,
+      severity: 0.6,
+      detectability: 0.42,
+      timeToMaterialize: "Event-driven",
+      mitigation: "Track 20-F risk factors, related-party disclosures and PRC regulatory developments.",
+      killCriteria: "Restrictions impair cash movement, licensing rights or audit visibility.",
+      sourceEvidenceIds: ["legn-20f-2025-china-holding-risk"],
+    },
+    {
+      id: "dilution-risk",
+      category: "Capital structure",
+      title: "Dilution risk if 2026 profitability slips",
+      probability: 0.34,
+      severity: 0.52,
+      detectability: 0.65,
+      timeToMaterialize: "2026-2027",
+      mitigation: "Watch OCF, burn, capex and management operating-profit commentary.",
+      killCriteria: "Cash burn reaccelerates while CARVYKTI growth decelerates.",
+      sourceEvidenceIds: ["legn-20f-2025-cash-flow", "legn-jpm2026-profitability-frontline"],
+    },
+    {
+      id: "solid-tumor-failure",
+      category: "Pipeline",
+      title: "Solid tumor CAR-T remains a science story",
+      probability: 0.78,
+      severity: 0.36,
+      detectability: 0.4,
+      timeToMaterialize: "2026-2030",
+      mitigation: "Keep LB1908/LB2102 out of core valuation and require durability plus toxicity mitigation.",
+      killCriteria: "No durable responses or unacceptable GI/neurotoxicity in expansion cohorts.",
+      sourceEvidenceIds: ["lb1908-asco-gi2026", "lb2102-asco2025"],
+    },
+    {
+      id: "novartis-economics-uncertain",
+      category: "Pipeline economics",
+      title: "Novartis license economics uncertainty",
+      probability: 0.55,
+      severity: 0.36,
+      detectability: 0.35,
+      timeToMaterialize: "Program updates",
+      mitigation: "Keep LB2102 contribution low until economics, milestones and royalties are disclosed.",
+      killCriteria: "License economics prove too small for LEGN equity value despite clinical success.",
+      sourceEvidenceIds: ["novartis-lb2102-license", "lb2102-asco2025"],
+    },
+  ];
+
+  const heatmap = risks.map((risk) => {
+    const score = risk.probability * risk.severity * 100;
+    const signal: Signal = score > 48 ? "Negative" : score > 30 ? "Needs Review" : "Neutral";
+    return {
+      risk: risk.title,
+      score,
+      signal,
+    };
+  });
+
+  const aggregateRiskScore = heatmap.reduce((sum, risk) => sum + risk.score, 0) / heatmap.length;
+
+  return {
+    aggregateRiskScore,
+    risks,
+    heatmap,
+    monitoringPlan: [
+      {
+        metric: "Quarterly CARVYKTI NTS",
+        threshold: "QoQ growth below 5% before 2027",
+        action: "Reduce peak-sales probability and revisit demand/capacity split.",
+        evidenceIds: ["legn-q1-2026-prelim-6k", "jnj-q4-2025-carvykti-sales"],
+      },
+      {
+        metric: "Manufacturing success / OOS rate",
+        threshold: "Success below 95% or OOS above 5%",
+        action: "Increase COGS, lower treatment completion and add bottleneck penalty.",
+        evidenceIds: ["legn-q4-2025-transcript-capacity-success"],
+      },
+      {
+        metric: "Earlier-line utilization",
+        threshold: "2L-4L mix below 60%",
+        action: "Lower 2L-4L penetration and label-expansion adoption.",
+        evidenceIds: ["legn-q4-2025-transcript-early-line-sites"],
+      },
+      {
+        metric: "Safety-label updates",
+        threshold: "Incremental boxed warning or materially higher IEC-EC / neurotoxicity",
+        action: "Raise safety penalty and frontline hurdle rate.",
+        evidenceIds: ["fda-carvykti-iec-ec-boxed-warning"],
+      },
+    ],
+    explainability: explain(
+      "Risk register is designed as a kill-memo dashboard: single-product dependence, J&J economics, safety and manufacturing can break the thesis before pipeline optionality matters.",
+      "risk score = probability x severity x 100; monitoring triggers map directly to model haircuts",
+      Array.from(new Set(risks.flatMap((risk) => risk.sourceEvidenceIds))),
+      ["single-product risk dominates", "safety and manufacturing are adoption gates", "solid tumor optionality is not in core base"],
+    ),
+  };
+}

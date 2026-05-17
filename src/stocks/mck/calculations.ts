@@ -1,577 +1,346 @@
-import * as XLSX from "xlsx";
-import type { DashboardInterpretation, DataStatus, Scenario, SummaryMetric, ValuationResult, ValidationWarning } from "../types";
-import { annualizeQuarterly, clamp, safeDivide } from "../../utils/financialMath";
+import type {
+  DashboardInterpretation,
+  DataStatus,
+  Scenario,
+  SummaryMetric,
+  ValuationResult,
+  ValidationWarning,
+} from "../types";
 import { buildSensitivityTable } from "../../utils/chartHelpers";
-import { checkEPSConsistency, checkExtremeGrowthRates, checkImpossibleCagrCombination, checkMissingFields, checkPeSanity, checkSegmentSumConsistency, checkValuationReliability } from "../../utils/validation";
-import { buildPriceValidationWarnings, computeExpectedShareholderCagr, computeUpsideDownside, getCanonicalCurrentPrice } from "../../utils/valuation";
-import { mckWorkbookData } from "./data";
+import { computeUpsideDownside } from "../../utils/valuation";
+import { defaultMckAssumptions, mckScenarioPresets } from "./assumptions";
+import { mckDataset } from "./realData";
+import type { MckDashboardDataset, MckDataset, MckResearchAssumptions } from "./types";
+import { calculateBiopharmaServicesEngine } from "./engines/biopharmaServicesEngine";
+import { calculateBuybackEngine } from "./engines/buybackEngine";
+import { calculateCapitalAllocationEngine } from "./engines/capitalAllocationEngine";
+import { calculateDistributionEconomicsEngine } from "./engines/distributionEconomicsEngine";
+import { calculateEarningsCallEngine } from "./engines/earningsCallEngine";
+import { latestFinancial, safeDivide } from "./engines/helpers";
+import { calculateMarginBridgeEngine } from "./engines/marginBridgeEngine";
+import { calculatePeerComparisonEngine } from "./engines/peerComparisonEngine";
+import { calculatePrescriptionTechnologyEngine } from "./engines/prescriptionTechnologyEngine";
+import { calculateRiskEngine } from "./engines/riskEngine";
+import { calculateMckScenarioEngine } from "./engines/scenarioEngine";
+import { calculateSegmentEconomicsEngine } from "./engines/segmentEconomicsEngine";
+import { calculateSpecialtyOncologyEngine } from "./engines/specialtyOncologyEngine";
+import { calculateMckValuationEngine } from "./engines/valuationEngine";
+import { calculateWorkingCapitalEngine } from "./engines/workingCapitalEngine";
+import { validateMckDataset } from "./validation/mckValidation";
 
-export type MckAssumptions = {
-  currentPrice: number;
-  forwardCoreEps: number;
-  targetPe: number;
-  fcfPerShare: number;
-  targetFcfYield: number;
-  epsCagr3Y: number;
-  exitPe: number;
-  buybackYield: number;
-  dividendYield: number;
-  glp1MarginDilutionImpact: number;
-  specialtyOncologyUplift: number;
-  oneOffEpsAdjustment: number;
-  glp1Revenue: number;
-  glp1RevenueGrowth: number;
-  glp1GrossMargin: number;
-  nonGlp1Margin: number;
-  specialtyRevenue: number;
-  specialtyRevenueGrowth: number;
-  specialtyMargin: number;
-  oncologyRevenueGrowth: number;
+export { defaultMckAssumptions, mckScenarioPresets };
+export type { MckResearchAssumptions };
+
+type MckDatasetInput = MckDataset & {
+  __mckResolvedPeriod?: string;
 };
 
-export const defaultMckAssumptions: MckAssumptions = {
-  currentPrice: getCanonicalCurrentPrice("MCK", 650),
-  forwardCoreEps: 35,
-  targetPe: 17,
-  fcfPerShare: 32,
-  targetFcfYield: 0.055,
-  epsCagr3Y: 0.08,
-  exitPe: 16,
-  buybackYield: 0.025,
-  dividendYield: 0.005,
-  glp1MarginDilutionImpact: -0.01,
-  specialtyOncologyUplift: 0.02,
-  oneOffEpsAdjustment: 0,
-  glp1Revenue: 2600,
-  glp1RevenueGrowth: 0.22,
-  glp1GrossMargin: 0.04,
-  nonGlp1Margin: 0.024,
-  specialtyRevenue: 9800,
-  specialtyRevenueGrowth: 0.13,
-  specialtyMargin: 0.039,
-  oncologyRevenueGrowth: 0.15,
-};
+export function resolveMckDataset(data: unknown): MckDatasetInput {
+  if (data && typeof data === "object" && "reportedFinancials" in data && "segmentFinancials" in data) {
+    return data as MckDatasetInput;
+  }
+  return mckDataset;
+}
 
-export type MckModel = {
-  periods: string[];
-  segments: Array<{
-    quarter: string;
-    quarterEnd: string;
-    segment: string;
-    revenue: number;
-    operatingProfit: number;
-    operatingMargin: number;
-    revenueGrowth: number;
-    operatingProfitGrowth: number;
-    profitContribution: number;
-  }>;
-  bridge: Array<{
-    quarter: string;
-    quarterEnd: string;
-    adjustedNetIncome: number;
-    adjustedEps: number;
-    dilutedShares: number;
-    interestExpense: number;
-    adjustedTaxRate: number;
-    shareRepurchases: number;
-    avgRepurchasePrice: number;
-    acquisitionDivestitureOpProfit: number;
-    adjustedOperatingProfit: number;
-    oneOffAfterTax: number;
-    adjustedOperatingProfitGrowth: number;
-    adjustedNetIncomeGrowth: number;
-    adjustedEpsGrowth: number;
-    shareCountYoYChange: number;
-  }>;
-  guidance: Array<{ quarterEnd: string; metric: string; midpoint: number; notes: string }>;
-  valuationRows: Array<{
-    scenario: Scenario;
-    forwardAdjustedEps: number;
-    forwardPeMultiple: number;
-    impliedSharePrice: number;
-    currentSharePrice: number;
-    upsideDownsidePct: number;
-    fcfYield: number;
-    shareRepurchaseYield: number;
-    longTermEpsCagr: number;
-  }>;
-  peerRows: Array<Record<string, unknown>>;
-};
-
-export type MckDashboardData = {
-  summary: SummaryMetric[];
-  dataStatus: DataStatus;
-  investmentReadThrough: DashboardInterpretation[];
-  segmentChart: Array<Record<string, string | number>>;
-  epsBridge: {
-    rows: Array<{ label: string; value: number; type: "base" | "positive" | "negative" | "total" }>;
-    mix: { operating: number; buybacks: number; belowLine: number; oneOff: number };
-    qualityLabel: string;
-    qualitySignal: DashboardInterpretation["signal"];
-    qualityDetail: string;
-  };
-  coreEpsSeries: Array<{ period: string; adjustedEps: number; coreEps: number; epsExBuyback: number; coreExBuyback: number }>;
-  buybacks: {
-    latest: { buybackYield: number; avgRepurchasePrice: number; impliedSharesRepurchased: number; epsAccretion: number; authorizationRemaining: number };
-    signal: DashboardInterpretation["signal"];
-    detail: string;
-    trend: Array<{ quarter: string; dilutedShares: number; repurchaseAmount: number; buybackContribution: number; avgRepurchasePrice: number; fairValue: number }>;
-  };
-  glp1: {
-    signal: DashboardInterpretation["signal"];
-    detail: string;
-    sourceBadge: "Assumption";
-    current: { revenueGrowthWithGlp1: number; revenueGrowthWithoutGlp1: number; operatingProfitContribution: number; marginDilution: number; revenueQualityScore: number };
-  };
-  specialty: {
-    signal: DashboardInterpretation["signal"];
-    detail: string;
-    sourceBadge: "Assumption";
-    trend: Array<{ quarter: string; specialtyRevenueGrowth: number; oncologyRevenueGrowth: number; specialtyOperatingProfitContribution: number; specialtyMargin: number; specialtyPercentOfUsPharmaProfit: number }>;
-  };
-  peerRows: Array<Record<string, string | number>>;
-  valuation: ValuationResult;
-};
-
-export function parseMckWorkbookSnapshot(workbookLike = mckWorkbookData as Record<string, unknown[][]>): MckModel {
-  const segments = rowsToObjects(workbookLike["Segment Model"])
-    .filter((row) => row.quarter_end && row.segment)
-    .map((row) => ({
-      quarter: String(row.quarter ?? ""),
-      quarterEnd: String(row.quarter_end),
-      segment: String(row.segment),
-      revenue: num(row.revenue),
-      operatingProfit: num(row.adjusted_operating_profit),
-      operatingMargin: num(row.operating_margin),
-      revenueGrowth: num(row.revenue_yoy_growth),
-      operatingProfitGrowth: num(row.adjusted_operating_profit_yoy_growth),
-      profitContribution: num(row.contribution_to_total_operating_profit_growth_pct_pts),
-    }));
-
-  const bridge = rowsToObjects(workbookLike["EPS Bridge"])
-    .filter((row) => row.quarter_end)
-    .map((row) => ({
-      quarter: String(row.quarter ?? ""),
-      quarterEnd: String(row.quarter_end),
-      adjustedNetIncome: num(row.adjusted_net_income),
-      adjustedEps: num(row.adjusted_diluted_eps),
-      dilutedShares: num(row.diluted_weighted_avg_shares),
-      interestExpense: num(row.interest_expense),
-      adjustedTaxRate: num(row.adjusted_tax_rate),
-      shareRepurchases: num(row.share_repurchases),
-      avgRepurchasePrice: num(row.avg_repurchase_price),
-      acquisitionDivestitureOpProfit: num(row.acquisition_divestiture_op_profit),
-      adjustedOperatingProfit: num(row.adjusted_operating_profit),
-      oneOffAfterTax: num(row.one_off_after_tax),
-      adjustedOperatingProfitGrowth: num(row.adjusted_operating_profit_growth),
-      adjustedNetIncomeGrowth: num(row.adjusted_net_income_growth),
-      adjustedEpsGrowth: num(row.adjusted_eps_growth),
-      shareCountYoYChange: num(row.share_count_yoy_change),
-    }));
-
-  const guidance = rowsToObjects(extractEmbeddedTable(workbookLike["Raw Inputs"], "guidance")).map((row) => ({
-    quarterEnd: String(row.quarter_end ?? ""),
-    metric: String(row.metric ?? ""),
-    midpoint: num(row.midpoint),
-    notes: String(row.notes ?? ""),
-  }));
-
-  const valuationRows = rowsToObjects(extractPrimaryTable(workbookLike["Valuation"]))
-    .filter((row) => typeof row.scenario === "string")
-    .slice(0, 3)
-    .map((row) => ({
-      scenario: String(row.scenario) as Scenario,
-      forwardAdjustedEps: num(row.forward_adjusted_eps),
-      forwardPeMultiple: num(row.forward_pe_multiple),
-      impliedSharePrice: num(row.implied_share_price),
-      currentSharePrice: num(row.current_share_price),
-      upsideDownsidePct: num(row.upside_downside_pct),
-      fcfYield: num(row.fcf_yield),
-      shareRepurchaseYield: num(row.share_repurchase_yield),
-      longTermEpsCagr: num(row.long_term_eps_cagr),
-    }));
-
-  const peerRows = rowsToObjects(workbookLike["Peer Read-Through"]);
+export function attachMckRuntimeContext(data: MckDataset, context: { periodId?: string }): MckDatasetInput {
   return {
-    periods: [...new Set(bridge.map((row) => row.quarter.slice(0, 4)))],
-    segments,
-    bridge,
-    guidance,
-    valuationRows,
-    peerRows,
+    ...data,
+    __mckResolvedPeriod: context.periodId,
   };
 }
 
-export function parseMckExcelFile(buffer: ArrayBuffer) {
-  const workbook = XLSX.read(buffer, { type: "array" });
-  const sheets: Record<string, unknown[][]> = {};
-  workbook.SheetNames.forEach((sheetName) => {
-    sheets[sheetName] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: true }) as unknown[][];
-  });
-  return parseMckWorkbookSnapshot(sheets);
+export function getDefaultMckPeriod(data: MckDataset = mckDataset) {
+  return data.reportedFinancials[data.reportedFinancials.length - 1]?.periodId ?? "fy2026";
 }
 
-export function calculateMckSummary(data: MckModel): SummaryMetric[] {
-  const latest = data.bridge[data.bridge.length - 1];
-  const prior = data.bridge[data.bridge.length - 5] ?? data.bridge[0];
-  const fairValue = calculateMckValuation(data, defaultMckAssumptions).fairValues.find((row) => row.scenario === "Base")?.fairValue ?? 0;
+export function getMckPeriods(data: MckDataset = mckDataset) {
+  return data.reportedFinancials.map((period) => ({ value: period.periodId, label: period.label }));
+}
+
+function withAssumptions(data: MckDataset, assumptions?: Partial<MckResearchAssumptions>): MckDataset {
+  return {
+    ...data,
+    assumptions: {
+      ...data.assumptions,
+      ...defaultMckAssumptions,
+      ...(assumptions ?? {}),
+    },
+  };
+}
+
+function summaryMetric(
+  label: string,
+  value: number,
+  delta: number | undefined,
+  format: SummaryMetric["format"],
+  description: string,
+  badge: SummaryMetric["badge"],
+): SummaryMetric {
+  return { key: label.toLowerCase().replace(/[^a-z0-9]+/g, "-"), label, value, delta, format, description, badge };
+}
+
+export function calculateMckSummary(data: unknown, assumptions?: Partial<MckResearchAssumptions>): SummaryMetric[] {
+  const resolved = withAssumptions(resolveMckDataset(data), assumptions);
+  const latest = latestFinancial(resolved);
+  const segmentEconomics = calculateSegmentEconomicsEngine(resolved);
+  const oncology = segmentEconomics.segments.find((row) => row.segment === "Oncology & Multispecialty");
+  const valuation = calculateMckValuationEngine(resolved);
+  const buyback = calculateBuybackEngine(resolved);
   return [
-    metric("Revenue Growth", latest.adjustedOperatingProfitGrowth + 0.045, prior.adjustedOperatingProfitGrowth + 0.04, "percent", "Imported segment growth cross-check.", "Derived"),
-    metric("Adj. Op Profit Growth", latest.adjustedOperatingProfitGrowth, prior.adjustedOperatingProfitGrowth, "percent", "Core operating growth quality.", "Derived"),
-    metric("Adjusted EPS Growth", latest.adjustedEpsGrowth, prior.adjustedEpsGrowth, "percent", "Headline EPS growth from the bridge.", "Derived"),
-    metric("Adjusted Net Income Growth", latest.adjustedNetIncomeGrowth, prior.adjustedNetIncomeGrowth, "percent", "Net income growth before share count help.", "Derived"),
-    metric("Diluted Share Count Change", latest.shareCountYoYChange, prior.shareCountYoYChange, "percent", "Mechanical EPS help from fewer shares.", "Derived"),
-    metric("Buyback Contribution", calculateMckBridge(data).buybackContribution, 0, "currency", "Current EPS accretion from using prior-year shares.", "Derived"),
-    metric("Operating Margin", safeDivide(latest.adjustedOperatingProfit, sumForQuarter(data.segments, latest.quarter, "revenue")), safeDivide(prior.adjustedOperatingProfit, sumForQuarter(data.segments, prior.quarter, "revenue")), "percent", "Consolidated operating margin.", "Derived"),
-    metric("Core Fair Value", fairValue, data.valuationRows[0]?.currentSharePrice ?? 0, "currency", "Blended value using core EPS and FCF.", "Needs Review"),
+    summaryMetric("Current Price", resolved.assumptions.currentPrice, undefined, "currency", "Market snapshot used for upside/downside.", "Actual"),
+    summaryMetric("Blended Fair Value", valuation.blendedFairValue, resolved.assumptions.currentPrice, "currency", "Weighted P/E, FCF yield, DCF, and SOTP fair value.", "Derived"),
+    summaryMetric("Forward P/E", safeDivide(resolved.assumptions.currentPrice, resolved.assumptions.forwardAdjustedEps), undefined, "multiple", "Current price over FY2027 adjusted EPS guidance midpoint.", "Derived"),
+    summaryMetric("FCF Yield", safeDivide(latest.freeCashFlow, resolved.assumptions.currentPrice * resolved.assumptions.dilutedShares), undefined, "percent", "FY2026 reported FCF over market equity value.", "Derived"),
+    summaryMetric("Buyback Yield", buyback.buybackYield, undefined, "percent", "Annual buyback amount over market equity value.", "Derived"),
+    summaryMetric("Adjusted EPS Growth", latest.adjustedEpsGrowth, undefined, "percent", "FY2026 adjusted EPS growth from official release.", "Actual"),
+    summaryMetric("Group Op Margin", segmentEconomics.groupMargin, undefined, "percent", "Adjusted segment operating profit over segment revenue.", "Derived"),
+    summaryMetric("Oncology Profit Growth", oncology?.adjustedOperatingProfitGrowth ?? 0, undefined, "percent", "FY2026 Oncology & Multispecialty adjusted operating profit growth.", oncology?.tag.sourceType === "actual" ? "Actual" : "Placeholder"),
   ];
 }
 
-export function calculateMckValuation(data: MckModel, assumptions: MckAssumptions, scenario?: Scenario): ValuationResult {
-  const merged = { ...defaultMckAssumptions, ...assumptions };
-  const bridge = calculateMckBridge(data);
-  const currentPrice = merged.currentPrice || getCanonicalCurrentPrice("MCK", data.valuationRows.find((row) => row.scenario === "Base")?.currentSharePrice || 650);
-  const qualityFactor = bridge.qualitySignal === "Positive" ? 1.03 : bridge.qualitySignal === "Neutral" ? 1 : 0.95;
-  const coreEps = merged.forwardCoreEps * (1 + merged.glp1MarginDilutionImpact + merged.specialtyOncologyUplift) + merged.oneOffEpsAdjustment;
-  const base = data.valuationRows.find((row) => row.scenario === "Base");
-  const abnormal = base ? base.upsideDownsidePct > 0.45 || data.guidance.some((row) => row.notes.toLowerCase().includes("placeholder")) : true;
-  const peFairValue = coreEps * merged.targetPe;
-  const fcfFairValue = merged.fcfPerShare / merged.targetFcfYield;
-  const expectedPrice3Y = coreEps * ((1 + merged.epsCagr3Y) ** 3) * merged.exitPe;
-  const cumulativeDividends = currentPrice * merged.dividendYield * 3;
-  const expected3YCagr = computeExpectedShareholderCagr(expectedPrice3Y, currentPrice, cumulativeDividends);
-  const businessMixAdjustment = merged.specialtyOncologyUplift + merged.glp1MarginDilutionImpact;
-  const qualityAdjustedFairValue = ((peFairValue * 0.6) + (fcfFairValue * 0.4)) * qualityFactor;
-  const blendedFairValue = (peFairValue * 0.55) + (fcfFairValue * 0.35) + (qualityAdjustedFairValue * 0.1);
-  const fairValues = (["Bear", "Base", "Bull"] as Scenario[]).map((caseScenario) => ({
-    scenario: caseScenario,
-    fairValue: blendedFairValue,
-    targetPrice3Y: expectedPrice3Y,
-    cumulativeDividends,
-    upsideDownside: computeUpsideDownside(blendedFairValue, currentPrice),
-    expectedReturn3Y: expected3YCagr,
-    summary: caseScenario === scenario ? "Selected scenario" : undefined,
-  }));
-  const validationWarnings = [
-    ...buildPriceValidationWarnings("MCK", currentPrice, "2026-05-09"),
-    ...checkPeSanity(peFairValue, 495, 722, "MCK"),
-    ...checkImpossibleCagrCombination(computeUpsideDownside(blendedFairValue, currentPrice), expected3YCagr),
-  ];
-
+function buildDataStatus(data: MckDataset, warnings: ValidationWarning[]): DataStatus {
+  const missingFields = [
+    data.reportedFinancials.some((row) => row.dilutedSharesTag.isPlaceholder) ? "official diluted share count" : "",
+    data.reportedFinancials.some((row) => row.netDebtTag.isPlaceholder) ? "official net debt / balance sheet refresh" : "",
+    data.qaPairs.some((row) => row.tag.isPlaceholder) ? "full transcript Q&A ingestion" : "",
+    data.peers.some((row) => row.tag.isPlaceholder) ? "peer market/filing refresh" : "",
+  ].filter(Boolean);
   return {
-    warning: abnormal ? "Valuation may be unreliable because EPS input appears distorted or placeholder guidance still leaks into the model." : undefined,
-    currentPrice,
-    validationWarnings,
+    sourceType: "manual",
+    lastUpdated: data.reportedFinancials[data.reportedFinancials.length - 1]?.tag.asOfDate ?? "2026-05-11",
+    missingFields,
+    validationWarnings: warnings,
+    valuationReliable: !warnings.some((warning) => warning.severity === "high"),
+  };
+}
+
+function buildInvestmentReadThrough(dashboard: MckDashboardDataset): DashboardInterpretation[] {
+  return [
+    {
+      title: "Compounder quality",
+      signal: dashboard.valuation.marginOfSafety > 0.1 ? "Positive" : "Neutral",
+      detail:
+        "MCK can compound if mid-single-digit distribution profit, faster oncology/RxTS profit, FCF conversion and disciplined buybacks work together.",
+      badge: "Derived",
+    },
+    {
+      title: "Low gross margin interpretation",
+      signal: dashboard.distributionEconomics.marginCompressionFlag ? "Needs Review" : "Positive",
+      detail: dashboard.distributionEconomics.revenueHugeMarginThin,
+      badge: "Derived",
+    },
+    {
+      title: "Oncology engine",
+      signal: "Positive",
+      detail: dashboard.oncology.contribution,
+      badge: "Actual",
+    },
+    {
+      title: "Buyback engine",
+      signal: dashboard.buyback.valueCreationSignal,
+      detail: dashboard.buyback.commentary,
+      badge: "Derived",
+    },
+    {
+      title: "Working capital caveat",
+      signal: "Needs Review",
+      detail: dashboard.workingCapital.warning,
+      badge: "Derived",
+    },
+  ];
+}
+
+export function buildMckDashboardData(
+  dataInput: unknown,
+  assumptions: Partial<MckResearchAssumptions> = {},
+  scenario: Scenario = "Base",
+): MckDashboardDataset & { dataStatus: DataStatus; readThrough: DashboardInterpretation[] } {
+  const scenarioAssumptions = mckScenarioPresets[scenario] ?? {};
+  const data = withAssumptions(resolveMckDataset(dataInput), { ...scenarioAssumptions, ...assumptions });
+  const segmentEconomics = calculateSegmentEconomicsEngine(data);
+  const distributionEconomics = calculateDistributionEconomicsEngine(data);
+  const oncology = calculateSpecialtyOncologyEngine(data);
+  const prescriptionTechnology = calculatePrescriptionTechnologyEngine(data);
+  const biopharmaServices = calculateBiopharmaServicesEngine(data);
+  const workingCapital = calculateWorkingCapitalEngine(data);
+  const marginBridge = calculateMarginBridgeEngine(data);
+  const buyback = calculateBuybackEngine(data);
+  const capitalAllocation = calculateCapitalAllocationEngine(data);
+  const valuation = calculateMckValuationEngine(data);
+  const scenarios = calculateMckScenarioEngine(data);
+  const risks = calculateRiskEngine(data);
+  const peers = calculatePeerComparisonEngine(data);
+  const earningsCall = calculateEarningsCallEngine(data);
+  const validationWarnings = [...validateMckDataset(data), ...valuation.warnings];
+  const dashboard: MckDashboardDataset = {
+    summary: calculateMckSummary(data, data.assumptions),
+    segmentEconomics,
+    distributionEconomics,
+    workingCapital,
+    marginBridge,
+    buyback,
+    capitalAllocation,
+    valuation,
+    scenarios,
+    risks,
+    peers,
+    thesis: [
+      {
+        title: "Scale distributor with irreplaceable infrastructure",
+        evidence: "FY2026 North American Pharmaceutical revenue was $336.7B with $3.5B adjusted operating profit.",
+        metric: `${distributionEconomics.segment.marginBps.toFixed(0)} bps margin`,
+        riskFlag: "Customer concentration and reimbursement pressure.",
+        signal: "Positive",
+        badge: "Actual",
+      },
+      {
+        title: "Specialty / oncology growth engine",
+        evidence: oncology.contribution,
+        metric: `${((oncology.segment?.adjustedOperatingProfitGrowth ?? 0) * 100).toFixed(0)}% profit growth`,
+        riskFlag: "Organic/acquired split must be monitored.",
+        signal: "Positive",
+        badge: "Actual",
+      },
+      {
+        title: "Strong FCF conversion over cycle",
+        evidence: "FY2026 reported FCF was $5.4B; normalized FCF is separately tracked to control working-capital noise.",
+        metric: `${(workingCapital.normalizedFcfConversion * 100).toFixed(0)}% normalized conversion`,
+        riskFlag: "Do not annualize a single cash-flow quarter.",
+        signal: "Positive",
+        badge: "Derived",
+      },
+      {
+        title: "Buyback-driven EPS compounding",
+        evidence: "FY2026 cash returned to shareholders included $4.8B of repurchases and $381M dividends.",
+        metric: `${(buyback.buybackYield * 100).toFixed(1)}% buyback yield`,
+        riskFlag: "Repurchase ROIC falls when average buyback price rises.",
+        signal: buyback.valueCreationSignal,
+        badge: "Derived",
+      },
+      {
+        title: "Valuation is bps and terminal multiple sensitive",
+        evidence: "10 bps on distribution margin moves after-tax profit materially because revenue is enormous.",
+        metric: `$${distributionEconomics.marginSensitivity.find((row) => row.bpsChange === 10)?.epsImpact.toFixed(2)} EPS / +10 bps`,
+        riskFlag: "Margin compression can offset revenue growth.",
+        signal: "Needs Review",
+        badge: "Derived",
+      },
+    ],
+    oncology,
+    prescriptionTechnology,
+    biopharmaServices,
+    earningsCall,
+    memo: {
+      whatHappened:
+        "McKesson delivered FY2026 revenue of $403.4B, adjusted EPS of $39.11, FCF of $5.4B, and FY2027 adjusted EPS guidance of $43.80 to $44.60.",
+      whatMatters:
+        "The key issue is not revenue growth alone; it is whether oncology/RxTS profit growth, working-capital discipline and buybacks can lift FCF per share.",
+      whatMarketMayBeMissing:
+        "The market may underwrite MCK as a low-margin distributor and miss the higher-quality oncology, biopharma service, and Rx technology profit pools.",
+      whatCanGoWrong:
+        "PBM/reimbursement pressure, customer concentration, opioid/legal shocks, generic deflation, GLP-1 mix dilution, and working-capital reversals can break the thesis.",
+      attractivePrice:
+        `Base blended fair value is about $${valuation.blendedFairValue.toFixed(0)}. A 15% margin of safety would imply an attractive entry around $${(valuation.blendedFairValue * 0.85).toFixed(0)}.`,
+      monitorNextQuarter: [
+        "Oncology & Multispecialty organic versus acquired growth.",
+        "North American Pharmaceutical margin bps and customer-volume mix.",
+        "Reported FCF versus normalized FCF and inventory/payable timing.",
+        "Average buyback execution price versus fair value.",
+        "RxTS access-solution demand and reimbursement commentary.",
+      ],
+    },
+    warnings: validationWarnings,
+  };
+  return {
+    ...dashboard,
+    dataStatus: buildDataStatus(data, validationWarnings),
+    readThrough: buildInvestmentReadThrough(dashboard),
+  };
+}
+
+export function calculateMckValuation(
+  dataInput: unknown,
+  assumptions?: Partial<MckResearchAssumptions>,
+  scenario: Scenario = "Base",
+): ValuationResult {
+  const scenarioAssumptions = mckScenarioPresets[scenario] ?? {};
+  const data = withAssumptions(resolveMckDataset(dataInput), { ...scenarioAssumptions, ...(assumptions ?? {}) });
+  const valuation = calculateMckValuationEngine(data);
+  const scenarios = calculateMckScenarioEngine(data);
+  const selected = scenarios.find((row) => row.scenario === scenario) ?? scenarios[1] ?? scenarios[0];
+  return {
+    currentPrice: data.assumptions.currentPrice,
+    priceDate: data.market.priceDate,
+    validationWarnings: valuation.warnings,
+    warning: valuation.warnings.find((warning) => warning.severity === "high")?.detail,
+    fairValues: scenarios.map((row) => ({
+      scenario: row.scenario,
+      fairValue: row.fairValue,
+      targetPrice3Y: row.targetPrice3Y,
+      cumulativeDividends: data.assumptions.currentPrice * data.market.dividendYield * 3,
+      upsideDownside: row.upsideDownside,
+      expectedReturn3Y: row.irr3Y,
+      summary: row.summary,
+    })),
     methodCards: [
-      { key: "pe-fair", label: "P/E Fair Value", value: peFairValue, format: "currency", description: "Forward core EPS times target P/E." },
-      { key: "fcf-fair", label: "FCF Yield Fair Value", value: fcfFairValue, format: "currency", description: "FCF per share capitalized at the target FCF yield." },
-      { key: "expected-price", label: "3Y Expected Price", value: expectedPrice3Y, format: "currency", description: "Forward core EPS compounded by EPS CAGR and valued at the exit P/E." },
-      { key: "quality-fair", label: "EPS Quality Adjusted Fair Value", value: qualityAdjustedFairValue, format: "currency", description: "Blended value adjusted for EPS quality and business mix." },
-      { key: "blended", label: "Blended Fair Value", value: blendedFairValue, format: "currency", description: "Weighted blend: P/E 55%, FCF 35%, quality adjustment 10%. Exit multiple is reserved for the 3-year target, not counted twice." },
-      { key: "upside", label: "Upside / Downside", value: computeUpsideDownside(blendedFairValue, currentPrice), format: "percent", description: "Blended fair value versus current price." },
-      { key: "expected-cagr", label: "Expected 3Y CAGR", value: expected3YCagr, format: "percent", description: "Shareholder CAGR from 3-year target price plus cumulative dividends." },
-      { key: "core-eps", label: "Forward Core EPS", value: coreEps, format: "currency", description: "Forward core EPS adjusted for mix and one-off assumptions." },
+      { key: "pe", label: "P/E Fair Value", value: valuation.peFairValue, format: "currency", description: "FY2027 adjusted EPS guidance midpoint times target P/E." },
+      { key: "fcf-yield", label: "FCF Yield Fair Value", value: valuation.fcfYieldFairValue, format: "currency", description: "FCF/share capitalized at target FCF yield." },
+      { key: "dcf", label: "Owner Earnings DCF", value: valuation.dcfFairValue, format: "currency", description: "Normalized owner earnings DCF with working-capital adjustment and net debt deduction." },
+      { key: "sotp", label: "SOTP Fair Value", value: valuation.sotpFairValue, format: "currency", description: "Segment multiple value for distribution, oncology, RxTS and Med-Surg minus corporate cost and net debt." },
+      { key: "blended", label: "Blended Fair Value", value: valuation.blendedFairValue, format: "currency", description: "Weighted average of P/E, FCF yield, DCF and SOTP." },
+      { key: "mos", label: "Margin of Safety", value: valuation.marginOfSafety, format: "percent", description: "Blended fair value versus current price." },
     ],
     expectedReturnBridge: [
-      { key: "eps-cagr", label: "EPS CAGR", value: merged.epsCagr3Y, format: "percent", description: "Core EPS growth contribution." },
-      { key: "dividend", label: "Dividend Yield", value: merged.dividendYield, format: "percent", description: "Cash return from dividends." },
-      { key: "buyback", label: "Buyback Yield", value: 0, format: "percent", description: "Not added separately to shareholder CAGR because EPS growth already reflects share-count reduction." },
-      { key: "multiple", label: "Multiple Effect", value: Math.pow(safeDivide(merged.exitPe, merged.targetPe), 1 / 3) - 1, format: "percent", description: "Expansion or compression from target P/E to exit P/E." },
-      { key: "mix", label: "Business Mix Adjustment", value: businessMixAdjustment, format: "percent", description: "Specialty uplift plus GLP-1 margin dilution impact." },
+      { key: "eps-cagr", label: "EPS CAGR", value: data.assumptions.epsCagr3Y, format: "percent", description: "Operating growth plus buyback-driven per-share accretion." },
+      { key: "dividend", label: "Dividend Yield", value: data.market.dividendYield, format: "percent", description: "Current cash dividend yield." },
+      { key: "buyback", label: "Buyback Yield", value: calculateBuybackEngine(data).buybackYield, format: "percent", description: "Repurchase dollars over market equity value; embedded in EPS path." },
+      { key: "multiple", label: "Exit Multiple Effect", value: (data.assumptions.exitPe / data.assumptions.targetPe) ** (1 / 3) - 1, format: "percent", description: "Annualized P/E change from target P/E to exit P/E." },
     ],
-    fairValues,
-    customSummary: scenario ? `${scenario} scenario defaults loaded.` : undefined,
     sensitivityTables: [
       {
-        title: "Forward P/E x Core EPS",
-        table: buildSensitivityTable("P/E", "Core EPS", [merged.targetPe - 2, merged.targetPe - 1, merged.targetPe, merged.targetPe + 1, merged.targetPe + 2], [coreEps * 0.9, coreEps * 0.95, coreEps, coreEps * 1.05, coreEps * 1.1], (pe, eps) => pe * eps),
+        title: "Forward EPS x P/E",
+        table: buildSensitivityTable(
+          "P/E",
+          "EPS",
+          [data.assumptions.targetPe - 2, data.assumptions.targetPe - 1, data.assumptions.targetPe, data.assumptions.targetPe + 1, data.assumptions.targetPe + 2],
+          [data.assumptions.forwardAdjustedEps * 0.9, data.assumptions.forwardAdjustedEps * 0.95, data.assumptions.forwardAdjustedEps, data.assumptions.forwardAdjustedEps * 1.05, data.assumptions.forwardAdjustedEps * 1.1],
+          (pe, eps) => pe * eps,
+        ),
       },
       {
         title: "FCF Yield x FCF / Share",
-        table: buildSensitivityTable("FCF Yield", "FCF / Share", [merged.targetFcfYield - 0.01, merged.targetFcfYield - 0.005, merged.targetFcfYield, merged.targetFcfYield + 0.005, merged.targetFcfYield + 0.01], [merged.fcfPerShare * 0.9, merged.fcfPerShare * 0.95, merged.fcfPerShare, merged.fcfPerShare * 1.05, merged.fcfPerShare * 1.1], (yieldRate, fcfPerShare) => fcfPerShare / yieldRate),
+        table: buildSensitivityTable(
+          "FCF Yield",
+          "FCF / Share",
+          [data.assumptions.targetFcfYield - 0.01, data.assumptions.targetFcfYield - 0.005, data.assumptions.targetFcfYield, data.assumptions.targetFcfYield + 0.005, data.assumptions.targetFcfYield + 0.01],
+          [data.assumptions.fcfPerShare * 0.9, data.assumptions.fcfPerShare * 0.95, data.assumptions.fcfPerShare, data.assumptions.fcfPerShare * 1.05, data.assumptions.fcfPerShare * 1.1],
+          (yieldRate, fcfPerShare) => safeDivide(fcfPerShare, yieldRate),
+        ),
       },
       {
-        title: "EPS CAGR x Exit Multiple",
-        table: buildSensitivityTable("EPS CAGR", "Exit P/E", [merged.epsCagr3Y - 0.03, merged.epsCagr3Y - 0.015, merged.epsCagr3Y, merged.epsCagr3Y + 0.015, merged.epsCagr3Y + 0.03], [merged.exitPe - 2, merged.exitPe - 1, merged.exitPe, merged.exitPe + 1, merged.exitPe + 2], (cagr, exit) => coreEps * ((1 + cagr) ** 3) * exit),
+        title: "Margin bps x Current Price",
+        table: buildSensitivityTable(
+          "Margin bps",
+          "Entry Price",
+          [-20, -10, 0, 10, 20],
+          [data.assumptions.currentPrice * 0.85, data.assumptions.currentPrice * 0.95, data.assumptions.currentPrice, data.assumptions.currentPrice * 1.05, data.assumptions.currentPrice * 1.15],
+          (bps, entryPrice) => computeUpsideDownside(valuation.blendedFairValue + bps * 1.8, entryPrice),
+        ),
       },
     ],
+    peFairValue: valuation.peFairValue,
+    fcfFairValue: valuation.fcfYieldFairValue,
+    dcfValue: valuation.dcfFairValue,
+    sotpFairValue: valuation.sotpFairValue,
+    blendedFairValue: valuation.blendedFairValue,
+    valuationRangeLow: valuation.valuationRangeLow,
+    valuationRangeBase: valuation.blendedFairValue,
+    valuationRangeHigh: valuation.valuationRangeHigh,
+    recommendedFairValue: valuation.blendedFairValue,
+    recommendedFairValueMethod: "P/E / FCF yield / owner-earnings DCF / segment SOTP blend",
+    recommendedFairValueReason: "MCK is a low-margin, high-turnover, FCF-and-buyback compounder, so no single P/E multiple is allowed to drive the answer.",
+    targetPrice3Y: selected.targetPrice3Y,
+    expectedReturn3Y: selected.irr3Y,
+    upsideDownside: computeUpsideDownside(valuation.blendedFairValue, data.assumptions.currentPrice),
   };
-}
-
-export function buildMckDashboardData(data: MckModel, assumptions: MckAssumptions, scenario: Scenario): MckDashboardData {
-  const summary = calculateMckSummary(data);
-  const validations = validateMckData(data);
-  const valuation = calculateMckValuation(data, assumptions, scenario);
-  const bridge = calculateMckBridge(data);
-  const latest = data.bridge[data.bridge.length - 1];
-  const prior = data.bridge[data.bridge.length - 5] ?? data.bridge[0];
-  const coreEpsSeries = data.bridge.map((row, index) => {
-    const priorShares = data.bridge[Math.max(index - 4, 0)]?.dilutedShares || row.dilutedShares;
-    const oneOffPerShare = safeDivide(row.oneOffAfterTax, row.dilutedShares);
-    return {
-      period: row.quarter,
-      adjustedEps: row.adjustedEps,
-      coreEps: row.adjustedEps - oneOffPerShare,
-      epsExBuyback: safeDivide(row.adjustedNetIncome, priorShares),
-      coreExBuyback: safeDivide(row.adjustedNetIncome - row.oneOffAfterTax, priorShares),
-    };
-  });
-
-  const fairValueBase = valuation.fairValues.find((row) => row.scenario === "Base")?.fairValue ?? valuation.currentPrice;
-  const buybackTrend = data.bridge.map((row, index) => {
-    const priorShares = data.bridge[Math.max(index - 4, 0)]?.dilutedShares || row.dilutedShares;
-    return {
-      quarter: row.quarter,
-      dilutedShares: row.dilutedShares,
-      repurchaseAmount: row.shareRepurchases,
-      buybackContribution: row.adjustedEps - safeDivide(row.adjustedNetIncome, priorShares),
-      avgRepurchasePrice: row.avgRepurchasePrice,
-      fairValue: fairValueBase,
-    };
-  });
-
-  const glp1MarginDilution = assumptions.nonGlp1Margin - safeDivide(latest.adjustedOperatingProfit, sumForQuarter(data.segments, latest.quarter, "revenue"));
-  const glp1Signal = glp1MarginDilution > 0.0015 ? "Negative" : assumptions.glp1GrossMargin > 0.03 ? "Positive" : "Neutral";
-  const specialtyTrend = data.segments
-    .filter((row) => row.segment === "U.S. Pharmaceutical")
-    .map((row, index) => ({
-      quarter: row.quarter,
-      specialtyRevenueGrowth: assumptions.specialtyRevenueGrowth - 0.02 + index * 0.01,
-      oncologyRevenueGrowth: assumptions.oncologyRevenueGrowth - 0.03 + index * 0.01,
-      specialtyOperatingProfitContribution: row.profitContribution * (0.34 + index * 0.02),
-      specialtyMargin: assumptions.specialtyMargin - 0.002 + index * 0.0005,
-      specialtyPercentOfUsPharmaProfit: safeDivide(assumptions.specialtyRevenue * assumptions.specialtyMargin * (0.85 + index * 0.05), row.operatingProfit),
-    }));
-
-  const peerLatest = data.peerRows[data.peerRows.length - 1] ?? {};
-  const peerRows = [
-    {
-      peer: "Cencora (COR)",
-      pharmaRevenueGrowth: num(peerLatest.COR_US_Healthcare_revenue_growth),
-      pharmaProfitGrowth: num(peerLatest.COR_adjusted_operating_income_growth),
-      specialtyDrugGrowth: num(peerLatest.COR_US_Healthcare_revenue_growth) + 0.02,
-      pbmVolume: num(peerLatest.UNH_Optum_Rx_revenue_growth),
-      marginCommentary: num(peerLatest.COR_stable_or_improving_margin) ? "Stable" : "Pressured",
-      guidanceRevision: "Raised",
-      signal: "Positive",
-    },
-    {
-      peer: "Cardinal Health (CAH)",
-      pharmaRevenueGrowth: num(peerLatest.CAH_Pharmaceutical_and_Specialty_revenue_growth),
-      pharmaProfitGrowth: num(peerLatest.CAH_Pharmaceutical_and_Specialty_profit_growth),
-      specialtyDrugGrowth: num(peerLatest.CAH_Pharmaceutical_and_Specialty_profit_growth) + 0.02,
-      pbmVolume: 0.04,
-      marginCommentary: num(peerLatest.CAH_stable_or_improving_margin) ? "Stable" : "Pressured",
-      guidanceRevision: "Raised",
-      signal: "Positive",
-    },
-    {
-      peer: "CVS Health",
-      pharmaRevenueGrowth: num(peerLatest.CVS_Health_Services_or_Caremark_growth),
-      pharmaProfitGrowth: num(peerLatest.CVS_Health_Services_or_Caremark_growth) - 0.02,
-      specialtyDrugGrowth: 0.07,
-      pbmVolume: 0.03,
-      marginCommentary: num(peerLatest.PBM_or_pharmacy_reimbursement_pressure) ? "Pressured" : "Mixed",
-      guidanceRevision: "Inline",
-      signal: "Neutral",
-    },
-    {
-      peer: "UnitedHealth / Optum Rx",
-      pharmaRevenueGrowth: num(peerLatest.UNH_Optum_Rx_revenue_growth),
-      pharmaProfitGrowth: num(peerLatest.UNH_Optum_Rx_revenue_growth) - 0.02,
-      specialtyDrugGrowth: 0.09,
-      pbmVolume: 0.05,
-      marginCommentary: "Stable",
-      guidanceRevision: "Inline",
-      signal: "Positive",
-    },
-    {
-      peer: "Elevance / CarelonRx",
-      pharmaRevenueGrowth: num(peerLatest.ELV_Carelon_or_CarelonRx_growth),
-      pharmaProfitGrowth: num(peerLatest.ELV_Carelon_or_CarelonRx_growth) - 0.03,
-      specialtyDrugGrowth: 0.06,
-      pbmVolume: 0.02,
-      marginCommentary: num(peerLatest.PBM_or_pharmacy_reimbursement_pressure) ? "Pressured" : "Mixed",
-      guidanceRevision: "Lower",
-      signal: "Negative",
-    },
-  ] as Array<Record<string, string | number>>;
-
-  const missingFields = checkMissingFields([
-    { key: "guidance.forward_adjusted_eps", value: data.guidance.find((row) => row.metric === "forward_adjusted_eps")?.midpoint },
-    { key: "valuation.base.forwardAdjustedEps", value: data.valuationRows.find((row) => row.scenario === "Base")?.forwardAdjustedEps },
-  ]);
-
-  return {
-    summary,
-    dataStatus: {
-      sourceType: "mock",
-      lastUpdated: latest.quarterEnd,
-      missingFields,
-      validationWarnings: validations,
-      valuationReliable: !valuation.warning,
-    },
-    investmentReadThrough: [
-      { title: "Is EPS growth high quality?", signal: bridge.qualitySignal, detail: bridge.qualityDetail, badge: "Derived" },
-      { title: "Is growth mainly from operations or buybacks?", signal: bridge.mix.operating > bridge.mix.buybacks ? "Positive" : "Negative", detail: bridge.mix.operating > bridge.mix.buybacks ? "Operating profit contributes more to EPS growth than buybacks." : "Buybacks are doing as much work as operations.", badge: "Derived" },
-      { title: "Is GLP-1 revenue margin-accretive or dilutive?", signal: glp1Signal, detail: glp1Signal === "Negative" ? "GLP-1 appears to inflate revenue more than profit and dilutes margin mix." : glp1Signal === "Positive" ? "GLP-1 appears additive to both revenue and profit." : "GLP-1 helps revenue but has limited profit value.", badge: "Assumption" },
-      { title: "Are specialty and oncology driving real profit growth?", signal: specialtyTrend[specialtyTrend.length - 1].specialtyOperatingProfitContribution > 4 ? "Positive" : "Neutral", detail: specialtyTrend[specialtyTrend.length - 1].specialtyOperatingProfitContribution > 4 ? "Specialty / oncology is doing meaningful profit work." : "Growth still leans partly on lower-margin distribution volume.", badge: "Assumption" },
-      { title: "Is valuation reliable based on current input quality?", signal: valuation.warning ? "Needs Review" : "Positive", detail: valuation.warning ?? "Core EPS and FCF support a cleaner valuation than raw placeholder EPS.", badge: valuation.warning ? "Needs Review" : "Derived" },
-    ],
-    segmentChart: buildSegmentChart(data, latest.quarter.slice(0, 4), "revenue"),
-    epsBridge: bridge,
-    coreEpsSeries,
-    buybacks: {
-      latest: {
-        buybackYield: safeDivide(latest.shareRepurchases, fairValueBase * latest.dilutedShares),
-        avgRepurchasePrice: latest.avgRepurchasePrice,
-        impliedSharesRepurchased: safeDivide(latest.shareRepurchases, latest.avgRepurchasePrice),
-        epsAccretion: bridge.buybackContribution,
-        authorizationRemaining: latest.shareRepurchases * 4.5,
-      },
-      signal: latest.avgRepurchasePrice < fairValueBase && bridge.buybackContribution > 0 && latest.adjustedOperatingProfitGrowth > 0 ? "Positive" : "Negative",
-      detail: latest.avgRepurchasePrice < fairValueBase && bridge.buybackContribution > 0 && latest.adjustedOperatingProfitGrowth > 0 ? "Buybacks are below fair value and supplement operating growth." : "Buybacks look expensive or are carrying too much of the EPS story.",
-      trend: buybackTrend,
-    },
-    glp1: {
-      signal: glp1Signal,
-      detail: glp1Signal === "Negative" ? "GLP-1 inflates revenue while lowering blended margin." : glp1Signal === "Positive" ? "GLP-1 adds both revenue and profit." : "GLP-1 helps revenue with limited profit conversion.",
-      sourceBadge: "Assumption",
-      current: {
-        revenueGrowthWithGlp1: assumptions.glp1RevenueGrowth + latest.adjustedOperatingProfitGrowth,
-        revenueGrowthWithoutGlp1: assumptions.glp1RevenueGrowth * 0.35 + latest.adjustedOperatingProfitGrowth,
-        operatingProfitContribution: assumptions.glp1Revenue * assumptions.glp1GrossMargin,
-        marginDilution: glp1MarginDilution,
-        revenueQualityScore: clamp(100 - glp1MarginDilution * 3000 - Math.max(0, assumptions.glp1RevenueGrowth - 0.2) * 40, 0, 100),
-      },
-    },
-    specialty: {
-      signal: specialtyTrend[specialtyTrend.length - 1].specialtyOperatingProfitContribution > 4 ? "Positive" : "Neutral",
-      detail: specialtyTrend[specialtyTrend.length - 1].specialtyOperatingProfitContribution > 4 ? "Specialty and oncology are the real profit drivers." : "Growth still needs better mix quality to look fully compelling.",
-      sourceBadge: "Assumption",
-      trend: specialtyTrend,
-    },
-    peerRows,
-    valuation,
-  };
-}
-
-export function calculateMckBridge(data: MckModel) {
-  const current = data.bridge[data.bridge.length - 1];
-  const prior = data.bridge[data.bridge.length - 5] ?? data.bridge[0];
-  const taxRate = current.adjustedTaxRate || 0.18;
-  const currentShares = current.dilutedShares || 1;
-  const priorShares = prior.dilutedShares || currentShares;
-  const priorEps = prior.adjustedEps;
-  const currentEps = current.adjustedEps;
-  const oneOffContribution = safeDivide(current.oneOffAfterTax, currentShares);
-  const operatingContribution = safeDivide((current.adjustedOperatingProfit - prior.adjustedOperatingProfit) * (1 - taxRate), currentShares);
-  const buybackContribution = current.adjustedEps - safeDivide(current.adjustedNetIncome, priorShares);
-  const belowLineContribution = current.adjustedEps - priorEps - operatingContribution - oneOffContribution - buybackContribution;
-  const currentCoreEps = current.adjustedEps - oneOffContribution;
-  const totalGrowth = Math.max(currentEps - priorEps, 0.0001);
-  const mix = {
-    operating: operatingContribution / totalGrowth,
-    buybacks: buybackContribution / totalGrowth,
-    belowLine: belowLineContribution / totalGrowth,
-    oneOff: oneOffContribution / totalGrowth,
-  };
-  const high = mix.operating > 0.6 && mix.oneOff < 0.1 && mix.buybacks < 0.4;
-  const medium = mix.operating > 0 && mix.buybacks < 0.6;
-  return {
-    rows: [
-      { label: "Prior Adjusted EPS", value: priorEps, type: "base" as const },
-      { label: "Operating Profit After Tax", value: operatingContribution, type: operatingContribution >= 0 ? ("positive" as const) : ("negative" as const) },
-      { label: "Tax / Interest / Other", value: belowLineContribution, type: belowLineContribution >= 0 ? ("positive" as const) : ("negative" as const) },
-      { label: "One-Off Items", value: oneOffContribution, type: oneOffContribution >= 0 ? ("positive" as const) : ("negative" as const) },
-      { label: "Share Count Reduction", value: buybackContribution, type: buybackContribution >= 0 ? ("positive" as const) : ("negative" as const) },
-      { label: "Current Adjusted EPS", value: currentEps, type: "total" as const },
-    ],
-    mix,
-    buybackContribution,
-    currentCoreEps,
-    qualityLabel: high ? "High quality" : medium ? "Medium quality" : "Low quality",
-    qualitySignal: high ? ("Positive" as const) : medium ? ("Neutral" as const) : ("Negative" as const),
-    qualityDetail: high ? "Most EPS growth is coming from operating profit with limited one-off or buyback reliance." : medium ? "Operating growth is positive, but buybacks are still meaningful." : "EPS growth is leaning too hard on buybacks or below-the-line items.",
-  };
-}
-
-export function validateMckData(data: MckModel): ValidationWarning[] {
-  const latest = data.bridge[data.bridge.length - 1];
-  const forwardGuides = data.guidance.filter((row) => row.metric === "forward_adjusted_eps");
-  const annualGuide = forwardGuides[forwardGuides.length - 1]?.midpoint ?? 0;
-  const segmentQuarter = data.segments.filter((row) => row.quarter === latest.quarter);
-  const warnings = [
-    ...checkEPSConsistency(latest.adjustedEps, annualGuide),
-    ...checkExtremeGrowthRates([{ label: "EPS growth", value: latest.adjustedEpsGrowth }], 0.4),
-    ...checkSegmentSumConsistency(latest.adjustedOperatingProfit, segmentQuarter.map((row) => row.operatingProfit), "operating profit"),
-    ...checkValuationReliability(data.guidance.some((row) => row.notes.toLowerCase().includes("placeholder")) || (data.valuationRows.find((row) => row.scenario === "Base")?.upsideDownsidePct ?? 0) > 0.45),
-  ];
-  return warnings;
-}
-
-export function buildSegmentChart(data: MckModel, fiscalYear: string, view: "revenue" | "profit" | "margin" | "contribution") {
-  const rows = data.segments.filter((row) => row.quarter.startsWith(fiscalYear));
-  const quarters = [...new Set(rows.map((row) => row.quarter))];
-  return quarters.map((quarter) => {
-    const bucket: Record<string, string | number> = { quarter };
-    rows.filter((row) => row.quarter === quarter).forEach((row) => {
-      bucket[row.segment] = view === "revenue" ? row.revenue : view === "profit" ? row.operatingProfit : view === "margin" ? row.operatingMargin : row.profitContribution / 100;
-    });
-    return bucket;
-  });
-}
-
-function metric(label: string, value: number, previous: number, format: SummaryMetric["format"], description: string, badge: SummaryMetric["badge"]): SummaryMetric {
-  return { key: label.toLowerCase().replace(/\s+/g, "-"), label, value, delta: value - previous, format, description, badge };
-}
-
-function rowsToObjects(rows: unknown[][] | undefined) {
-  if (!rows || rows.length < 2) return [] as Array<Record<string, unknown>>;
-  const headerIndex = rows.findIndex((row) => row.some((cell) => typeof cell === "string"));
-  if (headerIndex === -1) return [];
-  const headers = rows[headerIndex].map((cell, index) => (cell == null || cell === "" ? `col_${index}` : String(cell)));
-  return rows
-    .slice(headerIndex + 1)
-    .filter((row) => row.some((cell) => cell !== null && cell !== undefined && cell !== ""))
-    .map((row) => {
-      const obj: Record<string, unknown> = {};
-      headers.forEach((header, index) => {
-        obj[header] = row[index];
-      });
-      return obj;
-    });
-}
-
-function extractPrimaryTable(rows: unknown[][] | undefined) {
-  if (!rows) return [];
-  const primary: unknown[][] = [];
-  for (const row of rows) {
-    const hasValue = row.some((cell) => cell !== null && cell !== undefined && cell !== "");
-    if (!hasValue && primary.length > 1) break;
-    primary.push(row);
-  }
-  return primary;
-}
-
-function extractEmbeddedTable(rows: unknown[][] | undefined, tableName: string) {
-  if (!rows) return [];
-  const idx = rows.findIndex((row) => String(row[0] ?? "").toLowerCase() === tableName.toLowerCase());
-  if (idx === -1) return [];
-  const out: unknown[][] = [];
-  for (let i = idx + 1; i < rows.length; i += 1) {
-    const row = rows[i];
-    const hasValue = row.some((cell) => cell !== null && cell !== undefined && cell !== "");
-    if (!hasValue && out.length > 1) break;
-    out.push(row);
-  }
-  return out;
-}
-
-function num(value: unknown) {
-  return typeof value === "number" ? value : typeof value === "string" && value !== "" ? Number(value) : 0;
-}
-
-function sumForQuarter(rows: MckModel["segments"], quarter: string, field: "revenue" | "operatingProfit") {
-  return rows.filter((row) => row.quarter === quarter).reduce((sum, row) => sum + row[field], 0);
 }

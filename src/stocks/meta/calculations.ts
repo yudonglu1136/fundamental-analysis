@@ -1,491 +1,387 @@
-import type { DashboardInterpretation, DataStatus, Signal, SummaryMetric, ValidationWarning } from "../types";
-import { annualizeQuarterly, clamp, safeDivide } from "../../utils/financialMath";
-import {
-  checkExtremeGrowthRates,
-  checkImpossibleCagrCombination,
-  checkMissingFields,
-  checkPeSanity,
-  checkSegmentSumConsistency,
-  checkValuationReliability,
-} from "../../utils/validation";
-import type { MetaAssumptions } from "./assumptions";
-import { defaultMetaAssumptions, metaScenarioDefaults } from "./assumptions";
-import { calculateAdEconomics } from "./adEconomicsEngine";
-import { calculateAiAdRoic } from "./aiAdRoicEngine";
-import { calculateCapexEconomics } from "./capexEngine";
-import { metaData, type MetaData, type MetaQuarterRow } from "./data";
-import { calculateEngagementEconomics } from "./engagementEngine";
-import { calculateReelsEconomics } from "./reelsEngine";
-import { calculateRealityLabsEconomics } from "./realityLabsEngine";
-import { calculateMetaValuation, type MetaValuationInput } from "./valuation";
-import { calculateWhatsappEconomics } from "./whatsappEngine";
+import type { DataSourceType, DataStatus, Scenario, SummaryMetric, ValuationResult, ValidationWarning } from "../types";
+import { computeExpectedShareholderCagr, computeUpsideDownside, daysBetweenIso } from "../../utils/valuation";
+import { metaDataset } from "./data";
+import { defaultMetaValuationAssumptions, metaScenarioPresets } from "./assumptions";
+import { calculateMetaAdEconomicsEngine } from "./engines/adEconomicsEngine";
+import { calculateMetaAiCapexEngine } from "./engines/aiCapexEngine";
+import { calculateMetaEarningsCallTrend } from "./engines/earningsCallEngine";
+import { calculateMetaForecastEngine } from "./engines/forecastEngine";
+import { getPeriodById, getSegment } from "./engines/helpers";
+import { calculateMetaMarketImpliedValuation } from "./engines/marketImpliedEngine";
+import { calculateMetaRiskRedTeamEngine } from "./engines/riskRedTeamEngine";
+import { calculateMetaThesisBreakpoints } from "./engines/thesisBreakEngine";
+import { calculateMetaValidationWarnings } from "./engines/validationEngine";
+import { calculateMetaValuationAttribution } from "./engines/valuationAttributionEngine";
+import { buildMetaSensitivityTables, calculateMetaValuationEngine } from "./engines/valuationEngine";
+import { calculateMetaValuationIntegrity } from "./engines/valuationIntegrityEngine";
+import type { MetaDataset, MetaValuationAssumptions } from "./model";
 
-export type MetaEvaluatedRow = MetaQuarterRow & {
-  adRevenueFromFormula: number;
-  reportedAdRevenue: number;
-  reportedCpm: number;
-  effectiveCpm: number;
-  adRevenueReconciliationGap: number;
-  adRevenueReconciled: boolean;
-  bridgePrecision: "precise" | "reconciled";
-  adRevenueYoYGrowth: number;
-  familyAppsOperatingIncome: number;
-  aiAdRevenueUpliftAnnualized: number;
-  aiAdOperatingProfitAnnualized: number;
-  aiAdAfterTaxOperatingProfitAnnualized: number;
-  aiAdRoic: number;
-  aiPaybackYears: number;
-  aiRevenueToCapital: number;
-  aiAdjustedFcf: number;
-  aiAdjustedFcfMargin: number;
-  impressionsGrowth: number;
-  cpmGrowth: number;
-  revenueGrowth: number;
-  recommendationScore: number;
-  monetizationGapChange: number;
-  capexIntensity: number;
-  aiCapexMix: number;
-  burdenScore: number;
-  scenarioReadThrough: string;
+export { metaDataset };
+export { defaultMetaValuationAssumptions, metaScenarioPresets };
+
+type MetaRuntimeContext = {
+  __metaResolvedPeriod?: string;
+  __metaRequestedDataSourceType?: DataSourceType;
 };
 
-export type MetaDataset = Omit<MetaData, "rows"> & {
-  rows: MetaEvaluatedRow[];
-  selectedRow: MetaEvaluatedRow;
-  latestReferenceDate: string;
-};
+type MetaDatasetInput = MetaDataset & Partial<MetaRuntimeContext>;
 
-export type MetaModel = {
-  summary: SummaryMetric[];
-  dataStatus: DataStatus;
-  rows: MetaEvaluatedRow[];
-  selectedRow: MetaEvaluatedRow;
-  statusBanner: { title: string; detail: string; signal: Signal };
-  bridgeStatus: { title: string; detail: string; signal: Signal };
-  investmentReadThrough: DashboardInterpretation[];
-  adRevenueBridge: Array<{ label: string; value: number; type: "base" | "positive" | "negative" | "total" }>;
-  aiAdBridge: Array<{ label: string; value: number; type: "base" | "positive" | "negative" | "total" }>;
-  engagementTrend: Array<{ period: string; timeSpent: number; reelsWatchTime: number; monetizationGap: number; adLoad: number; advantagePlusAdoption: number }>;
-  capexFcfBridge: Array<{ label: string; value: number; type: "base" | "positive" | "negative" | "total" }>;
-  realityLabsTrend: Array<{ period: string; revenue: number; operatingLoss: number; lossMargin: number }>;
-  whatsappTrend: Array<{ period: string; revenue: number; optionalityValue: number; businessMessagingRevenue: number }>;
-  adsEngineCards: Array<{ label: string; value: number; format: SummaryMetric["format"]; detail: string; badge: SummaryMetric["badge"] }>;
-  aiAdStackCards: Array<{ label: string; value: number; format: SummaryMetric["format"]; detail: string; badge: SummaryMetric["badge"] }>;
-  capexCards: Array<{ label: string; value: number; format: SummaryMetric["format"]; detail: string; badge: SummaryMetric["badge"] }>;
-  scenarioLab: {
-    phase: { title: string; detail: string; signal: Signal };
-    cards: Array<{
-      scenario: "Bear" | "Base" | "Bull";
-      fairValue: number;
-      aiAdRoic: number;
-      fcfMargin: number;
-      totalUpliftRate: number;
-      detail: string;
-    }>;
-  };
-  valuation: ReturnType<typeof calculateMetaValuation>;
-};
-
-function metric(label: string, value: number, delta: number | undefined, format: SummaryMetric["format"], description: string, badge: SummaryMetric["badge"]): SummaryMetric {
-  return { key: label.toLowerCase().replace(/\s+/g, "-"), label, value, delta, format, description, badge };
+function metric(
+  label: string,
+  value: number,
+  delta: number | undefined,
+  format: SummaryMetric["format"],
+  description: string,
+  badge: SummaryMetric["badge"],
+): SummaryMetric {
+  return { key: label.toLowerCase().replace(/[^a-z0-9]+/g, "-"), label, value, delta, format, description, badge };
 }
 
-function valuationInput(row: MetaQuarterRow, prior: MetaQuarterRow, data: MetaData): MetaValuationInput {
+function isMetaDataset(value: unknown): value is MetaDatasetInput {
+  return Boolean(value && typeof value === "object" && "ticker" in value && "periods" in value && "segments" in value && "adEconomics" in value);
+}
+
+export function resolveMetaDataset(data: unknown): MetaDatasetInput {
+  return isMetaDataset(data) ? data : metaDataset;
+}
+
+export function attachMetaRuntimeContext(
+  data: MetaDataset,
+  context: { periodId?: string; dataSourceType?: DataSourceType },
+): MetaDatasetInput {
   return {
-    selectedRow: row,
-    priorRow: prior,
-    latestReferenceDate: data.latestReferenceDate,
-    currentPrice: data.currentPrice,
+    ...data,
+    __metaResolvedPeriod: context.periodId,
+    __metaRequestedDataSourceType: context.dataSourceType,
   };
 }
 
-function detectMetaPhase(current: MetaEvaluatedRow, prior: MetaEvaluatedRow, assumptions: MetaAssumptions) {
-  if (current.aiAdRoic > assumptions.wacc + 0.04 && current.aiAdjustedFcfMargin > prior.aiAdjustedFcfMargin) {
-    return { title: "AI profit flywheel established", detail: "Incremental ad profit is compounding faster than the AI infrastructure burden, and cash conversion is improving.", signal: "Positive" as const };
-  }
-  if (current.aiAdRoic > assumptions.wacc && current.monetizationGapChange > 0) {
-    return { title: "Recommendation monetization inflecting", detail: "Recommendation quality is lifting conversion and CPM while the Reels monetization gap is narrowing.", signal: "Inflecting" as const };
-  }
-  if (current.aiCapexMix > 0.62 && current.aiAdjustedFcfMargin < prior.aiAdjustedFcfMargin) {
-    return { title: "Compute burden still leading", detail: "Meta is still carrying a front-loaded GPU and data center burden that is outrunning near-term monetization.", signal: "Compute Constrained" as const };
-  }
-  if (current.aiAdRoic < assumptions.wacc) {
-    return { title: "AI economics still proving out", detail: "Ad uplift exists, but the profit return on AI capital has not clearly cleared the cost of capital yet.", signal: "Neutral" as const };
-  }
-  return { title: "Balanced monetization phase", detail: "AI economics and infrastructure burden are broadly balanced, with better upside if CPM and ROAS keep improving.", signal: "Neutral" as const };
+export function getDefaultMetaPeriod() {
+  return metaDataset.latestReportingPeriod;
 }
 
-function normalizeMetaRow(row: MetaQuarterRow) {
-  const reportedAdRevenue = row.adRevenue;
-  const reportedCpm = row.cpm;
-  const impliedQuarterlyAdRevenue = row.adImpressions * row.cpm / 1000;
-  if (row.isForecast) {
-    const familyAppsExAd = row.familyAppsRevenue - row.adRevenue;
-    const totalExFamilyApps = row.totalRevenue - row.familyAppsRevenue;
-    const adjustedAdRevenue = impliedQuarterlyAdRevenue;
-    const adjustedFamilyAppsRevenue = adjustedAdRevenue + familyAppsExAd;
-    const adjustedTotalRevenue = adjustedFamilyAppsRevenue + totalExFamilyApps;
-    return {
-      ...row,
-      adRevenue: adjustedAdRevenue,
-      familyAppsRevenue: adjustedFamilyAppsRevenue,
-      totalRevenue: adjustedTotalRevenue,
-      reportedAdRevenue,
-      reportedCpm,
-    };
-  }
-  return {
-    ...row,
-    cpm: safeDivide(row.adRevenue, Math.max(row.adImpressions, 1)) * 1000,
-    reportedAdRevenue,
-    reportedCpm,
-  };
+export function getMetaPeriods() {
+  return metaDataset.periods.map((period) => ({ value: period.id, label: period.label }));
 }
 
-function buildEvaluatedRows(data: MetaData, assumptions: MetaAssumptions): MetaEvaluatedRow[] {
-  const normalizedRows = data.rows.map((row) => normalizeMetaRow(row));
-  return normalizedRows.map((row, index) => {
-    const prior = normalizedRows[Math.max(index - 1, 0)] ?? row;
-    const adEconomics = calculateAdEconomics(row, prior, assumptions);
-    const engagementEconomics = calculateEngagementEconomics(row, prior, assumptions);
-    const reelsEconomics = calculateReelsEconomics(row, prior);
-    const capexEconomics = calculateCapexEconomics(
-      row,
-      assumptions,
-      Math.max(0, adEconomics.aiAfterTaxOperatingProfitAnnual - adEconomics.aiEmbeddedAfterTaxProfitAnnual),
-    );
-    const aiRoic = calculateAiAdRoic(row, assumptions, adEconomics, engagementEconomics, capexEconomics);
-    const scenarioReadThrough =
-      aiRoic.aiAdRoic > assumptions.wacc
-        ? "AI uplift is translating into profit faster than infrastructure cost."
-        : "Infrastructure cost is still consuming a large share of AI-generated ad uplift.";
+export function resolveMetaPeriodFromData(data: unknown, fallback = getDefaultMetaPeriod()) {
+  const dataset = resolveMetaDataset(data);
+  const runtimePeriod = dataset.__metaResolvedPeriod;
+  if (runtimePeriod && dataset.periods.some((period) => period.id === runtimePeriod)) return runtimePeriod;
+  return dataset.periods.some((period) => period.id === fallback) ? fallback : getDefaultMetaPeriod();
+}
 
-    return {
-      ...row,
-      adRevenueFromFormula: row.adImpressions * row.cpm / 1000,
-      reportedAdRevenue: row.reportedAdRevenue ?? row.adRevenue,
-      reportedCpm: row.reportedCpm ?? row.cpm,
-      effectiveCpm: adEconomics.effectiveCpm,
-      adRevenueReconciliationGap: adEconomics.adRevenueReconciliationGap,
-      adRevenueReconciled: adEconomics.adRevenueReconciled,
-      bridgePrecision: adEconomics.bridgePrecision,
-      adRevenueYoYGrowth: index === 0 ? row.adRevenueGrowth : safeDivide(row.adRevenue, Math.max(prior.adRevenue, 1)) - 1,
-      familyAppsOperatingIncome: row.familyAppsRevenue * row.familyAppsOperatingMargin,
-      aiAdRevenueUpliftAnnualized: adEconomics.totalIncrementalRevenue,
-      aiAdOperatingProfitAnnualized: adEconomics.aiOperatingProfitAnnual,
-      aiAdAfterTaxOperatingProfitAnnualized: adEconomics.aiAfterTaxOperatingProfitAnnual,
-      aiAdRoic: aiRoic.aiAdRoic,
-      aiPaybackYears: aiRoic.paybackYears,
-      aiRevenueToCapital: adEconomics.totalIncrementalRevenue / Math.max(aiRoic.investedCapital, 1),
-      aiAdjustedFcf: capexEconomics.aiAdjustedFcf,
-      aiAdjustedFcfMargin: capexEconomics.aiAdjustedFcfMargin,
-      impressionsGrowth: adEconomics.impressionsGrowth,
-      cpmGrowth: adEconomics.cpmGrowth,
-      revenueGrowth: index === 0 ? 0 : safeDivide(row.totalRevenue, Math.max(prior.totalRevenue, 1)) - 1,
-      recommendationScore: engagementEconomics.engagementScore,
-      monetizationGapChange: reelsEconomics.monetizationGapChange,
-      capexIntensity: capexEconomics.capexIntensity,
-      aiCapexMix: capexEconomics.aiCapexMix,
-      burdenScore: capexEconomics.burdenScore,
-      scenarioReadThrough,
-    };
+function uniqueWarnings(warnings: ValidationWarning[]) {
+  const seen = new Set<string>();
+  return warnings.filter((warning) => {
+    if (seen.has(warning.id)) return false;
+    seen.add(warning.id);
+    return true;
   });
 }
 
-export function validateMetaData(data: MetaDataset, assumptions: MetaAssumptions): ValidationWarning[] {
-  const current = data.selectedRow;
-  const prior = data.rows[data.rows.length - 2] ?? current;
-  const valuation = calculateMetaValuation(
-    valuationInput(current, prior, data),
-    assumptions,
-    "Base",
-  );
-  const warnings: ValidationWarning[] = [
-    ...checkExtremeGrowthRates(
-      [
-        { label: "Ad revenue growth", value: current.adRevenueGrowth },
-        { label: "Ad impressions growth", value: current.impressionsGrowth },
-        { label: "CPM growth", value: current.cpmGrowth },
-      ],
-      0.35,
-    ),
-    ...checkSegmentSumConsistency(current.totalRevenue, [current.familyAppsRevenue, current.realityLabsRevenue], "revenue"),
-    ...checkPeSanity(assumptions.forwardEps * assumptions.targetPe, 450, 1000, "META"),
-    ...checkImpossibleCagrCombination(
-      valuation.fairValues.find((row) => row.scenario === "Base")?.upsideDownside ?? 0,
-      valuation.fairValues.find((row) => row.scenario === "Base")?.expectedReturn3Y ?? 0,
-    ),
-    ...checkMissingFields([
-      { key: "currentPrice", value: assumptions.currentPrice },
-      { key: "forwardEps", value: assumptions.forwardEps },
-      { key: "fcfPerShare", value: assumptions.fcfPerShare },
-      { key: "aiInvestedCapital", value: assumptions.aiInvestedCapital },
-      { key: "aiInferenceCost", value: assumptions.aiInferenceCost },
-    ]).map((field) => ({
-      id: `missing-${field}`,
-      title: `Missing ${field}`,
-      detail: `Critical valuation field "${field}" is missing or blank.`,
-      severity: "high" as const,
-    })),
-    ...checkValuationReliability(valuation.validationWarnings?.some((warning) => warning.severity === "high") ?? false),
-  ];
-
-  if (current.aiCapex > current.totalCapex) {
+function buildDataSourceWarnings(data: MetaDatasetInput): ValidationWarning[] {
+  const requested = data.__metaRequestedDataSourceType;
+  const warnings: ValidationWarning[] = [];
+  if (requested && requested !== "mock" && requested !== "manual") {
     warnings.push({
-      id: "ai-capex-consistency",
-      title: "AI CapEx exceeds total CapEx",
-      detail: "AI CapEx should be a subset of consolidated CapEx, not larger than the company total.",
-      severity: "high",
-    });
-  }
-  if (assumptions.realityLabsLoss <= 0) {
-    warnings.push({
-      id: "reality-labs-drag",
-      title: "Reality Labs drag may be omitted",
-      detail: "Reality Labs should remain an explicit drag unless you intentionally model break-even.",
+      id: "meta-unsupported-data-source",
+      title: "Requested data source is not implemented for META",
+      detail: `META currently uses the curated official-data module baseline plus manual valuation-assumption overrides. Requested source "${requested}" falls back to the module baseline.`,
       severity: "medium",
     });
   }
-  if (assumptions.forwardEps < 10) {
+  if (requested === "manual") {
     warnings.push({
-      id: "quarterly-eps",
-      title: "EPS may be quarterly or not annualized",
-      detail: "Meta valuation expects annual forward EPS; a value below 10 usually signals the wrong periodicity.",
-      severity: "high",
+      id: "meta-manual-assumptions-active",
+      title: "Manual valuation assumptions are active",
+      detail: "Manual mode changes forecast assumptions only. It does not rewrite official actuals, management guidance, or research-only notes.",
+      severity: "low",
     });
   }
-  data.rows
-    .filter((row) => row.adRevenueReconciliationGap > 0.02)
-    .forEach((row) => {
-      warnings.push({
-        id: `ad-revenue-reconciliation-${row.periodId}`,
-        title: `Ad revenue does not reconcile in ${row.periodId}`,
-        detail: "Reported ad revenue differs materially from impressions x CPM. The dashboard will fall back to a reconciled bridge instead of presenting the CPM bridge as precise.",
-        severity: row.periodId === current.periodId ? "high" : "medium",
-      });
-    });
   return warnings;
 }
 
-export function calculateMetaSummary(data: MetaDataset, assumptions: MetaAssumptions): SummaryMetric[] {
-  const current = data.selectedRow;
-  const prior = (data.rows[data.rows.length - 2] as MetaEvaluatedRow | undefined) ?? current;
-  const valuation = calculateMetaValuation(valuationInput(current, prior, data), assumptions, "Base");
-  const blendedFairValue = valuation.fairValues.find((row) => row.scenario === "Base")?.fairValue ?? valuation.currentPrice;
+function buildScenarioValuationPoint(
+  data: MetaDataset,
+  scenario: Scenario,
+  currentPrice: number,
+) {
+  const assumptions = { ...metaScenarioPresets[scenario], currentPrice };
+  const forecast = calculateMetaForecastEngine(data, assumptions);
+  const valuation = calculateMetaValuationEngine(data, scenario, assumptions, forecast);
+  const yearThree = forecast[2] ?? forecast[forecast.length - 1];
+  const targetPrice3Y = (yearThree?.eps ?? valuation.forwardEps) * assumptions.exitPe + (assumptions.realityLabsOptionValue / Math.max(yearThree?.dilutedShares ?? assumptions.dilutedShares, 1));
+  const cumulativeDividends = assumptions.dividendPerShare * 3;
+  return {
+    scenario,
+    fairValue: valuation.blendedFairValue,
+    upsideDownside: computeUpsideDownside(valuation.blendedFairValue, currentPrice),
+    expectedReturn3Y: computeExpectedShareholderCagr(targetPrice3Y, currentPrice, cumulativeDividends),
+    targetPrice3Y,
+    cumulativeDividends,
+    summary: data.researchNotes.find((note) => note.topic.toLowerCase().includes("capex"))?.conclusion,
+  };
+}
+
+export function calculateMetaSummary(
+  data: unknown,
+  assumptions: Partial<MetaValuationAssumptions> = {},
+  periodId = getDefaultMetaPeriod(),
+): SummaryMetric[] {
+  const dataset = resolveMetaDataset(data);
+  const selected = getPeriodById(dataset, periodId);
+  const prior = dataset.periods.find((period) => period.id === "fy2025") ?? selected;
+  const actualFoa = getSegment(dataset, selected.id, "Family of Apps");
+  const forecast = calculateMetaForecastEngine(dataset, { ...defaultMetaValuationAssumptions, ...assumptions });
+  const valuation = calculateMetaValuation(dataset, selected.id, "Base", assumptions);
+  const yearFive = forecast[forecast.length - 1];
+  const basePoint = valuation.fairValues.find((row) => row.scenario === "Base");
+
   return [
-    metric("Revenue", current.totalRevenue, current.totalRevenue - prior.totalRevenue, "currency", "Quarterly revenue base funding the AI ad stack and infrastructure burden.", "Actual"),
-    metric("Ad Revenue Growth", current.adRevenueGrowth, current.adRevenueGrowth - prior.adRevenueGrowth, "percent", "Growth in Family of Apps ad revenue.", "Actual"),
-    metric("Family Apps Operating Margin", current.familyAppsOperatingMargin, current.familyAppsOperatingMargin - prior.familyAppsOperatingMargin, "percent", "Core advertising margin before Reality Labs drag.", "Derived"),
-    metric("CPM Growth", current.cpmGrowth, current.cpmGrowth - prior.cpmGrowth, "percent", "Auction pricing and monetization quality improvement using implied CPM for actual periods and modeled CPM for forecasts.", "Derived"),
-    metric("ROAS", current.roas, current.roas - prior.roas, "number", "Advertiser return on ad spend, a key proof-point for AI targeting economics.", "Actual"),
-    metric("AI Revenue Uplift", current.aiAdRevenueUpliftAnnualized, current.aiAdRevenueUpliftAnnualized - prior.aiAdRevenueUpliftAnnualized, "currency", "Incremental AI-driven ad revenue on an annualized run-rate.", "Derived"),
-    metric("AI Ad ROIC", current.aiAdRoic, current.aiAdRoic - prior.aiAdRoic, "percent", "Incremental after-tax ad profit divided by AI invested capital.", "Derived"),
-    metric("AI Adjusted FCF Margin", current.aiAdjustedFcfMargin, current.aiAdjustedFcfMargin - prior.aiAdjustedFcfMargin, "percent", "FCF margin after charging the modeled AI infrastructure burden.", "Derived"),
-    metric("CapEx / Revenue", current.capexIntensity, current.capexIntensity - prior.capexIntensity, "percent", "Capital intensity including GPU and data center buildout.", "Derived"),
-    metric("Reality Labs Operating Loss", annualizeQuarterly(current.realityLabsOperatingLoss), annualizeQuarterly(current.realityLabsOperatingLoss - prior.realityLabsOperatingLoss), "currency", "Structural drag from Reality Labs in the base case.", "Actual"),
-    metric("Forward EPS", assumptions.forwardEps, assumptions.forwardEps - defaultMetaAssumptions.forwardEps, "currency", "Annual forward EPS anchor used in the core Ads valuation method.", "Assumption"),
-    metric("Total Fair Value", blendedFairValue, blendedFairValue - valuation.currentPrice, "currency", "Core ex-AI blended value plus AI uplift and optionality, net of Reality Labs drag and incremental AI capital burden.", "Derived"),
-    metric("Upside / Downside", valuation.fairValues.find((row) => row.scenario === "Base")?.upsideDownside ?? 0, 0, "percent", "Total fair value versus the current share price.", "Derived"),
+    metric("Current Price", dataset.marketData.currentPrice, undefined, "currency", dataset.marketData.notes, "Actual"),
+    metric("Revenue", selected.revenue, selected.revenue - prior.revenue, "currency", "Official consolidated revenue in USD billions.", "Actual"),
+    metric("Ad Revenue", dataset.adEconomics.find((item) => item.periodId === selected.id)?.advertisingRevenue ?? 0, undefined, "currency", "Official Family of Apps advertising revenue in USD billions.", "Actual"),
+    metric("FoA Op Margin", actualFoa.operatingMargin, undefined, "percent", "Family of Apps operating margin, before Reality Labs losses.", "Actual"),
+    metric("Reality Labs Loss", Math.abs(getSegment(dataset, selected.id, "Reality Labs").operatingIncome), undefined, "currency", "Official Reality Labs operating loss in USD billions.", "Actual"),
+    metric("CapEx / Revenue", selected.capitalExpendituresInclFinanceLeases / selected.revenue, undefined, "percent", "Capex including principal payments on finance leases divided by revenue.", "Derived"),
+    metric("AI Payback", yearFive?.aiPaybackYears ?? 0, undefined, "number", "Year-five cumulative AI growth capex divided by AI incremental after-tax profit.", "Derived"),
+    metric("Base Fair Value", basePoint?.fairValue ?? 0, basePoint ? basePoint.fairValue - dataset.marketData.currentPrice : undefined, "currency", "Blended DCF / FCF yield / P-E / EV-EBIT / SOTP fair value.", "Derived"),
   ];
 }
 
+export function calculateMetaValuation(
+  data: unknown,
+  periodId = getDefaultMetaPeriod(),
+  scenario: Scenario = "Base",
+  assumptions: Partial<MetaValuationAssumptions> = {},
+): ValuationResult {
+  const dataset = resolveMetaDataset(data);
+  const scenarioDefaults = metaScenarioPresets[scenario] ?? defaultMetaValuationAssumptions;
+  const mergedAssumptions = { ...scenarioDefaults, ...assumptions };
+  const forecast = calculateMetaForecastEngine(dataset, mergedAssumptions);
+  const valuation = calculateMetaValuationEngine(dataset, scenario, mergedAssumptions, forecast);
+  const marketImplied = calculateMetaMarketImpliedValuation(dataset, mergedAssumptions);
+  const thesisBreakpoints = calculateMetaThesisBreakpoints(dataset, mergedAssumptions);
+  const integrity = calculateMetaValuationIntegrity(dataset, forecast, valuation, marketImplied, thesisBreakpoints);
+  const warnings = uniqueWarnings([
+    ...buildDataSourceWarnings(dataset),
+    ...valuation.sourceIsolationWarnings,
+    ...integrity.severeWarnings,
+    ...calculateMetaValidationWarnings(dataset, mergedAssumptions, forecast, valuation),
+  ]);
+  if (daysBetweenIso(dataset.marketData.priceDate, new Date().toISOString().slice(0, 10)) > 7) {
+    warnings.push({
+      id: "meta-stale-market-price",
+      title: "Market price snapshot may be stale",
+      detail: `META market price snapshot is dated ${dataset.marketData.priceDate}. Refresh market data before relying on upside/downside.`,
+      severity: "medium",
+    });
+  }
+
+  const currentPrice = mergedAssumptions.currentPrice;
+  const fairValues = (["Bear", "Base", "Bull"] as Scenario[]).map((caseName) => buildScenarioValuationPoint(dataset, caseName, currentPrice));
+  const selectedPoint = fairValues.find((item) => item.scenario === scenario) ?? fairValues[1];
+  const probabilityWeightedFairValue = fairValues.reduce((sum, point) => {
+    const probability = dataset.researchNotes.length
+      ? (caseNameProbability(point.scenario) ?? 0)
+      : 0;
+    return sum + point.fairValue * probability;
+  }, 0);
+
+  return {
+    currentPrice,
+    priceDate: dataset.marketData.priceDate,
+    validationWarnings: warnings,
+    warning: warnings.find((warning) => warning.severity === "high")?.title,
+    fairValues,
+    methodCards: [
+      {
+        key: "dcf",
+        label: "DCF Fair Value",
+        value: valuation.dcf.fairValuePerShare,
+        format: "currency",
+        description: "Unlevered FCFF DCF. Total capex is charged in cash flow and net cash is added after enterprise value.",
+      },
+      {
+        key: "fcf-yield",
+        label: "FCF Yield Value",
+        value: valuation.fcfYieldFairValue,
+        format: "currency",
+        description: "Normalized FCF/share capitalized by target FCF yield.",
+      },
+      {
+        key: "pe",
+        label: "P/E Value",
+        value: valuation.peFairValue,
+        format: "currency",
+        description: "Forward EPS after Reality Labs losses and share-count effects, multiplied by target P/E.",
+      },
+      {
+        key: "ev-ebit",
+        label: "EV / EBIT Value",
+        value: valuation.evEbitFairValue,
+        format: "currency",
+        description: "Consolidated operating income cross-check, adding net cash after enterprise value.",
+      },
+      {
+        key: "sotp",
+        label: "SOTP Value",
+        value: valuation.sotpFairValue,
+        format: "currency",
+        description: "Family of Apps EBIT value less funded Reality Labs drag plus explicit Reality Labs option value and net cash.",
+      },
+      {
+        key: "ai-payback",
+        label: "AI Payback",
+        value: valuation.aiPaybackYears,
+        format: "number",
+        description: "Cumulative AI growth capex divided by AI incremental after-tax ad profit. Diagnostic only, not a separate fair-value add.",
+      },
+      {
+        key: "ai-roic",
+        label: "AI ROIC",
+        value: valuation.aiRoic,
+        format: "percent",
+        description: "AI incremental after-tax profit divided by cumulative AI growth capex.",
+      },
+    ],
+    expectedReturnBridge: [
+      { key: "current-price", label: "Current Price", value: currentPrice, format: "currency" },
+      { key: "selected-fair-value", label: "Selected Fair Value", value: selectedPoint.fairValue, format: "currency" },
+      { key: "upside", label: "Upside / Downside", value: selectedPoint.upsideDownside, format: "percent" },
+      { key: "target-price", label: "3Y Target Price", value: selectedPoint.targetPrice3Y ?? selectedPoint.fairValue, format: "currency" },
+      { key: "dividends", label: "3Y Dividends", value: selectedPoint.cumulativeDividends ?? 0, format: "currency" },
+      { key: "expected-return", label: "Expected 3Y CAGR", value: selectedPoint.expectedReturn3Y, format: "percent" },
+    ],
+    customSummary:
+      `META ${scenario} fair value is $${selectedPoint.fairValue.toFixed(1)}. AI monetization is embedded through ad growth, FoA margin, and capex fade; Reality Labs is an explicit SOTP option and consolidated cash-flow drag.`,
+    sensitivityTables: buildMetaSensitivityTables(dataset, mergedAssumptions),
+    peFairValue: valuation.peFairValue,
+    fcfFairValue: valuation.fcfYieldFairValue,
+    dcfValue: valuation.dcf.fairValuePerShare,
+    sotpFairValue: valuation.sotpFairValue,
+    blendedFairValue: valuation.blendedFairValue,
+    recommendedFairValue: valuation.blendedFairValue,
+    recommendedFairValueMethod: "DCF / FCF yield / P-E / EV-EBIT / SOTP with explicit AI capex payback diagnostics",
+    recommendedFairValueReason:
+      "DCF and FCF yield anchor cash generation after the AI infrastructure buildout; P/E and EV/EBIT triangulate market convention; SOTP keeps Reality Labs optionality explicit without double-counting AI uplift.",
+    valuationRangeLow: valuation.valuationRangeLow,
+    valuationRangeBase: valuation.blendedFairValue,
+    valuationRangeHigh: valuation.valuationRangeHigh,
+    probabilityWeightedFairValue,
+    targetPrice3Y: selectedPoint.targetPrice3Y,
+    expectedReturn3Y: selectedPoint.expectedReturn3Y,
+    upsideDownside: selectedPoint.upsideDownside,
+    dataQualityScore: Math.min(integrity.overallIntegrityScore, warnings.some((warning) => warning.severity === "high") ? 72 : 94),
+    recommendedValuationConfidence: warnings.some((warning) => warning.severity === "high") ? 68 : Math.min(90, integrity.overallIntegrityScore),
+  };
+}
+
+function caseNameProbability(scenario: Scenario) {
+  if (scenario === "Bear") return 0.25;
+  if (scenario === "Base") return 0.5;
+  return 0.25;
+}
+
 export function buildMetaDashboardData(
-  data: MetaData = metaData,
-  assumptions: MetaAssumptions = defaultMetaAssumptions,
-  periodId = data.currentPeriodId,
-  activeScenario: "Bear" | "Base" | "Bull" = "Base",
-): MetaModel {
-  const rows = buildEvaluatedRows(data, assumptions);
-  const selectedRow = rows.find((row) => row.periodId === periodId) ?? rows[rows.length - 1];
-  const selectedIndex = rows.findIndex((row) => row.periodId === selectedRow.periodId);
-  const priorRow = rows[Math.max(selectedIndex - 1, 0)] ?? selectedRow;
-  const valuation = calculateMetaValuation(valuationInput(selectedRow, priorRow, data), assumptions, activeScenario);
-  const validationWarnings = validateMetaData({ ...data, rows, selectedRow, latestReferenceDate: data.latestReferenceDate }, assumptions);
+  data: unknown = metaDataset,
+  periodId = getDefaultMetaPeriod(),
+  scenario: Scenario = "Base",
+  assumptions: Partial<MetaValuationAssumptions> = {},
+) {
+  const dataset = resolveMetaDataset(data);
+  const mergedAssumptions = { ...metaScenarioPresets[scenario], ...assumptions };
+  const period = getPeriodById(dataset, periodId);
+  const forecast = calculateMetaForecastEngine(dataset, mergedAssumptions);
+  const valuationEngine = calculateMetaValuationEngine(dataset, scenario, mergedAssumptions, forecast);
+  const marketImplied = calculateMetaMarketImpliedValuation(dataset, mergedAssumptions);
+  const thesisBreakpoints = calculateMetaThesisBreakpoints(dataset, mergedAssumptions);
+  const valuationAttribution = calculateMetaValuationAttribution(dataset, mergedAssumptions);
+  const earningsCalls = calculateMetaEarningsCallTrend(dataset);
+  const risks = calculateMetaRiskRedTeamEngine(dataset);
+  const integrity = calculateMetaValuationIntegrity(dataset, forecast, valuationEngine, marketImplied, thesisBreakpoints);
+  const valuation = calculateMetaValuation(dataset, period.id, scenario, mergedAssumptions);
+  const validationWarnings = uniqueWarnings([
+    ...buildDataSourceWarnings(dataset),
+    ...integrity.severeWarnings,
+    ...(valuation.validationWarnings ?? []),
+  ]);
+  const adEconomics = calculateMetaAdEconomicsEngine(dataset, mergedAssumptions);
+  const aiCapex = calculateMetaAiCapexEngine(dataset, mergedAssumptions, forecast);
   const dataStatus: DataStatus = {
-    sourceType: "mock",
-    lastUpdated: data.latestReferenceDate,
-    missingFields: checkMissingFields([
-      { key: "currentPrice", value: assumptions.currentPrice },
-      { key: "forwardEps", value: assumptions.forwardEps },
-      { key: "fcfPerShare", value: assumptions.fcfPerShare },
-      { key: "aiInferenceCost", value: assumptions.aiInferenceCost },
-    ]),
+    sourceType: dataset.__metaRequestedDataSourceType === "manual" ? "manual" : "mock",
+    lastUpdated: dataset.sourceMap["meta-q1-2026-pr"]?.publishedDate ?? dataset.marketData.priceDate,
+    missingFields: [
+      "official AI-only capex split",
+      "official WhatsApp revenue disclosure",
+      "official Reels revenue / monetization gap",
+      "live institutional market data feed",
+      "peer multiple database",
+    ],
     validationWarnings,
     valuationReliable: !validationWarnings.some((warning) => warning.severity === "high"),
   };
 
-  const statusBanner = detectMetaPhase(selectedRow, priorRow, assumptions);
-  const bridgeStatus = selectedRow.adRevenueReconciliationGap > 0.02
-    ? {
-        title: "Ad bridge is reconciled, not precise",
-        detail: "Ad revenue and impressions x CPM differ by more than 2%. Historical periods use implied CPM, and forecast periods derive revenue directly from impressions x CPM.",
-        signal: "Needs Review" as const,
-      }
-    : {
-        title: "Ad bridge reconciles cleanly",
-        detail: "Historical periods use implied CPM from reported ad revenue and impressions, while forecast periods derive revenue directly from modeled impressions x CPM.",
-        signal: "Positive" as const,
-      };
-  const adEconomics = calculateAdEconomics(selectedRow, priorRow, assumptions);
-  const engagementEconomics = calculateEngagementEconomics(selectedRow, priorRow, assumptions);
-  const reelsEconomics = calculateReelsEconomics(selectedRow, priorRow);
-  const capexEconomics = calculateCapexEconomics(
-    selectedRow,
-    assumptions,
-    Math.max(0, adEconomics.aiAfterTaxOperatingProfitAnnual - adEconomics.aiEmbeddedAfterTaxProfitAnnual),
-  );
-  const aiRoic = calculateAiAdRoic(selectedRow, assumptions, adEconomics, engagementEconomics, capexEconomics);
-  const whatsapp = calculateWhatsappEconomics(selectedRow, assumptions);
-  const realityLabs = calculateRealityLabsEconomics(selectedRow, assumptions);
-
-  const investmentReadThrough: DashboardInterpretation[] = [
-    {
-      title: "Is AI improving ad efficiency?",
-      signal: aiRoic.aiAdRoic > assumptions.wacc ? "Positive" : "Neutral",
-      detail: aiRoic.aiAdRoic > assumptions.wacc
-        ? "AI-generated conversion, CPM, and engagement uplift is translating into profit above the cost of capital."
-        : "AI uplift exists, but profit returns are still too close to the cost of capital to call it proven.",
-      badge: "Derived",
-    },
-    {
-      title: "Is infrastructure cost manageable?",
-      signal: capexEconomics.aiAdjustedFcfMargin >= selectedRow.fcfMargin ? "Positive" : "Compute Constrained",
-      detail: capexEconomics.aiAdjustedFcfMargin >= selectedRow.fcfMargin
-        ? "AI monetization is offsetting a meaningful share of GPU and data center burden."
-        : "GPU, inference, and data center burden still absorb a large share of AI revenue uplift.",
-      badge: "Derived",
-    },
-    {
-      title: "Are Reels monetizing better?",
-      signal: reelsEconomics.monetizationGapChange > 0 ? "Positive" : "Neutral",
-      detail: reelsEconomics.monetizationGapChange > 0
-        ? "The Reels monetization gap is narrowing while watch time keeps rising, which supports a durable CPM tailwind."
-        : "Engagement is still healthy, but the monetization gap is not closing fast enough yet.",
-      badge: "Actual",
-    },
-    {
-      title: "Is optionality offsetting drag?",
-      signal: whatsapp.optionalityValue > Math.abs(realityLabs.optionalityValue) ? "Positive" : "Neutral",
-      detail: "WhatsApp optionality helps offset Reality Labs drag, but the core debate still hinges on whether AI ad profit scales faster than AI infrastructure.",
-      badge: "Derived",
-    },
-  ];
-
-  const adRevenueBridge = [
-    { label: "Prior ad revenue", value: priorRow.adRevenue, type: "base" as const },
-    { label: "Impression growth", value: priorRow.adRevenue * adEconomics.impressionsGrowth, type: "positive" as const },
-    { label: "CPM growth", value: priorRow.adRevenue * adEconomics.cpmGrowth, type: "positive" as const },
-    { label: "AI uplift", value: selectedRow.aiAdRevenueUplift, type: "positive" as const },
-    {
-      label: "Residual / mix",
-      value: selectedRow.adRevenue - priorRow.adRevenue - (priorRow.adRevenue * adEconomics.impressionsGrowth) - (priorRow.adRevenue * adEconomics.cpmGrowth) - selectedRow.aiAdRevenueUplift,
-      type: "negative" as const,
-    },
-    { label: "Current ad revenue", value: selectedRow.adRevenue, type: "total" as const },
-  ];
-
-  const aiAdBridge = [
-    { label: "Base ad revenue", value: adEconomics.annualAdRevenue, type: "base" as const },
-    { label: "Conversion uplift", value: adEconomics.conversionRevenue, type: "positive" as const },
-    { label: "CPM uplift", value: adEconomics.cpmRevenue, type: "positive" as const },
-    { label: "Engagement uplift", value: adEconomics.engagementRevenue, type: "positive" as const },
-    { label: "Creative uplift", value: adEconomics.creativeRevenue, type: "positive" as const },
-    { label: "Serving + inference", value: -(adEconomics.aiServingCostAnnual + adEconomics.aiInferenceCostAnnual), type: "negative" as const },
-    { label: "AI ad stack opex", value: -adEconomics.aiAdOpexAnnual, type: "negative" as const },
-    { label: "AI ad operating profit", value: adEconomics.aiOperatingProfitAnnual, type: "total" as const },
-  ];
-
-  const capexFcfBridge = [
-    { label: "Reported FCF", value: capexEconomics.annualFcf, type: "base" as const },
-    {
-      label: "Incremental AI after-tax profit",
-      value: Math.max(0, adEconomics.aiAfterTaxOperatingProfitAnnual - adEconomics.aiEmbeddedAfterTaxProfitAnnual),
-      type: "positive" as const,
-    },
-    { label: "AI infrastructure burden", value: -capexEconomics.aiInfrastructureBurden, type: "negative" as const },
-    { label: "AI-adjusted FCF", value: capexEconomics.aiAdjustedFcf, type: "total" as const },
-  ];
-
-  const scenarioLabCards = (["Bear", "Base", "Bull"] as const).map((scenario) => {
-    const scenarioAssumptions = metaScenarioDefaults[scenario];
-    const scenarioAd = calculateAdEconomics(selectedRow, priorRow, scenarioAssumptions);
-    const scenarioCapex = calculateCapexEconomics(
-      selectedRow,
-      scenarioAssumptions,
-      Math.max(0, scenarioAd.aiAfterTaxOperatingProfitAnnual - scenarioAd.aiEmbeddedAfterTaxProfitAnnual),
-    );
-    const scenarioEngagement = calculateEngagementEconomics(selectedRow, priorRow, scenarioAssumptions);
-    const scenarioRoic = calculateAiAdRoic(selectedRow, scenarioAssumptions, scenarioAd, scenarioEngagement, scenarioCapex);
-    const scenarioValuation = calculateMetaValuation(valuationInput(selectedRow, priorRow, data), scenarioAssumptions, scenario);
-    return {
-      scenario,
-      fairValue: scenarioValuation.fairValues.find((row) => row.scenario === scenario)?.fairValue ?? scenarioValuation.currentPrice,
-      aiAdRoic: scenarioRoic.aiAdRoic,
-      fcfMargin: scenarioCapex.aiAdjustedFcfMargin,
-      totalUpliftRate: scenarioAd.totalUpliftRate,
-      detail:
-        scenario === "Bear"
-          ? "AI CapEx remains heavy and CPM/conversion lift is modest."
-          : scenario === "Base"
-            ? "AI targeting and recommendation improve monetization while FCF stabilizes."
-            : "ROAS, CPM, and Reels monetization inflect strongly enough to overpower infra burden.",
-    };
-  });
+  const sourceStatusCounts = dataset.sources.reduce<Record<string, number>>((acc, source) => {
+    acc[source.sourceStatus] = (acc[source.sourceStatus] ?? 0) + 1;
+    return acc;
+  }, {});
 
   return {
-    summary: calculateMetaSummary({ ...data, rows, selectedRow, latestReferenceDate: data.latestReferenceDate }, assumptions),
-    dataStatus,
-    rows,
-    selectedRow,
-    statusBanner,
-    bridgeStatus,
-    investmentReadThrough,
-    adRevenueBridge,
-    aiAdBridge,
-    engagementTrend: rows.map((row) => ({
-      period: row.periodId,
-      timeSpent: row.timeSpent,
-      reelsWatchTime: row.reelsWatchTime,
-      monetizationGap: row.reelsMonetizationGap,
-      adLoad: row.adLoad,
-      advantagePlusAdoption: row.advantagePlusAdoption,
-    })),
-    capexFcfBridge,
-    realityLabsTrend: rows.map((row) => ({
-      period: row.periodId,
-      revenue: annualizeQuarterly(row.realityLabsRevenue),
-      operatingLoss: annualizeQuarterly(row.realityLabsOperatingLoss),
-      lossMargin: safeDivide(row.realityLabsOperatingLoss, Math.max(row.totalRevenue, 1)),
-    })),
-    whatsappTrend: rows.map((row) => ({
-      period: row.periodId,
-      revenue: annualizeQuarterly(row.whatsappRevenue),
-      optionalityValue: calculateWhatsappEconomics(row, assumptions).optionalityValue,
-      businessMessagingRevenue: annualizeQuarterly(row.businessMessagingRevenue),
-    })),
-    adsEngineCards: [
-      { label: "Ad Revenue Formula", value: selectedRow.adRevenueFromFormula, format: "currency", detail: "Forecast periods derive revenue from impressions x CPM. Historical periods use reported revenue and implied CPM.", badge: "Derived" },
-      { label: "ROAS", value: selectedRow.roas, format: "number", detail: "Advertiser return on ad spend should improve if targeting AI is working.", badge: "Actual" },
-      { label: "Conversion Uplift", value: adEconomics.conversionUpliftRate, format: "percent", detail: "Incremental conversion lift from AI targeting and ranking.", badge: "Assumption" },
-      { label: "Effective CPM", value: selectedRow.effectiveCpm, format: "number", detail: "Historical periods use implied CPM from reported revenue and impressions; forecast periods use modeled CPM.", badge: "Derived" },
-      { label: "Uplift Overlap Haircut", value: adEconomics.upliftOverlapHaircut, format: "percent", detail: "Heuristic correlation haircut to keep overlapping CPM, conversion, ROAS, engagement, and creative effects from being over-capitalized.", badge: "Assumption" },
-    ],
-    aiAdStackCards: [
-      { label: "Advantage+ Adoption", value: engagementEconomics.advantagePlusAdoption, format: "percent", detail: "Proxy for how much of the demand stack is benefiting from AI automation.", badge: "Actual" },
-      { label: "AI Serving Cost", value: adEconomics.aiServingCostAnnual, format: "currency", detail: "Serving cost burden from recommendation and targeting models.", badge: "Assumption" },
-      { label: "AI Inference Cost", value: adEconomics.aiInferenceCostAnnual, format: "currency", detail: "Direct inference burden from model calls and ranking intensity.", badge: "Assumption" },
-      { label: "AI Ad Stack Opex", value: adEconomics.aiAdOpexAnnual, format: "currency", detail: "Incremental opex supporting the AI ad stack beyond model serving.", badge: "Derived" },
-    ],
-    capexCards: [
-      { label: "AI CapEx Mix", value: capexEconomics.aiCapexMix, format: "percent", detail: "Share of total CapEx directed to AI infrastructure.", badge: "Derived" },
-      { label: "GPU CapEx", value: capexEconomics.annualGpuCapex, format: "currency", detail: "Annualized GPU capital spending.", badge: "Actual" },
-      { label: "Data Center CapEx", value: capexEconomics.annualDataCenterCapex, format: "currency", detail: "Annualized data center buildout supporting inference and recommendation.", badge: "Actual" },
-      { label: "AI Infrastructure Burden", value: capexEconomics.aiInfrastructureBurden, format: "currency", detail: "Modeled cash burden that AI monetization must overcome.", badge: "Derived" },
-    ],
-    scenarioLab: {
-      phase: statusBanner,
-      cards: scenarioLabCards,
-    },
+    dataset,
+    period,
+    summary: calculateMetaSummary(dataset, mergedAssumptions, period.id),
+    forecast,
     valuation,
+    valuationEngine,
+    dataStatus,
+    adEconomics,
+    aiCapex,
+    risks,
+    marketImplied,
+    earningsCalls,
+    thesisBreakpoints,
+    valuationAttribution,
+    integrity,
+    sourceStatusCounts,
+    segmentRows: dataset.segments.filter((row) => row.periodId === period.id),
+    productSignals: dataset.productSignals,
+    transcriptInsights: dataset.transcriptInsights,
+    realityLabs: dataset.realityLabs,
+    assumptions: mergedAssumptions,
+    validationWarnings,
+    executiveReadThrough: [
+      {
+        title: "Ad economics",
+        signal: adEconomics.monetizationSignal,
+        detail: `Latest official ad bridge: impressions +${((adEconomics.latestActual.adImpressionsGrowth ?? 0) * 100).toFixed(0)}%, price/ad +${((adEconomics.latestActual.averagePricePerAdGrowth ?? 0) * 100).toFixed(0)}%.`,
+        badge: "Actual" as const,
+      },
+      {
+        title: "AI capex payback",
+        signal: aiCapex.yearFiveAiRoic > mergedAssumptions.wacc ? "Positive" as const : "Compute Constrained" as const,
+        detail: `Year-five AI ROIC ${(aiCapex.yearFiveAiRoic * 100).toFixed(1)}% versus WACC ${(mergedAssumptions.wacc * 100).toFixed(1)}%; payback ${aiCapex.yearFivePayback.toFixed(1)} years.`,
+        badge: "Derived" as const,
+      },
+      {
+        title: "Reality Labs",
+        signal: mergedAssumptions.realityLabsOptionValue > 0 ? "Inflecting" as const : "Neutral" as const,
+        detail: `Reality Labs remains a USD ${mergedAssumptions.realityLabsAnnualLoss.toFixed(1)}bn annual loss in the selected case, with option value only in SOTP.`,
+        badge: "Assumption" as const,
+      },
+      {
+        title: "Risk red team",
+        signal: risks.riskScore > 60 ? "Negative" as const : "Needs Review" as const,
+        detail: `${risks.redTeamVerdict} Risk haircut ${(risks.valuationHaircutPct * 100).toFixed(1)}%.`,
+        badge: "Derived" as const,
+      },
+      {
+        title: "Market implied",
+        signal: marketImplied.verdict === "Market prices heroic execution" ? "Needs Review" as const : "Neutral" as const,
+        detail: `${marketImplied.verdict}; implied 2027-30 revenue CAGR ${marketImplied.impliedRevenueCagr2027To2030 == null ? "n/a" : `${(marketImplied.impliedRevenueCagr2027To2030 * 100).toFixed(1)}%`}.`,
+        badge: "Derived" as const,
+      },
+    ],
   };
 }

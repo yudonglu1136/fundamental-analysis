@@ -15,6 +15,18 @@ const styles: Record<DataQualityBadgeType | "actual" | "consensus" | "assumption
 
 export function DataQualityBadge({ badge }: { badge: DataQualityBadgeType | ValuationSourceType }) {
   const label =
-    badge === "actual" ? "Actual" : badge === "consensus" ? "Consensus" : badge === "assumption" ? "Assumption" : badge === "derived" ? "Derived" : badge === "placeholder" ? "Placeholder" : badge;
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${styles[badge]}`}>{label}</span>;
+    badge === "actual"
+      ? "Actual"
+      : badge === "consensus"
+        ? "Consensus"
+        : badge === "assumption"
+          ? "Assumption"
+          : badge === "derived"
+            ? "Derived"
+            : badge === "placeholder" || badge === "Placeholder"
+              ? "Research"
+              : badge === "Needs Review"
+                ? "Review"
+                : badge;
+  return <span className={`inline-flex items-center border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ring-inset ${styles[badge]}`}>{label}</span>;
 }

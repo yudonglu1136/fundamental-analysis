@@ -1,0 +1,125 @@
+import type { AsmlDataset } from "./model";
+import { asmlMarketPriceMetadata } from "./marketPrices";
+
+export const asmlDataset: AsmlDataset = {
+  ticker: "ASML",
+  companyName: "ASML Holding N.V.",
+  currency: "USD",
+  listing: "NASDAQ ADR view; official reporting is EUR and must be modeled separately when sourced.",
+  latestReportingPeriod: "Current research view",
+  marketData: {
+    currentPrice: asmlMarketPriceMetadata.latestPrice ?? 0,
+    priceDate: asmlMarketPriceMetadata.lastDate ?? "not tracked",
+    source: asmlMarketPriceMetadata.source,
+    sourceStatus: asmlMarketPriceMetadata.latestPrice ? "derived" : "source_gap",
+  },
+  metrics: [
+    {
+      key: "normalizedRevenueUsd",
+      label: "Normalized Revenue Base",
+      value: 32_000,
+      unit: "USDm",
+      sourceStatus: "assumption",
+      note: "Underwriting revenue base; refresh against EUR reporting and ADR FX bridge before final IC use.",
+    },
+    {
+      key: "ordersGrowth",
+      label: "Orders Growth",
+      value: 0.08,
+      unit: "percent",
+      sourceStatus: "assumption",
+      note: "Net bookings/order momentum input; refresh with official order intake and backlog disclosures.",
+    },
+    {
+      key: "grossMargin",
+      label: "Gross Margin",
+      value: 0.51,
+      unit: "percent",
+      sourceStatus: "assumption",
+      note: "Margin input for EUV/High-NA mix and utilization debate.",
+    },
+    {
+      key: "backlogCoverage",
+      label: "Backlog Coverage",
+      value: 1.2,
+      unit: "multiple",
+      sourceStatus: "placeholder",
+      note: "Backlog versus forward revenue coverage input.",
+    },
+    {
+      key: "systemsRevenueMix",
+      label: "Systems Revenue Mix",
+      value: 0.78,
+      unit: "percent",
+      sourceStatus: "placeholder",
+      note: "Split between systems and installed-base service revenue.",
+    },
+    {
+      key: "serviceRevenueMix",
+      label: "Installed Base Service Mix",
+      value: 0.22,
+      unit: "percent",
+      sourceStatus: "placeholder",
+      note: "Installed-base service mix; important because service revenue should carry different cyclicality and multiple.",
+    },
+    {
+      key: "euvRevenueMix",
+      label: "EUV Revenue Mix",
+      value: 0.48,
+      unit: "percent",
+      sourceStatus: "placeholder",
+      note: "Source slot for EUV systems exposure.",
+    },
+    {
+      key: "highNaRevenueMix",
+      label: "High-NA Revenue Mix",
+      value: 0.08,
+      unit: "percent",
+      sourceStatus: "assumption",
+      note: "Forward-looking High-NA mix ramp input.",
+    },
+    {
+      key: "chinaRestrictionHaircut",
+      label: "China Restriction Haircut",
+      value: 0.08,
+      unit: "percent",
+      sourceStatus: "assumption",
+      note: "Scenario control for export restrictions, service exposure, and tool shipment limits.",
+    },
+  ],
+  researchQuestions: [
+    {
+      key: "euv-high-na",
+      question: "Is EUV and High-NA demand durable?",
+      currentView: "Durability is modeled through EUV demand score, High-NA adoption, backlog coverage, and normalized revenue CAGR.",
+      evidenceNeeded: "Official backlog, EUV/High-NA order commentary, customer capacity plans, and memory/foundry capex updates.",
+    },
+    {
+      key: "ai-capex-priced",
+      question: "How much AI semi capex is already priced in?",
+      currentView: "The model separates AI-cycle uplift from risk haircuts so users can test whether growth assumptions exceed normalized demand.",
+      evidenceNeeded: "Current ADR price, peer multiples, consensus growth, and hyperscaler/foundry capex revisions.",
+    },
+    {
+      key: "china-risk",
+      question: "Are China restrictions a structural risk?",
+      currentView: "China risk is a direct valuation haircut rather than hidden in the growth rate.",
+      evidenceNeeded: "China revenue mix, restricted tool categories, service exposure, license updates, and management commentary.",
+    },
+    {
+      key: "fcf-support",
+      question: "Are backlog, gross margin, and FCF enough to support valuation?",
+      currentView: "Valuation triangulates DCF, FCF yield, P/E, and EV/EBIT while surfacing FCF margin and backlog sensitivity.",
+      evidenceNeeded: "Official gross margin bridge, working capital, capex, share count, net cash, and buyback/dividend policy.",
+    },
+  ],
+  sourceGaps: [
+    asmlMarketPriceMetadata.latestPrice
+      ? "ASML ADR daily price is loaded from Yahoo Finance; refresh official financial statements and FX bridge before final IC use."
+      : "Refresh current ASML ADR price.",
+    "Refresh official EUR financial statements.",
+    "Add EUR/USD ADR bridge.",
+    "Refresh orders, backlog, EUV/DUV/High-NA mix, installed-base service split, China exposure, customer concentration, and FCF.",
+    "Add ASML SQLite backend workflow when standardized source ingestion is ready.",
+  ],
+};

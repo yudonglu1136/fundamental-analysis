@@ -2,7 +2,6 @@ import { Outlet } from "react-router-dom";
 import { createContext, useContext, useMemo, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { TopNav } from "./TopNav";
-import { stockRegistry } from "../../stocks/registry";
 import type { DataSourceType, Scenario, StockModule } from "../../stocks/types";
 
 type AppShellContextValue = {
@@ -19,10 +18,9 @@ type AppShellContextValue = {
 const AppShellContext = createContext<AppShellContextValue | null>(null);
 
 export function AppShell() {
-  const defaultModule = stockRegistry.MCK;
   const [currentModule, setCurrentModule] = useState<StockModule | undefined>(undefined);
   const [scenario, setScenario] = useState<Scenario>("Base");
-  const [period, setPeriod] = useState<string>(defaultModule.getDefaultPeriod());
+  const [period, setPeriod] = useState<string>("");
   const [dataSourceType, setDataSourceType] = useState<DataSourceType>("mock");
 
   const value = useMemo(
@@ -45,7 +43,7 @@ export function AppShell() {
         <Sidebar />
         <div className="min-w-0 flex-1">
           <TopNav />
-          <main className="px-4 py-6 sm:px-6 lg:px-8">
+          <main className="mx-auto w-full max-w-[1680px] px-4 py-5 sm:px-6 lg:px-8">
             <Outlet />
           </main>
         </div>

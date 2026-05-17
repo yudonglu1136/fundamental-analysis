@@ -1,462 +1,355 @@
-import type { DashboardInterpretation, DataStatus, Scenario, Signal, SummaryMetric, ValuationResult } from "../types";
-import { buildSensitivityTable } from "../../utils/chartHelpers";
-import { clamp, safeDivide } from "../../utils/financialMath";
-import { checkExtremeGrowthRates, checkMissingFields, checkValuationReliability } from "../../utils/validation";
-import { defaultMsftAssumptions, type MsftAssumptions } from "./assumptions";
-import type { MsftData, MsftPeriodRow } from "./data";
-import { msftData } from "./data";
-import { msftRealData } from "./realData";
-import { buildAiRevenueModel } from "./AIRevenueModel";
-import { buildAiCostModel } from "./AICostModel";
-import { buildAiRoicModel } from "./AIROICModel";
-import { buildCloudMarginModel } from "./CloudMarginModel";
-import { buildFcfOffsetModel } from "./FCFOffsetModel";
-import { detectAiPhase } from "./AIPhaseDetector";
-import { buildMsftValuationEngine, type MsftValuationEngineResult } from "./MSFTValuationEngine";
+import type { DataSourceType, DataStatus, Scenario, SummaryMetric, ValuationResult, ValidationWarning } from "../types";
+import { computeExpectedShareholderCagr, computeUpsideDownside, daysBetweenIso } from "../../utils/valuation";
+import { msftDataset, msftPeriods } from "./data";
+import { defaultMsftValuationAssumptions, msftScenarioPresets } from "./assumptions";
+import type { MsftDataset, MsftValuationAssumptions } from "./model";
+import { calculateMsftAiFactoryEngine } from "./engines/aiFactoryEngine";
+import { calculateMsftBusinessMixEngine } from "./engines/businessMixEngine";
+import { calculateMsftCapexFcfEngine } from "./engines/capexFcfEngine";
+import { calculateMsftCapitalReturnEngine } from "./engines/capitalReturnEngine";
+import { calculateMsftCopilotEngine } from "./engines/copilotEngine";
+import { calculateMsftEarningsCallEngine } from "./engines/earningsCallEngine";
+import { calculateMsftMarginBridgeEngine } from "./engines/marginBridgeEngine";
+import { calculateMsftOpenAiExposureEngine } from "./engines/openAiExposureEngine";
+import { calculateMsftRiskRedTeamEngine } from "./engines/riskRedTeamEngine";
+import { calculateMsftSegmentEngine } from "./engines/segmentEngine";
+import { buildMsftSensitivityTables, calculateMsftValuationEngine } from "./engines/valuationEngine";
 
-export type MsftEvaluatedRow = MsftPeriodRow & {
-  aiGrossMarginEstimate: number;
-  copilotGrossMarginEstimate: number;
-  aiGrossProfit: number;
-  aiOperatingProfit: number;
-  aiRoicEstimate: number;
-  fcfMarginAdjusted: number;
-  aiAdjustedFcf: number;
-  aiRevenueToCapex: number;
-  paybackPeriod: number;
-  marginStabilizationProbability: number;
+export { msftDataset, msftPeriods };
+export { defaultMsftValuationAssumptions, msftScenarioPresets };
+
+type MsftRuntimeContext = {
+  __msftResolvedPeriod?: string;
+  __msftRequestedDataSourceType?: DataSourceType;
 };
 
-export type MsftDashboardData = {
-  dataStatus: DataStatus;
-  statusBanner: { title: string; detail: string; signal: Signal };
-  summary: SummaryMetric[];
-  interpretations: Array<{ title: string; signal: Signal; detail: string }>;
-  selectedRow: MsftEvaluatedRow;
-  rows: MsftEvaluatedRow[];
-  aiRevenueMix: Array<{ name: string; value: number }>;
-  marginBridge: Array<{ label: string; value: number; type: "base" | "positive" | "negative" | "total" }>;
-  capexCohorts: Array<{ fiscalYear: string; aiCapex: number; depreciation: number; aiRevenue: number; aiGrossProfit: number; aiOperatingProfit: number; aiRoic: number; paybackPeriod: number }>;
-  fcfOffsetRows: Array<{ label: string; value: number; type: "base" | "positive" | "negative" | "total" }>;
-  paybackSignal: Signal;
-  paybackDetail: string;
-  valuation: ValuationResult;
-  scenarioLab: {
-    anchors: typeof msftRealData.anchors;
-    aiRevenue: ReturnType<typeof buildAiRevenueModel>;
-    aiCost: ReturnType<typeof buildAiCostModel>;
-    aiRoic: ReturnType<typeof buildAiRoicModel>;
-    cloudMargin: ReturnType<typeof buildCloudMarginModel>;
-    fcfOffset: ReturnType<typeof buildFcfOffsetModel>;
-    phase: ReturnType<typeof detectAiPhase>;
-    valuation: MsftValuationEngineResult;
-  };
-};
+type MsftDatasetInput = MsftDataset & Partial<MsftRuntimeContext>;
 
-function delta<K extends keyof MsftAssumptions>(key: K, assumptions: MsftAssumptions) {
-  return assumptions[key] - defaultMsftAssumptions[key];
+function metric(
+  label: string,
+  value: number,
+  delta: number | undefined,
+  format: SummaryMetric["format"],
+  description: string,
+  badge: SummaryMetric["badge"],
+): SummaryMetric {
+  return { key: label.toLowerCase().replace(/[^a-z0-9]+/g, "-"), label, value, delta, format, description, badge };
 }
 
-function evaluateCurrentRow(row: MsftPeriodRow, assumptions: MsftAssumptions): MsftEvaluatedRow {
-  const aiRunRate = row.aiAnnualRunRate * (1 + delta("aiRevenueGrowth", assumptions) * 0.22 + delta("aiUtilizationRate", assumptions) * 0.45 + delta("aiMonetizationEfficiency", assumptions) * 0.35);
-  const aiCapex = row.aiCapex * (1 + delta("aiCapexGrowth", assumptions) * 0.9 + delta("powerCoolingCostPct", assumptions) * 0.55 + delta("networkingCostPct", assumptions) * 0.45 - delta("aiUtilizationRate", assumptions) * 0.25);
-  const aiDepreciation = row.aiDepreciation * (1 + delta("aiDepreciationGrowth", assumptions) * 0.8 + delta("aiCapexGrowth", assumptions) * 0.35);
-  const cloudGrossMargin = clamp(row.cloudGrossMargin - delta("aiInfrastructureCostLoad", assumptions) - delta("aiProductUsageCost", assumptions) + delta("azureEfficiencyGains", assumptions) + delta("m365EfficiencyGains", assumptions), 0.6, 0.72);
-  const azureGrossMargin = clamp(row.azureGrossMargin - delta("aiInfrastructureCostLoad", assumptions) * 0.8 + delta("azureEfficiencyGains", assumptions) * 0.8, 0.62, 0.78);
-  const azureGrowth = clamp(row.azureGrowth + delta("aiRevenueGrowth", assumptions) * 0.06 + delta("aiUtilizationRate", assumptions) * 0.18 + delta("aiMixShift", assumptions) * 0.1, 0.15, 0.62);
-  const aiContributionToAzureGrowth = clamp(row.aiContributionToAzureGrowth + delta("aiMixShift", assumptions) * 0.22 + delta("aiMonetizationEfficiency", assumptions) * 0.08, 0.04, 0.32);
-  const copilotSeats = row.copilotSeats * (1 + delta("copilotSeatGrowth", assumptions) * 0.8 + delta("copilotAdoption", assumptions) * 0.9);
-  const copilotRevenue = row.copilotRevenue * (1 + safeDivide(delta("copilotArpu", assumptions), defaultMsftAssumptions.copilotArpu) * 0.75 + delta("copilotSeatGrowth", assumptions) * 0.5);
-  const githubCopilotRevenue = row.githubCopilotRevenue * (1 + delta("copilotSeatGrowth", assumptions) * 0.35);
-  const copilotStudioRevenue = row.copilotStudioRevenue * (1 + delta("copilotStudioUsageGrowth", assumptions) * 0.65 + delta("agentPlatformGrowth", assumptions) * 0.2);
-  const aiAgentRevenue = row.aiAgentRevenue * (1 + delta("agentPlatformGrowth", assumptions) * 0.75 + delta("copilotStudioUsageGrowth", assumptions) * 0.2);
-  const aiGrossMarginEstimate = clamp(row.aiGrossMarginBase + delta("aiUtilizationRate", assumptions) * 0.18 + delta("aiMonetizationEfficiency", assumptions) * 0.16 - delta("aiInfrastructureCostLoad", assumptions) * 0.7, 0.2, 0.45);
-  const copilotGrossMarginEstimate = clamp(row.copilotGrossMarginBase + safeDivide(delta("copilotArpu", assumptions), defaultMsftAssumptions.copilotArpu) * 0.12 + delta("aiMonetizationEfficiency", assumptions) * 0.14, 0.55, 0.82);
-  const powerCoolingCost = row.powerCoolingCost * (1 + delta("powerCoolingCostPct", assumptions) * 1.5);
-  const networkingCost = row.networkingCost * (1 + delta("networkingCostPct", assumptions) * 1.5);
-  const aiGrossProfit = aiRunRate * aiGrossMarginEstimate;
-  const aiOperatingProfit = aiGrossProfit - aiDepreciation - powerCoolingCost - networkingCost;
-  const aiInvestedCapital = row.aiInvestedCapital * (1 + delta("aiCapexGrowth", assumptions) * 0.65);
-  const aiRoicEstimate = clamp(safeDivide(aiOperatingProfit, aiInvestedCapital), -0.05, 0.2);
-  const fcfMarginAdjusted = clamp(row.fcf / row.totalRevenue + delta("fcfMargin", assumptions) * 0.85 - delta("aiCapexGrowth", assumptions) * 0.1 + delta("aiRoic", assumptions) * 0.35, 0.2, 0.42);
-  const fcf = row.totalRevenue * fcfMarginAdjusted;
-  const aiAdjustedFcf = fcf - aiCapex + aiOperatingProfit;
-  const marginStabilizationProbability = clamp(0.42 + aiRoicEstimate * 1.8 + assumptions.azureEfficiencyGains * 3 + assumptions.m365EfficiencyGains * 2.5 - assumptions.aiInfrastructureCostLoad * 4.2, 0.1, 0.9);
+function isMsftDataset(value: unknown): value is MsftDatasetInput {
+  return Boolean(value && typeof value === "object" && "ticker" in value && "segments" in value && "cloudMetrics" in value);
+}
 
+export function resolveMsftDataset(data: unknown): MsftDatasetInput {
+  return isMsftDataset(data) ? data : msftDataset;
+}
+
+export function attachMsftRuntimeContext(
+  data: MsftDataset,
+  context: { periodId?: string; dataSourceType?: DataSourceType },
+): MsftDatasetInput {
   return {
-    ...row,
-    aiAnnualRunRate: aiRunRate,
-    aiCapex,
-    aiDepreciation,
-    cloudGrossMargin,
-    azureGrossMargin,
-    azureGrowth,
-    aiContributionToAzureGrowth,
-    copilotSeats,
-    copilotRevenue,
-    githubCopilotRevenue,
-    copilotStudioRevenue,
-    aiAgentRevenue,
-    powerCoolingCost,
-    networkingCost,
-    aiInvestedCapital,
-    aiGrossMarginEstimate,
-    copilotGrossMarginEstimate,
-    aiGrossProfit,
-    aiOperatingProfit,
-    aiRoicEstimate,
-    fcfMarginAdjusted,
-    fcf,
-    aiAdjustedFcf,
-    aiRevenueToCapex: safeDivide(aiRunRate, aiCapex),
-    paybackPeriod: aiOperatingProfit > 0 ? aiCapex / aiOperatingProfit : 99,
-    marginStabilizationProbability,
+    ...data,
+    __msftResolvedPeriod: context.periodId,
+    __msftRequestedDataSourceType: context.dataSourceType,
   };
 }
 
-function projectForecastRow(previous: MsftEvaluatedRow, base: MsftPeriodRow, assumptions: MsftAssumptions, yearOffset: number): MsftEvaluatedRow {
-  const revenueGrowth = clamp(base.cloudRevenueGrowth + assumptions.aiMixShift * 0.08 + assumptions.aiRevenueCagr * 0.05 - yearOffset * 0.01, 0.1, 0.24);
-  const cloudRevenue = previous.cloudRevenue * (1 + revenueGrowth);
-  const totalRevenue = previous.totalRevenue * (1 + clamp(0.08 + assumptions.aiRevenueCagr * 0.1 + assumptions.copilotAdoption * 0.08 - yearOffset * 0.005, 0.06, 0.16));
-  const azureGrowth = clamp(previous.azureGrowth - 0.02 + assumptions.aiRevenueGrowth * 0.06 + assumptions.aiUtilizationRate * 0.04, 0.18, 0.58);
-  const aiContributionToAzureGrowth = clamp(previous.aiContributionToAzureGrowth + assumptions.aiMixShift * 0.03 + assumptions.agentPlatformGrowth * 0.015 - yearOffset * 0.004, 0.08, 0.3);
-  const aiAnnualRevenueGrowth = clamp(previous.aiAnnualRevenueGrowth * (0.72 + assumptions.aiMonetizationEfficiency * 0.18), 0.25, 1.2);
-  const aiAnnualRunRate = previous.aiAnnualRunRate * (1 + assumptions.aiRevenueGrowth * 0.22 + assumptions.copilotSeatGrowth * 0.08 + assumptions.agentPlatformGrowth * 0.05 - yearOffset * 0.03);
-  const aiCapex = previous.aiCapex * (1 + assumptions.aiCapexGrowth * 0.42 + assumptions.powerCoolingCostPct * 0.08 - assumptions.aiUtilizationRate * 0.05 - yearOffset * 0.02);
-  const aiDepreciation = previous.aiDepreciation * (1 + assumptions.aiDepreciationGrowth * 0.5 + assumptions.aiCapexGrowth * 0.15 - yearOffset * 0.01);
-  const cloudGrossMargin = clamp(previous.cloudGrossMargin - assumptions.aiInfrastructureCostLoad * 0.06 - assumptions.aiProductUsageCost * 0.04 + assumptions.azureEfficiencyGains * 0.18 + assumptions.m365EfficiencyGains * 0.15 + yearOffset * 0.004, 0.62, 0.72);
-  const azureGrossMargin = clamp(previous.azureGrossMargin - assumptions.aiInfrastructureCostLoad * 0.04 + assumptions.azureEfficiencyGains * 0.2 + yearOffset * 0.003, 0.63, 0.77);
-  const aiGrossMarginEstimate = clamp(previous.aiGrossMarginEstimate + assumptions.aiUtilizationRate * 0.03 + assumptions.aiMonetizationEfficiency * 0.02 - assumptions.aiInfrastructureCostLoad * 0.04, 0.22, 0.48);
-  const copilotGrossMarginEstimate = clamp(previous.copilotGrossMarginEstimate + assumptions.aiMonetizationEfficiency * 0.025 + assumptions.copilotAdoption * 0.04 - yearOffset * 0.002, 0.6, 0.84);
-  const copilotSeats = previous.copilotSeats * (1 + assumptions.copilotSeatGrowth * 0.45 + assumptions.copilotAdoption * 0.18 - yearOffset * 0.03);
-  const copilotRevenue = previous.copilotRevenue * (1 + assumptions.copilotSeatGrowth * 0.38 + safeDivide(assumptions.copilotArpu, defaultMsftAssumptions.copilotArpu) * 0.08);
-  const githubCopilotRevenue = previous.githubCopilotRevenue * (1 + assumptions.copilotSeatGrowth * 0.22);
-  const copilotStudioRevenue = previous.copilotStudioRevenue * (1 + assumptions.copilotStudioUsageGrowth * 0.35 + assumptions.agentPlatformGrowth * 0.12);
-  const aiAgentRevenue = previous.aiAgentRevenue * (1 + assumptions.agentPlatformGrowth * 0.4);
-  const powerCoolingCost = aiCapex * assumptions.powerCoolingCostPct * 0.11;
-  const networkingCost = aiCapex * assumptions.networkingCostPct * 0.1;
-  const aiGrossProfit = aiAnnualRunRate * aiGrossMarginEstimate;
-  const aiOperatingProfit = aiGrossProfit - aiDepreciation - powerCoolingCost - networkingCost;
-  const aiInvestedCapital = previous.aiInvestedCapital + aiCapex * 0.75;
-  const aiRoicEstimate = clamp(safeDivide(aiOperatingProfit, aiInvestedCapital), -0.03, 0.24);
-  const fcfMarginAdjusted = clamp(previous.fcfMarginAdjusted + assumptions.aiRoic * 0.05 - assumptions.aiCapexGrowth * 0.02 + yearOffset * 0.004, 0.22, 0.4);
-  const fcf = totalRevenue * fcfMarginAdjusted;
-  const operatingCashFlow = totalRevenue * clamp(fcfMarginAdjusted + 0.16, 0.34, 0.56);
-  const marginStabilizationProbability = clamp(previous.marginStabilizationProbability + 0.08 + assumptions.azureEfficiencyGains * 1.5 - assumptions.aiInfrastructureCostLoad * 0.8, 0.2, 0.95);
-
-  return {
-    ...base,
-    totalRevenue,
-    cloudRevenue,
-    cloudRevenueGrowth: revenueGrowth,
-    azureGrowth,
-    aiContributionToAzureGrowth,
-    cloudGrossMargin,
-    azureGrossMargin,
-    aiAnnualRevenueGrowth,
-    aiAnnualRunRate,
-    aiCapex,
-    aiDepreciation,
-    aiInvestedCapital,
-    aiGrossMarginBase: aiGrossMarginEstimate,
-    copilotGrossMarginBase: copilotGrossMarginEstimate,
-    copilotSeats,
-    copilotRevenue,
-    githubCopilotRevenue,
-    copilotStudioRevenue,
-    aiAgentRevenue,
-    powerCoolingCost,
-    networkingCost,
-    operatingCashFlow,
-    fcf,
-    blendedRoic: clamp(previous.blendedRoic + aiRoicEstimate * 0.05, 0.22, 0.32),
-    aiGrossMarginEstimate,
-    copilotGrossMarginEstimate,
-    aiGrossProfit,
-    aiOperatingProfit,
-    aiRoicEstimate,
-    fcfMarginAdjusted,
-    aiAdjustedFcf: fcf - aiCapex + aiOperatingProfit,
-    aiRevenueToCapex: safeDivide(aiAnnualRunRate, aiCapex),
-    paybackPeriod: aiOperatingProfit > 0 ? aiCapex / aiOperatingProfit : 99,
-    marginStabilizationProbability,
-  };
+export function getDefaultMsftPeriod() {
+  return "q3-fy26";
 }
 
-export function evaluateMsftRows(data: MsftData, assumptions: MsftAssumptions) {
-  const currentIndex = data.rows.findIndex((row) => row.periodId === data.currentPeriodId);
-  return data.rows.reduce<MsftEvaluatedRow[]>((acc, row, index) => {
-    if (index < currentIndex) {
-      acc.push({
-        ...row,
-        aiGrossMarginEstimate: row.aiGrossMarginBase,
-        copilotGrossMarginEstimate: row.copilotGrossMarginBase,
-        aiGrossProfit: row.aiAnnualRunRate * row.aiGrossMarginBase,
-        aiOperatingProfit: row.aiAnnualRunRate * row.aiGrossMarginBase - row.aiDepreciation - row.powerCoolingCost - row.networkingCost,
-        aiRoicEstimate: safeDivide(row.aiAnnualRunRate * row.aiGrossMarginBase - row.aiDepreciation - row.powerCoolingCost - row.networkingCost, row.aiInvestedCapital),
-        fcfMarginAdjusted: safeDivide(row.fcf, row.totalRevenue),
-        aiAdjustedFcf: row.fcf - row.aiCapex + (row.aiAnnualRunRate * row.aiGrossMarginBase - row.aiDepreciation - row.powerCoolingCost - row.networkingCost),
-        aiRevenueToCapex: safeDivide(row.aiAnnualRunRate, row.aiCapex),
-        paybackPeriod: safeDivide(row.aiCapex, Math.max(row.aiAnnualRunRate * row.aiGrossMarginBase - row.aiDepreciation - row.powerCoolingCost - row.networkingCost, 0.1)),
-        marginStabilizationProbability: 0.35,
-      });
-      return acc;
-    }
-    if (index === currentIndex) {
-      acc.push(evaluateCurrentRow(row, assumptions));
-      return acc;
-    }
-    const previous = acc[acc.length - 1];
-    acc.push(projectForecastRow(previous, row, assumptions, index - currentIndex));
-    return acc;
-  }, []);
+export function getMsftPeriods() {
+  return msftPeriods;
 }
 
-function getStatusBanner(selected: MsftEvaluatedRow, previous: MsftEvaluatedRow | undefined, assumptions: MsftAssumptions, dividendYield: number) {
-  const aiRevenueOutgrowingCapex = selected.aiAnnualRevenueGrowth > assumptions.aiCapexGrowth;
-  const depreciationContained = selected.aiGrossProfit > selected.aiDepreciation * 1.2;
-  const marginNarrowing = previous ? previous.cloudGrossMargin - selected.cloudGrossMargin < 0.015 : false;
-  const fcfStable = selected.fcfMarginAdjusted >= 0.29;
-  const copilotMaterial = selected.copilotRevenue >= 2.5 && selected.copilotSeats >= 20;
-  const roicSpread = assumptions.aiRoic - selected.wacc;
-
-  if (aiRevenueOutgrowingCapex && depreciationContained && roicSpread > 0.01) {
-    return {
-      title: "AI ROIC expansion phase",
-      detail: "AI revenue is scaling faster than depreciation, Copilot monetization is becoming material, and incremental AI returns are moving above the cost of capital.",
-      signal: "Positive" as const,
-    };
-  }
-  if (aiRevenueOutgrowingCapex && marginNarrowing && fcfStable) {
-    return {
-      title: "AI payback inflecting",
-      detail: "CapEx is still heavy, but AI revenue growth is outpacing infrastructure growth, cloud margin pressure is narrowing, and free cash flow is stabilizing.",
-      signal: "Inflecting" as const,
-    };
-  }
-  if (copilotMaterial || dividendYield + selected.aiRevenueToCapex > 1) {
-    return {
-      title: "AI monetization scaling",
-      detail: "Microsoft is progressing beyond infrastructure supply and is building a broader AI software and agent revenue stack.",
-      signal: "Positive" as const,
-    };
-  }
-  if (selected.cloudGrossMargin < 0.65 && selected.aiRevenueToCapex < 0.45) {
-    return {
-      title: "AI investment phase",
-      detail: "Infrastructure spending remains ahead of monetization, margins are still under pressure, and the FCF offset from AI operating profit is not yet complete.",
-      signal: "Negative" as const,
-    };
-  }
-  return {
-    title: "AI investment phase",
-    detail: "The platform is still digesting elevated CapEx, but Azure AI demand, Copilot adoption, and enterprise backlog suggest the path to payback remains intact.",
-    signal: "Neutral" as const,
-  };
+export function resolveMsftPeriodFromData(data: unknown, fallback = getDefaultMsftPeriod()) {
+  const dataset = resolveMsftDataset(data);
+  const runtimePeriod = dataset.__msftResolvedPeriod;
+  if (runtimePeriod && dataset.periods.some((period) => period.id === runtimePeriod)) return runtimePeriod;
+  return dataset.periods.some((period) => period.id === fallback) ? fallback : getDefaultMsftPeriod();
 }
 
-function buildAiRevenueMix(selected: MsftEvaluatedRow, assumptions: MsftAssumptions) {
-  const softwareTilt = clamp(assumptions.aiMixShift, 0.12, 0.6);
-  const copilot = selected.aiAnnualRunRate * (0.19 + softwareTilt * 0.1);
-  const github = selected.aiAnnualRunRate * 0.08;
-  const studio = selected.aiAnnualRunRate * (0.045 + assumptions.copilotAdoption * 0.08);
-  const agents = selected.aiAnnualRunRate * (0.03 + assumptions.agentPlatformGrowth * 0.03);
-  const openAi = selected.aiAnnualRunRate * 0.15;
-  const azureCompute = Math.max(selected.aiAnnualRunRate - copilot - github - studio - agents - openAi, selected.aiAnnualRunRate * 0.28);
+function getPeriod(data: MsftDatasetInput, periodId = getDefaultMsftPeriod()) {
+  return data.periods.find((period) => period.id === periodId) ?? data.periods.find((period) => period.id === getDefaultMsftPeriod()) ?? data.periods[0];
+}
+
+function buildSourceWarnings(data: MsftDatasetInput): ValidationWarning[] {
+  const warnings: ValidationWarning[] = [];
+  const requested = data.__msftRequestedDataSourceType;
+  if (requested && requested !== "mock" && requested !== "manual") {
+    warnings.push({
+      id: "msft-unsupported-data-source",
+      title: "Requested data source is not implemented for MSFT",
+      detail: `MSFT currently uses curated official Microsoft data plus manual valuation assumptions. Requested source "${requested}" falls back to the module baseline.`,
+      severity: "medium",
+    });
+  }
+  if (requested === "manual") {
+    warnings.push({
+      id: "msft-manual-assumptions-active",
+      title: "Manual valuation assumptions are active",
+      detail: "Manual mode changes scenario assumptions only; official actuals and management commentary remain unchanged.",
+      severity: "low",
+    });
+  }
+  if (daysBetweenIso(data.marketData.priceDate, "2026-05-11") > 7) {
+    warnings.push({
+      id: "msft-stale-price",
+      title: "Market price anchor may be stale",
+      detail: `MSFT price anchor is dated ${data.marketData.priceDate}. Refresh market data before underwriting upside/downside.`,
+      severity: "medium",
+    });
+  }
+  return warnings;
+}
+
+function buildModelWarnings(
+  data: MsftDatasetInput,
+  periodId: string,
+  assumptions: MsftValuationAssumptions,
+  valuation: ReturnType<typeof calculateMsftValuationEngine>,
+) {
+  const segment = calculateMsftSegmentEngine(data, periodId);
+  const capex = calculateMsftCapexFcfEngine(data, assumptions);
+  const openAi = calculateMsftOpenAiExposureEngine(data, assumptions);
+  const warnings: ValidationWarning[] = [
+    ...buildSourceWarnings(data),
+    ...segment.warnings,
+    ...capex.warnings,
+    ...openAi.warnings,
+    ...valuation.warnings,
+  ];
+  const scenarioWeightSum = data.scenarios.reduce((total, scenario) => total + scenario.probability, 0);
+  if (Math.abs(scenarioWeightSum - 1) > 0.0001) {
+    warnings.push({
+      id: "msft-scenario-probability-sum",
+      title: "Scenario probabilities do not sum to 100%",
+      detail: `Scenario probabilities sum to ${(scenarioWeightSum * 100).toFixed(1)}%.`,
+      severity: "high",
+    });
+  }
+  if (data.aiDisclosures.some((item) => item.id === "openai-revenue-share-economics" && item.sourceStatus !== "scenario_assumption")) {
+    warnings.push({
+      id: "msft-openai-source-tier",
+      title: "OpenAI economics source tier is invalid",
+      detail: "Revenue share percentage, compute economics, and OpenAI revenue contribution must remain scenario assumptions.",
+      severity: "high",
+    });
+  }
+  return warnings;
+}
+
+export function calculateMsftSummary(data: unknown, periodId = getDefaultMsftPeriod()): SummaryMetric[] {
+  const dataset = resolveMsftDataset(data);
+  const period = getPeriod(dataset, periodId);
+  const fy25 = dataset.periods.find((item) => item.id === "fy25");
+  const cloud = dataset.cloudMetrics.find((item) => item.periodId === "q3-fy26") ?? dataset.cloudMetrics[dataset.cloudMetrics.length - 1];
+  const aiArr = dataset.aiDisclosures.find((item) => item.id === "ai-arr-q3-fy26")?.metric ?? 0;
   return [
-    { name: "Azure AI compute", value: azureCompute },
-    { name: "OpenAI services", value: openAi },
-    { name: "Copilot", value: copilot },
-    { name: "GitHub Copilot", value: github },
-    { name: "Copilot Studio", value: studio },
-    { name: "AI agent usage", value: agents },
+    metric("Current Price", dataset.marketData.currentPrice, undefined, "currency", dataset.marketData.notes, "Actual"),
+    metric("Revenue", period.revenue, fy25 && period.periodType === "quarter" ? period.revenue - fy25.revenue / 4 : undefined, "number", `${period.label} official revenue.`, "Actual"),
+    metric("Operating Margin", period.operatingMargin, fy25 ? period.operatingMargin - fy25.operatingMargin : undefined, "percent", "Operating income divided by revenue.", "Actual"),
+    metric("Microsoft Cloud GM", cloud.microsoftCloudGrossMargin, undefined, "percent", "Microsoft Cloud gross margin percentage.", "Actual"),
+    metric("Azure Growth", cloud.azureGrowth ?? 0, undefined, "percent", "Azure and other cloud services growth.", "Actual"),
+    metric("AI ARR", aiArr, undefined, "number", "Management-commentary AI annual revenue run rate in USDbn.", "Actual"),
+    metric("FCF", period.freeCashFlow ?? 0, undefined, "number", "Operating cash flow less additions to property and equipment.", "Derived"),
+    metric("Capex Intensity", (period.capex ?? 0) / period.revenue, undefined, "percent", "Capex divided by revenue; key AI payback stress.", "Derived"),
   ];
 }
 
-function buildMarginBridge(selected: MsftEvaluatedRow, previous: MsftEvaluatedRow | undefined, assumptions: MsftAssumptions) {
-  const priorMargin = previous?.cloudGrossMargin ?? selected.cloudGrossMargin + 0.02;
-  return [
-    { label: "Prior cloud margin", value: priorMargin, type: "base" as const },
-    { label: "AI infrastructure cost", value: -assumptions.aiInfrastructureCostLoad, type: "negative" as const },
-    { label: "AI product usage cost", value: -assumptions.aiProductUsageCost, type: "negative" as const },
-    { label: "Azure efficiency gains", value: assumptions.azureEfficiencyGains, type: "positive" as const },
-    { label: "M365 efficiency gains", value: assumptions.m365EfficiencyGains, type: "positive" as const },
-    { label: "Current cloud margin", value: selected.cloudGrossMargin, type: "total" as const },
-  ];
-}
-
-function buildCapexCohorts(rows: MsftEvaluatedRow[]) {
-  return rows.map((row) => ({
-    fiscalYear: row.periodId,
-    aiCapex: row.aiCapex,
-    depreciation: row.aiDepreciation,
-    aiRevenue: row.aiAnnualRunRate,
-    aiGrossProfit: row.aiGrossProfit,
-    aiOperatingProfit: row.aiOperatingProfit,
-    aiRoic: row.aiRoicEstimate,
-    paybackPeriod: row.paybackPeriod,
-  }));
-}
-
-function buildFcfOffsetRows(selected: MsftEvaluatedRow) {
-  const coreFcf = selected.fcf + selected.aiCapex - selected.aiOperatingProfit;
-  return [
-    { label: "Core FCF", value: coreFcf, type: "base" as const },
-    { label: "Incremental AI CapEx", value: -selected.aiCapex, type: "negative" as const },
-    { label: "Incremental AI op profit", value: selected.aiOperatingProfit, type: selected.aiOperatingProfit >= 0 ? "positive" as const : "negative" as const },
-    { label: "AI-adjusted FCF", value: selected.aiAdjustedFcf, type: "total" as const },
-  ];
-}
-
-function getPaybackSignal(selected: MsftEvaluatedRow, previous: MsftEvaluatedRow | undefined, assumptions: MsftAssumptions) {
-  const aiRevenueOutpacesCapex = selected.aiAnnualRevenueGrowth > assumptions.aiCapexGrowth;
-  const grossProfitOutpacesDepreciation = selected.aiGrossProfit > selected.aiDepreciation * 1.15;
-  const marginDeclineNarrows = previous ? previous.cloudGrossMargin - selected.cloudGrossMargin < 0.015 : false;
-  const previousFcfMargin = previous ? previous.fcfMarginAdjusted : 0.29;
-  const fcfStable = selected.fcfMarginAdjusted >= previousFcfMargin;
-  if (aiRevenueOutpacesCapex && grossProfitOutpacesDepreciation && marginDeclineNarrows && fcfStable) {
-    return {
-      signal: "Inflecting" as const,
-      detail: "AI payback looks to be inflecting: revenue is scaling ahead of CapEx, gross profit is outrunning depreciation, and cash conversion is stabilizing.",
+export function calculateMsftValuation(
+  data: unknown,
+  assumptions: Partial<MsftValuationAssumptions> = {},
+  scenario: Scenario = "Base",
+): ValuationResult {
+  const dataset = resolveMsftDataset(data);
+  const scenarioDefaults = msftScenarioPresets[scenario] ?? defaultMsftValuationAssumptions;
+  const mergedAssumptions = { ...scenarioDefaults, ...assumptions };
+  const valuation = calculateMsftValuationEngine(dataset, scenario, mergedAssumptions);
+  const warnings = buildModelWarnings(dataset, resolveMsftPeriodFromData(dataset), mergedAssumptions, valuation);
+  const fairValues = (["Bear", "Base", "Bull"] as Scenario[]).map((caseName) => {
+    const scenarioAssumptions = {
+      ...msftScenarioPresets[caseName],
+      currentPrice: mergedAssumptions.currentPrice,
+      netCashDebt: mergedAssumptions.netCashDebt,
+      dilutedShares: mergedAssumptions.dilutedShares,
     };
-  }
-  if (selected.aiOperatingProfit > 0 && selected.paybackPeriod < 5) {
+    const scenarioValuation = calculateMsftValuationEngine(dataset, caseName, scenarioAssumptions);
+    const targetPrice3Y = scenarioValuation.blendedFairValue * (1 + scenarioAssumptions.baseSoftwareGrowth * 0.35 + scenarioAssumptions.azureGrowth * 0.25);
+    const cumulativeDividends = scenarioAssumptions.dividendPerShare * 3;
     return {
-      signal: "Positive" as const,
-      detail: "AI infrastructure is still investment-heavy, but the implied payback window is now inside a reasonable platform build-out range.",
+      scenario: caseName,
+      fairValue: scenarioValuation.blendedFairValue,
+      upsideDownside: computeUpsideDownside(scenarioValuation.blendedFairValue, scenarioAssumptions.currentPrice),
+      expectedReturn3Y: computeExpectedShareholderCagr(targetPrice3Y, scenarioAssumptions.currentPrice, cumulativeDividends),
+      targetPrice3Y,
+      cumulativeDividends,
+      summary: dataset.scenarios.find((item) => item.scenario === caseName)?.narrative,
     };
-  }
+  });
+  const selectedPoint = fairValues.find((item) => item.scenario === scenario) ?? fairValues[1];
+  const methodValues = [
+    valuation.dcf.fairValuePerShare,
+    valuation.fcfYieldFairValue,
+    valuation.peFairValue,
+    valuation.evEbitFairValue,
+    valuation.sotpFairValue,
+  ];
+  const methodAverage = methodValues.reduce((total, value) => total + value, 0) / methodValues.length;
+  const methodDispersion = (Math.max(...methodValues) - Math.min(...methodValues)) / Math.max(methodAverage, 1);
   return {
-    signal: "Negative" as const,
-    detail: "AI remains FCF dilutive for now: CapEx intensity is elevated, depreciation is still catching up, and payback is not yet fully visible.",
+    currentPrice: mergedAssumptions.currentPrice,
+    priceDate: dataset.marketData.priceDate,
+    validationWarnings: warnings,
+    warning: warnings.find((warning) => warning.severity === "high")?.title,
+    fairValues,
+    methodCards: [
+      {
+        key: "dcf",
+        label: "DCF Fair Value",
+        value: valuation.dcf.fairValuePerShare,
+        format: "currency",
+        description: "FCFF DCF with explicit Azure growth, Copilot revenue, OpenAI scenario revenue, AI capex intensity, depreciation, WACC, and terminal growth.",
+      },
+      {
+        key: "fcf-yield",
+        label: "FCF Yield Value",
+        value: valuation.fcfYieldFairValue,
+        format: "currency",
+        description: "Normalized FCF cross-check that dampens near-term AI capex distortion.",
+      },
+      {
+        key: "pe",
+        label: "P/E Value",
+        value: valuation.peFairValue,
+        format: "currency",
+        description: "Forward EPS cross-check after operating margin, tax, net cash yield, and target P/E.",
+      },
+      {
+        key: "ev-ebit",
+        label: "EV / EBIT Value",
+        value: valuation.evEbitFairValue,
+        format: "currency",
+        description: "Forward EBIT multiple cross-check adjusted for net cash/debt and operating leases.",
+      },
+      {
+        key: "sotp",
+        label: "SOTP Fair Value",
+        value: valuation.sotpFairValue,
+        format: "currency",
+        description: "SOTP split across Productivity/M365, Intelligent Cloud/Azure, and consumer franchises.",
+      },
+      {
+        key: "ai-optionality",
+        label: "AI Optionality / Share",
+        value: valuation.aiOptionalityFairValue,
+        format: "currency",
+        description: "Explicit scenario-only OpenAI/IP/agent optionality value per share.",
+      },
+    ],
+    expectedReturnBridge: [
+      {
+        key: "fair-value",
+        label: `${scenario} fair value`,
+        value: selectedPoint.fairValue,
+        format: "currency",
+        description: "Selected scenario blended fair value.",
+      },
+      {
+        key: "upside",
+        label: "Upside / downside",
+        value: selectedPoint.upsideDownside,
+        format: "percent",
+        description: "Fair value versus current market-data anchor.",
+      },
+      {
+        key: "expected-return",
+        label: "3Y shareholder CAGR",
+        value: selectedPoint.expectedReturn3Y,
+        format: "percent",
+        description: "Three-year target price plus dividends.",
+      },
+      {
+        key: "terminal-share",
+        label: "DCF terminal value share",
+        value: valuation.dcf.terminalValueShareOfEv,
+        format: "percent",
+        description: "Terminal value as a percentage of DCF enterprise value.",
+      },
+    ],
+    sensitivityTables: buildMsftSensitivityTables(dataset, mergedAssumptions),
+    dcfValue: valuation.dcf.fairValuePerShare,
+    fcfFairValue: valuation.fcfYieldFairValue,
+    peFairValue: valuation.peFairValue,
+    operatingSotpFairValue: valuation.sotpFairValue,
+    strategicOptionalityPerShare: valuation.aiOptionalityFairValue,
+    blendedFairValue: valuation.blendedFairValue,
+    probabilityWeightedFairValue: valuation.probabilityWeightedFairValue,
+    recommendedFairValue: valuation.blendedFairValue,
+    recommendedFairValueMethod: "DCF / FCF yield / P/E / EV-EBIT / SOTP / AI optionality blend",
+    recommendedFairValueReason: "Explicitly separates official actuals from OpenAI/Copilot scenario assumptions and tests AI capex against FCF conversion.",
+    valuationRangeLow: valuation.valuationRangeLow,
+    valuationRangeBase: valuation.probabilityWeightedFairValue,
+    valuationRangeHigh: valuation.valuationRangeHigh,
+    expectedReturn3Y: selectedPoint.expectedReturn3Y,
+    upsideDownside: selectedPoint.upsideDownside,
+    methodDispersion,
   };
 }
 
-export function calculateMsftValuation(data: MsftData, assumptions?: Partial<MsftAssumptions>): ValuationResult {
-  const merged = { ...defaultMsftAssumptions, ...(assumptions ?? {}) };
-  const revenueModel = buildAiRevenueModel(merged, msftRealData);
-  const costModel = buildAiCostModel(merged, msftRealData, revenueModel);
-  const roicModel = buildAiRoicModel(merged, msftRealData, revenueModel, costModel);
-  const cloudModel = buildCloudMarginModel(merged, msftRealData, revenueModel, costModel, roicModel);
-  const fcfModel = buildFcfOffsetModel(merged, msftRealData, costModel, roicModel, cloudModel);
-  const phase = detectAiPhase(merged, revenueModel, roicModel, cloudModel, fcfModel);
-  return buildMsftValuationEngine(merged, msftRealData, revenueModel, costModel, roicModel, cloudModel, fcfModel, phase);
-}
-
-export function buildMsftDashboardData(data: MsftData, assumptions: MsftAssumptions, periodId: string, scenario: Scenario): MsftDashboardData {
-  const rows = evaluateMsftRows(data, assumptions);
-  const selected = rows.find((row) => row.periodId === periodId) ?? rows.find((row) => row.periodId === data.currentPeriodId) ?? rows[0];
-  const selectedIndex = rows.findIndex((row) => row.periodId === selected.periodId);
-  const previous = selectedIndex > 0 ? rows[selectedIndex - 1] : undefined;
-  const statusBanner = getStatusBanner(selected, previous, assumptions, data.dividendYield);
-  const payback = getPaybackSignal(selected, previous, assumptions);
-  const aiRevenueMix = buildAiRevenueMix(selected, assumptions);
-  const marginBridge = buildMarginBridge(selected, previous, assumptions);
-  const fcfOffsetRows = buildFcfOffsetRows(selected);
-  const capexCohorts = buildCapexCohorts(rows);
-  const scenarioRevenue = buildAiRevenueModel(assumptions, msftRealData);
-  const scenarioCost = buildAiCostModel(assumptions, msftRealData, scenarioRevenue);
-  const scenarioRoic = buildAiRoicModel(assumptions, msftRealData, scenarioRevenue, scenarioCost);
-  const scenarioCloud = buildCloudMarginModel(assumptions, msftRealData, scenarioRevenue, scenarioCost, scenarioRoic);
-  const scenarioFcf = buildFcfOffsetModel(assumptions, msftRealData, scenarioCost, scenarioRoic, scenarioCloud);
-  const phase = detectAiPhase(assumptions, scenarioRevenue, scenarioRoic, scenarioCloud, scenarioFcf);
-  const scenarioValuation = buildMsftValuationEngine(assumptions, msftRealData, scenarioRevenue, scenarioCost, scenarioRoic, scenarioCloud, scenarioFcf, phase);
-
-  const missingFields = checkMissingFields([
-    { key: "currentPrice", value: assumptions.currentPrice },
-    { key: "forwardEps", value: assumptions.forwardEps },
-    { key: "aiRoic", value: assumptions.aiRoic },
-  ]);
-  const validationWarnings = [
-    ...checkExtremeGrowthRates(
-      [
-        { label: "AI revenue growth", value: assumptions.aiRevenueGrowth },
-        { label: "AI CapEx growth", value: assumptions.aiCapexGrowth },
-        { label: "Copilot seat growth", value: assumptions.copilotSeatGrowth },
-      ],
-      1,
-    ),
-    ...checkValuationReliability(assumptions.aiRoic < assumptions.wacc || missingFields.length > 0),
-  ];
-
+export function buildMsftDashboardData(
+  data: unknown,
+  periodId = getDefaultMsftPeriod(),
+  scenario: Scenario = "Base",
+  assumptions: Partial<MsftValuationAssumptions> = {},
+) {
+  const dataset = resolveMsftDataset(data);
+  const resolvedPeriod = dataset.periods.some((period) => period.id === periodId) ? periodId : getDefaultMsftPeriod();
+  const mergedAssumptions = { ...msftScenarioPresets[scenario], ...assumptions };
+  const valuationEngine = calculateMsftValuationEngine(dataset, scenario, mergedAssumptions);
+  const warnings = buildModelWarnings(dataset, resolvedPeriod, mergedAssumptions, valuationEngine);
   const dataStatus: DataStatus = {
-    sourceType: "mock",
-    lastUpdated: "2026-05-09",
-    missingFields,
-    validationWarnings,
-    valuationReliable: !validationWarnings.some((warning) => warning.id === "valuation-reliability"),
+    sourceType: dataset.__msftRequestedDataSourceType ?? "manual",
+    lastUpdated: "2026-05-11",
+    missingFields: [
+      "OpenAI revenue contribution and revenue-share percentage are not disclosed.",
+      "OpenAI compute resale margin is not disclosed.",
+      "M365 Copilot revenue, ARPU, churn, usage overage, and gross margin are not disclosed.",
+      "Azure AI revenue split and exact AI contribution points are not disclosed in the FY2026 Q3 pages used here.",
+    ],
+    validationWarnings: warnings,
+    valuationReliable: warnings.every((warning) => warning.severity !== "high"),
   };
-
-  const summary: SummaryMetric[] = [
-    { key: "cloud-revenue", label: "Microsoft Cloud Revenue ($B)", value: selected.cloudRevenue, delta: previous ? selected.cloudRevenue - previous.cloudRevenue : undefined, format: "number", description: "Measures Microsoft’s cloud scale and the revenue base funding AI investment.", badge: "Actual" },
-    { key: "azure-growth", label: "Azure Growth", value: selected.azureGrowth, delta: previous ? selected.azureGrowth - previous.azureGrowth : undefined, format: "percent", description: "Tracks the pace of Azure demand including AI workload acceleration.", badge: "Actual" },
-    { key: "ai-contrib", label: "AI Contribution to Azure Growth", value: selected.aiContributionToAzureGrowth, delta: previous ? selected.aiContributionToAzureGrowth - previous.aiContributionToAzureGrowth : undefined, format: "percent", description: "Shows how much of Azure growth is coming from AI rather than traditional workloads.", badge: "Derived" },
-    { key: "cloud-margin", label: "Cloud Gross Margin", value: selected.cloudGrossMargin, delta: previous ? selected.cloudGrossMargin - previous.cloudGrossMargin : undefined, format: "percent", description: "The clearest snapshot of whether AI is diluting or stabilizing cloud economics.", badge: "Actual" },
-    { key: "ai-run-rate", label: "AI Revenue Run-Rate ($B)", value: selected.aiAnnualRunRate, delta: previous ? selected.aiAnnualRunRate - previous.aiAnnualRunRate : undefined, format: "number", description: "Annualized AI revenue across Azure AI, OpenAI services, Copilot, GitHub Copilot, and agent workloads.", badge: "Derived" },
-    { key: "ai-capex", label: "AI CapEx ($B)", value: selected.aiCapex, delta: previous ? selected.aiCapex - previous.aiCapex : undefined, format: "number", description: "Capital intensity of the AI infrastructure build-out.", badge: "Actual" },
-    { key: "capex-revenue", label: "CapEx / Revenue", value: safeDivide(selected.totalCapex, selected.totalRevenue), delta: previous ? safeDivide(selected.totalCapex, selected.totalRevenue) - safeDivide(previous.totalCapex, previous.totalRevenue) : undefined, format: "percent", description: "High CapEx intensity is acceptable only if monetization and ROIC inflect in time.", badge: "Derived" },
-    { key: "fcf-margin", label: "FCF Margin", value: selected.fcfMarginAdjusted, delta: previous ? selected.fcfMarginAdjusted - previous.fcfMarginAdjusted : undefined, format: "percent", description: "Shows whether AI investment is being absorbed without structurally impairing cash conversion.", badge: "Derived" },
-    { key: "copilot-seats", label: "Copilot Paid Seats (M)", value: selected.copilotSeats, delta: previous ? selected.copilotSeats - previous.copilotSeats : undefined, format: "number", description: "Paid Copilot seats show whether Microsoft is monetizing AI as software, not just cloud capacity.", badge: "Actual" },
-    { key: "rpo", label: "Commercial RPO ($B)", value: selected.commercialRpo, delta: previous ? selected.commercialRpo - previous.commercialRpo : undefined, format: "number", description: "Large backlog supports visibility into future Microsoft Cloud and Copilot monetization.", badge: "Actual" },
-    { key: "ai-roic", label: "AI ROIC Estimate", value: selected.aiRoicEstimate, delta: previous ? selected.aiRoicEstimate - previous.aiRoicEstimate : undefined, format: "percent", description: "Incremental return on AI invested capital relative to Microsoft’s cost of capital.", badge: "Derived" },
-    { key: "payback", label: "AI Payback (Years)", value: selected.paybackPeriod, delta: previous ? selected.paybackPeriod - previous.paybackPeriod : undefined, format: "number", description: "Estimated payback period for AI infrastructure based on AI operating profit generation.", badge: "Derived" },
-  ];
-
-  const interpretations: Array<{ title: string; signal: Signal; detail: string }> = [
-    {
-      title: "Azure AI growth quality",
-      signal: selected.azureGrowth >= 0.35 && selected.aiContributionToAzureGrowth >= 0.15 ? "Positive" : selected.azureGrowth >= 0.3 ? "Inflecting" : "Negative",
-      detail: selected.azureGrowth >= 0.35 ? "Azure growth remains strong and a larger portion is coming from AI workloads rather than legacy migration demand." : "Azure growth is holding up, but the mix between AI and traditional demand still needs monitoring.",
-    },
-    {
-      title: "Cloud margin health",
-      signal: selected.cloudGrossMargin >= 0.66 ? "Neutral" : selected.cloudGrossMargin >= 0.645 ? "Inflecting" : "Negative",
-      detail: selected.cloudGrossMargin >= 0.66 ? "AI remains dilutive, but the cloud margin base is still resilient enough to absorb the build-out." : "AI margin drag is still evident, and the key test is whether margin erosion narrows as utilization improves.",
-    },
-    {
-      title: "AI CapEx payback",
-      signal: payback.signal,
-      detail: payback.detail,
-    },
-    {
-      title: "Copilot monetization",
-      signal: selected.copilotRevenue >= 2.5 && selected.copilotSeats >= 20 ? "Positive" : selected.copilotSeats >= 15 ? "Inflecting" : "Neutral",
-      detail: selected.copilotRevenue >= 2.5 ? "Copilot is becoming material enough to matter for both M365 growth and AI software mix quality." : "Copilot adoption is improving, but the platform still needs broader paid seat penetration and higher workflow intensity.",
-    },
-    {
-      title: "AI ROIC inflection",
-      signal: selected.aiRoicEstimate > assumptions.wacc ? "Positive" : selected.aiRoicEstimate > assumptions.wacc - 0.01 ? "Inflecting" : "Negative",
-      detail: selected.aiRoicEstimate > assumptions.wacc ? "Incremental AI returns appear to be above the cost of capital, which is the key threshold for value creation." : "The market is still underwriting an ROIC inflection that has not fully shown up in reported economics yet.",
-    },
-  ];
+  const valuation = calculateMsftValuation(dataset, mergedAssumptions, scenario);
+  const segment = calculateMsftSegmentEngine(dataset, resolvedPeriod);
+  const aiFactory = calculateMsftAiFactoryEngine(dataset);
+  const openAi = calculateMsftOpenAiExposureEngine(dataset, mergedAssumptions);
+  const copilot = calculateMsftCopilotEngine(dataset, mergedAssumptions);
+  const marginBridge = calculateMsftMarginBridgeEngine(dataset, mergedAssumptions);
+  const capexFcf = calculateMsftCapexFcfEngine(dataset, mergedAssumptions);
+  const businessMix = calculateMsftBusinessMixEngine(dataset);
+  const risks = calculateMsftRiskRedTeamEngine(dataset);
+  const capitalReturn = calculateMsftCapitalReturnEngine(dataset, mergedAssumptions);
+  const earningsCalls = calculateMsftEarningsCallEngine(dataset);
 
   return {
+    dataset,
+    period: getPeriod(dataset, resolvedPeriod),
     dataStatus,
-    statusBanner,
-    summary,
-    interpretations,
-    selectedRow: selected,
-    rows,
-    aiRevenueMix,
+    summary: calculateMsftSummary(dataset, resolvedPeriod),
+    valuation,
+    valuationEngine,
+    segment,
+    aiFactory,
+    openAi,
+    copilot,
     marginBridge,
-    capexCohorts,
-    fcfOffsetRows,
-    paybackSignal: payback.signal,
-    paybackDetail: payback.detail,
-    valuation: scenarioValuation,
-    scenarioLab: {
-      anchors: msftRealData.anchors,
-      aiRevenue: scenarioRevenue,
-      aiCost: scenarioCost,
-      aiRoic: scenarioRoic,
-      cloudMargin: scenarioCloud,
-      fcfOffset: scenarioFcf,
-      phase,
-      valuation: scenarioValuation,
-    },
+    capexFcf,
+    businessMix,
+    risks,
+    capitalReturn,
+    earningsCalls,
+    assumptions: mergedAssumptions,
   };
-}
-
-export function calculateMsftSummary(data: MsftData = msftData) {
-  return buildMsftDashboardData(data, defaultMsftAssumptions, data.currentPeriodId, "Base").summary;
 }

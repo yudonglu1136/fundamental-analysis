@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const repoRoot = "/Users/yudonglu/Documents/fundamental-analysis";
+const repoRoot = new URL("..", import.meta.url).pathname;
 const qaTopicsPath = path.join(repoRoot, "data/local/lseg/transcripts/extracted/qa_topics.json");
 const metadataPath = path.join(repoRoot, "data/local/lseg/transcripts/curated/transcript_metadata.json");
 const transcriptsPath = path.join(repoRoot, "data/local/lseg/transcripts/curated/transcripts.jsonl");

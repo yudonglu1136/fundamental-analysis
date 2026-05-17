@@ -1,3 +1,1 @@
-import workbookSnapshot from "../../data/mock/mckWorkbookSnapshot.json";
-
-export const mckWorkbookData = workbookSnapshot;
+export { mckDataset as mckData } from "./realData";

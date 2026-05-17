@@ -1,0 +1,105 @@
+ISRG module explanation
+=======================
+
+1. Analysis objective
+The ISRG module is a buy-side surgical robotics research cockpit for Intuitive Surgical. It is designed to answer one investment question: is ISRG still a high-quality, durable robotic surgery compounder, or is the equity already pricing near-perfect execution?
+
+2. Why ISRG is not a normal P/E dashboard
+ISRG is not modeled as a single revenue/EPS line. The important drivers are installed da Vinci systems, procedure volume, procedures per installed system, instruments and accessories pull-through, service attachment, lease mix, hospital capex ROI, replacement/upgrade cycle, da Vinci 5 adoption, Ion/SP optionality, regulatory/product safety, and competitive pressure. P/E, EV/Sales, EV/EBIT, PEG, and FCF yield are sanity checks only.
+
+3. Core business model
+The module treats ISRG as a surgical robotics platform:
+Installed Base -> Procedures -> Instruments & Accessories Revenue -> Surgeon/Hospital Familiarity -> Switching Cost -> More Placements and Upgrades.
+
+4. Installed base / procedure / instruments flywheel
+The flywheel and procedure dashboards show:
+- da Vinci installed-base growth
+- worldwide procedure growth
+- U.S. vs OUS growth spread when disclosed
+- procedures per installed system / utilization
+- instruments and accessories revenue per procedure
+- recurring revenue mix from I&A plus services
+- system ASP proxy and lease mix
+- da Vinci 5 placement share and replacement-cycle proxy
+
+5. da Vinci 5
+da Vinci 5 matters because it can support an upgrade cycle, potential ASP uplift, workflow efficiency, force feedback, vision, ergonomics, data/insights, and digital surgery optionality. The product narrative remains research-only unless it is mapped to explicit assumptions such as daVinci5ReplacementCycleUplift, systemAspGrowth, utilizationGrowth, operatingMargin, or margin risk.
+
+6. Ion and SP
+Ion is handled as a separate early-stage platform, not blended into da Vinci. The cockpit tracks Ion installed base, placements, procedure growth, and probability-weighted optionality. SP is treated as strategic optionality unless disclosed placements/procedures prove scale. Ion/SP value receives an explicit de-duplication haircut so it is not counted both inside the core DCF and as separate TAM value.
+
+7. Hospital capex and customer ROI
+The hospital ROI panel tracks operating lease mix, usage-based lease mix, ASP proxy, procedure throughput, surgeon workflow, and upgrade economics. Leasing can lower customer adoption friction while shifting the timing and quality of recognized system revenue.
+
+8. Regulatory and product safety
+FDA clearances, CE marks, expanded indications, recalls, MAUDE references, and safety communications are tracked separately. FDA/MAUDE/recall items are research-only until they create validated assumptions for procedure growth, installed-base adoption, ASP, legal cost, or margin.
+
+9. Valuation methods
+The valuation triangulation has four layers:
+- Procedure-based DCF: Installed Base x Procedures/System x Revenue/Procedure + System Placements x ASP + Service Revenue/System x Installed Base.
+- Segment valuation: Instruments & Accessories, Systems, Services, plus haircut Ion/SP optionality.
+- Multiple sanity checks: forward P/E, EV/Sales, EV/EBIT, FCF yield, PEG, ROIC-WACC spread, historical percentile if available.
+- Bull/Base/Bear scenarios: procedure CAGR, installed-base CAGR, utilization, revenue per procedure, da Vinci 5 upgrade cycle, margin, competition, tariffs, and optionality.
+
+10. Data allowed into valuation
+Allowed valuation inputs:
+- official earnings release actuals
+- SEC filing actuals after frame validation
+- official management guidance mapped through assumptions
+- analyst forecast assumptions in assumptions.ts / scenarioAssumptions.ts
+- derived metrics from official actuals
+Market data is used for price, reverse DCF, and sanity checks only.
+
+11. Research-only data
+Research-only by default:
+- transcripts and Q&A
+- management tone and analyst concern tracking
+- product narrative
+- FDA/MAUDE/recall watch items
+- competitor tracker
+- GLP-1 and bariatric commentary
+- qualitative moat and risk evidence
+These can inform the assumption debate, but they cannot directly enter valuation.
+
+12. Major risks
+- Procedure growth fades from mid-teens to low-teens.
+- da Vinci 5 is mostly replacement rather than TAM expansion.
+- Ion fails to become a meaningful second growth curve.
+- Hospital capex pressure slows system placements.
+- Usage-based leases reduce upfront system revenue recognition.
+- Medtronic Hugo, J&J Ottava, CMR Versius, Stryker/Mako adjacency, and China local systems pressure ASP/margins.
+- China/Europe tender pressure reduces OUS economics.
+- GLP-1 reduces bariatric procedures.
+- Tariffs, manufacturing, supply-chain, recalls, litigation, SBC, dilution, or weak buybacks pressure per-share economics.
+
+13. Updating data
+Run:
+npm run isrg:fetch-official
+npm run isrg:fetch-sec
+npm run isrg:fetch-transcripts
+npm run isrg:build-official-dataset
+npm run isrg:build-transcript-intelligence
+npm run isrg:build-metrics
+npm run isrg:build-qa-pairs
+
+Official artifacts land in data/local/isrg/official, SEC artifacts in data/local/isrg/sec, transcripts in data/local/isrg/transcripts, parsed outputs in data/local/isrg/extracted, market data in data/local/isrg/market, and validation artifacts in data/local/isrg/validation. If a source is blocked or partially parsed, metadata records blocked/parsedSuccessfully rather than pretending success.
+
+14. Validation
+Run:
+npm run validate:isrg
+
+Validation checks revenue segment reconciliation, ASP proxy, revenue per procedure, procedures per system, installed-base/placement consistency, da Vinci 5 placement subset logic, operating lease subset logic, usage-based lease subset logic, Ion separation, transcript/research-only isolation, scenario assumption isolation, segment double-counting, optionality de-duplication, and bull/base/bear valuation output.
+
+15. Frontend sections
+- Cockpit: executive summary, fair value range, reverse DCF, thesis, and risk.
+- Flywheel: installed base, procedures, I&A revenue, utilization, switching cost, placements/upgrades.
+- Procedure Engine: procedure growth, utilization, guidance, OUS/U.S. spread, growth bridge.
+- Installed Base: da Vinci and Ion installed base, placements, lease mix, usage-based leases, replacement proxy.
+- Revenue Quality: systems, I&A, services, recurring mix, revenue per procedure, service/system, ASP proxy.
+- DV5 / Ion / SP: da Vinci 5 adoption, product-cycle assumptions, Ion S-curve, SP optionality.
+- Hospital ROI: customer capex friction, lease adoption, procedure throughput, upgrade economics.
+- FDA / Safety: regulatory milestones, recalls/MAUDE watchlist, product safety boundary.
+- Valuation Lab: procedure DCF, segment valuation, multiples, scenarios, sensitivities, reverse DCF.
+- Competition & Risk: competitor tracker, heatmap, red-team table, kill criteria.
+- Transcript Lab: Q&A explorer, topic tracker, analyst concerns, guidance changes.
+- Data Boundary: source status, valuation eligibility, research-only rules.
