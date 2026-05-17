@@ -8,6 +8,7 @@ This repository is a plugin-based buy-side fundamental analysis platform, not a 
 - Stock modules must be registered through `src/stocks/registry.ts`.
 - Shared stock types and valuation schemas are defined in `src/stocks/types.ts`.
 - Do not create isolated stock pages outside the stock registry.
+- Operator-facing architecture and maintenance guidance lives in `docs/platform_operations_guide.md` and `docs/data_operator_runbook.md`.
 
 ## 2. Global Platform State
 

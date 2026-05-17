@@ -1,0 +1,100 @@
+NOC model explained
+===================
+
+Purpose
+-------
+The Northrop Grumman module is a U.S. defense-prime buy-side research cockpit, not a generic stock page. It is designed around the real underwriting debates:
+
+1. B-21 Raider: decade-scale revenue driver versus fixed-price / LRIP margin risk.
+2. Sentinel / GBSD: nuclear-triad upside versus cost-overrun, restructuring and EAC risk.
+3. Space Systems: structural national-security space asset versus cadence, NGI wind-down, SDA timing and program execution limits.
+4. Mission Systems / Defense Systems: C4ISR, EW, sensors, cyber, missile defense and propulsion moat versus program mix and budget timing.
+5. Backlog quality: funded backlog, unfunded backlog, book-to-bill and segment mix.
+6. U.S. budget mapping: DoD, Air Force, Space Force, Navy, nuclear triad and continuing resolution risk.
+7. Cash conversion: pension / OPB, working capital, fixed-price exposure, FCF, buyback and dividend capacity.
+8. Peer framing: NOC as stealth bomber + space + nuclear triad + mission electronics scarcity versus LMT / RTX / GD / BAE / HII.
+9. Earnings call intelligence: past eight quarters of call summaries and AI-coded market focus trends.
+
+Source discipline
+-----------------
+The module follows the platform source-boundary contract:
+
+- official_actual: FY2025 annual report / Form 10-K and Q1 2026 earnings release values.
+- management_guidance: FY2026 sales, segment operating income, MTM-adjusted EPS and FCF guidance.
+- forecast_assumption: Bear / Base / Bull revenue CAGR, margins, WACC, terminal growth, multiples and program levers.
+- research_only: B-21, Sentinel, Space, Mission Systems, risk and transcript intelligence notes.
+- market_data: replaceable current-price snapshot, isolated from official actuals.
+- transcript intelligence: research-only earnings-call summaries and AI topic salience scores.
+
+Research-only program notes do not feed valuation directly. They map into explicit assumptions:
+
+- B-21 Raider -> b21ScaleMultiplier.
+- Sentinel / GBSD -> sentinelRiskCharge.
+- Space Systems -> spaceGrowthPremium.
+- Mission Systems moat -> missionMoatPremium.
+- Budget / NDAA / DoD cadence -> revenueCagr, WACC, backlog confidence and working-capital drag.
+- Earnings-call topic trends -> dashboard interpretation and monitoring only; no direct valuation impact.
+
+Data anchors
+------------
+The model seed includes official FY2025 and Q1 2026 actuals:
+
+- Sales, operating income, segment operating income, diluted EPS, cash flow, capex and FCF.
+- Segment sales, operating income, margin, backlog and strategic notes for Aeronautics, Defense, Mission, Space and eliminations.
+- Funded backlog, unfunded backlog, total backlog, net awards and book-to-bill.
+- Fixed-price versus cost-type sales where disclosed.
+- Debt, cash, pension / OPB assets and liabilities, dividend and buyback information.
+
+Valuation framework
+-------------------
+The valuation engine triangulates:
+
+- FCFF DCF.
+- FCF yield.
+- EV / EBIT.
+- P/E.
+- Segment SOTP.
+- Backlog durability-adjusted core value.
+
+The blend intentionally prevents any single narrative from dominating. Backlog is a discipline layer, not a mechanical capitalization of press releases.
+
+Scenario design
+---------------
+Bear case:
+Budget friction, Sentinel drag, fixed-price cost absorption and Space cadence limits cap revenue CAGR and margin.
+
+Base case:
+B-21 and nuclear-triad modernization grow revenue, Sentinel is manageable after restructuring, Mission Systems remains the margin anchor and Space growth resumes unevenly.
+
+Bull case:
+B-21 rate acceleration shows learning-curve economics, Sentinel cost discipline improves, Space re-accelerates and Mission Systems earns a quality premium.
+
+Validation
+----------
+Run:
+
+  npm run validate:noc
+
+The validation script checks:
+
+- Registry integration.
+- Module contract: data, calculateSummary, calculateValuation, Dashboard and valuationConfig.
+- Source metadata coverage.
+- Segment sales reconciliation.
+- Funded plus unfunded backlog reconciliation.
+- Research-only isolation for programs and risks.
+- Valuation weight sum.
+- Bear / Base / Bull outputs and sensitivity tables.
+- No transcript intelligence import inside the valuation engine.
+- Eight quarters of earnings-call intelligence and a horizontal quarter selector in the dashboard.
+
+Official data scripts
+---------------------
+Run:
+
+  npm run noc:fetch-official
+  npm run noc:build-official-dataset
+  npm run noc:fetch-transcripts
+  npm run noc:build-transcript-intelligence
+
+The fetcher caches raw HTML / PDF / JSON in data/local/noc/official and writes fetch_metadata.json with blocked, local path and extraction status. It does not overwrite cached source files unless called with --force.

@@ -1,15 +1,25 @@
-import { Routes, Route } from "react-router-dom";
-import { AppShell } from "./components/layout/AppShell";
-import { Home } from "./routes/Home";
-import { StockDashboard } from "./routes/StockDashboard";
+import { lazy, Suspense } from "react";
+import { Navigate, Routes, Route } from "react-router-dom";
+import { LoginPage } from "./auth/LoginPage";
+import { ProtectedRoute } from "./auth/ProtectedRoute";
+
+const AppShell = lazy(() => import("./components/layout/AppShell").then((module) => ({ default: module.AppShell })));
+const Home = lazy(() => import("./routes/Home").then((module) => ({ default: module.Home })));
+const StockDashboard = lazy(() => import("./routes/StockDashboard").then((module) => ({ default: module.StockDashboard })));
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<AppShell />}>
-        <Route index element={<Home />} />
-        <Route path="stocks/:ticker" element={<StockDashboard />} />
-      </Route>
-    </Routes>
+    <Suspense fallback={<div className="p-8 text-sm text-slate-500">Loading research workspace...</div>}>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<AppShell />}>
+            <Route index element={<Home />} />
+            <Route path="stocks/:ticker" element={<StockDashboard />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Route>
+      </Routes>
+    </Suspense>
   );
 }

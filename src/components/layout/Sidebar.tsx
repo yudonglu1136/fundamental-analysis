@@ -1,27 +1,35 @@
 import { Link, useLocation } from "react-router-dom";
-import { stockList } from "../../stocks/registry";
 
 export function Sidebar() {
   const location = useLocation();
   return (
-    <aside className="hidden w-72 shrink-0 border-r border-slate-200 bg-white/80 px-5 py-6 lg:block">
-      <div className="mb-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Platform</p>
-        <h1 className="mt-2 text-2xl font-semibold text-ink">Fundamental Analysis</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-500">Unified multi-stock buy-side platform for quality, peer, and valuation work.</p>
-      </div>
-      <nav className="space-y-2">
-        <Link to="/" className={`block rounded-2xl px-4 py-3 text-sm font-medium ${location.pathname === "/" ? "bg-ink text-white" : "text-slate-600 hover:bg-slate-100"}`}>
-          Home
+    <aside className="hidden w-[88px] shrink-0 border-r border-white/10 bg-[#101418] px-3 py-4 text-white lg:flex lg:flex-col">
+      <Link to="/" className="group flex h-14 w-14 items-center justify-center border border-white/15 bg-white/10 text-sm font-semibold tracking-[0.16em] transition hover:border-accent/80 hover:bg-accent/10">
+        FA
+      </Link>
+
+      <nav className="mt-8 flex flex-1 flex-col items-center gap-3">
+        <Link
+          to="/"
+          aria-label="Home"
+          title="Home"
+          className={`flex h-12 w-12 items-center justify-center border text-xs font-semibold transition ${
+            location.pathname === "/"
+              ? "border-accent bg-accent text-ink"
+              : "border-white/10 bg-white/5 text-white/58 hover:border-white/25 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          H
         </Link>
-        {stockList.map((stock) => (
-          <Link key={stock.ticker} to={`/stocks/${stock.ticker}`} className={`block rounded-2xl px-4 py-3 text-sm font-medium ${location.pathname === `/stocks/${stock.ticker}` ? "bg-ink text-white" : "text-slate-600 hover:bg-slate-100"}`}>
-            {stock.ticker}
-            <span className="ml-2 text-xs opacity-70">{stock.name}</span>
-          </Link>
-        ))}
-        <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-400">Add New Stock</div>
+        <div className="mt-2 h-px w-8 bg-white/15" />
+        <div className="flex h-12 w-12 items-center justify-center border border-white/10 bg-white/5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-white/45" title="Stocks are selected from the top bar">
+          EQ
+        </div>
       </nav>
+
+      <div className="mb-1 flex h-14 w-14 items-center justify-center border border-white/10 bg-white/[0.03] text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-white/35 [writing-mode:vertical-rl]">
+        Research
+      </div>
     </aside>
   );
 }

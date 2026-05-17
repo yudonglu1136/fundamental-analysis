@@ -1,5 +1,5 @@
-import { dashboardData } from "../../data/mock/lsegRaw";
-export { lsegMarketData } from "./data/lsegMarketData";
+import { lsegCockpitDataset, lsegCockpitMarketData } from "./data/cockpitDataset";
 
-export const lsegMockData = dashboardData;
-export type LsegRawData = typeof dashboardData;
+export const lsegMockData = lsegCockpitDataset;
+export const lsegMarketData = lsegCockpitMarketData;
+export type LsegRawData = typeof lsegCockpitDataset;

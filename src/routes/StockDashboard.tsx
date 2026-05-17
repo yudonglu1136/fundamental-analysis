@@ -5,7 +5,8 @@ import { useAppShell } from "../components/layout/AppShell";
 
 export function StockDashboard() {
   const { ticker } = useParams();
-  const module = ticker ? stockRegistry[ticker as keyof typeof stockRegistry] : undefined;
+  const normalizedTicker = ticker?.toUpperCase() as keyof typeof stockRegistry | undefined;
+  const module = normalizedTicker ? stockRegistry[normalizedTicker] : undefined;
   const { setCurrentModule, scenario, setScenario, period, setPeriod, dataSourceType, setDataSourceType } = useAppShell();
   const effectivePeriod = module && module.periods.some((option) => option.value === period)
     ? period

@@ -1,0 +1,48 @@
+TSM module explained
+====================
+
+Purpose
+-------
+The TSM module is a TSMC-specific buy-side research cockpit. It is not a generic semiconductor model and should not be copied from NVDA. TSMC is the scaled pure-play foundry layer behind advanced logic manufacturing, not a GPU designer.
+
+Core investor questions
+-----------------------
+1. Is AI/HPC demand structurally durable enough to justify elevated capex?
+2. Can TSMC sustain extraordinary gross and operating margins as N2 and overseas fabs ramp?
+3. Is advanced-node and advanced-packaging scarcity creating pricing power, or only a temporary cycle?
+4. How much of growth is broad foundry demand versus AI/HPC pull-forward?
+5. What explicit geopolitical, customer concentration and AI-cycle haircuts are needed?
+6. At what ADR price does FCF per ADR provide a margin of safety?
+
+Data layering
+-------------
+official_actual:
+- TSMC quarterly results pages.
+- TSMC 2025 annual report.
+
+management_guidance:
+- Q2 2026 revenue, gross margin and operating margin midpoint seeded from the Q1 2026 quarterly results page.
+
+market_data_proxy:
+- Current ADR price and ADR-equivalent shares are placeholders until a backend daily_price_bars table is built.
+
+research_only:
+- Residual platform mix and capex-cycle interpretation.
+
+Valuation framework
+-------------------
+The initial valuation triangulates:
+- DCF / FCFF.
+- FCF yield.
+- P/E.
+- EV / EBIT.
+- Node-mix SOTP.
+
+Research-only technology and platform scores do not directly change valuation. They must be mapped explicitly into revenue growth, margin, capex intensity, or risk haircuts.
+
+Known limitations
+-----------------
+- No TSM backend SQLite module yet.
+- No daily price bars, historical valuation runs, or backtest yet.
+- No full multi-year quarterly official financial database yet.
+- Capex guidance is included as a research-cycle variable and should be backfilled from official quarterly management reports.

@@ -819,3 +819,33 @@ export type LsegValuationDiagnostics = {
   warnings: ValidationWarning[];
   definitionWarnings: string[];
 };
+
+export type {
+  LsegCockpitDataset,
+  LsegDataPoint,
+  LsegDividendBuybackOutput,
+  LsegFcffDcfOutput,
+  LsegFcfYieldOutput,
+  LsegForecastAssumption,
+  LsegForecastYear,
+  LsegManagementGuidance,
+  LsegMarketData as LsegCockpitMarketData,
+  LsegMoatBreakdown,
+  LsegMultipleOutput,
+  LsegOfficialActual,
+  LsegProductLine,
+  LsegResearchOnlyItem,
+  LsegRiskRedTeamItem,
+  LsegRiskRedTeamOutput,
+  LsegScenarioAssumption as LsegCockpitScenarioAssumption,
+  LsegSegment as LsegCockpitSegment,
+  LsegSegmentActual,
+  LsegSegmentEngineOutput,
+  LsegSourceRecord,
+  LsegSourceType,
+  LsegSotpOutput as LsegCockpitSotpOutput,
+  LsegTranscriptQa,
+  LsegValuationAssumptions as LsegCockpitValuationAssumptions,
+  LsegValuationBridge,
+  LsegValuationOutput as LsegCockpitValuationOutput,
+} from "./types";

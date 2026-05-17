@@ -34,13 +34,13 @@ export const priceMetadataByTicker: Record<string, PriceMetadata> = {
   },
   META: {
     ticker: "META",
-    currentPrice: 560,
+    currentPrice: 609.63,
     currency: "USD",
     unit: "share",
-    asOfDate: "2026-05-09",
+    asOfDate: "2026-05-08",
     source: "actual",
-    marketReference: 560,
-    provenance: "Local Meta valuation anchor in USD.",
+    marketReference: 609.63,
+    provenance: "Dated META market snapshot saved in data/local/meta/market/market_snapshot.json.",
   },
   GOOGL: {
     ticker: "GOOGL",
@@ -51,6 +51,16 @@ export const priceMetadataByTicker: Record<string, PriceMetadata> = {
     source: "actual",
     marketReference: 400.8,
     provenance: "Local Alphabet valuation anchor in USD.",
+  },
+  PLTR: {
+    ticker: "PLTR",
+    currentPrice: 134.88499450683594,
+    currency: "USD",
+    unit: "share",
+    asOfDate: "2026-05-11",
+    source: "actual",
+    marketReference: 134.88499450683594,
+    provenance: "Unofficial yfinance snapshot saved in data/local/pltr/yfinance/pltr_chart_snapshot.json.",
   },
 };
 

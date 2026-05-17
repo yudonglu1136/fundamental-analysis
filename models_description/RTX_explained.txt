@@ -1,0 +1,51 @@
+RTX Corporation (RTX) defense-prime module explanation
+
+1. Design logic
+The RTX module is a buy-side research cockpit for a mixed commercial-aerospace and defense prime. It does not treat RTX as a simple industrial stock. The research frame separates Collins Aerospace, Pratt & Whitney, and Raytheon, then connects segment performance to backlog visibility, GTF execution risk, missile-defense demand, cash conversion, and capital returns.
+
+2. Data layers
+Official actuals:
+- FY2025 sales, adjusted EPS, free cash flow, operating cash flow, capex, backlog, commercial backlog, defense backlog, and segment results from RTX's January 27, 2026 FY2025 release.
+- Q1 2026 sales, EPS, FCF, backlog, segment sales, segment operating profit, and updated 2026 outlook from RTX's April 21, 2026 release.
+
+Management guidance:
+- 2026 adjusted sales, organic growth, adjusted EPS, and FCF guidance from the Q1 2026 release.
+
+Forecast assumptions:
+- Revenue CAGR, operating margin, tax rate, D&A intensity, capex intensity, working-capital drag, WACC, terminal growth, target FCF yield, P/E, EV/EBIT, net debt, share count, dividend, and valuation weights.
+
+Research-only:
+- Program matrix, market-focus trend synthesis, risk register, and qualitative scenario narratives.
+
+Market data:
+- Current price, shares, market cap, enterprise value, and dividend yield are external market-data inputs and are not official RTX actuals.
+
+3. Engines and skills used
+The module uses a shared defensePrime framework inspired by the BA.L module, with buy-side initiation research, earnings-call analysis, valuation triangulation, and risk red-team workflows. The cockpit applies those workflows through segment intelligence, backlog visibility, eight-quarter reporting-event trend analysis, program exposure mapping, valuation triangulation, and risk scoring.
+
+4. Backlog and defense cycle treatment
+Backlog is used as a revenue-visibility and durability signal, not a direct revenue guarantee. RTX discloses total backlog plus commercial and defense backlog. Segment-level backlog is not fully disclosed in the official sources used, so segment backlog remains missing rather than fabricated. Q1 2026 book-to-bill uses a derived awards proxy from sales plus backlog movement and is labeled derived.
+
+5. Valuation model
+The valuation triangulates:
+- FCFF DCF
+- Normalized FCF yield
+- EV/EBIT
+- P/E
+- Backlog durability layer
+
+The base weights are DCF 35%, FCF yield 25%, EV/EBIT 15%, P/E 10%, and backlog durability 15%. The backlog layer is capped so qualitative backlog strength cannot mechanically dominate fair value.
+
+6. Scenarios
+Bear case: GTF costs, tariffs, supply chain, and execution drag offset demand.
+Base case: 2026 guidance is achievable, defense backlog supports growth, and commercial aftermarket plus Raytheon volume offset Pratt noise.
+Bull case: Defense demand and commercial aftermarket both remain strong, GTF risk fades, and FCF conversion improves.
+
+7. Reporting events
+The dashboard includes eight reporting-event windows with a scrollbar and slider. Latest FY2025 and Q1 2026 events are tied to official releases. Older event summaries are research-only until each transcript/release is fetched and cached locally.
+
+8. Validation
+The validation script checks module registration, stock-module contract, segment reconciliation, segment margin math, FCF formula, backlog coverage, book-to-bill labeling, assumption ranges, terminal-value warnings, valuation weight sum, source-status coverage, research-only isolation, eight-event coverage, source mapping, English-only content, and market-data separation.
+
+9. Limitations and next improvements
+The largest gaps are segment-level RTX backlog, local cached transcripts for the eight-quarter event trend, complete historical order intake, and a live market-data connector. The next step is to add a fetch pipeline for RTX IR releases, presentations, and transcripts, then backfill exact quarterly metrics into the event trend.

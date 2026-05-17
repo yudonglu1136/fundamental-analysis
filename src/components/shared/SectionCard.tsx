@@ -13,14 +13,15 @@ export function SectionCard({
 }) {
   return (
     <section className="panel">
-      <div className="flex flex-wrap items-start justify-between gap-3 px-6 pt-6">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ink/10 px-5 py-4">
         <div>
-          <h2 className="text-lg font-semibold text-ink">{title}</h2>
-          {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
+          <p className="ontology-label">Research Object</p>
+          <h2 className="mt-1 text-lg font-semibold tracking-normal text-ink">{title}</h2>
+          {description ? <p className="mt-2 max-w-5xl text-sm leading-6 text-ink/55">{description}</p> : null}
         </div>
         {badge}
       </div>
-      <div className="px-6 pb-6 pt-5">{children}</div>
+      <div className="px-5 pb-5 pt-5">{children}</div>
     </section>
   );
 }

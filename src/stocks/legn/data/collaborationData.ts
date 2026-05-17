@@ -1,0 +1,76 @@
+import type { LegnCollaborationEconomicsBridge, LegnCollaborationTerm } from "../types";
+
+export const legnCollaborationTerms: LegnCollaborationTerm[] = [
+  {
+    id: "janssen-us-exchina-profit-share",
+    label: "Janssen collaboration profit/loss sharing ex-Greater China",
+    value: 0.5,
+    unit: "share of pre-tax profit/loss",
+    sourceQuality: "filing",
+    researchOnly: false,
+    sourceEvidenceIds: ["legn-20f-2025-funding-advance"],
+  },
+  {
+    id: "greater-china-profit-share",
+    label: "Legend share of Greater China economics",
+    value: 0.7,
+    unit: "share of pre-tax profit/loss",
+    sourceQuality: "filing",
+    researchOnly: false,
+    sourceEvidenceIds: ["legn-20f-2025-funding-advance"],
+  },
+  {
+    id: "collaboration-revenue-recognition",
+    label: "Collaboration revenue recognition anchor",
+    value: "Legend records its share of collaboration revenue and reimbursable collaboration economics, not gross CARVYKTI NTS.",
+    unit: "accounting policy",
+    sourceQuality: "filing",
+    researchOnly: false,
+    sourceEvidenceIds: ["legn-fy2025-income-statement", "jnj-q4-2025-carvykti-sales"],
+  },
+  {
+    id: "janssen-funding-advance-balance",
+    label: "Janssen advanced funding balance",
+    value: 319.1,
+    unit: "USDm",
+    sourceQuality: "filing",
+    researchOnly: false,
+    sourceEvidenceIds: ["legn-20f-2025-funding-advance"],
+  },
+  {
+    id: "novartis-dll3-license",
+    label: "Novartis LB2102 DLL3 license",
+    value: "Novartis has an exclusive global license and is responsible for development beyond Legend's U.S. Phase 1 trial.",
+    unit: "license structure",
+    sourceQuality: "official",
+    researchOnly: false,
+    sourceEvidenceIds: ["novartis-lb2102-license", "lb2102-asco2025"],
+  },
+  {
+    id: "recoupment-speed-assumption",
+    label: "Advanced funding recoupment modeling assumption",
+    value: 0.65,
+    unit: "portion recouped in next twelve months",
+    sourceQuality: "research_only",
+    researchOnly: true,
+    sourceEvidenceIds: ["legn-20f-2025-funding-advance", "research-assumption-commercial"],
+  },
+];
+
+export const legnCollaborationEconomicsBridge: LegnCollaborationEconomicsBridge = {
+  ntsToCollaborationRevenueRatio: 944.8 / 1_887,
+  costOfCollaborationRevenueRatio: 397.1 / 944.8,
+  sellingDistributionRatio: 205.8 / 944.8,
+  bcmaClinicalRdBurdenRatio: 0.12,
+  statedProfitShareExChina: 0.5,
+  statedProfitShareGreaterChina: 0.7,
+  fundingAdvanceBalance: 319.1,
+  fundingAdvanceInterestRate: 0.067,
+  sourceEvidenceIds: [
+    "legn-fy2025-income-statement",
+    "legn-fy2025-expense-lines",
+    "jnj-q4-2025-carvykti-sales",
+    "legn-20f-2025-funding-advance",
+    "research-assumption-commercial",
+  ],
+};

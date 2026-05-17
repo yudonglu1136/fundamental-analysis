@@ -1,55 +1,79 @@
 import type { StockModule, StockValuationConfig } from "../types";
-import { priceMetadataByTicker } from "../../utils/valuation";
 import { MetaDashboard } from "./dashboard";
-import { buildMetaDashboardData, calculateMetaSummary } from "./calculations";
-import { metaData } from "./data";
-import { defaultMetaAssumptions, metaAssumptionDefinitions, metaScenarioDefaults, metaValuationAssumptionKeys } from "./assumptions";
+import {
+  calculateMetaSummary,
+  calculateMetaValuation,
+  defaultMetaValuationAssumptions,
+  getDefaultMetaPeriod,
+  getMetaPeriods,
+  metaScenarioPresets,
+  resolveMetaDataset,
+  resolveMetaPeriodFromData,
+} from "./calculations";
+import { metaAssumptionDefinitions, metaValuationAssumptionKeys } from "./assumptions";
+import { metaDataset } from "./data";
+import type { MetaValuationAssumptions } from "./model";
 
-const metaValuationConfig: StockValuationConfig = {
+const metaPriceMetadata = {
   ticker: "META",
-  modelType: "AI Ad ROIC / FCF / SOTP",
-  priceMetadata: priceMetadataByTicker.META,
+  currentPrice: metaDataset.marketData.currentPrice,
+  currency: "USD" as const,
+  unit: "share" as const,
+  asOfDate: metaDataset.marketData.priceDate,
+  source: "actual" as const,
+  marketReference: metaDataset.marketData.currentPrice,
+  provenance: `market_data: ${metaDataset.marketData.source}`,
+};
+
+export const metaValuationConfig: StockValuationConfig = {
+  ticker: "META",
+  modelType: "Ad economics / AI capex ROIC / FCFF / FCF yield / P-E / EV-EBIT / SOTP",
+  priceMetadata: metaPriceMetadata,
   assumptions: metaAssumptionDefinitions,
   scenarios: (["Bear", "Base", "Bull"] as const).map((scenario) => ({
     name: scenario,
-    assumptions: Object.fromEntries(metaValuationAssumptionKeys.map((key) => [key, metaScenarioDefaults[scenario][key]])),
+    assumptions: Object.fromEntries(metaValuationAssumptionKeys.map((key) => [key, metaScenarioPresets[scenario][key]])),
   })),
-  calculateValuation: (assumptions, data, scenario = "Base") => buildMetaDashboardData(
-    data as typeof metaData,
-    { ...defaultMetaAssumptions, ...(assumptions as Partial<typeof defaultMetaAssumptions>) },
-    (data as typeof metaData).currentPeriodId,
-    scenario,
-  ).valuation,
+  calculateValuation: (assumptions, data, scenario = "Base") => {
+    const dataset = resolveMetaDataset(data);
+    return calculateMetaValuation(
+      dataset,
+      resolveMetaPeriodFromData(dataset, getDefaultMetaPeriod()),
+      scenario,
+      { ...defaultMetaValuationAssumptions, ...(assumptions as Partial<MetaValuationAssumptions>) },
+    );
+  },
 };
 
 export const metaModule: StockModule = {
   ticker: "META",
-  name: "Meta Platforms",
-  sector: "AI-Enhanced Advertising / Social Platforms",
+  name: "Meta Platforms, Inc.",
+  sector: "Internet Advertising / AI Infrastructure / Social Platforms",
   currency: "USD",
-  description: "AI Ad ROIC, recommendation uplift, CPM / conversion / ROAS improvement, FCF impact, Reality Labs drag, and WhatsApp optionality.",
+  description: "Buy-side research cockpit for META ad economics, AI monetization, capex-to-ROIC, product engagement, regulatory risk, and Reality Labs option value.",
   tabs: [
-    { value: "overview", label: "Overview" },
-    { value: "ads-engine", label: "Ads Engine" },
-    { value: "ai-ad-stack", label: "AI Ad Stack" },
-    { value: "engagement-reels", label: "Engagement / Reels" },
-    { value: "capex-fcf", label: "CapEx / FCF" },
-    { value: "ai-ad-roic", label: "AI Ad ROIC" },
+    { value: "executive", label: "Executive" },
+    { value: "ad-economics", label: "Ad Economics" },
+    { value: "ai-infra", label: "AI Infra ROIC" },
+    { value: "product-cycle", label: "Product Cycle" },
+    { value: "earnings-calls", label: "Earnings Calls" },
+    { value: "market-implied", label: "Market Implied" },
     { value: "reality-labs", label: "Reality Labs" },
-    { value: "whatsapp", label: "WhatsApp Optionality" },
     { value: "valuation", label: "Valuation" },
-    { value: "scenario-lab", label: "Scenario Lab" },
+    { value: "risk-red-team", label: "Risk Red Team" },
+    { value: "validation", label: "Validation" },
   ],
-  periods: metaData.periods,
-  data: metaData,
-  getDefaultPeriod: () => metaData.currentPeriodId,
-  calculateSummary: (data) => calculateMetaSummary(buildMetaDashboardData(data as typeof metaData, defaultMetaAssumptions, metaData.currentPeriodId, "Base") as never, defaultMetaAssumptions),
-  calculateValuation: (data, assumptions, scenario = "Base") => buildMetaDashboardData(
-    data as typeof metaData,
-    { ...defaultMetaAssumptions, ...(assumptions as Partial<typeof defaultMetaAssumptions>) },
-    metaData.currentPeriodId,
-    scenario,
-  ).valuation,
+  periods: getMetaPeriods(),
+  data: metaDataset,
+  getDefaultPeriod: () => getDefaultMetaPeriod(),
+  calculateSummary: (data) => calculateMetaSummary(data),
+  calculateValuation: (data, assumptions, scenario = "Base") =>
+    calculateMetaValuation(
+      resolveMetaDataset(data),
+      resolveMetaPeriodFromData(data, getDefaultMetaPeriod()),
+      scenario,
+      assumptions as Partial<MetaValuationAssumptions>,
+    ),
   valuationConfig: metaValuationConfig,
   Dashboard: MetaDashboard,
 };

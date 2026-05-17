@@ -1,5 +1,6 @@
 node_modules/
 dist/
+data/local/
 .pythonlibs/
 __pycache__/
 *.pyc
@@ -12,5 +13,6 @@ coverage/
 .env
 .env.*
 !.env.example
+!.env.production.example
 *.sqlite-wal
 *.sqlite-shm

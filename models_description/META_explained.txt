@@ -1,0 +1,209 @@
+1. META Module Design
+
+The META module is a platform-native stock module registered through
+src/stocks/registry.ts. It preserves the common contract:
+
+- data
+- calculateSummary
+- calculateValuation
+- Dashboard
+- valuationConfig
+
+The module is no longer an additive AI uplift dashboard. It is a buy-side
+research cockpit for internet advertising economics, AI monetization,
+infrastructure capex-to-ROIC, product engagement, regulatory risk, and Reality
+Labs option value.
+
+2. Why META Needs A Different Cockpit
+
+META should not be analyzed like a generic software company or as a simple P/E
+page. The core debates are:
+
+- whether Family of Apps can keep growing through impressions and price per ad;
+- whether AI tools improve conversion, advertiser ROAS, and auction quality;
+- whether the AI infrastructure buildout earns enough return on capital;
+- whether Reality Labs losses are tolerable relative to the option value;
+- whether regulation and privacy changes impair targeting data;
+- whether buybacks offset SBC and help EPS without masking FCF pressure.
+
+3. Data Layer
+
+The module separates:
+
+- official actuals: src/stocks/meta/data/officialActuals.ts
+- management guidance: src/stocks/meta/data/managementGuidance.ts
+- forecast assumptions: src/stocks/meta/data/forecastAssumptions.ts and
+  src/stocks/meta/assumptions.ts
+- segment data: src/stocks/meta/data/segmentData.ts
+- ad economics: src/stocks/meta/data/adEconomicsData.ts
+- AI capex: src/stocks/meta/data/aiCapexData.ts
+- product signals: src/stocks/meta/data/productData.ts
+- Reality Labs: src/stocks/meta/data/realityLabsData.ts
+- regulatory risks: src/stocks/meta/data/regulatoryRiskData.ts
+- transcripts: src/stocks/meta/data/transcriptData.ts
+- market data: src/stocks/meta/data/marketData.ts
+- research-only notes: src/stocks/meta/data/researchOnlyData.ts
+
+4. Official Data Cache
+
+Scripts and local cache paths:
+
+- scripts/meta_fetch_official_data.mjs
+- scripts/meta_fetch_transcripts.mjs
+- scripts/meta_build_official_dataset.mjs
+- scripts/meta_build_metric_database.mjs
+- scripts/meta_model_validation.mjs
+- data/local/meta/official/
+- data/local/meta/transcripts/
+- data/local/meta/sec/
+- data/local/meta/market/
+
+If an official page or PDF fetch is blocked, fetch scripts record blocked=true,
+source_url, attempted_at, reason, and fallback_used instead of pretending
+success.
+
+5. Engine Map
+
+- forecastEngine: builds five-year revenue, FoA operating income, Reality Labs
+  loss, capex, D&A, working capital, unlevered FCF, EPS, share count, AI payback,
+  and AI ROIC.
+- adEconomicsEngine: reconciles advertising revenue to impressions x price per
+  ad and maps AI ad commentary to model drivers.
+- aiCapexEngine: tracks capex guidance, capex step-up, infrastructure
+  commitments, AI ROIC, and payback.
+- valuationEngine: calculates DCF, FCF yield, P/E, EV/EBIT, SOTP, scenario fair
+  values, and sensitivities.
+- riskRedTeamEngine: ranks AI capex, regulation, privacy, competition, Reality
+  Labs, and model-commoditization risks.
+- validationEngine: checks segment reconciliation, FCF bridge, ad bridge,
+  capex guidance, valuation weights, terminal value, AI uplift isolation, and
+  SBC/buyback share-count treatment.
+
+6. Valuation Framework
+
+The base fair value is a weighted blend:
+
+- DCF: unlevered FCFF, total capex charged, net cash added after EV.
+- FCF yield: normalized FCF/share capitalized at a target yield.
+- P/E: normalized EPS after Reality Labs losses and share-count effects.
+- EV/EBIT: consolidated operating income cross-check.
+- SOTP: Family of Apps EBIT value, less funded Reality Labs drag, plus explicit
+  Reality Labs option value and net cash.
+
+AI uplift is not added as a separate premium to base fair value. It is already
+embedded through revenue growth, price per ad, FoA margin, and capex fade. AI
+excess return is shown as a diagnostic only.
+
+Reality Labs option value appears only in SOTP. Consolidated DCF, P/E, and
+EV/EBIT already include the loss drag.
+
+7. Validation Discipline
+
+scripts/meta_model_validation.mjs checks:
+
+- module registration and stock-module contract;
+- FoA + Reality Labs revenue reconciliation to consolidated revenue;
+- FoA + Reality Labs operating income reconciliation to consolidated operating
+  income;
+- FCF = operating cash flow less capex including finance leases;
+- advertising revenue growth bridge from impressions x average price per ad;
+- FY2026 capex assumption versus management guidance;
+- valuation weights sum to 100%;
+- terminal value concentration;
+- AI uplift is diagnostic and not double counted;
+- SBC/buyback affect share count rather than a standalone value add;
+- required source-status categories and research-only isolation;
+- finite valuation output.
+- eight-quarter earnings-call coverage and AI-assisted market-focus trend
+  synthesis.
+
+7A. Earnings Call Cockpit
+
+The Earnings Calls tab adds the latest eight quarterly call records from Q2
+2024 through Q1 2026. The quarter selector is intentionally horizontal and
+scrollable so the user can scan the time series and click into any quarter.
+
+The overview does not invent consensus numbers. It summarizes official
+transcript context and curated buy-side call intelligence across:
+
+- ad momentum;
+- AI monetization;
+- AI capex concern;
+- engagement and product cycle;
+- regulation and privacy;
+- Reality Labs tolerance;
+- capital return, SBC, and FCF per share.
+
+The AI synthesis is research-only. It is used to explain how market focus
+changed over time; it does not add a separate valuation premium. Any selected
+quarter's discussion must flow into valuation through named assumptions such as
+pricePerAdCagr, adImpressionCagr, aiRevenueUpliftPct, capex2026,
+terminalCapexIntensity, regulatoryRevenueHaircut, or realityLabsAnnualLoss.
+
+8. Current Limitations
+
+- Meta does not disclose AI-only capex, so AI capex share is a forecast
+  assumption.
+- WhatsApp revenue is not separately disclosed, so WhatsApp remains a product
+  signal rather than a standalone base valuation segment.
+- Market price is a dated snapshot and should be refreshed before relying on
+  live upside/downside.
+- Peer multiples are not yet populated.
+- Transcript insights are curated rather than fully parsed from PDF tables.
+
+9. Institutional Upgrade Plan - May 2026
+
+Audit findings before the second upgrade:
+
+- The first version separates official actuals, management guidance, forecast
+  assumptions, research-only material, and market data, but most critical
+  numeric fields do not yet carry field-level lineage. The model needs a
+  reusable DataLineage object with source type, source name, URL, filing type,
+  period, as-of date, retrieval date, confidence, and valuation treatment.
+- Scenario assumptions are model-critical but under-governed. Revenue CAGR,
+  impression CAGR, price-per-ad CAGR, FoA margin, capex, terminal capex
+  intensity, WACC, buyback, SBC, and Reality Labs option value must have
+  metadata showing whether they are official anchors, forecast assumptions, or
+  research-only judgement calls.
+- Product-cycle data is currently a signal table. It needs explicit mapping to
+  valuation drivers and a validation rule that prevents product signals from
+  being capitalized unless they pass through a named driver.
+- Risk red-team rows currently rank risk severity. The upgraded model must
+  connect risks to valuation haircuts and thesis breakpoints so the dashboard
+  can answer which wrong variable invalidates the investment case.
+- The ad-economics engine explains ads through impressions and price per ad,
+  but it needs a richer attribution bridge: base ad revenue, engagement /
+  inventory, pricing / auction quality, AI monetization, regulatory haircut,
+  and residual mix/FX.
+- The forecast engine needs to anchor 2026 revenue to Q1 actuals and Q2
+  management guidance, then show the implied H2 path. It should remove hidden
+  hardcoded growth rates where possible and expose them as audited assumptions.
+- The valuation engine has complete methods, but it lacks current-price implied
+  expectations, driver attribution, and a formal double-count taxonomy. The
+  upgrade adds reverse DCF / implied multiple / implied revenue and margin
+  diagnostics.
+- Validation needs to go beyond arithmetic checks. It should test lineage
+  coverage, assumption metadata coverage, product-signal isolation, market data
+  freshness, scenario spread, market-implied output, thesis breakpoints, and
+  terminal value concentration.
+
+Upgrade execution sequence:
+
+1. Add DataLineage and assumption-metadata types to src/stocks/meta/model.ts.
+2. Add src/stocks/meta/data/lineage.ts and attach row-level plus critical
+   field-level lineage to official actuals, guidance, segment data, ad
+   economics, AI capex, product signals, Reality Labs, risks, transcripts,
+   market data, and research-only notes.
+3. Add assumption metadata in src/stocks/meta/assumptions.ts so every valuation
+   assumption has confidence, as-of date, and valuation treatment.
+4. Upgrade forecastEngine to produce a Q1 actual + Q2 guide + H2 implied
+   revenue bridge, ad driver attribution, explicit regulatory haircut, SBC
+   dollars, buyback dollars, and Reality Labs revenue assumptions.
+5. Add marketImpliedEngine, thesisBreakEngine, valuationAttributionEngine, and
+   valuationIntegrityEngine.
+6. Upgrade adEconomicsEngine, aiCapexEngine, and riskRedTeamEngine so they feed
+   valuation diagnostics rather than remaining display-only.
+7. Upgrade dashboard tabs to show data lineage, market-implied expectations,
+   thesis breakpoints, valuation attribution, and integrity checks.
+8. Upgrade scripts/meta_model_validation.mjs and local metric database output to
+   validate the new institutional checks.

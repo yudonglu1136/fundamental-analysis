@@ -1,0 +1,66 @@
+import type { PltrRisk } from "../model";
+
+export function buildPltrRiskRegister(): PltrRisk[] {
+  return [
+    {
+      id: "valuation-risk",
+      title: "Valuation and multiple compression",
+      description: "PLTR can execute well and still underperform if the market price already discounts hyper-growth, extreme margins, and low dilution.",
+      severity: "High",
+      probability: "High",
+      evidenceToMonitor: ["Reverse DCF required revenue CAGR", "EV/revenue and EV/FCF multiples", "Consensus estimate revisions"],
+      leadingIndicators: ["Strong results with falling share price", "Multiple compression across high-growth software", "Rising discount rates"],
+      bullThesisInvalidator: "The stock requires unrealistic revenue CAGR or FCF margin even after strong operating delivery.",
+    },
+    {
+      id: "aip-conversion-risk",
+      title: "AIP hype does not convert into durable revenue",
+      description: "Bootcamps and demos may not become production deployments, large expansions, or persistent net dollar retention.",
+      severity: "High",
+      probability: "Medium",
+      evidenceToMonitor: ["US commercial revenue growth", "Commercial customer count", "Large deal count", "Net dollar retention"],
+      leadingIndicators: ["AIP mentions rise while revenue growth slows", "Customer count grows faster than revenue", "Guidance stops moving higher"],
+      bullThesisInvalidator: "AIP remains a sales motion rather than a scaled production platform.",
+    },
+    {
+      id: "government-cycle-risk",
+      title: "Government budget and procurement risk",
+      description: "Government business is sticky but exposed to procurement timing, political scrutiny, budget cycles, and customer concentration.",
+      severity: "Medium",
+      probability: "Medium",
+      evidenceToMonitor: ["US government growth", "International government volatility", "Contract concentration", "RPO duration"],
+      leadingIndicators: ["Delayed contract awards", "Lower renewal scope", "Public procurement disputes"],
+      bullThesisInvalidator: "Government normalizes into a slow-growth legacy segment without offsetting commercial scale.",
+    },
+    {
+      id: "competition-risk",
+      title: "Competition from hyperscalers and enterprise software vendors",
+      description: "Cloud platforms, data platforms, enterprise apps, and in-house AI teams may replicate parts of AIP and pressure pricing.",
+      severity: "High",
+      probability: "Medium",
+      evidenceToMonitor: ["Win/loss commentary", "Pricing signals", "Gross margin", "Partner and platform references"],
+      leadingIndicators: ["Shorter contract durations", "Lower expansion per customer", "More customer-built AI platforms"],
+      bullThesisInvalidator: "AIP is perceived as replaceable middleware instead of a differentiated operating layer.",
+    },
+    {
+      id: "sbc-dilution-risk",
+      title: "SBC and dilution",
+      description: "High stock-based compensation can make company-level FCF look stronger than per-share economics.",
+      severity: "High",
+      probability: "Medium",
+      evidenceToMonitor: ["SBC as percent of revenue", "Diluted share count", "Buybacks", "Per-share FCF"],
+      leadingIndicators: ["SBC dollars rise with revenue", "Diluted share count keeps growing", "Buybacks offset only a small part of issuance"],
+      bullThesisInvalidator: "Operating leverage accrues to employees more than shareholders.",
+    },
+    {
+      id: "adjusted-metrics-risk",
+      title: "Adjusted metrics mask GAAP reality",
+      description: "Adjusted operating margin and Rule of 40 can overstate profitability if SBC and related payroll taxes remain structurally high.",
+      severity: "Medium",
+      probability: "Medium",
+      evidenceToMonitor: ["GAAP operating margin", "Adjusted vs GAAP margin spread", "SBC reconciliation", "Cash tax normalization"],
+      leadingIndicators: ["Adjusted margin expands while GAAP margin stalls", "SBC ratio does not decline"],
+      bullThesisInvalidator: "Reported operating leverage depends mainly on exclusions rather than true cost discipline.",
+    },
+  ];
+}

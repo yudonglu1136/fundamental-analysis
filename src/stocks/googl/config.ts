@@ -1,45 +1,82 @@
 import type { StockModule, StockValuationConfig } from "../types";
-import { priceMetadataByTicker } from "../../utils/valuation";
 import { GooglDashboard } from "./dashboard";
-import { calculateGooglSummary } from "./calculations";
-import { defaultGooglAssumptions, googlAssumptionDefinitions, googlScenarioDefaults, googlValuationAssumptionKeys } from "./assumptions";
-import { googlData } from "./data";
-import { buildGooglModel } from "./calculations";
+import {
+  attachGooglRuntimeContext,
+  calculateGooglSummary,
+  calculateGooglValuation,
+  defaultGooglValuationAssumptions,
+  getDefaultGooglPeriod,
+  getGooglPeriods,
+  googlDataset,
+  googlScenarioPresets,
+  resolveGooglDataset,
+  resolveGooglPeriodFromData,
+} from "./calculations";
+import { googlAssumptionDefinitions } from "./assumptions";
+import type { GooglValuationAssumptions } from "./model";
 
-const googlValuationConfig: StockValuationConfig = {
+const googlPriceMetadata = {
   ticker: "GOOGL",
-  modelType: "Search / Cloud / TPU / AI DCF",
-  priceMetadata: priceMetadataByTicker.GOOGL,
-  assumptions: googlAssumptionDefinitions.filter((item) => googlValuationAssumptionKeys.includes(item.key as (typeof googlValuationAssumptionKeys)[number])),
-  scenarios: (["Bear", "Base", "Bull"] as const).map((scenario) => ({
-    name: scenario,
-    assumptions: Object.fromEntries(googlValuationAssumptionKeys.map((key) => [key, googlScenarioDefaults[scenario][key]])),
-  })),
-  calculateValuation: (assumptions, data) => buildGooglModel(data as typeof googlData, { ...defaultGooglAssumptions, ...(assumptions as Partial<typeof defaultGooglAssumptions>) }, (data as typeof googlData).currentPeriodId).valuation,
+  currentPrice: googlDataset.marketData.currentPrice,
+  currency: "USD" as const,
+  unit: "share" as const,
+  asOfDate: googlDataset.marketData.priceDate,
+  source: "actual" as const,
+  marketReference: googlDataset.marketData.currentPrice,
+  provenance: `market_data: ${googlDataset.marketData.sourceId} (${googlDataset.marketData.notes})`,
+};
+
+export const googlValuationConfig: StockValuationConfig = {
+  ticker: "GOOGL",
+  modelType: "Alphabet Search / YouTube / Cloud / TPU-CapEx / regulatory SOTP triangulation",
+  priceMetadata: googlPriceMetadata,
+  assumptions: googlAssumptionDefinitions,
+  scenarios: [
+    { name: "Bear", assumptions: googlScenarioPresets.Bear },
+    { name: "Base", assumptions: googlScenarioPresets.Base },
+    { name: "Bull", assumptions: googlScenarioPresets.Bull },
+  ],
+  calculateValuation: (assumptions, data, scenario = "Base") => {
+    const dataset = resolveGooglDataset(data);
+    return calculateGooglValuation(
+      dataset,
+      resolveGooglPeriodFromData(data, getDefaultGooglPeriod()),
+      scenario,
+      { ...defaultGooglValuationAssumptions, ...(assumptions as Partial<GooglValuationAssumptions>) },
+    );
+  },
 };
 
 export const googlModule: StockModule = {
   ticker: "GOOGL",
-  name: "Alphabet / Google",
-  sector: "AI Infrastructure / Search / Cloud / Digital Advertising",
+  name: "Alphabet Inc.",
+  sector: "Search / YouTube / Cloud / AI Infrastructure",
   currency: "USD",
-  description: "Institutional dashboard for Search monetization, Google Cloud margin inflection, TPU economics, AI ROIC, CapEx payback, and valuation.",
+  description:
+    "Alphabet buy-side cockpit focused on Search AI monetization, YouTube economics, Google Cloud backlog and margin, TPU/AI CapEx, regulatory remedies, Other Bets option value, FCF and valuation triangulation.",
   tabs: [
-    { value: "overview", label: "Overview" },
-    { value: "search-ads", label: "Search / Ads" },
-    { value: "google-cloud", label: "Google Cloud" },
-    { value: "tpu-economics", label: "TPU Economics" },
-    { value: "ai-monetization", label: "AI Monetization" },
-    { value: "ai-roic", label: "AI ROIC" },
-    { value: "capex-fcf", label: "CapEx / FCF" },
-    { value: "valuation", label: "Valuation" },
-    { value: "scenario-lab", label: "Scenario Lab" },
+    { value: "executive", label: "Executive Snapshot" },
+    { value: "search-ads", label: "Search & Ads Moat" },
+    { value: "youtube", label: "YouTube Economics" },
+    { value: "cloud", label: "Cloud & AI Workloads" },
+    { value: "tpu-capex", label: "TPU / AI CapEx Lab" },
+    { value: "transcripts", label: "Earnings Call Lab" },
+    { value: "regulatory", label: "Regulatory Red Team" },
+    { value: "other-bets", label: "Other Bets / Waymo" },
+    { value: "valuation", label: "Valuation Triangulation" },
+    { value: "capital-return", label: "Capital Return & FCF" },
+    { value: "monitoring", label: "Monitoring Dashboard" },
   ],
-  periods: googlData.periods,
-  data: googlData,
-  getDefaultPeriod: () => googlData.currentPeriodId,
-  calculateSummary: (data) => calculateGooglSummary(data as typeof googlData),
-  calculateValuation: (data, assumptions) => buildGooglModel(data as typeof googlData, { ...defaultGooglAssumptions, ...(assumptions as Partial<typeof defaultGooglAssumptions>) }, (data as typeof googlData).currentPeriodId).valuation,
+  periods: getGooglPeriods(),
+  data: googlDataset,
+  getDefaultPeriod: () => getDefaultGooglPeriod(),
+  calculateSummary: (data) => calculateGooglSummary(data),
+  calculateValuation: (data, assumptions, scenario = "Base") =>
+    calculateGooglValuation(data, resolveGooglPeriodFromData(data, getDefaultGooglPeriod()), scenario, assumptions as Partial<GooglValuationAssumptions>),
   valuationConfig: googlValuationConfig,
   Dashboard: GooglDashboard,
 };
+
+export function attachGooglModuleRuntime(dataSourceType: Parameters<typeof attachGooglRuntimeContext>[1]["dataSourceType"], periodId = getDefaultGooglPeriod()) {
+  return attachGooglRuntimeContext(googlDataset, { dataSourceType, periodId });
+}

@@ -1,0 +1,232 @@
+1. BA.L Module Design
+
+The BA.L module is a platform-native stock module for BAE Systems plc. It is
+registered through src/stocks/registry.ts and follows the same stock-module
+contract as LSEG:
+
+- data
+- calculateSummary
+- calculateValuation
+- Dashboard
+- valuationConfig
+
+The module lives under src/stocks/ba because existing modules use lowercase
+module directories while the registry exposes the display ticker. The registry
+key is "BA.L".
+
+2. Why BAE Needs A Defense Cockpit
+
+BAE should not be analyzed like a generic industrial. The core questions are:
+
+- how much future revenue is supported by order backlog;
+- whether order intake remains above sales;
+- which segments convert backlog into margin and cash;
+- whether defence-budget commitments survive political and fiscal cycles;
+- whether long-cycle programmes create durable economics or execution risk;
+- whether FCF/share can compound after capex, working capital, pensions,
+  leases, and shareholder returns.
+
+The dashboard is therefore organized as a "BAE Systems Defense Research
+Cockpit" with tabs for executive summary, segment intelligence, backlog,
+defence-cycle scenarios, programme matrix, valuation triangulation, risk red
+team, and dividend/buyback quality.
+
+3. Engine Map
+
+- segmentEngine: reconciles segment sales, EBIT, order intake, and backlog to
+  group data; scores segment quality using margin, growth, backlog coverage,
+  and cash conversion.
+- backlogEngine: calculates total backlog, backlog growth, order intake,
+  book-to-bill, backlog coverage, segment backlog, major contract wins, and
+  revenue visibility.
+- defenseCycleEngine: maps macro/geopolitical drivers into bull/base/bear
+  scenario assumptions. News or policy narratives are not direct valuation
+  inputs.
+- programExposureEngine: classifies Typhoon, GCAP/Tempest, submarines, Type 26,
+  SSN-AUKUS, missile defence, combat vehicles, munitions, and cyber exposure by
+  maturity, margin attractiveness, growth contribution, and risk.
+- valuationEngine: builds FCFF DCF, FCF yield, P/E, EV/EBIT, and backlog
+  durability-adjusted fair value.
+- moatEngine: scores government relationships, long-cycle programmes,
+  classified capability, switching cost, sovereign industrial base, technical
+  complexity, installed base, backlog visibility, and mission criticality.
+- riskRedTeamEngine: ranks risks by probability, impact, detectability, affected
+  valuation driver, and mitigation.
+- dividendEngine: analyzes dividend per share, growth, payout, FCF payout,
+  buybacks, total shareholder returns, and sustainability.
+- reportingEventEngine: organizes the last eight quarter windows of official
+  BAE reporting events, including results videos where available and official
+  market updates where no quarterly call transcript exists. It produces a
+  research-only AI synthesis of how market focus has changed over time.
+
+4. Data Sources
+
+Official sources are prioritized:
+
+- BAE Systems Annual Report 2025 web summary
+- BAE Systems Annual Report 2025 PDF URL
+- BAE Systems 2024 half-year and full-year results
+- BAE Systems 2025 full-year results
+- BAE Systems 2025 half-year results
+- BAE Systems May 2024 / May 2025 AGM market updates
+- BAE Systems November 2024 / November 2025 market updates
+- BAE Systems May 2026 trading update
+- BAE Systems November 2025 trading update
+- BAE Systems investor-relations share price monitor
+
+The official fetch script stores pages and linked documents under:
+
+- data/local/ba/official/
+
+The structured dataset builder writes:
+
+- data/local/ba/ba_official_dataset.json
+
+5. Official Actual Data
+
+Official actuals include FY2025 and FY2024 sales, revenue, underlying EBIT,
+operating profit, EPS, FCF, operating cash flow, order intake, order backlog,
+order book, dividend per share, net debt excluding leases, lease liabilities,
+post-employment benefit surplus, share count, shareholder returns, and segment
+financial data where disclosed.
+
+6. Management Guidance
+
+FY2026 guidance is stored separately from actuals:
+
+- sales growth range: 7% to 9%
+- underlying EBIT growth range: 9% to 11%
+- underlying EPS growth range: 9% to 11%
+- FCF floor: greater than GBP1.3bn
+- effective tax rate: c.22%
+- underlying net finance costs: c.GBP370m
+- NCI: c.GBP80m
+- segment sales and return-on-sales guidance
+- GBP/USD sensitivity
+
+7. Forecast Assumptions
+
+Forecast assumptions live in src/stocks/ba/assumptions.ts and valuationConfig.
+They include revenue CAGR, operating margin, tax rate, D&A intensity, capex
+intensity, working-capital drag, WACC, terminal growth, target FCF yield, target
+P/E, target EV/EBIT, share count, balance-sheet bridge, dividend per share, and
+valuation weights.
+
+8. Research-Only Notes
+
+Programme, moat, defence-cycle driver, and risk notes are marked research-only.
+They support interpretation, filters, scorecards, and scenario mapping. They do
+not overwrite official actuals and do not directly feed valuation.
+
+9. Valuation Framework
+
+The blend is deliberately not a simple average:
+
+- DCF: 35%
+- FCF yield: 25%
+- EV/EBIT: 10%
+- P/E: 10%
+- Backlog durability-adjusted core value: 20%
+
+DCF uses unlevered FCF and deducts net debt excluding leases plus lease
+liabilities after enterprise value, then credits the IAS 19 post-employment
+benefit surplus. FCF yield uses normalized equity FCF rather than a single
+customer-advance-heavy year. EV/EBIT and P/E are cross-checks.
+
+The backlog layer does not directly capitalize programme headlines. It adjusts a
+capped core value using backlog coverage, book-to-bill, and backlog durability.
+
+10. Scenarios
+
+Bear case:
+
+- lower revenue CAGR;
+- lower margin;
+- higher WACC;
+- lower P/E and EV/EBIT;
+- higher target FCF yield;
+- procurement delay and budget fatigue.
+
+Base case:
+
+- starts from 2026 management guidance;
+- normalizes toward high-single-digit then mid-single-digit growth;
+- stable margin;
+- normalized cash conversion.
+
+Bull case:
+
+- NATO rearmament persists;
+- AUKUS, submarines, missile defence, electronic warfare, and munitions demand
+  extend duration;
+- backlog conversion is smoother;
+- risk discount declines.
+
+10A. Reporting Event Intelligence
+
+BAE follows a UK disclosure cadence rather than a US-style quarterly earnings
+call cadence. The cockpit therefore uses eight quarter windows anchored to the
+official events that occurred in those windows:
+
+- 2024 Q3: 2024 half-year results
+- 2024 Q4: November 2024 market update
+- 2025 Q1: 2024 full-year results
+- 2025 Q2: May 2025 AGM market update
+- 2025 Q3: 2025 half-year results
+- 2025 Q4: November 2025 market update
+- 2026 Q1: 2025 full-year results
+- 2026 Q2: May 2026 trading update
+
+The dashboard includes a horizontal scrollbar selector for these quarter
+windows. Each event has official-source provenance, transcript/video status,
+key metrics where disclosed, management message, debate questions, watch items,
+and an AI summary. The AI summary is tagged research-only and is used only to
+explain market-focus trends. It does not enter valuation.
+
+The eight-quarter synthesis currently shows a focus shift from backlog and SMS
+integration, to cash conversion and customer-advance timing, then to funded
+orders, Typhoon / Type 26 / missile defence, defence-budget durability, and
+capital-return discipline after the share-price rerating.
+
+11. Validation Logic
+
+scripts/ba_model_validation.mjs checks:
+
+- module registration and stock-module contract;
+- segment sales reconciliation to group sales;
+- segment EBIT reconciliation to group underlying EBIT;
+- backlog coverage = backlog / sales;
+- book-to-bill = order intake / sales;
+- FCF bridge against operating cash flow minus capex, with a warning because
+  BAE's official APM FCF has definition-specific items;
+- dividend payout ratios;
+- DCF terminal value concentration;
+- WACC, terminal growth, margin, and revenue CAGR ranges;
+- research-only isolation;
+- valuation weights summing to 100%;
+- required source-status categories;
+- finite fair value output.
+- eight reporting-event windows, chronological ordering, source-map coverage,
+  explicit transcript/video status, and research-only AI synthesis.
+
+12. Current Limitations
+
+- Direct automated PDF download from BAE may be blocked by the website firewall.
+  The fetch script records this instead of pretending extraction succeeded.
+- Programme-level revenue and margin are not officially disclosed, so programme
+  exposure remains research-only.
+- Prior-year segment backlog is not available for every segment in the curated
+  dataset.
+- Market data is a dated IR page snapshot, not a live institutional feed.
+- Peer historical multiple data is not yet populated.
+- FCF normalization needs a fuller company-defined APM bridge.
+
+13. Next Improvements
+
+- Add a robust PDF text/table parser and store extracted table provenance.
+- Add yfinance or LSE market snapshots with clear unofficial source labels.
+- Add peer multiple history for defence primes and UK industrials.
+- Add RNS contract scraper with duplicate handling and human-review promotion.
+- Add programme milestone monitoring for submarine, Type 26, GCAP, Typhoon,
+  AMPV, munitions, and missile-defence work.
+- Add budget monitor for UK, US, NATO, Saudi/GCC, Australia, and Europe.
