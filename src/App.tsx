@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Routes, Route } from "react-router-dom";
+import { AuthCallbackPage } from "./auth/AuthCallbackPage";
 import { LoginPage } from "./auth/LoginPage";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 
@@ -12,6 +13,7 @@ export default function App() {
     <Suspense fallback={<div className="p-8 text-sm text-slate-500">Loading research workspace...</div>}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<AppShell />}>
             <Route index element={<Home />} />

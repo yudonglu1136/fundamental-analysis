@@ -1,0 +1,59 @@
+import { useEffect, useMemo, useState } from "react";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { exchangeAuthCodeForSession } from "./authClient";
+import { useAuth } from "./useAuth";
+
+function safeRedirectPath(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
+  return value;
+}
+
+export function AuthCallbackPage() {
+  const { isAuthenticated, loading } = useAuth();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+  const redirectPath = useMemo(() => safeRedirectPath(searchParams.get("redirectTo")), [searchParams]);
+  const code = searchParams.get("code");
+
+  useEffect(() => {
+    let cancelled = false;
+    async function completeSignIn() {
+      if (!code) {
+        setError("Missing authentication code.");
+        return;
+      }
+      try {
+        await exchangeAuthCodeForSession(code);
+        if (!cancelled) navigate(redirectPath, { replace: true });
+      } catch (nextError) {
+        if (!cancelled) setError(nextError instanceof Error ? nextError.message : String(nextError));
+      }
+    }
+    completeSignIn();
+    return () => {
+      cancelled = true;
+    };
+  }, [code, navigate, redirectPath]);
+
+  if (!loading && isAuthenticated) {
+    return <Navigate to={redirectPath} replace />;
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-mist bg-grid px-4 py-10 text-ink">
+      <div className="w-full max-w-md border border-ink/15 bg-white p-6 shadow-panel">
+        <p className="ontology-label">Fundamental Analysis</p>
+        <h1 className="mt-2 text-2xl font-semibold">Completing sign in</h1>
+        <p className="mt-4 text-sm leading-6 text-slate-600">
+          {error ? "Authentication could not be completed." : "Securing your workspace session..."}
+        </p>
+        {error ? (
+          <div className="mt-5 border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-900">
+            {error}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}

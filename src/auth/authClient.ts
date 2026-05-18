@@ -65,6 +65,13 @@ export async function getCurrentSession(): Promise<Session | null> {
   return data.session;
 }
 
+export async function exchangeAuthCodeForSession(code: string): Promise<Session | null> {
+  if (!supabase) throw new Error("Authentication is not configured for this deployment.");
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) throw error;
+  return data.session;
+}
+
 export async function signInWithGoogle(redirectTo: string) {
   if (!supabase) throw new Error("Authentication is not configured for this deployment.");
   const { error } = await supabase.auth.signInWithOAuth({

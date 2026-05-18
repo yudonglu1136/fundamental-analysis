@@ -29,7 +29,9 @@ export function LoginPage() {
         navigate(redirectPath, { replace: true });
         return;
       }
-      await signInWithGoogle(`${window.location.origin}${redirectPath}`);
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      callbackUrl.searchParams.set("redirectTo", redirectPath);
+      await signInWithGoogle(callbackUrl.toString());
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : String(nextError));
       setSubmitting(false);
