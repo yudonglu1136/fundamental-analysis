@@ -141,6 +141,19 @@ import { getTriBacktests, runTriBacktest } from "../services/triBacktestService.
 import { createTriUpdateJob, getTriUpdateJob } from "../services/triUpdateJobService.mjs";
 
 import {
+  getCegReportingEvents,
+  getCegSnapshot,
+} from "../services/cegSnapshotService.mjs";
+import {
+  backfillCegValuationRuns,
+  createCegValuationRun,
+  getCegHistoricalValuations,
+  getCegValuationRuns,
+} from "../services/cegValuationService.mjs";
+import { getCegBacktests, runCegBacktest } from "../services/cegBacktestService.mjs";
+import { createCegUpdateJob, getCegUpdateJob } from "../services/cegUpdateJobService.mjs";
+
+import {
   getPltrReportingEvents,
   getPltrSnapshot,
 } from "../services/pltrSnapshotService.mjs";
@@ -305,6 +318,7 @@ import { NOW_BACKEND_MODEL_VERSION } from "../../../../modules/now/valuation/mod
 import { ANET_BACKEND_MODEL_VERSION } from "../../../../modules/anet/valuation/modelVersion.mjs";
 import { META_BACKEND_MODEL_VERSION } from "../../../../modules/meta/valuation/modelVersion.mjs";
 import { TRI_BACKEND_MODEL_VERSION } from "../../../../modules/tri/valuation/modelVersion.mjs";
+import { CEG_BACKEND_MODEL_VERSION } from "../../../../modules/ceg/valuation/modelVersion.mjs";
 import { PLTR_BACKEND_MODEL_VERSION } from "../../../../modules/pltr/valuation/modelVersion.mjs";
 import { TSM_BACKEND_MODEL_VERSION } from "../../../../modules/tsm/valuation/modelVersion.mjs";
 import { NOC_BACKEND_MODEL_VERSION } from "../../../../modules/noc/valuation/modelVersion.mjs";
@@ -665,6 +679,23 @@ export const stockBackendRegistry = {
     getUpdateJob: getTriUpdateJob,
     getBacktests: getTriBacktests,
     runBacktest: runTriBacktest,
+  },
+  ceg: {
+    slug: "ceg",
+    ticker: "CEG",
+    displayName: "Constellation Energy",
+    modelVersion: CEG_BACKEND_MODEL_VERSION.version,
+    backtestMessage: "CEG stock-vs-SPY backtest is backed by Nasdaq daily close bars in the unified stock backend.",
+    getEvents: getCegReportingEvents,
+    getSnapshot: getCegSnapshot,
+    getValuationRuns: getCegValuationRuns,
+    getHistoricalValuations: getCegHistoricalValuations,
+    createValuationRun: createCegValuationRun,
+    backfillValuationRuns: backfillCegValuationRuns,
+    createUpdateJob: createCegUpdateJob,
+    getUpdateJob: getCegUpdateJob,
+    getBacktests: getCegBacktests,
+    runBacktest: runCegBacktest,
   },
   pltr: {
     slug: "pltr",

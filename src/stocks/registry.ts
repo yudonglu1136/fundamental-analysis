@@ -25,6 +25,7 @@ import { bmyModule } from "./bmy/config";
 import { gildModule } from "./gild/config";
 import { autlModule } from "./autl/config";
 import { tsmModule } from "./tsm/config";
+import { cegModule } from "./ceg/config";
 
 export const stockRegistry = {
   "BA.L": baModule,
@@ -52,6 +53,7 @@ export const stockRegistry = {
   GILD: gildModule,
   AUTL: autlModule,
   TSM: tsmModule,
+  CEG: cegModule,
   "DGE.L": dgeModule,
   TRI: triModule,
 };
