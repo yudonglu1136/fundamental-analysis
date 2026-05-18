@@ -2,7 +2,6 @@ import yfinanceMarketSnapshot from "../../../../data/local/lseg/yfinance/curated
 import yfinancePeerMultiplesSnapshot from "../../../../data/local/lseg/yfinance/curated/peer_multiples_snapshot.json";
 import yfinanceProvenanceManifest from "../../../../data/local/lseg/yfinance/curated/provenance.json";
 import yfinanceWarningManifest from "../../../../data/local/lseg/yfinance/curated/warnings.json";
-import rawLsegInfoSnapshot from "../../../../data/local/lseg/yfinance/raw/lseg_info.json";
 
 type YfinanceDataset<T> = {
   provenance?: {
@@ -66,7 +65,19 @@ export type LsegYfinancePeerAudit = {
 export const lsegYfinanceMarketSnapshot = yfinanceMarketSnapshot;
 export const lsegYfinanceProvenanceManifest = yfinanceProvenanceManifest;
 export const lsegYfinanceWarningManifest = yfinanceWarningManifest;
-export const lsegRawInfoSnapshot = rawLsegInfoSnapshot;
+export const lsegRawInfoSnapshot = {
+  provenance: {
+    datasetId: "lseg_info",
+    source: "yfinance",
+    sourceType: "yahoo_finance_snapshot",
+    ticker: "LSEG.L",
+    currency: "GBp",
+    qualityTag: "Placeholder",
+    notes:
+      "Raw yfinance lseg_info.json is intentionally excluded from the frontend bundle. The compiled app uses curated market_snapshot.json plus explicit warnings for fields that were only available in the raw local artifact.",
+  },
+  data: {},
+} as const;
 
 export const LSEG_YFINANCE_EXPECTED_PEER_TICKERS = [
   "ICE",
