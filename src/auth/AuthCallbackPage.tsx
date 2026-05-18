@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { exchangeAuthCodeForSession } from "./authClient";
 import { useAuth } from "./useAuth";
 
@@ -11,7 +11,6 @@ function safeRedirectPath(value: string | null) {
 export function AuthCallbackPage() {
   const { isAuthenticated, loading } = useAuth();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const redirectPath = useMemo(() => safeRedirectPath(searchParams.get("redirectTo")), [searchParams]);
   const code = searchParams.get("code");
@@ -25,7 +24,7 @@ export function AuthCallbackPage() {
       }
       try {
         await exchangeAuthCodeForSession(code);
-        if (!cancelled) navigate(redirectPath, { replace: true });
+        if (!cancelled) window.location.replace(redirectPath);
       } catch (nextError) {
         if (!cancelled) setError(nextError instanceof Error ? nextError.message : String(nextError));
       }
@@ -34,7 +33,7 @@ export function AuthCallbackPage() {
     return () => {
       cancelled = true;
     };
-  }, [code, navigate, redirectPath]);
+  }, [code, redirectPath]);
 
   if (!loading && isAuthenticated) {
     return <Navigate to={redirectPath} replace />;
