@@ -75,7 +75,7 @@ const server = http.createServer(async (request, response) => {
       return;
     }
     if (url.pathname.startsWith("/api/")) {
-      const auth = requireAuth(request);
+      const auth = await requireAuth(request);
       if (!auth.ok) {
         send(request, response, auth.status, auth.body);
         return;

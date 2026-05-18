@@ -6,7 +6,7 @@ function isDevBypassEnabled() {
   return process.env.API_AUTH_DEV_BYPASS === "true" && process.env.NODE_ENV !== "production";
 }
 
-export function requireAuth(request) {
+export async function requireAuth(request) {
   const header = request.headers.authorization ?? "";
   const match = header.match(/^Bearer\s+(.+)$/i);
   if (!match) {
@@ -38,7 +38,7 @@ export function requireAuth(request) {
     return { ok: true, user };
   }
 
-  const result = verifySupabaseAccessToken(match[1]);
+  const result = await verifySupabaseAccessToken(match[1]);
   if (!result.ok) {
     return {
       ok: false,

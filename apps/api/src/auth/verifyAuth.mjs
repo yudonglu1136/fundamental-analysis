@@ -46,24 +46,58 @@ function mapUser(payload) {
   };
 }
 
-export function verifySupabaseAccessToken(token) {
+async function verifyWithSupabaseAuth(token) {
+  const supabaseUrl = process.env.SUPABASE_URL ? String(process.env.SUPABASE_URL).replace(/\/$/, "") : null;
+  const anonKey = process.env.SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !anonKey) return null;
+
+  try {
+    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        apikey: anonKey,
+        authorization: `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      return { ok: false, status: 401, error: "unauthorized", message: "Invalid bearer token" };
+    }
+    const user = await response.json();
+    return {
+      ok: true,
+      user: mapUser({
+        ...user,
+        sub: user.id,
+      }),
+      claims: { sub: user.id, email: user.email, provider: user.app_metadata?.provider },
+    };
+  } catch {
+    return { ok: false, status: 401, error: "unauthorized", message: "Invalid bearer token" };
+  }
+}
+
+export async function verifySupabaseAccessToken(token) {
   const secret = process.env.SUPABASE_JWT_SECRET;
   if (!secret) {
-    return {
-      ok: false,
-      status: 500,
-      error: "auth_not_configured",
-      message: "SUPABASE_JWT_SECRET is not configured",
-    };
+    const remoteResult = await verifyWithSupabaseAuth(token);
+    return (
+      remoteResult ?? {
+        ok: false,
+        status: 500,
+        error: "auth_not_configured",
+        message: "SUPABASE_JWT_SECRET is not configured",
+      }
+    );
   }
 
   try {
     const parsed = parseJwt(token);
     if (parsed.header.alg !== "HS256") {
-      return { ok: false, status: 401, error: "unauthorized", message: "Unsupported token signing algorithm" };
+      const remoteResult = await verifyWithSupabaseAuth(token);
+      return remoteResult ?? { ok: false, status: 401, error: "unauthorized", message: "Unsupported token signing algorithm" };
     }
     if (!verifyHs256(parsed, secret)) {
-      return { ok: false, status: 401, error: "unauthorized", message: "Invalid bearer token" };
+      const remoteResult = await verifyWithSupabaseAuth(token);
+      return remoteResult ?? { ok: false, status: 401, error: "unauthorized", message: "Invalid bearer token" };
     }
 
     const now = Math.floor(Date.now() / 1000);
@@ -83,6 +117,7 @@ export function verifySupabaseAccessToken(token) {
 
     return { ok: true, user: mapUser(parsed.payload), claims: parsed.payload };
   } catch {
-    return { ok: false, status: 401, error: "unauthorized", message: "Invalid bearer token" };
+    const remoteResult = await verifyWithSupabaseAuth(token);
+    return remoteResult ?? { ok: false, status: 401, error: "unauthorized", message: "Invalid bearer token" };
   }
 }
