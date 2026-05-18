@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AlertTriangle, BatteryCharging, Factory, RadioTower, Scale, Zap } from "lucide-react";
@@ -36,7 +36,8 @@ function SectionTitle({ icon: Icon, title, subtitle }: { icon: LucideIcon; title
   );
 }
 
-export function CegDashboard({ module, scenario, onScenarioChange, period, onPeriodChange, onDataSourceChange }: StockDashboardProps) {
+export function CegDashboard({ module, scenario, onScenarioChange, onDataSourceChange }: StockDashboardProps) {
+  const [activeTab, setActiveTab] = useState(module.tabs[0]?.value ?? "dashboard");
   const dataset = resolveCegDataset(module.data);
   const { valuationAssumptions, handleValuationValuesChange } = useValuationAssumptionState({
     ticker: "CEG",
@@ -62,7 +63,7 @@ export function CegDashboard({ module, scenario, onScenarioChange, period, onPer
   const summary = calculateCegSummary(dataset);
 
   return (
-    <Tabs.Root value={period} onValueChange={onPeriodChange} className="space-y-6">
+    <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="space-y-6">
       <div className="flex flex-col gap-4 border-b border-slate-200 pb-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Power / Nuclear Scarcity</p>
