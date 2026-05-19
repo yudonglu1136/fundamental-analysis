@@ -4,7 +4,15 @@ import {
   defaultAmznValuationAssumptions,
   type AmznValuationAssumptions,
 } from "./assumptions";
-import { amznDataset, type AmznDataset, type AmznOperatingMetric, type AmznPeriod, type AmznSegment } from "./data";
+import {
+  amznDataset,
+  type AmznAiCapexScenario,
+  type AmznDataset,
+  type AmznOperatingMetric,
+  type AmznPeriod,
+  type AmznProfitPoolScorecardItem,
+  type AmznSegment,
+} from "./data";
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -200,8 +208,37 @@ export function getDefaultAmznPeriod() {
 
 export function resolveAmznDataset(data: unknown): AmznDataset {
   const maybeDataset = data as Partial<AmznDataset> | undefined;
-  if (maybeDataset?.periods?.length && maybeDataset?.marketData) return maybeDataset as AmznDataset;
+  if (maybeDataset?.periods?.length && maybeDataset?.marketData) {
+    return {
+      ...maybeDataset,
+      researchFramework: maybeDataset.researchFramework ?? amznDataset.researchFramework,
+    } as AmznDataset;
+  }
   return amznDataset;
+}
+
+function rankPortfolioSignal(signal: string) {
+  if (signal === "constructive") return 1;
+  if (signal === "neutral") return 0;
+  return -1;
+}
+
+function summarizeProfitPools(rows: AmznProfitPoolScorecardItem[]) {
+  const averageScore = rows.length ? rows.reduce((sum, row) => sum + row.score, 0) / rows.length : 0;
+  const topEngine = [...rows].sort((left, right) => right.score - left.score)[0] ?? null;
+  const weakestEngine = [...rows].sort((left, right) => left.score - right.score)[0] ?? null;
+  return { averageScore, topEngine, weakestEngine };
+}
+
+function summarizeAiCapexScenarios(rows: AmznAiCapexScenario[]) {
+  const base = rows.find((row) => row.scenario === "Base");
+  const bear = rows.find((row) => row.scenario === "Bear");
+  const bull = rows.find((row) => row.scenario === "Bull");
+  return {
+    base,
+    normalizedFcfSpread: bull && bear ? bull.normalizedFcf - bear.normalizedFcf : null,
+    capexSpread: bull && bear ? bear.capexIntensity - bull.capexIntensity : null,
+  };
 }
 
 export function resolveAmznPeriodFromData(data: unknown, periodId = getDefaultAmznPeriod()) {
@@ -392,15 +429,44 @@ export function buildAmznDashboardData(
     { risk: "Regulation and labor", driver: "Multiple / cost base", trigger: "Marketplace, ad, antitrust, warehouse, or unionization costs rise", severity: "Medium" },
     { risk: "Project Kuiper dilution", driver: "Kuiper option value", trigger: "Capex grows without visible ROIC or strategic value", severity: "Medium" },
   ];
+  const researchFramework = dataset.researchFramework;
+  const profitPoolSummary = summarizeProfitPools(researchFramework.profitPoolScorecard);
+  const aiCapexSummary = summarizeAiCapexScenarios(researchFramework.aiCapexScenarios);
+  const signalScore = researchFramework.themeTiles.reduce((sum, tile) => sum + rankPortfolioSignal(tile.portfolioSignal), 0);
+  const researchThemeRows = researchFramework.themeTiles.map((tile) => ({
+    ...tile,
+    leadingIndicatorsText: tile.leadingIndicators.join(", "),
+    signalLabel: tile.portfolioSignal === "constructive" ? "Constructive" : tile.portfolioSignal === "neutral" ? "Neutral" : "Caution",
+  }));
+  const profitPoolRows = researchFramework.profitPoolScorecard.map((row) => ({
+    ...row,
+    growthPct: row.growth * 100,
+    marginPct: row.margin * 100,
+  }));
+  const aiCapexScenarioRows = researchFramework.aiCapexScenarios.map((row) => ({
+    ...row,
+    awsGrowthPct: row.awsGrowth * 100,
+    awsMarginPct: row.awsMargin * 100,
+    capexIntensityPct: row.capexIntensity * 100,
+    normalizedFcfMarginPct: row.normalizedFcfMargin * 100,
+    aiCapexDragPct: row.aiCapexDrag * 100,
+  }));
   return {
     dataset,
     period,
     valuation,
     segments,
     metric,
+    researchFramework,
+    researchThemeRows,
+    profitPoolRows,
+    aiCapexScenarioRows,
+    profitPoolSummary,
+    aiCapexSummary,
+    signalScore,
     thesis: {
       consensusView: "The market often treats AMZN as AWS plus retail scale, with FCF rebound as the main proof point.",
-      variantView: "The sharper debate is whether AWS AI capex, advertising profit-pool scaling, and retail regionalization can all compound EBIT without permanently suppressing normalized FCF.",
+      variantView: researchFramework.currentRead.variantView,
       falsifiers: "AWS reacceleration fails, advertising growth slows materially, international losses return, or AI/Kuiper capex consumes the normalized FCF upside.",
     },
     insightPanels: [

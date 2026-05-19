@@ -7,6 +7,7 @@ const CIK = "0001018724";
 const SEC_DIR = path.resolve("data/local/amzn/sec");
 const COMPANYFACTS_PATH = path.join(SEC_DIR, `companyfacts_CIK${CIK}.json`);
 const SUBMISSIONS_PATH = path.join(SEC_DIR, `submissions_CIK${CIK}.json`);
+const RESEARCH_FRAMEWORK_PATH = path.resolve("modules/amzn/research/framework.json");
 const CURRENT_DATE = new Date().toISOString().slice(0, 10);
 const AMZN_SPLIT_EFFECTIVE_DATE = "2022-06-06";
 const AMZN_SPLIT_FACTOR = 20;
@@ -604,6 +605,20 @@ export async function buildAmznBackendSeedPayload() {
       confidence: fs.existsSync(SUBMISSIONS_PATH) ? "high" : "missing",
       checksum: null,
       metadataJson: json({ cik: CIK, localPath: SUBMISSIONS_PATH }),
+    },
+    {
+      id: "amzn-research-framework",
+      ticker: TICKER,
+      sourceType: "research_only",
+      sourceName: "AMZN buy-side research framework",
+      sourcePath: RESEARCH_FRAMEWORK_PATH,
+      sourceUrl: null,
+      retrievedAt: now,
+      publishedDate: CURRENT_DATE,
+      provenance: "Local public-source buy-side framework used by frontend and backend snapshot payloads.",
+      confidence: fs.existsSync(RESEARCH_FRAMEWORK_PATH) ? "medium" : "missing",
+      checksum: null,
+      metadataJson: json({ localPath: RESEARCH_FRAMEWORK_PATH, purpose: "market focus, theme map, scorecard, AI capex scenarios, risk red-team" }),
     },
   ];
 

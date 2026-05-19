@@ -1,3 +1,5 @@
+import amznResearchFrameworkJson from "../../../modules/amzn/research/framework.json";
+
 export type AmznSourceStatus = "official_actual" | "forecast_assumption" | "research_only" | "market_data" | "transcript_commentary";
 
 export type AmznPeriod = {
@@ -56,6 +58,71 @@ export type AmznOperatingMetric = {
   projectKuiperCommentary: string;
 };
 
+export type AmznResearchTheme = {
+  id: string;
+  category: string;
+  title: string;
+  marketFocus: string;
+  evidence: string;
+  modelDriver: string;
+  bullCase: string;
+  bearCase: string;
+  leadingIndicators: string[];
+  portfolioSignal: "constructive" | "neutral" | "caution";
+};
+
+export type AmznProfitPoolScorecardItem = {
+  engine: string;
+  score: number;
+  growth: number;
+  margin: number;
+  durability: string;
+  watchItem: string;
+  valuationImplication: string;
+};
+
+export type AmznAiCapexScenario = {
+  scenario: "Bear" | "Base" | "Bull";
+  awsGrowth: number;
+  awsMargin: number;
+  capexIntensity: number;
+  normalizedFcfMargin: number;
+  normalizedFcf: number;
+  aiCapexDrag: number;
+  interpretation: string;
+  action: string;
+};
+
+export type AmznManagementQuestion = {
+  topic: string;
+  question: string;
+  metricToWatch: string;
+};
+
+export type AmznResearchFramework = {
+  asOfDate: string;
+  sourceStatus: AmznSourceStatus;
+  sourceDiscipline: string;
+  latestPublicAnchors: Array<{
+    name: string;
+    publisher: string;
+    url: string;
+    usedFor: string;
+  }>;
+  currentRead: {
+    verdict: string;
+    variantView: string;
+    marketIsWatching: string;
+    valuationGuardrail: string;
+  };
+  themeTiles: AmznResearchTheme[];
+  profitPoolScorecard: AmznProfitPoolScorecardItem[];
+  aiCapexScenarios: AmznAiCapexScenario[];
+  managementQuestions: AmznManagementQuestion[];
+  killCriteria: string[];
+  monitoringPlan: string[];
+};
+
 export type AmznDataset = {
   marketData: {
     currentPrice: number;
@@ -68,6 +135,7 @@ export type AmznDataset = {
   periods: AmznPeriod[];
   segments: AmznSegment[];
   operatingMetrics: AmznOperatingMetric[];
+  researchFramework: AmznResearchFramework;
   sourceNotes: string[];
 };
 
@@ -132,6 +200,7 @@ export const amznDataset: AmznDataset = {
       projectKuiperCommentary: "Kuiper is modeled as optionality with explicit capex and ROIC dilution risk.",
     },
   ],
+  researchFramework: amznResearchFrameworkJson as AmznResearchFramework,
   sourceNotes: [
     "Offline AMZN values are research-only placeholders. Backend historical rows use SEC Companyfacts for consolidated actuals when local SEC files are present.",
     "Segment and business-unit allocation rows are tagged research_only unless official segment filings are later imported.",

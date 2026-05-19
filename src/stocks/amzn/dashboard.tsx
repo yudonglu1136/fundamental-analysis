@@ -25,6 +25,7 @@ import {
   resolveAmznDataset,
 } from "./calculations";
 import { defaultAmznValuationAssumptions, type AmznValuationAssumptions } from "./assumptions";
+import type { AmznResearchFramework } from "./data";
 
 type AmznHistoricalValuationRun = {
   id: string;
@@ -142,6 +143,7 @@ type AmznBackendSnapshotResponse = {
   segmentFinancials?: AmznBackendSegmentFinancial[];
   businessUnitFinancials?: AmznBackendBusinessUnitFinancial[];
   operatingMetricSnapshots?: AmznBackendOperatingMetric[];
+  researchFramework?: AmznResearchFramework;
 };
 
 function loadSavedAmznValuationAssumptions() {
@@ -390,6 +392,33 @@ export function AmznDashboard({ module, scenario, period, dataSourceType, onData
       };
     });
   }, [advertising, aws, backendSnapshot, dashboard.metric, dashboard.period, dashboard.segments, international, northAmerica]);
+  const researchFramework = backendSnapshot?.researchFramework ?? dashboard.researchFramework;
+  const researchThemeRows = researchFramework.themeTiles.map((theme) => ({
+    ...theme,
+    signalLabel: theme.portfolioSignal === "constructive" ? "Constructive" : theme.portfolioSignal === "neutral" ? "Neutral" : "Caution",
+    leadingIndicatorsText: theme.leadingIndicators.join(", "),
+  }));
+  const profitPoolRows = researchFramework.profitPoolScorecard.map((row) => ({
+    ...row,
+    growthPct: row.growth * 100,
+    marginPct: row.margin * 100,
+  }));
+  const aiCapexScenarioRows = researchFramework.aiCapexScenarios.map((row) => ({
+    ...row,
+    awsGrowthPct: row.awsGrowth * 100,
+    awsMarginPct: row.awsMargin * 100,
+    capexIntensityPct: row.capexIntensity * 100,
+    normalizedFcfMarginPct: row.normalizedFcfMargin * 100,
+    aiCapexDragPct: row.aiCapexDrag * 100,
+  }));
+  const constructiveThemes = researchThemeRows.filter((theme) => theme.portfolioSignal === "constructive").length;
+  const cautionThemes = researchThemeRows.filter((theme) => theme.portfolioSignal === "caution").length;
+  const topProfitPool = [...profitPoolRows].sort((left, right) => right.score - left.score)[0];
+  const weakestProfitPool = [...profitPoolRows].sort((left, right) => left.score - right.score)[0];
+  const baseAiScenario = aiCapexScenarioRows.find((row) => row.scenario === "Base");
+  const bearAiScenario = aiCapexScenarioRows.find((row) => row.scenario === "Bear");
+  const bullAiScenario = aiCapexScenarioRows.find((row) => row.scenario === "Bull");
+  const aiFcfSpread = bullAiScenario && bearAiScenario ? bullAiScenario.normalizedFcf - bearAiScenario.normalizedFcf : null;
 
   return (
     <div className="space-y-6">
@@ -402,6 +431,52 @@ export function AmznDashboard({ module, scenario, period, dataSourceType, onData
           <InsightPanel icon={<CloudCog className="h-4 w-4" />} title="Variant View" text={dashboard.thesis.variantView} />
           <InsightPanel icon={<ShieldAlert className="h-4 w-4" />} title="Falsifiers" text={dashboard.thesis.falsifiers} />
           <InsightPanel icon={<Activity className="h-4 w-4" />} title="Source Discipline" text="Consolidated actuals come from the backend SEC layer when online; segment and business-unit estimates remain research-only until official rows are imported." />
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="AMZN Market Focus System"
+        description="Latest public-source decision layer: what the market is watching, how it maps into the model, and what would falsify the thesis."
+        badge={
+          <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${snapshotStatus === "online" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+            {snapshotStatus === "online" ? "Backend synced" : "Static fallback"}
+          </span>
+        }
+      >
+        <div className="grid gap-4 lg:grid-cols-4">
+          <ScoreBlock label="Current Read" value={constructiveThemes > cautionThemes ? "Constructive" : "Balanced"} note={researchFramework.currentRead.verdict} />
+          <ScoreBlock label="Top Profit Pool" value={topProfitPool?.engine ?? "n/a"} note={topProfitPool ? `Evidence score ${topProfitPool.score}/100` : "No scorecard"} />
+          <ScoreBlock label="AI FCF Spread" value={aiFcfSpread != null ? usdb(aiFcfSpread) : "n/a"} note="Bull minus bear normalized FCF in the capex scenario grid" />
+          <ScoreBlock label="Market Debate" value="AWS + Ads + FCF" note={researchFramework.currentRead.marketIsWatching} />
+        </div>
+        <div className="mt-5 grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+          <ChartPanel title="Profit-Pool Evidence Score">
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={profitPoolRows}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="engine" tick={{ fontSize: 11 }} interval={0} angle={-16} textAnchor="end" height={76} />
+                <YAxis domain={[0, 100]} />
+                <Tooltip formatter={(value: number) => `${value.toFixed(0)} / 100`} />
+                <Bar dataKey="score" fill="#111827" name="Evidence score" />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartPanel>
+          <ChartPanel title="AI Capex Scenario: Normalized FCF and Capex Intensity">
+            <ResponsiveContainer width="100%" height={320}>
+              <ComposedChart data={aiCapexScenarioRows}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="scenario" tick={{ fontSize: 12 }} />
+                <YAxis yAxisId="left" tickFormatter={(value: number) => `$${(value / 1_000).toFixed(0)}bn`} />
+                <YAxis yAxisId="right" orientation="right" tickFormatter={(value: number) => `${value.toFixed(0)}%`} />
+                <Tooltip
+                  formatter={(value: number, name: string) => name === "Capex intensity" ? `${value.toFixed(1)}%` : usdb(value)}
+                />
+                <Legend />
+                <Bar yAxisId="left" dataKey="normalizedFcf" fill="#2563eb" name="Normalized FCF" />
+                <Line yAxisId="right" type="monotone" dataKey="capexIntensityPct" dot stroke="#f97316" strokeWidth={2.4} name="Capex intensity" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </ChartPanel>
         </div>
       </SectionCard>
 
@@ -462,6 +537,52 @@ export function AmznDashboard({ module, scenario, period, dataSourceType, onData
                 </ResponsiveContainer>
               </ChartPanel>
             </div>
+          </SectionCard>
+        </Tabs.Content>
+
+        <Tabs.Content value="market-focus" className="mt-6 space-y-6">
+          <SectionCard title="Latest Market Focus Map" description="A buy-side map of the debates currently most likely to move AMZN estimates, multiple, and portfolio sizing.">
+            <DataTable
+              headers={["Theme", "Market Focus", "Model Driver", "Signal", "Leading Indicators"]}
+              rows={researchThemeRows.map((theme) => [
+                theme.title,
+                theme.marketFocus,
+                theme.modelDriver,
+                theme.signalLabel,
+                theme.leadingIndicatorsText,
+              ])}
+            />
+          </SectionCard>
+          <SectionCard title="Bull / Bear Debate by Research Theme" description="Each theme is tied to falsifiable evidence so the dashboard does not become generic Amazon optimism.">
+            <div className="grid gap-4 lg:grid-cols-2">
+              {researchThemeRows.map((theme) => (
+                <div key={theme.id} className="rounded-lg border border-slate-200 bg-white p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-semibold text-ink">{theme.title}</p>
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${theme.portfolioSignal === "constructive" ? "bg-emerald-50 text-emerald-700" : theme.portfolioSignal === "neutral" ? "bg-slate-100 text-slate-600" : "bg-amber-50 text-amber-700"}`}>
+                      {theme.signalLabel}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{theme.evidence}</p>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm leading-6 text-emerald-950">
+                      <p className="font-semibold">Bull case</p>
+                      <p className="mt-1">{theme.bullCase}</p>
+                    </div>
+                    <div className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm leading-6 text-amber-950">
+                      <p className="font-semibold">Bear case</p>
+                      <p className="mt-1">{theme.bearCase}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+          <SectionCard title="Management Question Bank" description="Questions that connect earnings-call commentary to model drivers and monitoring cadence.">
+            <DataTable
+              headers={["Topic", "Question", "Metric to Watch"]}
+              rows={researchFramework.managementQuestions.map((row) => [row.topic, row.question, row.metricToWatch])}
+            />
           </SectionCard>
         </Tabs.Content>
 
@@ -528,6 +649,33 @@ export function AmznDashboard({ module, scenario, period, dataSourceType, onData
                 ["AI capex drag", pct(valuationAssumptions.aiCapexDrag), "Near-term FCF suppression from growth capex"],
               ]}
             />
+            <div className="mt-5 grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+              <ChartPanel title="AWS AI Scenario Matrix">
+                <ResponsiveContainer width="100%" height={320}>
+                  <ComposedChart data={aiCapexScenarioRows}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="scenario" />
+                    <YAxis yAxisId="left" tickFormatter={(value: number) => `${value.toFixed(0)}%`} />
+                    <YAxis yAxisId="right" orientation="right" tickFormatter={(value: number) => `$${(value / 1_000).toFixed(0)}bn`} />
+                    <Tooltip
+                      formatter={(value: number, name: string) => name === "Normalized FCF" ? usdb(value) : `${value.toFixed(1)}%`}
+                    />
+                    <Legend />
+                    <Bar yAxisId="left" dataKey="awsGrowthPct" fill="#2563eb" name="AWS growth" />
+                    <Bar yAxisId="left" dataKey="awsMarginPct" fill="#0f766e" name="AWS margin" />
+                    <Line yAxisId="right" type="monotone" dataKey="normalizedFcf" stroke="#f97316" strokeWidth={2.4} name="Normalized FCF" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </ChartPanel>
+              <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-ink">Base Case Read-Through</p>
+                <div className="mt-4 grid gap-3">
+                  <ScoreBlock label="Base AWS Growth" value={baseAiScenario ? pct(baseAiScenario.awsGrowth) : "n/a"} note="AI demand growth assumption" />
+                  <ScoreBlock label="Base Capex Intensity" value={baseAiScenario ? pct(baseAiScenario.capexIntensity) : "n/a"} note="Revenue reinvested into infrastructure and logistics capacity" />
+                  <ScoreBlock label="AI FCF Drag" value={baseAiScenario ? pct(baseAiScenario.aiCapexDrag) : "n/a"} note="Explicit normalized FCF haircut, not a hidden multiple penalty" />
+                </div>
+              </div>
+            </div>
           </SectionCard>
         </Tabs.Content>
 
@@ -585,6 +733,38 @@ export function AmznDashboard({ module, scenario, period, dataSourceType, onData
               </ChartPanel>
             </div>
           </SectionCard>
+          <SectionCard title="Retail and Ads Profit-Pool Scorecard" description="This scorecard compares Amazon's earnings engines using growth, margin, durability, and the specific watch item that would change the thesis.">
+            <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+              <ChartPanel title="Engine Quality Score">
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart data={profitPoolRows}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="engine" tick={{ fontSize: 11 }} interval={0} angle={-16} textAnchor="end" height={76} />
+                    <YAxis domain={[0, 100]} />
+                    <Tooltip formatter={(value: number) => `${value.toFixed(0)} / 100`} />
+                    <Bar dataKey="score" fill="#111827" name="Evidence score" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartPanel>
+              <DataTable
+                headers={["Engine", "Growth", "Margin", "Durability", "Watch Item", "Valuation Implication"]}
+                rows={profitPoolRows.map((row) => [
+                  row.engine,
+                  row.growth ? pct(row.growth) : "n/a",
+                  row.margin ? pct(row.margin) : "n/a",
+                  row.durability,
+                  row.watchItem,
+                  row.valuationImplication,
+                ])}
+              />
+            </div>
+            {weakestProfitPool ? (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+                <p className="font-semibold">Weakest proof point: {weakestProfitPool.engine}</p>
+                <p className="mt-1">{weakestProfitPool.watchItem}</p>
+              </div>
+            ) : null}
+          </SectionCard>
           <SectionCard title="Prime / Subscription Flywheel" description="Prime supports frequency, retention, logistics density, streaming, and ad inventory quality.">
             <InsightPanel icon={<ShoppingCart className="h-4 w-4" />} title="Flywheel" text="The valuation framework treats subscription revenue as a reinforcing flywheel rather than a stand-alone media multiple, with retention and retail frequency as the main proof points." />
             <div className="mt-5">
@@ -633,6 +813,18 @@ export function AmznDashboard({ module, scenario, period, dataSourceType, onData
                 </ResponsiveContainer>
               </ChartPanel>
             </div>
+            <DataTable
+              headers={["Scenario", "Normalized FCF", "FCF Margin", "Capex Intensity", "AI Capex Drag", "Interpretation", "Action"]}
+              rows={aiCapexScenarioRows.map((row) => [
+                row.scenario,
+                usdb(row.normalizedFcf),
+                pct(row.normalizedFcfMargin),
+                pct(row.capexIntensity),
+                pct(row.aiCapexDrag),
+                row.interpretation,
+                row.action,
+              ])}
+            />
           </SectionCard>
           <SectionCard title="Project Kuiper Optionality" description="Kuiper has real-option value only if strategic value exceeds the capex and ROIC dilution.">
             <InsightPanel icon={<Satellite className="h-4 w-4" />} title="Optionality With Discipline" text={dashboard.metric?.projectKuiperCommentary ?? "Kuiper is modeled as explicit optionality, with zero value in bear cases and no automatic uplift in historical periods before it was knowable."} />
@@ -678,12 +870,24 @@ export function AmznDashboard({ module, scenario, period, dataSourceType, onData
           />
         </Tabs.Content>
 
-        <Tabs.Content value="risks" className="mt-6">
+        <Tabs.Content value="risks" className="mt-6 space-y-6">
           <SectionCard title="Risk Red Team" description="The red-team lens maps bear-case risks to model drivers, breakpoints, and monitoring triggers.">
             <DataTable
               headers={["Risk", "Driver", "Trigger", "Severity"]}
               rows={dashboard.riskRows.map((risk) => [risk.risk, risk.driver, risk.trigger, risk.severity])}
             />
+          </SectionCard>
+          <SectionCard title="Kill Criteria and Monitoring Cadence" description="The position should be reduced or re-underwritten if these disconfirming signals appear.">
+            <div className="grid gap-5 xl:grid-cols-2">
+              <DataTable
+                headers={["Kill Criteria"]}
+                rows={researchFramework.killCriteria.map((item) => [item])}
+              />
+              <DataTable
+                headers={["Monitoring Plan"]}
+                rows={researchFramework.monitoringPlan.map((item) => [item])}
+              />
+            </div>
           </SectionCard>
         </Tabs.Content>
       </Tabs.Root>

@@ -1,7 +1,9 @@
+import { readFileSync } from "node:fs";
 import { query } from "../db/client.mjs";
 import { AMZN_BACKEND_DB_PATH } from "../../../../modules/amzn/db/schema.mjs";
 
 const TICKER = "AMZN";
+const AMZN_RESEARCH_FRAMEWORK_PATH = new URL("../../../../modules/amzn/research/framework.json", import.meta.url);
 
 function parseJsonField(row, field) {
   if (!row?.[field]) return row;
@@ -14,6 +16,32 @@ function parseJsonField(row, field) {
 
 function parseRows(rows, fields = ["rawJson", "metadataJson", "assumptionsJson", "valuationMethodsJson", "assumptionSchemaJson"]) {
   return rows.map((row) => fields.reduce((acc, field) => parseJsonField(acc, field), row));
+}
+
+function getAmznResearchFramework() {
+  try {
+    return JSON.parse(readFileSync(AMZN_RESEARCH_FRAMEWORK_PATH, "utf8"));
+  } catch (error) {
+    return {
+      asOfDate: new Date().toISOString().slice(0, 10),
+      sourceStatus: "research_only",
+      sourceDiscipline: "AMZN research framework unavailable from local backend module.",
+      error: error instanceof Error ? error.message : String(error),
+      currentRead: {
+        verdict: "Research framework unavailable.",
+        variantView: "Backend snapshot still returns financial tables when available.",
+        marketIsWatching: "AWS AI, advertising, retail margin, FCF, and regulation.",
+        valuationGuardrail: "Use frontend static fallback until backend research framework file is restored.",
+      },
+      themeTiles: [],
+      profitPoolScorecard: [],
+      aiCapexScenarios: [],
+      managementQuestions: [],
+      killCriteria: [],
+      monitoringPlan: [],
+      latestPublicAnchors: [],
+    };
+  }
 }
 
 export function getAmznReportingEvents() {
@@ -126,5 +154,6 @@ export function getAmznSnapshot({ eventId, asOfDate } = {}) {
     modelVersions,
     assumptionSets,
     validationWarnings,
+    researchFramework: getAmznResearchFramework(),
   };
 }

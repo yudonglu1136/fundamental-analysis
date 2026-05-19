@@ -49,6 +49,7 @@ export const amznModule: StockModule = {
     "AMZN buy-side cockpit focused on AWS AI economics, retail operating leverage, advertising profit-pool scaling, Prime/subscription flywheel, normalized FCF after capex, Kuiper optionality, and risk red-team monitoring.",
   tabs: [
     { value: "overview", label: "Cockpit" },
+    { value: "market-focus", label: "Market Focus" },
     { value: "segments", label: "Segments" },
     { value: "aws-ai", label: "AWS AI" },
     { value: "retail-ads", label: "Retail & Ads" },
