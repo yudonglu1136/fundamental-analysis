@@ -37,6 +37,13 @@ export const stockMetadataList: StockMetadata[] = [
       "ASML research cockpit focused on EUV and High-NA demand durability, AI semiconductor capex, China export restrictions, backlog support, gross margin, FCF conversion, and premium multiple resilience.",
   },
   {
+    ticker: "MU",
+    name: "Micron Technology, Inc.",
+    sector: "AI Infrastructure / Memory Semiconductors / HBM",
+    description:
+      "Micron research cockpit focused on HBM durability, DRAM/NAND cycle normalization, China and export-control risk, capex intensity, FCF conversion, and normalized valuation.",
+  },
+  {
     ticker: "AAPL",
     name: "Apple Inc.",
     sector: "Consumer Technology / Ecosystem / Services",
@@ -80,6 +87,7 @@ export const stockMetadataList: StockMetadata[] = [
   },
   { ticker: "GOOGL", name: "Alphabet Inc.", sector: "Search / YouTube / Cloud / AI Infrastructure", description: "Alphabet research cockpit focused on Search, YouTube, Cloud, AI infrastructure, regulatory risk, and valuation." },
   { ticker: "META", name: "Meta Platforms, Inc.", sector: "Internet Advertising / AI Infrastructure / Social Platforms", description: "Buy-side research cockpit for META ad economics, AI monetization, capex-to-ROIC, product engagement, regulatory risk, and Reality Labs option value." },
+  { ticker: "TSLA", name: "Tesla, Inc.", sector: "EV / Energy Storage / Autonomy", description: "Tesla research cockpit focused on auto margin durability, energy storage scale, autonomy optionality, China competition, capex intensity, and FCF support for the premium multiple." },
   { ticker: "PLTR", name: "Palantir Technologies", sector: "AI Software / Ontology / Mission-Critical Operations", description: "Palantir research cockpit focused on AIP adoption, commercial expansion, government durability, ontology moat, margin scale, and valuation." },
   { ticker: "ISRG", name: "Intuitive Surgical", sector: "Medical Devices / Robotic Surgery Platform", description: "Intuitive Surgical research cockpit focused on procedures, installed base, da Vinci 5 cycle, recurring revenue, China, margin durability, and valuation." },
   { ticker: "NOC", name: "Northrop Grumman Corporation", sector: "Aerospace & Defense", description: "Defense-prime research cockpit focused on B-21, Sentinel, Space Systems, Mission Systems, backlog conversion, cash flow, and valuation." },
