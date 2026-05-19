@@ -869,7 +869,6 @@ function BackendHistoricalValuationPanel({ scenario }: { scenario: string }) {
 
   const displayRows = useMemo(
     () => history
-      .filter((row) => row.event.eventDate >= "2020-01-01")
       .slice()
       .sort((left, right) => left.event.eventDate.localeCompare(right.event.eventDate)),
     [history],
@@ -886,6 +885,7 @@ function BackendHistoricalValuationPanel({ scenario }: { scenario: string }) {
   const run = selected?.valuationRun ?? null;
   const selectedSemantics = run?.dataSnapshotJson.valuationSemantics ?? null;
   const selectedIsRunRate = Boolean(selectedSemantics?.isAnnualizedRunRate);
+  const selectedPriceSource = run?.dataSnapshotJson.asOfPriceSource ?? null;
   const qaTables = (run?.sensitivityTablesJson ?? []).filter((table) => table.title.startsWith("Model QA:"));
   const completeRuns = displayRows.filter((row) => row.valuationRun).length;
   const chartRows = visibleRows
@@ -908,6 +908,44 @@ function BackendHistoricalValuationPanel({ scenario }: { scenario: string }) {
   const averageVisibleGap = visibleGapRows.length
     ? visibleGapRows.reduce((sum, row) => sum + (row.gapPct ?? 0), 0) / visibleGapRows.length
     : null;
+  const sourceQualityRows = run
+    ? [
+        [
+          "Event date",
+          selected?.event.eventDate ?? run.asOfDate,
+          "Historical valuation uses the persisted event snapshot and does not recalculate old runs in the browser.",
+        ],
+        [
+          "Daily price anchor",
+          selectedPriceSource?.priceDate ? `${selectedPriceSource.priceDate} | ${selectedPriceSource.source ?? "market data"}` : "market snapshot / proxy fallback",
+          selectedPriceSource?.priceDate
+            ? "Nearest prior market data source selected by backend when available."
+            : "Fallback rows must keep their proxy-price warning visible.",
+        ],
+        [
+          "Snapshot rows",
+          `${run.dataSnapshotJson.financialPeriodCount ?? 0} financial / ${run.dataSnapshotJson.segmentFinancialCount ?? 0} segment`,
+          "Counts are from the persisted backend snapshot selected for this reporting event.",
+        ],
+        [
+          "Valuation base",
+          selectedSemantics?.auditedActualBase?.label ?? selectedSemantics?.eventVisibleRunRate?.label ?? run.dataSnapshotJson.valuationPeriodId ?? "n/a",
+          selectedIsRunRate ? "Run-rate event; not treated as a new audited actual base." : "Annual or preliminary actual base where available.",
+        ],
+        [
+          "Forecast timing",
+          `forecastStart=${selectedSemantics?.forecastStartYear ?? "n/a"} / firstGrowth=${selectedSemantics?.firstGrowthYear ?? "n/a"}`,
+          selectedSemantics?.dcfYearOneGrowthSuppressed
+            ? "Year-one DCF growth is suppressed to avoid same-year double compounding."
+            : "No same-year growth suppression flag was needed for this event.",
+        ],
+        [
+          "Coverage",
+          `${completeRuns}/${displayRows.length} backend events with ${scenario} runs`,
+          displayRows.length >= 29 ? "Full backend event set is visible, including pre-2021 proxy-price rows." : "Backend event set is incomplete or API response is truncated.",
+        ],
+      ]
+    : [];
 
   return (
     <SectionCard
@@ -920,8 +958,8 @@ function BackendHistoricalValuationPanel({ scenario }: { scenario: string }) {
       }
     >
       <div className="grid gap-4 lg:grid-cols-4">
-        <ScoreBlock label="Saved Runs" value={`${completeRuns}/${displayRows.length || 0}`} note={`${scenario} scenario, 2020-now`} />
-        <ScoreBlock label="Reporting Events" value={displayRows.length || "n/a"} note="Disclosure events in API window" />
+        <ScoreBlock label="Saved Runs" value={`${completeRuns}/${displayRows.length || 0}`} note={`${scenario} scenario, full backend set`} />
+        <ScoreBlock label="Reporting Events" value={displayRows.length || "n/a"} note="All disclosure events returned by API" />
         <ScoreBlock label="Selected Fair Value" value={run?.fairValue != null ? gbp(run.fairValue) : "n/a"} note="Backend persisted value" />
         <ScoreBlock label="Selected Upside" value={run?.upsideDownside != null ? pct(run.upsideDownside) : "n/a"} note="Fair value vs event price" />
       </div>
@@ -1036,6 +1074,10 @@ function BackendHistoricalValuationPanel({ scenario }: { scenario: string }) {
                       warning.severity,
                       warning.detail,
                     ])}
+                  />
+                  <DataTable
+                    columns={["Audit Field", "Value", "Operator Note"]}
+                    rows={sourceQualityRows}
                   />
                 </>
               ) : null}
