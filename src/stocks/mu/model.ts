@@ -160,6 +160,68 @@ export type MuCycleDecisionSystem = {
   monitoringPlan: string[];
 };
 
+export type MuHbmAiForecastYear = {
+  year: number;
+  sourceStatus: MuSourceStatus;
+  aiServerUnitIndex: number;
+  hbmContentPerAcceleratorIndex: number;
+  hbmBitDemandIndex: number;
+  muHbmRevenue: number;
+  muHbmRevenueMix: number;
+  customerDemandCoverage: number;
+  hbmGrossMarginPremium: number;
+  capexIntensity: number;
+  fcfConversion: number;
+  commentary: string;
+};
+
+export type MuHbmAiScenario = {
+  scenario: "Bear" | "Base" | "Bull";
+  aiServerUnitCagr: number;
+  hbmContentCagr: number;
+  fy2028HbmRevenue: number;
+  fy2028HbmMix: number;
+  normalizedGrossMargin: number;
+  normalizedFcfMargin: number;
+  capexIntensity: number;
+  supplyCatchUpYear: number;
+  investmentRead: string;
+};
+
+export type MuHbmAiDebate = {
+  id: string;
+  topic: string;
+  marketBelief: string;
+  buySideQuestion: string;
+  modelVariable: string;
+  proofPoint: string;
+  downsideTell: string;
+  currentRead: "constructive" | "mixed" | "caution";
+};
+
+export type MuHbmSupplyBottleneck = {
+  bottleneck: string;
+  whyItMatters: string;
+  indicator: string;
+  currentRead: string;
+};
+
+export type MuHbmAiDemandSystem = {
+  asOfDate: string;
+  sourceStatus: MuSourceStatus;
+  conclusion: string;
+  analystRead: string;
+  hedgeFundStyleRead: string;
+  modelUse: string;
+  forecastRows: MuHbmAiForecastYear[];
+  scenarios: MuHbmAiScenario[];
+  debates: MuHbmAiDebate[];
+  bottlenecks: MuHbmSupplyBottleneck[];
+  monitoringSignals: string[];
+  killCriteria: string[];
+  sourceNotes: string[];
+};
+
 export type MuDataset = {
   ticker: "MU";
   companyName: string;
@@ -172,6 +234,7 @@ export type MuDataset = {
   earningsCalls: MuEarningsCallQuarter[];
   memoryCycleForecast: MuMemoryCycleForecastYear[];
   cycleDecisionSystem: MuCycleDecisionSystem;
+  hbmAiDemandSystem: MuHbmAiDemandSystem;
   researchQuestions: Array<{ key: string; question: string; currentView: string; evidenceNeeded: string }>;
   sourceGaps: string[];
 };

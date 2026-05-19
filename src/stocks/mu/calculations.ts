@@ -288,5 +288,17 @@ export function buildMuDashboardData(dataset: MuDataset, scenario: Scenario, ass
       fcfMarginPct: signal.fcfMargin,
       grossMarginPct: signal.grossMargin,
     })),
+    hbmAiDemandSystem: dataset.hbmAiDemandSystem,
+    hbmForecastRows: dataset.hbmAiDemandSystem.forecastRows.map((row) => ({
+      ...row,
+      demandSupplyGap: row.hbmBitDemandIndex - row.customerDemandCoverage * 100,
+      hbmMixPct: row.muHbmRevenueMix,
+    })),
+    hbmScenarioRows: dataset.hbmAiDemandSystem.scenarios.map((row) => ({
+      ...row,
+      hbmMixPct: row.fy2028HbmMix,
+    })),
+    hbmDebateRows: dataset.hbmAiDemandSystem.debates,
+    hbmBottleneckRows: dataset.hbmAiDemandSystem.bottlenecks,
   };
 }

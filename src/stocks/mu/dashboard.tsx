@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
-import { AlertTriangle, Cpu, DatabaseZap, Factory, Globe2, Layers3, ShieldAlert, TrendingUp } from "lucide-react";
+import { AlertTriangle, Cpu, DatabaseZap, Factory, Globe2, Layers3, ShieldAlert } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { StockDashboardProps } from "../types";
 import { DataQualityBadge } from "../../components/shared/DataQualityBadge";
@@ -561,6 +561,182 @@ function MemoryCycleForecastPanel({ rows }: { rows: ReturnType<typeof buildMuDas
   );
 }
 
+function debateToneClass(signal: ReturnType<typeof buildMuDashboardData>["hbmDebateRows"][number]["currentRead"]) {
+  if (signal === "constructive") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (signal === "caution") return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function HbmAiDemandPanel({ dashboard }: { dashboard: ReturnType<typeof buildMuDashboardData> }) {
+  const latest = dashboard.hbmForecastRows[dashboard.hbmForecastRows.length - 1];
+
+  return (
+    <SectionCard
+      title="HBM / AI Server Demand Model"
+      description="Buy-side demand model linking AI server units, memory content per accelerator, HBM supply scarcity, Micron HBM revenue mix, capex and FCF conversion."
+      badge={<span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase text-blue-700">Forecast assumptions</span>}
+    >
+      <div className="grid gap-4 lg:grid-cols-4">
+        <ScoreBlock label="Model Verdict" value="HBM scarcity test" note="Track content growth, supply coverage and FCF conversion together." />
+        <ScoreBlock label="2030 HBM Demand Index" value={latest ? latest.hbmBitDemandIndex.toFixed(0) : "n/a"} note="2025 = 100; units x content per accelerator" />
+        <ScoreBlock label="2030 MU HBM Mix" value={latest ? pct(latest.muHbmRevenueMix) : "n/a"} note="Research assumption, not company guidance" />
+        <ScoreBlock label="2030 FCF Conversion" value={latest ? pct(latest.fcfConversion) : "n/a"} note="After HBM/node capex fade" />
+      </div>
+
+      <div className="mt-5 rounded-lg border border-slate-200 bg-white p-4">
+        <p className="text-sm font-semibold uppercase tracking-normal text-slate-500">How a top-down investor should use this</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">{dashboard.hbmAiDemandSystem.conclusion}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">{dashboard.hbmAiDemandSystem.modelUse}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">{dashboard.hbmAiDemandSystem.hedgeFundStyleRead}</p>
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-2">
+        <ChartPanel title="AI Server Unit Growth vs HBM Content Intensity">
+          <ResponsiveContainer width="100%" height={330}>
+            <LineChart data={dashboard.hbmForecastRows}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="year" />
+              <YAxis />
+              <Tooltip formatter={(value: number) => value.toFixed(0)} />
+              <Legend />
+              <Line type="monotone" dataKey="aiServerUnitIndex" name="AI server unit index" stroke="#64748b" strokeWidth={2.2} dot />
+              <Line type="monotone" dataKey="hbmContentPerAcceleratorIndex" name="HBM content / accelerator" stroke="#2563eb" strokeWidth={2.2} dot />
+              <Line type="monotone" dataKey="hbmBitDemandIndex" name="HBM bit demand index" stroke="#059669" strokeWidth={2.2} dot />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+
+        <ChartPanel title="MU HBM Revenue Path">
+          <ResponsiveContainer width="100%" height={330}>
+            <BarChart data={dashboard.hbmForecastRows}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="year" />
+              <YAxis tickFormatter={(value) => `$${Number(value).toFixed(0)}m`} width={72} />
+              <Tooltip formatter={(value: number) => usdm(value)} />
+              <Legend />
+              <Bar dataKey="muHbmRevenue" name="MU HBM revenue" fill="#2563eb" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+
+        <ChartPanel title="HBM Mix, Supply Coverage and FCF Conversion">
+          <ResponsiveContainer width="100%" height={330}>
+            <LineChart data={dashboard.hbmForecastRows}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="year" />
+              <YAxis tickFormatter={(value) => `${(Number(value) * 100).toFixed(0)}%`} />
+              <Tooltip formatter={(value: number) => pct(value)} />
+              <Legend />
+              <Line type="monotone" dataKey="muHbmRevenueMix" name="HBM revenue mix" stroke="#2563eb" strokeWidth={2.2} dot />
+              <Line type="monotone" dataKey="customerDemandCoverage" name="Customer demand coverage" stroke="#f97316" strokeWidth={2.2} dot />
+              <Line type="monotone" dataKey="fcfConversion" name="FCF conversion" stroke="#059669" strokeWidth={2.2} dot />
+              <Line type="monotone" dataKey="capexIntensity" name="Capex intensity" stroke="#0f172a" strokeWidth={2.2} dot />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+
+        <ChartPanel title="Scenario FY2028 HBM Revenue">
+          <ResponsiveContainer width="100%" height={330}>
+            <BarChart data={dashboard.hbmScenarioRows}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="scenario" />
+              <YAxis tickFormatter={(value) => `$${Number(value).toFixed(0)}m`} width={72} />
+              <Tooltip formatter={(value: number, name: string) => name === "FY2028 HBM mix" ? pct(value) : usdm(value)} />
+              <Legend />
+              <Bar dataKey="fy2028HbmRevenue" name="FY2028 HBM revenue" fill="#2563eb" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+      </div>
+
+      <DataTable
+        headers={["Year", "AI server index", "HBM content index", "HBM demand index", "MU HBM revenue", "HBM mix", "Demand coverage", "Capex", "FCF", "Model read"]}
+        rows={dashboard.hbmForecastRows.map((row) => [
+          row.year,
+          row.aiServerUnitIndex,
+          row.hbmContentPerAcceleratorIndex,
+          row.hbmBitDemandIndex,
+          usdm(row.muHbmRevenue),
+          pct(row.muHbmRevenueMix),
+          pct(row.customerDemandCoverage),
+          pct(row.capexIntensity),
+          pct(row.fcfConversion),
+          row.commentary,
+        ])}
+      />
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+        <div>
+          <p className="font-semibold text-ink">Scenario underwriting</p>
+          <DataTable
+            headers={["Scenario", "Unit CAGR", "Content CAGR", "FY2028 HBM", "Mix", "GM", "FCF", "Supply catch-up", "Investment read"]}
+            rows={dashboard.hbmScenarioRows.map((row) => [
+              row.scenario,
+              pct(row.aiServerUnitCagr),
+              pct(row.hbmContentCagr),
+              usdm(row.fy2028HbmRevenue),
+              pct(row.fy2028HbmMix),
+              pct(row.normalizedGrossMargin),
+              pct(row.normalizedFcfMargin),
+              row.supplyCatchUpYear,
+              row.investmentRead,
+            ])}
+          />
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <p className="font-semibold text-ink">Analyst and hedge-fund style debate</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{dashboard.hbmAiDemandSystem.analystRead}</p>
+          <div className="mt-4 grid gap-3">
+            {dashboard.hbmDebateRows.map((debate) => (
+              <div key={debate.id} className={`rounded-lg border p-4 ${debateToneClass(debate.currentRead)}`}>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <p className="text-sm font-semibold">{debate.topic}</p>
+                  <span className="rounded-full border border-current px-2 py-1 text-xs font-semibold uppercase">{debate.currentRead}</span>
+                </div>
+                <p className="mt-2 text-xs leading-5 opacity-80"><strong>Market belief:</strong> {debate.marketBelief}</p>
+                <p className="mt-2 text-xs leading-5 opacity-80"><strong>Buy-side question:</strong> {debate.buySideQuestion}</p>
+                <p className="mt-2 text-xs leading-5 opacity-80"><strong>Proof point:</strong> {debate.proofPoint}</p>
+                <p className="mt-2 text-xs leading-5 opacity-80"><strong>Downside tell:</strong> {debate.downsideTell}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <DataTable
+        headers={["Bottleneck", "Why it matters", "Indicator", "Current read"]}
+        rows={dashboard.hbmBottleneckRows.map((row) => [
+          row.bottleneck,
+          row.whyItMatters,
+          row.indicator,
+          row.currentRead,
+        ])}
+      />
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-3">
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <p className="font-semibold text-ink">Monitoring signals</p>
+          <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+            {dashboard.hbmAiDemandSystem.monitoringSignals.map((item) => <li key={item}>- {item}</li>)}
+          </ul>
+        </div>
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4">
+          <p className="font-semibold text-rose-900">Kill criteria</p>
+          <ul className="mt-3 space-y-2 text-sm leading-6 text-rose-900">
+            {dashboard.hbmAiDemandSystem.killCriteria.map((item) => <li key={item}>- {item}</li>)}
+          </ul>
+        </div>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <p className="font-semibold text-amber-900">Source notes</p>
+          <ul className="mt-3 space-y-2 text-sm leading-6 text-amber-900">
+            {dashboard.hbmAiDemandSystem.sourceNotes.map((item) => <li key={item}>- {item}</li>)}
+          </ul>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
 export function MuDashboard({ module, scenario, onScenarioChange, dataSourceType, onDataSourceChange }: StockDashboardProps) {
   const [tab, setTab] = useState(module.tabs[0]?.value ?? "dashboard");
   const data = module.data as MuDataset;
@@ -646,16 +822,7 @@ export function MuDashboard({ module, scenario, onScenarioChange, dataSourceType
         </Tabs.Content>
 
         <Tabs.Content value="hbm-ai" className="mt-6 space-y-6">
-          <SectionCard title="HBM / AI Server Demand" description="The investment question is whether HBM mix is durable enough to support premium normalized margins after capacity catches up.">
-            <div className="grid gap-4 lg:grid-cols-2">
-              <InsightCard icon={<TrendingUp className="h-5 w-5" />} title="What Supports the Bull Case">
-                Qualification with leading AI accelerator customers, longer-duration HBM commitments, constrained supply and higher value per bit can raise through-cycle gross margin.
-              </InsightCard>
-              <InsightCard icon={<AlertTriangle className="h-5 w-5" />} title="What Breaks the Bull Case">
-                The risk is that investors capitalize a super-cycle quarter while competitors add supply, pricing resets and capex remains elevated.
-              </InsightCard>
-            </div>
-          </SectionCard>
+          <HbmAiDemandPanel dashboard={dashboard} />
         </Tabs.Content>
 
         <Tabs.Content value="margins-fcf" className="mt-6 space-y-6">
