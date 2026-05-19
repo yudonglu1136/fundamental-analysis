@@ -52,7 +52,11 @@ try {
   assert(typeof pltrModule.calculateSummary === "function", "PLTR module must expose calculateSummary.");
   assert(typeof pltrModule.calculateValuation === "function", "PLTR module must expose calculateValuation.");
   assert(typeof pltrModule.Dashboard === "function", "PLTR module must expose Dashboard.");
-  assert(pltrModule.tabs.length === 13, "PLTR module should expose the requested dashboard tabs plus the Q1 2026 Deep Dive.");
+  assert(pltrModule.tabs.length === 14, "PLTR module should expose the requested dashboard tabs plus the Key Insights and Q1 2026 Deep Dive tabs.");
+  assert(
+    pltrModule.tabs.some((tab) => tab.value === "key-insights"),
+    "PLTR module must expose the Key Insights tab.",
+  );
   assert(
     pltrModule.tabs.some((tab) => tab.value === "q1-2026-deep-dive"),
     "PLTR module must expose the Q1 2026 Deep Dive tab.",
@@ -112,6 +116,24 @@ try {
   assert(
     dashboard.q1DeepDive.valuationImplication.every((item) => item.layer === "valuation_implication"),
     "Q1 Deep Dive valuation implications must remain in the valuation implication layer.",
+  );
+  assert(Array.isArray(dashboard.submoduleInsights), "PLTR dashboard must expose submodule key insights.");
+  assert(dashboard.submoduleInsights.length >= pltrModule.tabs.length, "PLTR submodule insight ledger must cover every dashboard tab plus historical/backend valuation coverage.");
+  assert(
+    dashboard.submoduleInsights.every((item) =>
+      item.module &&
+      item.keyQuestion &&
+      item.keyInsight &&
+      item.dataReadThrough &&
+      item.modelImplication &&
+      item.falsifier &&
+      item.sourceQuality
+    ),
+    "Every PLTR submodule insight must include key question, insight, data read-through, model implication, falsifier, and source quality.",
+  );
+  assert(
+    dashboard.submoduleInsights.some((item) => item.module === "Historical Valuation" && item.sourceQuality.includes("Backend pilot")),
+    "PLTR submodule insights must document historical valuation and backend status.",
   );
   assert(dashboard.aip.valuationImpact.every((item) => typeof item === "string"), "AIP engine should explain valuation mapping rather than directly changing valuation.");
   assert(!valuationEngineSource.includes("researchSignals"), "Valuation engine must not import researchSignals.");

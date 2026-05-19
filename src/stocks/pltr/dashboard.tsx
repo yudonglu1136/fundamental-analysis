@@ -27,6 +27,7 @@ import { RedTeamRiskPanel } from "./components/RedTeamRiskPanel";
 import { RuleOf40Engine } from "./components/RuleOf40Engine";
 import { SBCDilutionTracker } from "./components/SBCDilutionTracker";
 import { ScenarioLab } from "./components/ScenarioLab";
+import { SubmoduleInsightLedger } from "./components/SubmoduleInsightLedger";
 import { TranscriptIntelligenceLab } from "./components/TranscriptIntelligenceLab";
 import { ValuationDashboard } from "./components/ValuationDashboard";
 import { SourceNote } from "./components/PLTRPrimitives";
@@ -116,6 +117,9 @@ export function PltrDashboard({ module, scenario, period, dataSourceType, onData
 
         <Tabs.Content value="overview" className="mt-6">
           <PLTROverview dashboard={dashboard} />
+        </Tabs.Content>
+        <Tabs.Content value="key-insights" className="mt-6">
+          <SubmoduleInsightLedger dashboard={dashboard} />
         </Tabs.Content>
         <Tabs.Content value="q1-2026-deep-dive" className="mt-6">
           <Q1DeepDive dashboard={dashboard} />

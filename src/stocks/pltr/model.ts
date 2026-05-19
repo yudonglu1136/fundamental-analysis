@@ -295,6 +295,20 @@ export type PltrRisk = {
   bullThesisInvalidator: string;
 };
 
+export type PltrSubmoduleInsight = {
+  id: string;
+  module: string;
+  tab: string;
+  stance: "Constructive" | "Mixed" | "Caution" | "Adversarial";
+  evidenceStrength: "High" | "Medium" | "Low" | "Source Gap";
+  keyQuestion: string;
+  keyInsight: string;
+  dataReadThrough: string;
+  modelImplication: string;
+  falsifier: string;
+  sourceQuality: string;
+};
+
 export type PltrEvidenceLayer =
   | "official_reported"
   | "derived_metric"
@@ -393,4 +407,5 @@ export type PltrDashboardData = {
   };
   q1DeepDive: PltrQ1DeepDiveData;
   risks: PltrRisk[];
+  submoduleInsights: PltrSubmoduleInsight[];
 };

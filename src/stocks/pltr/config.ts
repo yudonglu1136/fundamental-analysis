@@ -51,6 +51,7 @@ export const pltrModule: StockModule = {
     "PLTR-specific fundamental dashboard tracking AIP adoption, ontology moat, government durability, commercial expansion, operating leverage, SBC dilution, reverse DCF, transcripts, and buy-side risk framing.",
   tabs: [
     { value: "overview", label: "Overview" },
+    { value: "key-insights", label: "Key Insights" },
     { value: "q1-2026-deep-dive", label: "Q1 2026 Deep Dive" },
     { value: "business-segments", label: "Business Segments" },
     { value: "aip-engine", label: "AIP Engine" },
