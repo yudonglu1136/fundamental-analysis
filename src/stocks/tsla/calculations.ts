@@ -279,5 +279,17 @@ export function buildTslaDashboardData(dataset: TslaDataset, scenario: Scenario,
       activeFsdSubscriptionsMillions: row.activeFsdSubscriptions ?? null,
     })),
     scenarioBridgeRows: dataset.deepDiveSystem.scenarioBridge,
+    robotaxi: dataset.robotaxiSystem,
+    robotaxiMetrics: dataset.robotaxiSystem.metrics,
+    robotaxiCityRows: dataset.robotaxiSystem.cityStatus.map((row) => ({
+      ...row,
+      statusLabel: row.status.replace(/_/g, " "),
+    })),
+    robotaxiUnitEconomicsRows: dataset.robotaxiSystem.unitEconomics.map((row) => ({
+      ...row,
+      netRevenuePerMile: row.revenuePerMile - row.operatingCostPerMile,
+      impliedEbitda: row.impliedAnnualRevenue * row.ebitdaMargin,
+    })),
+    robotaxiEvidenceRows: dataset.robotaxiSystem.evidenceSteps,
   };
 }

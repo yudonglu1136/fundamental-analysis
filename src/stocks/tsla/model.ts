@@ -159,6 +159,61 @@ export type TslaScenarioBridge = {
   evidenceToUpgrade: string;
 };
 
+export type TslaRobotaxiMetric = {
+  id: string;
+  label: string;
+  category: "Fleet" | "Product" | "Regulatory" | "Safety" | "Unit Economics" | "Valuation";
+  value: number | string;
+  unit: "count" | "million" | "percent" | "score" | "currency" | "text";
+  sourceStatus: TslaSourceStatus;
+  sourceId: string;
+  interpretation: string;
+  modelAction: string;
+  signal: "constructive" | "neutral" | "caution" | "avoid";
+};
+
+export type TslaRobotaxiCityStatus = {
+  metro: string;
+  status: "safety_driver" | "ramping_unsupervised" | "planned" | "unknown";
+  launchWindow: string;
+  sourceStatus: TslaSourceStatus;
+  gatingFactor: string;
+  investmentReadThrough: string;
+};
+
+export type TslaRobotaxiUnitEconomicsScenario = {
+  scenario: "Bear" | "Base" | "Bull";
+  fleetSize: number;
+  paidMilesPerVehiclePerDay: number;
+  revenuePerMile: number;
+  operatingCostPerMile: number;
+  utilization: number;
+  ebitdaMargin: number;
+  impliedAnnualRevenue: number;
+  modelReadThrough: string;
+};
+
+export type TslaRobotaxiEvidenceStep = {
+  step: string;
+  status: "proven" | "emerging" | "unproven" | "risk";
+  evidence: string;
+  nextProofPoint: string;
+  valuationImpact: string;
+};
+
+export type TslaRobotaxiSystem = {
+  verdict: string;
+  currentStatus: string;
+  variantView: string;
+  valuationGuardrail: string;
+  metrics: TslaRobotaxiMetric[];
+  cityStatus: TslaRobotaxiCityStatus[];
+  unitEconomics: TslaRobotaxiUnitEconomicsScenario[];
+  evidenceSteps: TslaRobotaxiEvidenceStep[];
+  killCriteria: string[];
+  monitoringPlan: string[];
+};
+
 export type TslaDeepDiveSystem = {
   verdict: string;
   currentRead: string;
@@ -185,6 +240,7 @@ export type TslaDataset = {
   energyStorageDeployments: TslaEnergyStorageDeployment[];
   fsdSubscriptionProxy: TslaFsdSubscriptionProxy[];
   deepDiveSystem: TslaDeepDiveSystem;
+  robotaxiSystem: TslaRobotaxiSystem;
   researchQuestions: Array<{ key: string; question: string; currentView: string; evidenceNeeded: string }>;
   sourceGaps: string[];
 };

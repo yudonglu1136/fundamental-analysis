@@ -203,6 +203,22 @@ function signalToneClass(signal: ReturnType<typeof buildTslaDashboardData>["deep
   return "border-slate-200 bg-slate-50 text-slate-700";
 }
 
+function robotaxiSignalClass(signal: ReturnType<typeof buildTslaDashboardData>["robotaxiMetrics"][number]["signal"]) {
+  if (signal === "constructive") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (signal === "caution") return "border-amber-200 bg-amber-50 text-amber-800";
+  if (signal === "avoid") return "border-rose-200 bg-rose-50 text-rose-800";
+  return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function formatRobotaxiMetric(metric: ReturnType<typeof buildTslaDashboardData>["robotaxiMetrics"][number]) {
+  if (typeof metric.value !== "number") return metric.value;
+  if (metric.unit === "million") return `${metric.value.toFixed(2)}m`;
+  if (metric.unit === "percent") return pct(metric.value);
+  if (metric.unit === "currency") return usd(metric.value);
+  if (metric.unit === "count") return metric.value.toLocaleString();
+  return metric.value.toFixed(0);
+}
+
 function TeslaDeepDivePanel({ dashboard }: { dashboard: ReturnType<typeof buildTslaDashboardData> }) {
   const latest = dashboard.quarterlyThesisRows[dashboard.quarterlyThesisRows.length - 1];
   const constructiveCount = dashboard.deepDiveIndicators.filter((indicator) => indicator.portfolioSignal === "constructive").length;
@@ -311,6 +327,135 @@ function TeslaDeepDivePanel({ dashboard }: { dashboard: ReturnType<typeof buildT
           <p className="font-semibold text-ink">Monitoring plan</p>
           <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
             {dashboard.deepDive.monitoringPlan.map((item) => <li key={item}>- {item}</li>)}
+          </ul>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+function RobotaxiSystemPanel({ dashboard }: { dashboard: ReturnType<typeof buildTslaDashboardData> }) {
+  const constructiveCount = dashboard.robotaxiMetrics.filter((metric) => metric.signal === "constructive").length;
+  const cautionCount = dashboard.robotaxiMetrics.filter((metric) => metric.signal === "caution" || metric.signal === "avoid").length;
+  const baseCase = dashboard.robotaxiUnitEconomicsRows.find((row) => row.scenario === "Base");
+  const evidenceComplete = dashboard.robotaxiEvidenceRows.filter((row) => row.status === "proven" || row.status === "emerging").length;
+
+  return (
+    <SectionCard
+      title="Robotaxi System Analysis"
+      description="A staged Robotaxi underwriting framework: FSD subscriptions, fleet scale, city rollout, safety/regulatory proof, paid-mile economics and valuation guardrails."
+      badge={<span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold uppercase text-violet-700">Robotaxi option</span>}
+    >
+      <div className="grid gap-4 lg:grid-cols-4">
+        <ScoreBlock label="Verdict" value="Option value" note={dashboard.robotaxi.verdict} />
+        <ScoreBlock label="Evidence Ladder" value={`${evidenceComplete}/${dashboard.robotaxiEvidenceRows.length}`} note="Proven/emerging steps versus full proof ladder" />
+        <ScoreBlock label="Base Revenue Case" value={baseCase ? usdm(baseCase.impliedAnnualRevenue) : "n/a"} note="Proxy annual Robotaxi revenue, not company guidance" />
+        <ScoreBlock label="Signal Balance" value={`${constructiveCount} / ${cautionCount}`} note="Constructive indicators vs caution/avoid indicators" />
+      </div>
+
+      <div className="mt-5 rounded-lg border border-slate-200 bg-white p-4">
+        <p className="text-sm font-semibold uppercase tracking-normal text-slate-500">Current status</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">{dashboard.robotaxi.currentStatus}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">{dashboard.robotaxi.variantView}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">{dashboard.robotaxi.valuationGuardrail}</p>
+      </div>
+
+      <div className="mt-5 grid gap-3 lg:grid-cols-3">
+        {dashboard.robotaxiMetrics.map((metric) => (
+          <div key={metric.id} className={`rounded-lg border p-4 ${robotaxiSignalClass(metric.signal)}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-normal opacity-75">{metric.category}</p>
+                <p className="mt-1 text-sm font-semibold">{metric.label}</p>
+              </div>
+              <span className="rounded-full border border-current px-2 py-1 text-xs font-semibold uppercase">{metric.signal}</span>
+            </div>
+            <p className="mt-3 text-2xl font-semibold">{formatRobotaxiMetric(metric)}</p>
+            <p className="mt-2 text-sm leading-6">{metric.interpretation}</p>
+            <p className="mt-3 text-xs font-semibold uppercase tracking-normal opacity-75">Model action</p>
+            <p className="mt-1 text-sm leading-6">{metric.modelAction}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-2">
+        <ChartPanel title="Robotaxi Unit Economics Scenarios">
+          <ResponsiveContainer width="100%" height={340}>
+            <BarChart data={dashboard.robotaxiUnitEconomicsRows}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="scenario" />
+              <YAxis tickFormatter={(value) => `$${Number(value).toFixed(0)}m`} width={72} />
+              <Tooltip formatter={(value: number) => usdm(value)} />
+              <Legend />
+              <Bar dataKey="impliedAnnualRevenue" name="Annual revenue" fill="#7c3aed" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="impliedEbitda" name="Implied EBITDA" fill="#059669" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+        <ChartPanel title="Revenue per Mile vs Operating Cost per Mile">
+          <ResponsiveContainer width="100%" height={340}>
+            <BarChart data={dashboard.robotaxiUnitEconomicsRows}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="scenario" />
+              <YAxis tickFormatter={(value) => `$${Number(value).toFixed(2)}`} />
+              <Tooltip formatter={(value: number) => `$${value.toFixed(2)}`} />
+              <Legend />
+              <Bar dataKey="revenuePerMile" name="Revenue / mile" fill="#2563eb" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="operatingCostPerMile" name="Operating cost / mile" fill="#f97316" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="netRevenuePerMile" name="Net revenue / mile" fill="#0f172a" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+      </div>
+
+      <DataTable
+        headers={["Scenario", "Fleet", "Miles / Vehicle / Day", "Revenue / Mile", "Cost / Mile", "Utilization", "EBITDA Margin", "Read-through"]}
+        rows={dashboard.robotaxiUnitEconomicsRows.map((row) => [
+          row.scenario,
+          row.fleetSize.toLocaleString(),
+          row.paidMilesPerVehiclePerDay,
+          `$${row.revenuePerMile.toFixed(2)}`,
+          `$${row.operatingCostPerMile.toFixed(2)}`,
+          pct(row.utilization),
+          pct(row.ebitdaMargin),
+          row.modelReadThrough,
+        ])}
+      />
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+        <DataTable
+          headers={["City / Metro", "Status", "Launch Window", "Gating Factor", "Investment Read-through"]}
+          rows={dashboard.robotaxiCityRows.map((row) => [
+            row.metro,
+            row.statusLabel,
+            row.launchWindow,
+            row.gatingFactor,
+            row.investmentReadThrough,
+          ])}
+        />
+        <DataTable
+          headers={["Evidence Step", "Status", "Evidence", "Next Proof Point", "Valuation Impact"]}
+          rows={dashboard.robotaxiEvidenceRows.map((row) => [
+            row.step,
+            row.status,
+            row.evidence,
+            row.nextProofPoint,
+            row.valuationImpact,
+          ])}
+        />
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4">
+          <p className="font-semibold text-rose-900">Robotaxi kill criteria</p>
+          <ul className="mt-3 space-y-2 text-sm leading-6 text-rose-900">
+            {dashboard.robotaxi.killCriteria.map((item) => <li key={item}>- {item}</li>)}
+          </ul>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <p className="font-semibold text-ink">Monitoring plan</p>
+          <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+            {dashboard.robotaxi.monitoringPlan.map((item) => <li key={item}>- {item}</li>)}
           </ul>
         </div>
       </div>
@@ -725,6 +870,10 @@ export function TslaDashboard({ module, scenario, onScenarioChange, dataSourceTy
               </InsightCard>
             </div>
           </SectionCard>
+        </Tabs.Content>
+
+        <Tabs.Content value="robotaxi-system" className="mt-6 space-y-6">
+          <RobotaxiSystemPanel dashboard={dashboard} />
         </Tabs.Content>
 
         <Tabs.Content value="margins-fcf" className="mt-6 space-y-6">

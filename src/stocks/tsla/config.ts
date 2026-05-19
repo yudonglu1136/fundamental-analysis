@@ -37,6 +37,7 @@ export const tslaModule = createStockModule({
     { value: "auto-ev-demand", label: "Auto / EV Demand" },
     { value: "energy-storage", label: "Energy Storage" },
     { value: "autonomy-software", label: "Autonomy / Software" },
+    { value: "robotaxi-system", label: "Robotaxi System" },
     { value: "margins-fcf", label: "Margins / FCF" },
     { value: "valuation", label: "Valuation" },
     { value: "risk-red-team", label: "Risk Red Team" },
