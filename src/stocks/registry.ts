@@ -5,6 +5,7 @@ import { aznModule } from "./azn/config";
 import { amznModule } from "./amzn/config";
 import { nvdaModule } from "./nvda/config";
 import { asmlModule } from "./asml/config";
+import { muModule } from "./mu/config";
 import { aaplModule } from "./aapl/config";
 import { maModule } from "./ma/config";
 import { vModule } from "./v/config";
@@ -26,6 +27,7 @@ import { gildModule } from "./gild/config";
 import { autlModule } from "./autl/config";
 import { tsmModule } from "./tsm/config";
 import { cegModule } from "./ceg/config";
+import { tslaModule } from "./tsla/config";
 
 export const stockRegistry = {
   "BA.L": baModule,
@@ -35,6 +37,7 @@ export const stockRegistry = {
   AMZN: amznModule,
   NVDA: nvdaModule,
   ASML: asmlModule,
+  MU: muModule,
   AAPL: aaplModule,
   MA: maModule,
   V: vModule,
@@ -54,6 +57,7 @@ export const stockRegistry = {
   AUTL: autlModule,
   TSM: tsmModule,
   CEG: cegModule,
+  TSLA: tslaModule,
   "DGE.L": dgeModule,
   TRI: triModule,
 };
