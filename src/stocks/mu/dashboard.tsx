@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import { AlertTriangle, Cpu, DatabaseZap, Factory, Globe2, Layers3, ShieldAlert, TrendingUp } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { StockDashboardProps } from "../types";
 import { DataQualityBadge } from "../../components/shared/DataQualityBadge";
 import { InteractiveValuationDashboard } from "../../components/shared/InteractiveValuationDashboard";
@@ -152,6 +152,286 @@ function ValuationMethodTable({ valuation }: { valuation: ReturnType<typeof buil
   );
 }
 
+function ScoreBlock({ label, value, note }: { label: string; value: ReactNode; note: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-ink">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-500">{note}</p>
+    </div>
+  );
+}
+
+function ChartPanel({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <p className="font-semibold text-ink">{title}</p>
+      <div className="mt-4">{children}</div>
+    </div>
+  );
+}
+
+function DataTable({ headers, rows }: { headers: string[]; rows: Array<Array<ReactNode>> }) {
+  return (
+    <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <table className="min-w-full divide-y divide-slate-200 text-sm">
+        <thead className="bg-slate-50 text-left text-xs font-semibold uppercase text-slate-500">
+          <tr>
+            {headers.map((header) => (
+              <th key={header} className="px-3 py-2">{header}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 text-slate-700">
+          {rows.map((row, rowIndex) => (
+            <tr key={`row-${rowIndex}`}>
+              {row.map((cell, cellIndex) => (
+                <td key={`cell-${cellIndex}`} className="px-3 py-2 align-top">{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function HistoricalValuationPanel({ rows }: { rows: ReturnType<typeof buildMuDashboardData>["historicalValuationRows"] }) {
+  const [visibleCount, setVisibleCount] = useState(12);
+  const [selectedId, setSelectedId] = useState(rows[rows.length - 1]?.id ?? "");
+  const selected = rows.find((row) => row.id === selectedId) ?? rows[rows.length - 1] ?? null;
+  const visibleRows = rows.slice(Math.max(0, rows.length - visibleCount));
+  const latestGap = rows[rows.length - 1]?.gapPct ?? null;
+  const averageVisibleGap = visibleRows.length
+    ? visibleRows.reduce((sum, row) => sum + row.gapPct, 0) / visibleRows.length
+    : null;
+
+  return (
+    <SectionCard
+      title="MU Historical Valuation Lab"
+      description="MSFT-style local research valuation history by reporting event. Grey bars are event-date prices; blue bars are event-specific fair values. Rows are not backend-persisted yet."
+      badge={<span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase text-slate-600">Local research</span>}
+    >
+      <div className="grid gap-4 lg:grid-cols-4">
+        <ScoreBlock label="Saved Runs" value={rows.length} note="Local event scenarios, oldest to newest" />
+        <ScoreBlock label="Event Count" value={rows.length} note="Research snapshots awaiting SQLite persistence" />
+        <ScoreBlock label="Selected Fair Value" value={selected ? usd(selected.fairValue) : "n/a"} note={selected?.fiscalPeriod ?? "No event selected"} />
+        <ScoreBlock label="Selected Gap" value={selected ? pct(selected.gapPct) : "n/a"} note="Fair value vs as-of price" />
+      </div>
+
+      <div className="mt-5 rounded-lg border border-slate-200 bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-ink">Visible history window</p>
+            <p className="mt-1 text-xs text-slate-500">Chart is sorted oldest to newest. Use the controls to match the MSFT valuation window pattern.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[8, 12, 16, rows.length].map((count) => (
+              <button
+                key={count}
+                type="button"
+                onClick={() => setVisibleCount(count)}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${visibleCount === count ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}
+              >
+                {count === rows.length ? "All" : `${count} events`}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <ScoreBlock label="Visible Window" value={`${visibleRows.length} events`} note={`${visibleRows[0]?.fiscalPeriod ?? "n/a"} to ${visibleRows[visibleRows.length - 1]?.fiscalPeriod ?? "n/a"}`} />
+          <ScoreBlock label="Latest Gap" value={latestGap != null ? pct(latestGap) : "n/a"} note="Latest local research event" />
+          <ScoreBlock label="Average Gap" value={averageVisibleGap != null ? pct(averageVisibleGap) : "n/a"} note="Average of visible rows" />
+        </div>
+      </div>
+
+      <div className="mt-5 flex gap-3 overflow-x-auto pb-2">
+        {rows.map((row) => (
+          <button
+            key={row.id}
+            type="button"
+            onClick={() => setSelectedId(row.id)}
+            className={`min-w-[170px] rounded-lg border px-3 py-2 text-left text-sm transition ${selected?.id === row.id ? "border-blue-500 bg-blue-50 text-blue-950" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"}`}
+          >
+            <span className="block text-xs font-semibold uppercase text-slate-500">{row.eventDate}</span>
+            <span className="mt-1 block font-semibold">{row.fiscalPeriod}</span>
+            <span className="mt-1 block text-xs text-slate-500">{row.method}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <p className="font-semibold text-ink">{selected?.label ?? "Selected reporting event"}</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <ScoreBlock label="Event Date" value={selected?.eventDate ?? "n/a"} note={selected?.sourceStatus.replace(/_/g, " ") ?? "n/a"} />
+            <ScoreBlock label="As-of Price" value={selected ? usd(selected.asOfPrice) : "n/a"} note="Nearest event-date market snapshot" />
+            <ScoreBlock label="3Y Target" value={selected ? usd(selected.targetPrice3Y) : "n/a"} note="Event-specific target" />
+            <ScoreBlock label="3Y CAGR" value={selected ? pct(selected.expectedShareholderCagr) : "n/a"} note="Modelled shareholder CAGR" />
+          </div>
+          <DataTable
+            headers={["Method", "Value", "Description"]}
+            rows={(selected?.methodOutputs ?? []).map((row) => [
+              row.label,
+              row.format === "percent" ? pct(row.value) : usd(row.value),
+              row.description,
+            ])}
+          />
+          {(selected?.warnings ?? []).map((warning) => (
+            <div key={warning} className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+              {warning}
+            </div>
+          ))}
+        </div>
+
+        <ChartPanel title="As-of Price vs Fair Value">
+          <ResponsiveContainer width="100%" height={340}>
+            <BarChart data={visibleRows}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="fiscalPeriod" tick={{ fontSize: 11 }} interval={0} angle={-16} textAnchor="end" height={72} />
+              <YAxis />
+              <Tooltip
+                formatter={(value: number, name: string) => name === "Gap" ? pct(value) : usd(value)}
+                labelFormatter={(label, payload) => {
+                  const row = payload?.[0]?.payload;
+                  return `${label}${row?.eventDate ? ` | ${row.eventDate}` : ""}${typeof row?.gapPct === "number" ? ` | Gap ${pct(row.gapPct)}` : ""}`;
+                }}
+              />
+              <Legend />
+              <Bar dataKey="asOfPrice" fill="#94a3b8" name="As-of price" />
+              <Bar dataKey="fairValue" fill="#2563eb" name="Fair value" />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+      </div>
+    </SectionCard>
+  );
+}
+
+function EarningsCallPanel({ rows }: { rows: ReturnType<typeof buildMuDashboardData>["earningsCallRows"] }) {
+  const [selectedId, setSelectedId] = useState(rows[rows.length - 1]?.id ?? "");
+  const selected = rows.find((row) => row.id === selectedId) ?? rows[rows.length - 1] ?? null;
+
+  return (
+    <SectionCard
+      title="MU Earnings Call Intelligence"
+      description="MSFT-style earnings-call lens: management tone, analyst questions, estimate-changing variables and model read-throughs."
+      badge={<span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase text-blue-700">Call analysis</span>}
+    >
+      <div className="flex gap-3 overflow-x-auto pb-2">
+        {rows.map((row) => (
+          <button
+            key={row.id}
+            type="button"
+            onClick={() => setSelectedId(row.id)}
+            className={`min-w-[160px] rounded-lg border px-3 py-2 text-left text-sm ${selected?.id === row.id ? "border-blue-500 bg-blue-50 text-blue-950" : "border-slate-200 bg-white text-slate-700"}`}
+          >
+            <span className="block text-xs font-semibold uppercase text-slate-500">{row.callDate}</span>
+            <span className="mt-1 block font-semibold">{row.quarter}</span>
+            <span className="mt-1 block text-xs capitalize text-slate-500">{row.managementTone}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="space-y-4">
+          <ScoreBlock label="Market Focus" value={selected?.quarter ?? "n/a"} note={selected?.marketFocusSummary ?? "No call selected"} />
+          <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <p className="font-semibold text-ink">Reported facts</p>
+            <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+              {(selected?.reportedFacts ?? []).map((fact) => <li key={fact}>- {fact}</li>)}
+            </ul>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <p className="font-semibold text-ink">Model read-through</p>
+            <p className="mt-3 text-sm leading-6 text-slate-600">{selected?.modelReadThrough ?? "n/a"}</p>
+          </div>
+        </div>
+
+        <ChartPanel title="Quarterly Focus Score Trend">
+          <ResponsiveContainer width="100%" height={330}>
+            <LineChart data={rows}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="quarter" tick={{ fontSize: 11 }} />
+              <YAxis domain={[0, 100]} />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="hbmDemand" name="HBM demand" stroke="#2563eb" strokeWidth={2.2} dot />
+              <Line type="monotone" dataKey="dramPricing" name="DRAM pricing" stroke="#0f172a" strokeWidth={2.2} dot />
+              <Line type="monotone" dataKey="capexFcf" name="Capex / FCF" stroke="#f97316" strokeWidth={2.2} dot />
+              <Line type="monotone" dataKey="supplyDiscipline" name="Supply discipline" stroke="#059669" strokeWidth={2.2} dot />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+      </div>
+
+      <DataTable
+        headers={["Quarter", "Analyst focus", "Tone", "Key model action"]}
+        rows={rows.map((row) => [
+          row.quarter,
+          row.analystFocus.join(" / "),
+          row.managementTone,
+          row.modelReadThrough,
+        ])}
+      />
+    </SectionCard>
+  );
+}
+
+function MemoryCycleForecastPanel({ rows }: { rows: ReturnType<typeof buildMuDashboardData>["memoryCycleForecastRows"] }) {
+  return (
+    <SectionCard
+      title="Five-Year Memory Cycle Forecast Model"
+      description="Forward model for DRAM/NAND bit growth, HBM mix, capex intensity and normalized FCF. All forward years are forecast assumptions, not official guidance."
+      badge={<span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold uppercase text-amber-700">Forecast model</span>}
+    >
+      <div className="grid gap-5 xl:grid-cols-2">
+        <ChartPanel title="Revenue and FCF by Cycle Year">
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={rows}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="year" />
+              <YAxis tickFormatter={(value) => `$${Number(value).toFixed(0)}m`} width={72} />
+              <Tooltip formatter={(value: number) => usdm(value)} />
+              <Legend />
+              <Bar dataKey="revenue" name="Revenue" fill="#2563eb" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="fcf" name="FCF" fill="#059669" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+        <ChartPanel title="HBM Mix, Demand and Supply Risk">
+          <ResponsiveContainer width="100%" height={320}>
+            <LineChart data={rows}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="year" />
+              <YAxis />
+              <Tooltip formatter={(value: number, name: string) => name === "HBM mix" ? pct(value) : value.toFixed(0)} />
+              <Legend />
+              <Line type="monotone" dataKey="hbmRevenueMix" name="HBM mix" stroke="#2563eb" strokeWidth={2.2} dot />
+              <Line type="monotone" dataKey="demandIndex" name="Demand index" stroke="#059669" strokeWidth={2.2} dot />
+              <Line type="monotone" dataKey="supplyRiskIndex" name="Supply risk" stroke="#f97316" strokeWidth={2.2} dot />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+      </div>
+
+      <DataTable
+        headers={["Year", "Cycle phase", "Revenue", "GM", "FCF margin", "Capex intensity", "HBM mix", "Commentary"]}
+        rows={rows.map((row) => [
+          row.year,
+          row.cyclePhase,
+          usdm(row.revenue),
+          pct(row.grossMargin),
+          pct(row.fcfMargin),
+          pct(row.capexIntensity),
+          pct(row.hbmRevenueMix),
+          row.commentary,
+        ])}
+      />
+    </SectionCard>
+  );
+}
+
 export function MuDashboard({ module, scenario, onScenarioChange, dataSourceType, onDataSourceChange }: StockDashboardProps) {
   const [tab, setTab] = useState(module.tabs[0]?.value ?? "dashboard");
   const data = module.data as MuDataset;
@@ -216,10 +496,15 @@ export function MuDashboard({ module, scenario, onScenarioChange, dataSourceType
           </div>
         </Tabs.Content>
 
+        <Tabs.Content value="earnings-call" className="mt-6 space-y-6">
+          <EarningsCallPanel rows={dashboard.earningsCallRows} />
+        </Tabs.Content>
+
         <Tabs.Content value="memory-cycle" className="mt-6 space-y-6">
           <SectionCard title="HBM, DRAM and NAND Cycle Signals" description="Research-only scorecard until HBM mix, pricing and qualification data are parsed from official sources.">
             <SignalChart rows={dashboard.operatingRows} />
           </SectionCard>
+          <MemoryCycleForecastPanel rows={dashboard.memoryCycleForecastRows} />
           <div className="grid gap-4 lg:grid-cols-3">
             {data.operatingMetrics.slice(-3).map((metric) => (
               <InsightCard key={metric.periodId} icon={<Cpu className="h-5 w-5" />} title={data.periods.find((period) => period.id === metric.periodId)?.label ?? metric.periodId}>
@@ -253,6 +538,7 @@ export function MuDashboard({ module, scenario, onScenarioChange, dataSourceType
         </Tabs.Content>
 
         <Tabs.Content value="valuation" className="mt-6 space-y-6">
+          <HistoricalValuationPanel rows={dashboard.historicalValuationRows} />
           <SectionCard title="MU Valuation Triangulation" description="Normalized memory-cycle model using EV/Sales, EV/EBIT, FCF yield, P/E cross-check and DCF.">
             <ValuationMethodTable valuation={dashboard.valuation} />
           </SectionCard>

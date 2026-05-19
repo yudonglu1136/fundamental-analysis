@@ -252,5 +252,23 @@ export function buildMuDashboardData(dataset: MuDataset, scenario: Scenario, ass
       nandCycleSignal: metric.nandCycleSignal,
       capexIntensity: metric.capexIntensity,
     })),
+    historicalValuationRows: dataset.historicalValuations.map((event) => ({
+      ...event,
+      gapPct: event.asOfPrice > 0 ? event.fairValue / event.asOfPrice - 1 : 0,
+    })),
+    earningsCallRows: dataset.earningsCalls.map((call) => ({
+      ...call,
+      hbmDemand: call.focusScores.hbmDemand,
+      dramPricing: call.focusScores.dramPricing,
+      nandPricing: call.focusScores.nandPricing,
+      capexFcf: call.focusScores.capexFcf,
+      chinaRisk: call.focusScores.chinaRisk,
+      supplyDiscipline: call.focusScores.supplyDiscipline,
+    })),
+    memoryCycleForecastRows: dataset.memoryCycleForecast.map((year) => ({
+      ...year,
+      fcf: year.revenue * year.fcfMargin,
+      hbmMixPct: year.hbmRevenueMix,
+    })),
   };
 }

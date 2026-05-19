@@ -33,6 +33,7 @@ export const tslaModule = createStockModule({
     "TSLA research module focused on auto margin durability, energy storage scale, autonomy optionality, China competition, capex intensity and FCF support for the premium multiple.",
   tabs: [
     { value: "dashboard", label: "Dashboard" },
+    { value: "earnings-call", label: "Earnings Calls" },
     { value: "auto-ev-demand", label: "Auto / EV Demand" },
     { value: "energy-storage", label: "Energy Storage" },
     { value: "autonomy-software", label: "Autonomy / Software" },

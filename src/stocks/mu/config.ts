@@ -33,6 +33,7 @@ export const muModule = createStockModule({
     "MU research module focused on HBM durability, DRAM/NAND cycle normalization, China/export-control risk, capex intensity, FCF conversion and normalized valuation.",
   tabs: [
     { value: "dashboard", label: "Dashboard" },
+    { value: "earnings-call", label: "Earnings Calls" },
     { value: "memory-cycle", label: "Memory Cycle" },
     { value: "hbm-ai", label: "HBM / AI Demand" },
     { value: "margins-fcf", label: "Margins / FCF" },

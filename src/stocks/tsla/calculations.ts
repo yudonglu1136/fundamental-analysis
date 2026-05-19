@@ -245,5 +245,26 @@ export function buildTslaDashboardData(dataset: TslaDataset, scenario: Scenario,
       autonomyProgressSignal: metric.autonomyProgressSignal,
       grossMarginDurabilitySignal: metric.grossMarginDurabilitySignal,
     })),
+    historicalValuationRows: dataset.historicalValuations.map((event) => ({
+      ...event,
+      gapPct: event.asOfPrice > 0 ? event.fairValue / event.asOfPrice - 1 : 0,
+    })),
+    earningsCallRows: dataset.earningsCalls.map((call) => ({
+      ...call,
+      autoMargin: call.focusScores.autoMargin,
+      energyStorage: call.focusScores.energyStorage,
+      autonomyFsd: call.focusScores.autonomyFsd,
+      chinaCompetition: call.focusScores.chinaCompetition,
+      capexFcf: call.focusScores.capexFcf,
+      regulatoryRisk: call.focusScores.regulatoryRisk,
+    })),
+    energyStorageRows: dataset.energyStorageDeployments.map((row) => ({
+      ...row,
+      label: `${row.year}${row.isForecast ? "E" : ""}`,
+    })),
+    fsdProxyRows: dataset.fsdSubscriptionProxy.map((row) => ({
+      ...row,
+      label: `${row.year}${row.isForecast ? "E" : ""}`,
+    })),
   };
 }
