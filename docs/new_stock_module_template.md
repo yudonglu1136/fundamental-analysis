@@ -32,7 +32,78 @@ Classify the ticker first. Reuse patterns, but keep company-specific logic insid
 | Regulated / exchange | recurring revenue, transaction sensitivity, SOTP | regulatory capital, volume sensitivity, post-trade/workflow mix |
 | Other | choose closest existing module | document why existing archetypes do not fit |
 
-## 3. Required Platform Contract
+## 3. Required Buy-Side Research Depth
+
+New stock modules must be useful investment research products, not generic dashboards. Before coding, inspect available buy-side skills and state which were used. At minimum, apply the equivalent of:
+
+- initiation research: business model, KPI tree, segment economics, moat, cycle position, catalysts
+- valuation triangulation: DCF/FCF yield/multiple/SOTP logic as appropriate
+- model audit: unit checks, scenario logic, double-counting checks, price-anchor checks
+- risk red-team: kill criteria, disconfirming evidence, monitoring triggers
+- earnings-call or filing review when transcripts/filings are part of the source set
+
+Every module should include:
+
+- a company-specific analytical framework, not a generic sector template
+- 5-10 core investor questions mapped to metrics, charts, assumptions, risks, or valuation sensitivity
+- source-backed actuals separated from research assumptions and placeholders
+- explicit "what would change my mind" kill criteria
+- monitoring KPIs for the next earnings cycle
+- source gaps and manual rows surfaced visibly
+
+For a module to be considered complete, its dashboard should include several ticker-specific insight sections. Examples:
+
+- AI infra: supply constraints, customer concentration, capacity/capex, gross-margin durability, accelerator/platform roadmap exposure
+- Software: ARR/NRR, seat expansion, usage pricing, agent/AI monetization, SBC and FCF conversion
+- Biopharma: product durability, LOE/patent cliffs, pipeline probability, regulatory milestones, concentration risk
+- Energy/power: generation mix, power-price exposure, contracted vs merchant economics, capex, regulation, cash conversion
+
+Do not let research-only scores directly drive valuation unless the score is explicitly mapped into a forecast assumption and disclosed.
+
+## 4. Historical Valuation Requirement
+
+Every new module must include a historical valuation plan. Backend-persisted history is preferred; static local research history is acceptable only as an interim fallback and must be labeled clearly.
+
+Study these first:
+
+- `docs/stock-frontend-backtest-standard.md`
+- `src/stocks/msft/dashboard.tsx` (`MsftHistoricalValuationPanel`, `MsftBacktestPanel`)
+- `src/stocks/aapl/dashboard.tsx` for backend historical valuation UX
+- `src/stocks/ma/dashboard.tsx` / `src/stocks/ceg/dashboard.tsx` for newer backend-backed panels
+
+Historical valuation minimum:
+
+- roughly eight years of reporting events where feasible
+- for quarterly reporters, target at least 32 event anchors
+- Base valuation run or local fair-value snapshot for every event
+- event date, fiscal period, as-of price, fair value, gap percent, method label, source status, warnings
+- fair values must vary by event and reflect only information available at that event date
+- old quarters must not use current margins, current TAM, current multiples, current risks, or current price anchors
+- do not create Bear/Base/Bull by scalar multipliers; scenarios need distinct assumptions or method outputs
+
+As-of price standard:
+
+- backend modules should use `daily_price_bars.adjustedClose` from the nearest prior trading day
+- static fallback rows must state the price source and warn when price data is proxy/manual
+- if SPY backtest is in scope, import target ticker and SPY daily bars
+
+Historical valuation UI should follow the MSFT/AAPL pattern:
+
+- API status badge or local fallback badge
+- saved run/event count
+- selected fair value
+- selected upside/downside
+- horizontal event selector
+- visible-window controls: `8Q`, `12Q`, `16Q`, `24Q`, `All` where applicable
+- chart sorted oldest to newest
+- gray bar = as-of price
+- blue bar = fair value
+- tooltip with event date, fiscal period, as-of price, fair value, gap percent
+- summary cards for visible window, latest gap, average gap
+
+If historical valuation is deferred, the final answer must say exactly why and what files/scripts are needed next. Do not call the module production-ready without historical valuation coverage.
+
+## 5. Required Platform Contract
 
 Every registered stock module must satisfy `src/stocks/types.ts` and expose:
 
@@ -50,7 +121,7 @@ The module must consume platform state through `StockDashboardProps` where relev
 
 Do not create standalone route pages. The stock must be reachable through the registry and platform shell.
 
-## 4. Required File Structure
+## 6. Required File Structure
 
 Minimum frontend structure:
 
@@ -102,7 +173,7 @@ scripts/{ticker}_backend_validation.mjs
 
 Only add backend files when the ticker actually needs backend support now. If deferred, document the gap.
 
-## 5. Registry And Platform Integration
+## 7. Registry And Platform Integration
 
 Required:
 
@@ -118,7 +189,7 @@ Recommended:
 - Use `createStockModule`, `createStockValuationConfig`, or `createResearchPriceMetadata` from `src/stocks/moduleAssembly.ts` where useful.
 - Keep Home/Sidebar metadata compatible with the existing registry and metadata flow.
 
-## 6. Shared Components And Utilities Checklist
+## 8. Shared Components And Utilities Checklist
 
 Prefer shared platform pieces before creating ticker-specific equivalents:
 
@@ -137,7 +208,7 @@ Prefer shared platform pieces before creating ticker-specific equivalents:
 
 Ticker-specific UI is allowed only when the business question cannot be expressed cleanly with shared components.
 
-## 7. Valuation Output Checklist
+## 9. Valuation Output Checklist
 
 `calculateValuation` should return platform-shaped outputs where possible:
 
@@ -154,7 +225,7 @@ Ticker-specific UI is allowed only when the business question cannot be expresse
 
 Avoid one-off valuation result schemas. If a ticker needs a special output, add it as an extension to the existing `ValuationResult` shape rather than replacing the platform shape.
 
-## 8. Data Quality And Provenance Checklist
+## 10. Data Quality And Provenance Checklist
 
 Each important field should be labeled as one of:
 
@@ -179,7 +250,7 @@ Rules:
 - Forecast assumptions must be separate from reported actuals.
 - Research-only scores must not directly change valuation unless explicitly mapped to forecast assumptions.
 
-## 9. Modeling Discipline
+## 11. Modeling Discipline
 
 Required:
 
@@ -196,7 +267,7 @@ Before editing formulas, state:
 - why existing shared valuation methods are insufficient
 - what validation catches the change
 
-## 10. Backend And Data Workflow Compatibility
+## 12. Backend And Data Workflow Compatibility
 
 Every new ticker must explicitly declare backend status:
 
@@ -234,7 +305,7 @@ import-prices -> backfill-valuations -> validate
 
 Do not assume seed, official fetch, transcript fetch, metric build, or QA build will run in broad workflows.
 
-## 11. Validation And Acceptance
+## 13. Validation And Acceptance
 
 Minimum non-destructive checks:
 
@@ -258,6 +329,43 @@ If ticker-specific scripts exist, run the narrow script names too:
 npm run <ticker>:backend:validate
 npm run <ticker>:model-validate
 ```
+
+## 14. Frontend And Backend Push / Deployment Handoff
+
+The final answer after adding a module must include a clear workflow for what was pushed and what remains to deploy.
+
+Frontend code workflow:
+
+```bash
+npm run stocks:contract:validate
+npm run typecheck
+npm run build
+git status --short
+git add src/stocks/{ticker} src/stocks/registry.ts package.json scripts docs
+git commit -m "Add {TICKER} research module"
+git push origin HEAD:trunk
+```
+
+State whether the code was actually pushed. If pushed to `trunk`, state that Vercel should deploy from GitHub and that the operator should inspect the Vercel deployment log.
+
+Backend/data workflow when backend support exists:
+
+```bash
+npm run {ticker}:backend:seed
+npm run {ticker}:backend:import-prices
+npm run {ticker}:backend:backfill-valuations
+npm run {ticker}:backend:validate
+npm run data:workflow -- --workflow update --ticker {ticker} --dry-run
+```
+
+Cloud backend handoff for the current Lightsail-style setup:
+
+```bash
+rsync -az data/local/{ticker}/ ubuntu@<backend-host>:~/fundamental-analysis/data/local/{ticker}/
+ssh ubuntu@<backend-host> "cd ~/fundamental-analysis && git pull origin trunk && npm ci && pm2 restart fundamental-api && curl -s https://api.thesisforge.tech/api/health"
+```
+
+Never commit `.env`, Supabase secrets, private keys, OAuth client secrets, or bulky `data/local` raw downloads. If backend support is deferred, say "No AWS backend push required for this module yet" and list the backend files needed to make it deployable.
 
 Acceptance requires:
 

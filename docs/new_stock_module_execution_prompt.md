@@ -51,6 +51,11 @@ Also inspect:
 - closest existing stock modules by archetype:
   - [CLOSEST_MODULE_1]
   - [CLOSEST_MODULE_2]
+- historical valuation / backtest references:
+  - docs/stock-frontend-backtest-standard.md
+  - src/stocks/msft/dashboard.tsx
+  - src/stocks/aapl/dashboard.tsx
+  - src/stocks/ma/dashboard.tsx
 
 Company intake:
 - Ticker: [TICKER]
@@ -76,6 +81,7 @@ Use buy-side skills appropriately:
 - Use bs-valuation-triangulation to choose valuation methods and scenario architecture.
 - Use bs-model-audit before finalizing assumptions, formulas, output shape, and validation warnings.
 - Use bs-risk-red-team or bs-position-monitor if the module needs a risk register, disconfirming evidence, or monitoring triggers.
+- Use bs-earnings-call-analysis and bs-filing-qoe-review when earnings calls, filings, cash conversion, accounting quality, or management guidance are core to the module.
 
 Before editing, report:
 1. files inspected
@@ -87,7 +93,12 @@ Before editing, report:
    - supported commands now
    - deferred commands
    - manual data remaining
-6. minimal implementation plan
+6. historical valuation decision:
+   - backend-persisted valuation runs now or static local fallback
+   - target event coverage
+   - daily price source and SPY benchmark source
+   - no-future-leakage controls
+7. minimal implementation plan
 
 Implementation requirements:
 1. Frontend module contract
@@ -97,6 +108,7 @@ Implementation requirements:
    - Create or update src/stocks/[ticker]/data.ts or src/stocks/[ticker]/data/*.
    - Expose data, calculateSummary, calculateValuation, Dashboard, valuationConfig.
    - Register the module in src/stocks/registry.ts.
+   - Add dashboard tabs that are specific to the company and archetype; do not leave a generic overview-only module.
 
 2. Shared UI and utility compatibility
    - Prefer InteractiveValuationDashboard for assumption controls.
@@ -104,20 +116,43 @@ Implementation requirements:
    - Keep ticker-specific business logic inside src/stocks/[ticker].
    - Do not introduce a one-off valuation schema if ValuationResult can express the output.
 
-3. Valuation output requirements
+3. Deep research requirements
+   - Build a company-specific analytical framework, not a generic sector dashboard.
+   - Add 5-10 core investor questions and map each question to a chart, KPI, assumption, warning, or risk trigger.
+   - Add ticker-specific insight panels for the real business drivers.
+   - Include a variant-perception or market-debate section where appropriate.
+   - Include a risk red-team section with kill criteria and disconfirming evidence.
+   - Include a monitoring plan for the next reporting cycle.
+   - Explicitly separate facts, assumptions, derived metrics, placeholders, and research-only scores.
+
+4. Valuation output requirements
    - Return Bear/Base/Bull fair values where possible.
    - Include current price only if sourced or clearly marked Placeholder.
    - Include 3Y target price and expected shareholder CAGR where possible.
    - Include method cards, expected return bridge, sensitivity tables, and validation warnings.
    - Avoid double counting full-company valuation methods and incremental uplift values.
+   - Do not anchor fair value to current price or current trading multiple without an explicit independent method bridge.
+   - Do not use scalar multipliers as the only difference between Bear/Base/Bull cases.
 
-4. Data quality and provenance
+5. Historical valuation requirements
+   - Build a historical valuation dataset or backend historical valuation workflow.
+   - Prefer MSFT-style backend historical valuations and backtest panels when backend support is in scope.
+   - If backend is deferred, include local historical valuation rows as a clearly labeled fallback.
+   - Target roughly eight years of reporting-event history where feasible.
+   - For quarterly reporters, target at least 32 historical event anchors.
+   - For each event include event date, fiscal period, as-of price, fair value, gap percent, method label, source status, and warnings.
+   - Historical fair values must vary by event.
+   - Use only information available as of the event date; do not leak current margins, TAM, risk framing, or current price into old quarters.
+   - Use nearest prior trading day from daily price bars when backend daily prices exist.
+   - Add a visible valuation tab panel with oldest-to-newest price vs fair-value chart and event selector.
+
+6. Data quality and provenance
    - Distinguish facts, assumptions, derived outputs, and placeholders.
    - Preserve source, unit, periodicity, asOfDate, and provenance where supported.
    - Missing actuals must be null or documented source gaps.
    - Research-only scores cannot directly affect valuation unless explicitly mapped to forecast assumptions.
 
-5. Backend/data compatibility
+7. Backend/data compatibility
    - If backend support is in scope, use per-ticker SQLite under data/local/[ticker]/backend/[ticker]_research.sqlite.
    - Add modules/[ticker] backend files only if needed now.
    - Add ticker scripts only for commands that actually work.
@@ -125,7 +160,7 @@ Implementation requirements:
    - Ensure broad data:update can eventually run import-prices -> backfill-valuations -> validate.
    - If backend is deferred, document why and what will be needed later.
 
-6. Offline behavior
+8. Offline behavior
    - The static dashboard must render without backend/API.
    - Backend panels must show a clear API offline/source gap warning rather than crashing.
 
@@ -141,6 +176,19 @@ If backend support exists, also run:
 - npm run data:validate:ticker -- --ticker [ticker]
 - npm run [ticker]:backend:validate
 
+Publication / deployment workflow:
+- If code changes are complete, push frontend/source code to GitHub trunk unless the user asked not to:
+  - git status --short
+  - git add only the intended module, registry, scripts, docs, and package changes
+  - git commit -m "Add [TICKER] research module"
+  - git push origin HEAD:trunk
+- Tell the user that Vercel should deploy the frontend from trunk and that they should check Vercel logs.
+- If backend support exists, explain the AWS/Lightsail data deploy path:
+  - run backend seed/import-prices/backfill/validate locally
+  - copy data/local/[ticker] to the backend host with rsync
+  - ssh to the backend host, pull trunk, install if needed, restart pm2, and health-check the API
+- If backend support is deferred, explicitly say no AWS backend push was done and list the missing backend files/scripts.
+
 Final report:
 1. files added
 2. files changed
@@ -148,9 +196,12 @@ Final report:
 4. registry/platform integration
 5. data sources and source gaps
 6. valuation methods and assumptions
-7. backend/data workflow status
-8. validation results
-9. remaining limitations and recommended next improvements
+7. historical valuation coverage and no-future-leakage protections
+8. backend/data workflow status
+9. frontend push / Vercel status
+10. backend push / AWS status
+11. validation results
+12. remaining limitations and recommended next improvements
 ```
 
 ## Notes For Prompt Users
