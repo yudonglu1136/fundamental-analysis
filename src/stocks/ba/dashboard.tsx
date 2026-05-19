@@ -919,6 +919,56 @@ function BaHistoricalValuationPanel({
     : null;
   const methodRows = selected?.valuationRun?.methodOutputsJson ?? selected?.valuationRun?.dataSnapshotJson?.methodBridge ?? [];
   const warnings = selected?.valuationRun?.warningsJson ?? [];
+  const snapshot = selected?.valuationRun?.dataSnapshotJson ?? {};
+  const rowUsage = snapshot.rowUsage ?? {};
+  const rowUsageEntries = Object.entries(rowUsage) as Array<[string, Array<{ id?: string; asOfDate?: string; sourceType?: string }>]>;
+  const rowUsageCount = rowUsageEntries.reduce((sum, [, usageRows]) => sum + (usageRows?.length ?? 0), 0);
+  const rowUsageSourceCounts = rowUsageEntries.reduce<Record<string, number>>((counts, [, usageRows]) => {
+    for (const usageRow of usageRows ?? []) {
+      const sourceType = usageRow.sourceType ?? "missing";
+      counts[sourceType] = (counts[sourceType] ?? 0) + 1;
+    }
+    return counts;
+  }, {});
+  const futureDatedUsageRows = rowUsageEntries.flatMap(([table, usageRows]) =>
+    (usageRows ?? [])
+      .filter((usageRow) => usageRow.asOfDate && selected?.event?.eventDate && String(usageRow.asOfDate) > String(selected.event.eventDate))
+      .map((usageRow) => ({ table, ...usageRow })),
+  );
+  const asOfPriceSource = snapshot.asOfPriceSource ?? null;
+  const selectedEventDate = selected?.event?.eventDate ?? snapshot.asOfDate ?? "n/a";
+  const sourceQualityRows = [
+    ["Event date", selectedEventDate, "All selected source rows must be dated on or before this event."],
+    [
+      "Daily price anchor",
+      asOfPriceSource?.priceDate
+        ? `${asOfPriceSource.priceDate} | ${asOfPriceSource.source ?? "market data"}`
+        : "event market snapshot fallback",
+      asOfPriceSource?.adjustedCloseFallback
+        ? "Adjusted close was unavailable; backend warning should be visible."
+        : "Nearest prior adjusted close where available; BA.L GBX is divided by 100 to GBP.",
+    ],
+    ["Event-visible row usage", `${rowUsageCount} rows`, rowUsageEntries.map(([table, usageRows]) => `${table}: ${usageRows?.length ?? 0}`).join("; ") || "No row usage metadata."],
+    [
+      "Source mix",
+      Object.entries(rowUsageSourceCounts).map(([sourceType, count]) => `${sourceType}: ${count}`).join("; ") || "n/a",
+      "Official actuals, forecast assumptions, and management guidance remain labeled in backend snapshots.",
+    ],
+    [
+      "No-future-leakage check",
+      futureDatedUsageRows.length === 0 ? "Passed in selected snapshot" : `${futureDatedUsageRows.length} future-dated rows`,
+      futureDatedUsageRows.length === 0
+        ? "No selected source row has asOfDate after the reporting event date."
+        : futureDatedUsageRows.map((row) => `${row.table}/${row.id ?? "row"} dated ${row.asOfDate}`).join("; "),
+    ],
+    [
+      "Interim / trading update treatment",
+      snapshot.interimRunRateSnapshot ? "Run-rate snapshot" : snapshot.staleAnnualAnchor ? "Stale annual anchor flagged" : "Annual event snapshot",
+      snapshot.staleAnnualAnchor
+        ? "Backend marked this event as using a stale annual anchor."
+        : "Trading and interim events should use event-visible run-rate rows instead of current annual assumptions.",
+    ],
+  ];
 
   return (
     <SectionCard
@@ -1057,6 +1107,13 @@ function BaHistoricalValuationPanel({
                   </BarChart>
                 </ResponsiveContainer>
               </ChartPanel>
+              <div className="xl:col-span-2">
+                <ApiTable
+                  title="Selected Run Source Quality"
+                  columns={["Audit Field", "Value", "Operator Note"]}
+                  rows={sourceQualityRows}
+                />
+              </div>
             </div>
           ) : null}
         </>
