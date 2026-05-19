@@ -96,6 +96,21 @@ type MckBackendValuationRun = {
     financialPeriodCount?: number;
     segmentFinancialCount?: number;
     backendFcfPolicy?: string;
+    guidanceItemCount?: number;
+    transcriptExtractionCount?: number;
+    adapterWarnings?: string[];
+    sourcePolicy?: {
+      guidanceAutoPromotion?: string;
+      transcriptValuationImpact?: string;
+    };
+    asOfPriceSource?: {
+      priceDate?: string;
+      currentPrice?: number;
+      close?: number;
+      source?: string;
+      sourceType?: string;
+      adjustedCloseAvailable?: boolean;
+    } | null;
   };
 };
 
@@ -376,6 +391,46 @@ function MckHistoricalValuationPanel({
   const run = selected?.valuationRun ?? null;
   const methodRows = run?.methodOutputsJson ?? [];
   const warnings = run?.warningsJson ?? [];
+  const snapshot = run?.dataSnapshotJson ?? {};
+  const priceSource = snapshot.asOfPriceSource ?? null;
+  const adapterWarnings = snapshot.adapterWarnings ?? [];
+  const sourceQualityRows = [
+    ["Event date", selected?.event.eventDate ?? snapshot.priceDate ?? "n/a", "Historical rows are evaluated as of the reporting event date."],
+    [
+      "Daily price anchor",
+      priceSource?.priceDate ? `${priceSource.priceDate} | ${priceSource.source ?? "market data"}` : "market snapshot fallback",
+      priceSource?.adjustedCloseAvailable === false
+        ? `Unadjusted close source (${priceSource.sourceType ?? "unknown source type"}); dividend-adjustment gap remains visible.`
+        : "Adjusted price source is available where backend vendor data supports it.",
+    ],
+    [
+      "Snapshot rows",
+      `${snapshot.financialPeriodCount ?? 0} financial / ${snapshot.segmentFinancialCount ?? 0} segment / ${snapshot.guidanceItemCount ?? 0} guidance / ${snapshot.transcriptExtractionCount ?? 0} transcript`,
+      "Counts come from the persisted backend snapshot selected for this event.",
+    ],
+    [
+      "Valuation period",
+      `${snapshot.valuationPeriodId ?? "n/a"} | ${snapshot.valuationPeriodType ?? "n/a"}`,
+      snapshot.backendFcfPolicy ?? "No FCF policy metadata was supplied.",
+    ],
+    [
+      "Guidance policy",
+      snapshot.sourcePolicy?.guidanceAutoPromotion ?? "n/a",
+      "Guidance is not promoted into valuation unless reviewed assumptions explicitly allow it.",
+    ],
+    [
+      "Transcript policy",
+      snapshot.sourcePolicy?.transcriptValuationImpact ?? "n/a",
+      "Transcript commentary remains research-only unless promoted through a reviewed assumption path.",
+    ],
+    [
+      "Backend coverage",
+      `${savedRuns}/${displayRows.length} events with Base runs`,
+      displayRows.length >= 32
+        ? "Quarterly-event target met."
+        : "Short of the 32-quarter ideal; current backend coverage is a curated event set and should not be described as full eight-year quarterly coverage.",
+    ],
+  ];
 
   return (
     <SectionCard
@@ -483,6 +538,16 @@ function MckHistoricalValuationPanel({
                     ))}
                   </div>
                 ) : null}
+                {adapterWarnings.length ? (
+                  <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+                    <p className="font-semibold text-ink">Backend Adapter Notes</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                      {adapterWarnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
 
               <ChartPanel title="As-of Price vs Fair Value">
@@ -505,6 +570,12 @@ function MckHistoricalValuationPanel({
                   </BarChart>
                 </ResponsiveContainer>
               </ChartPanel>
+              <div className="xl:col-span-2">
+                <DataTable
+                  headers={["Audit Field", "Value", "Operator Note"]}
+                  rows={sourceQualityRows}
+                />
+              </div>
             </div>
           ) : null}
         </>
