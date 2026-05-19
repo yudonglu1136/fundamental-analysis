@@ -108,6 +108,58 @@ export type MuMemoryCycleForecastYear = {
   commentary: string;
 };
 
+export type MuCycleDecisionIndicator = {
+  id: string;
+  label: string;
+  category: "Demand" | "Pricing" | "Supply" | "Cash Flow" | "Valuation" | "Risk";
+  unit: "score" | "percent" | "multiple" | "text";
+  sourceStatus: MuSourceStatus;
+  currentValue: number | string;
+  threshold: string;
+  trend: "improving" | "stable" | "deteriorating" | "watch";
+  interpretation: string;
+  portfolioSignal: "constructive" | "neutral" | "caution" | "avoid";
+};
+
+export type MuCyclePhaseScore = {
+  phase: string;
+  order: number;
+  score: number;
+  status: "completed" | "active" | "watch" | "risk";
+  evidence: string;
+  watchItem: string;
+  investmentImplication: string;
+};
+
+export type MuCycleSignalPoint = {
+  periodId: string;
+  label: string;
+  asOfDate: string;
+  sourceStatus: MuSourceStatus;
+  dramPricingIndex: number;
+  nandPricingIndex: number;
+  hbmTightnessIndex: number;
+  inventoryStressIndex: number;
+  capexSupplyRiskIndex: number;
+  grossMargin: number;
+  fcfMargin: number;
+  cycleHeatScore: number;
+  phase: string;
+};
+
+export type MuCycleDecisionSystem = {
+  currentCyclePhase: string;
+  verdict: string;
+  conclusion: string;
+  modelUse: string;
+  valuationReadThrough: string;
+  indicators: MuCycleDecisionIndicator[];
+  phaseScores: MuCyclePhaseScore[];
+  quarterlySignals: MuCycleSignalPoint[];
+  killCriteria: string[];
+  monitoringPlan: string[];
+};
+
 export type MuDataset = {
   ticker: "MU";
   companyName: string;
@@ -119,6 +171,7 @@ export type MuDataset = {
   historicalValuations: MuHistoricalValuationEvent[];
   earningsCalls: MuEarningsCallQuarter[];
   memoryCycleForecast: MuMemoryCycleForecastYear[];
+  cycleDecisionSystem: MuCycleDecisionSystem;
   researchQuestions: Array<{ key: string; question: string; currentView: string; evidenceNeeded: string }>;
   sourceGaps: string[];
 };

@@ -196,6 +196,135 @@ function DataTable({ headers, rows }: { headers: string[]; rows: Array<Array<Rea
   );
 }
 
+function formatDecisionValue(indicator: ReturnType<typeof buildMuDashboardData>["cycleIndicatorRows"][number]) {
+  if (typeof indicator.currentValue !== "number") return indicator.currentValue;
+  if (indicator.unit === "percent") return pct(indicator.currentValue);
+  if (indicator.unit === "multiple") return `${indicator.currentValue.toFixed(1)}x`;
+  return indicator.currentValue.toFixed(0);
+}
+
+function signalToneClass(signal: ReturnType<typeof buildMuDashboardData>["cycleIndicatorRows"][number]["portfolioSignal"]) {
+  if (signal === "constructive") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (signal === "caution") return "border-amber-200 bg-amber-50 text-amber-800";
+  if (signal === "avoid") return "border-rose-200 bg-rose-50 text-rose-800";
+  return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function CycleDecisionSystemPanel({ dashboard }: { dashboard: ReturnType<typeof buildMuDashboardData> }) {
+  const latestSignal = dashboard.cycleSignalRows[dashboard.cycleSignalRows.length - 1];
+  const constructiveCount = dashboard.cycleIndicatorRows.filter((indicator) => indicator.portfolioSignal === "constructive").length;
+  const cautionCount = dashboard.cycleIndicatorRows.filter((indicator) => indicator.portfolioSignal === "caution" || indicator.portfolioSignal === "avoid").length;
+
+  return (
+    <SectionCard
+      title="MU Memory Cycle Decision System"
+      description="A buy-side decision framework that turns HBM durability, DRAM/NAND pricing, capex supply response and FCF conversion into an investable cycle read."
+      badge={<span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase text-blue-700">Cycle framework</span>}
+    >
+      <div className="grid gap-4 lg:grid-cols-4">
+        <ScoreBlock label="Research Verdict" value="Selective / cautious" note={dashboard.cycleConclusion.verdict} />
+        <ScoreBlock label="Current Phase" value="Structural tightness" note={dashboard.cycleConclusion.currentCyclePhase} />
+        <ScoreBlock label="Cycle Heat" value={latestSignal ? latestSignal.cycleHeatScore.toFixed(0) : "n/a"} note={`${latestSignal?.label ?? "Latest"} composite of pricing, HBM tightness and margins`} />
+        <ScoreBlock label="Signal Balance" value={`${constructiveCount} / ${cautionCount}`} note="Constructive indicators vs caution/avoid indicators" />
+      </div>
+
+      <div className="mt-5 rounded-lg border border-slate-200 bg-white p-4">
+        <p className="text-sm font-semibold uppercase tracking-normal text-slate-500">How to use the model</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">{dashboard.cycleConclusion.modelUse}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">{dashboard.cycleConclusion.conclusion}</p>
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-2">
+        <ChartPanel title="Cycle Phase Scorecard">
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={dashboard.cyclePhaseRows}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="phase" tick={{ fontSize: 11 }} interval={0} angle={-16} textAnchor="end" height={78} />
+              <YAxis domain={[0, 100]} />
+              <Tooltip />
+              <Bar dataKey="score" name="Phase score" fill="#2563eb" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+        <ChartPanel title="Quarterly Cycle Signals">
+          <ResponsiveContainer width="100%" height={320}>
+            <LineChart data={dashboard.cycleSignalRows}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+              <YAxis domain={[0, 200]} />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="cycleHeatScore" name="Cycle heat" stroke="#0f172a" strokeWidth={2.2} dot />
+              <Line type="monotone" dataKey="hbmTightnessIndex" name="HBM tightness" stroke="#2563eb" strokeWidth={2.2} dot />
+              <Line type="monotone" dataKey="pricingComposite" name="DRAM/NAND pricing" stroke="#059669" strokeWidth={2.2} dot />
+              <Line type="monotone" dataKey="capexSupplyRiskIndex" name="Supply risk" stroke="#f97316" strokeWidth={2.2} dot />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-2">
+        <ChartPanel title="Margin and FCF Guardrail">
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={dashboard.cycleSignalRows}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={(value) => `${(Number(value) * 100).toFixed(0)}%`} />
+              <Tooltip formatter={(value: number) => pct(value)} />
+              <Legend />
+              <Bar dataKey="grossMarginPct" name="Gross margin" fill="#2563eb" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="fcfMarginPct" name="FCF margin" fill="#059669" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {dashboard.cycleIndicatorRows.map((indicator) => (
+            <div key={indicator.id} className={`rounded-lg border p-4 ${signalToneClass(indicator.portfolioSignal)}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-normal opacity-75">{indicator.category}</p>
+                  <p className="mt-1 text-sm font-semibold">{indicator.label}</p>
+                </div>
+                <span className="rounded-full border border-current px-2 py-1 text-xs font-semibold uppercase">{indicator.portfolioSignal}</span>
+              </div>
+              <p className="mt-3 text-2xl font-semibold">{formatDecisionValue(indicator)}</p>
+              <p className="mt-2 text-xs leading-5 opacity-80">{indicator.threshold}</p>
+              <p className="mt-2 text-sm leading-6">{indicator.interpretation}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <DataTable
+        headers={["Phase", "Status", "Score", "Evidence", "Watch item", "Investment implication"]}
+        rows={dashboard.cyclePhaseRows.map((phase) => [
+          phase.phase,
+          phase.status,
+          phase.score,
+          phase.evidence,
+          phase.watchItem,
+          phase.investmentImplication,
+        ])}
+      />
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4">
+          <p className="font-semibold text-rose-900">Kill criteria</p>
+          <ul className="mt-3 space-y-2 text-sm leading-6 text-rose-900">
+            {dashboard.cycleConclusion.killCriteria.map((item) => <li key={item}>- {item}</li>)}
+          </ul>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <p className="font-semibold text-ink">Monitoring plan</p>
+          <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+            {dashboard.cycleConclusion.monitoringPlan.map((item) => <li key={item}>- {item}</li>)}
+          </ul>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
 function HistoricalValuationPanel({ rows }: { rows: ReturnType<typeof buildMuDashboardData>["historicalValuationRows"] }) {
   const [visibleCount, setVisibleCount] = useState(12);
   const [selectedId, setSelectedId] = useState(rows[rows.length - 1]?.id ?? "");
@@ -501,6 +630,7 @@ export function MuDashboard({ module, scenario, onScenarioChange, dataSourceType
         </Tabs.Content>
 
         <Tabs.Content value="memory-cycle" className="mt-6 space-y-6">
+          <CycleDecisionSystemPanel dashboard={dashboard} />
           <SectionCard title="HBM, DRAM and NAND Cycle Signals" description="Research-only scorecard until HBM mix, pricing and qualification data are parsed from official sources.">
             <SignalChart rows={dashboard.operatingRows} />
           </SectionCard>

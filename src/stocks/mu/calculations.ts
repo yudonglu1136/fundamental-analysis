@@ -270,5 +270,23 @@ export function buildMuDashboardData(dataset: MuDataset, scenario: Scenario, ass
       fcf: year.revenue * year.fcfMargin,
       hbmMixPct: year.hbmRevenueMix,
     })),
+    cycleConclusion: dataset.cycleDecisionSystem,
+    cycleIndicatorRows: dataset.cycleDecisionSystem.indicators.map((indicator) => ({
+      ...indicator,
+      displayValue:
+        typeof indicator.currentValue === "number" && indicator.unit === "percent"
+          ? indicator.currentValue
+          : indicator.currentValue,
+    })),
+    cyclePhaseRows: dataset.cycleDecisionSystem.phaseScores.map((phase) => ({
+      ...phase,
+      label: phase.phase,
+    })),
+    cycleSignalRows: dataset.cycleDecisionSystem.quarterlySignals.map((signal) => ({
+      ...signal,
+      pricingComposite: (signal.dramPricingIndex + signal.nandPricingIndex) / 2,
+      fcfMarginPct: signal.fcfMargin,
+      grossMarginPct: signal.grossMargin,
+    })),
   };
 }
