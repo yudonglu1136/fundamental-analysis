@@ -46,7 +46,7 @@ function loadSavedAznValuationAssumptions() {
 export function AznDashboard({ module, scenario, period, dataSourceType, onDataSourceChange }: StockDashboardProps) {
   const [tab, setTab] = useState(module.tabs[0]?.value ?? "overview");
   const [valuationAssumptions, setValuationAssumptions] = useState<AznValuationAssumptions>(loadSavedAznValuationAssumptions);
-  const apiBaseUrl = import.meta.env.VITE_AZN_API_BASE_URL || "http://127.0.0.1:8787";
+  const apiBaseUrl = import.meta.env.VITE_AZN_API_BASE_URL ?? import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8787";
   const resolvedPeriod = module.periods.some((option) => option.value === period) ? period : module.getDefaultPeriod();
   const moduleData = useMemo(() => resolveAznDataset(module.data), [module.data]);
   const runtimeData = useMemo(
