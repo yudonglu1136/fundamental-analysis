@@ -37,6 +37,24 @@ type AmznHistoricalValuationRun = {
   upsideDownside: number | null;
   methodOutputsJson?: Array<{ key?: string; label?: string; value?: number; format?: string; description?: string }>;
   warningsJson?: Array<{ id?: string; title?: string; detail?: string; severity?: string } | string>;
+  dataSnapshotJson?: {
+    financialPeriodCount?: number;
+    segmentFinancialCount?: number;
+    businessUnitFinancialCount?: number;
+    operatingMetricCount?: number;
+    valuationPeriodId?: string;
+    marketSnapshotId?: string;
+    priceDate?: string;
+    asOfAssumptionOverrides?: Record<string, number>;
+    adapterWarnings?: string[];
+    asOfPriceSource?: {
+      priceDate?: string;
+      currentPrice?: number;
+      close?: number;
+      source?: string;
+      sourceType?: string;
+    } | null;
+  };
 };
 
 type AmznHistoricalValuationEvent = {
@@ -944,6 +962,37 @@ function AmznHistoricalValuationPanel({
     : null;
   const methodRows = selected?.valuationRun?.methodOutputsJson ?? [];
   const warnings = selected?.valuationRun?.warningsJson ?? [];
+  const snapshot = selected?.valuationRun?.dataSnapshotJson ?? {};
+  const priceSource = snapshot.asOfPriceSource ?? null;
+  const adapterWarnings = snapshot.adapterWarnings ?? [];
+  const selectedSourceRows = [
+    ["Event date", selected?.event.eventDate ?? selected?.valuationRun?.asOfDate ?? "n/a", "Historical runs use the backend persisted event snapshot."],
+    [
+      "Daily price anchor",
+      priceSource?.priceDate ? `${priceSource.priceDate} | ${priceSource.source ?? "market data"}` : "market snapshot fallback",
+      priceSource?.sourceType ?? "Source type not supplied by backend snapshot.",
+    ],
+    [
+      "Snapshot rows",
+      `${snapshot.financialPeriodCount ?? 0} financial / ${snapshot.segmentFinancialCount ?? 0} segment / ${snapshot.businessUnitFinancialCount ?? 0} business-unit / ${snapshot.operatingMetricCount ?? 0} metric`,
+      "Counts come from the selected persisted backend snapshot.",
+    ],
+    [
+      "Valuation period",
+      snapshot.valuationPeriodId ?? "n/a",
+      snapshot.marketSnapshotId ? `Market snapshot: ${snapshot.marketSnapshotId}` : "No market snapshot id supplied.",
+    ],
+    [
+      "Assumption override count",
+      `${Object.keys(snapshot.asOfAssumptionOverrides ?? {}).length}`,
+      "Historical runs use event-dated assumption sets rather than current-period AWS, advertising, AI capex, or Kuiper assumptions.",
+    ],
+    [
+      "Coverage",
+      `${savedRuns}/${displayRows.length} quarterly events with Base runs`,
+      displayRows.length >= 32 ? "Meets the 32-quarter historical valuation target." : "Short of the 32-quarter target; backend coverage should be expanded.",
+    ],
+  ];
 
   return (
     <SectionCard
@@ -1053,6 +1102,16 @@ function AmznHistoricalValuationPanel({
                     })}
                   </div>
                 ) : null}
+                {adapterWarnings.length ? (
+                  <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+                    <p className="font-semibold text-ink">Backend Adapter Notes</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                      {adapterWarnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
 
               <ChartPanel title="As-of Price vs Fair Value">
@@ -1074,6 +1133,12 @@ function AmznHistoricalValuationPanel({
                   </BarChart>
                 </ResponsiveContainer>
               </ChartPanel>
+              <div className="xl:col-span-2">
+                <DataTable
+                  headers={["Audit Field", "Value", "Operator Note"]}
+                  rows={selectedSourceRows}
+                />
+              </div>
             </div>
           ) : null}
         </>
