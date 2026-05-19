@@ -196,6 +196,128 @@ function DataTable({ headers, rows }: { headers: string[]; rows: Array<Array<Rea
   );
 }
 
+function signalToneClass(signal: ReturnType<typeof buildTslaDashboardData>["deepDiveIndicators"][number]["portfolioSignal"]) {
+  if (signal === "constructive") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (signal === "caution") return "border-amber-200 bg-amber-50 text-amber-800";
+  if (signal === "avoid") return "border-rose-200 bg-rose-50 text-rose-800";
+  return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function TeslaDeepDivePanel({ dashboard }: { dashboard: ReturnType<typeof buildTslaDashboardData> }) {
+  const latest = dashboard.quarterlyThesisRows[dashboard.quarterlyThesisRows.length - 1];
+  const constructiveCount = dashboard.deepDiveIndicators.filter((indicator) => indicator.portfolioSignal === "constructive").length;
+  const cautionCount = dashboard.deepDiveIndicators.filter((indicator) => indicator.portfolioSignal === "caution" || indicator.portfolioSignal === "avoid").length;
+
+  return (
+    <SectionCard
+      title="TSLA Deep Dive Decision System"
+      description="A buy-side research framework that separates Tesla into core auto, energy storage, FSD/robotaxi optionality, China risk, FCF guardrail and valuation evidence burden."
+      badge={<span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase text-blue-700">Deep dive</span>}
+    >
+      <div className="grid gap-4 lg:grid-cols-4">
+        <ScoreBlock label="Verdict" value="Cautious / evidence-led" note={dashboard.deepDive.verdict} />
+        <ScoreBlock label="Latest Thesis" value={latest?.label ?? "n/a"} note={latest?.conclusion ?? "No thesis row"} />
+        <ScoreBlock label="Energy Evidence" value={latest?.storageGwh ? `${latest.storageGwh.toFixed(1)} GWh` : "n/a"} note="Latest storage deployment signal included in the framework" />
+        <ScoreBlock label="Signal Balance" value={`${constructiveCount} / ${cautionCount}`} note="Constructive indicators vs caution/avoid indicators" />
+      </div>
+
+      <div className="mt-5 rounded-lg border border-slate-200 bg-white p-4">
+        <p className="text-sm font-semibold uppercase tracking-normal text-slate-500">Research read-through</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">{dashboard.deepDive.currentRead}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">{dashboard.deepDive.variantView}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">{dashboard.deepDive.valuationDiscipline}</p>
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-2">
+        <ChartPanel title="Driver Evidence Scorecard">
+          <ResponsiveContainer width="100%" height={340}>
+            <BarChart data={dashboard.driverScoreRows}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="driver" tick={{ fontSize: 11 }} interval={0} angle={-18} textAnchor="end" height={88} />
+              <YAxis domain={[0, 100]} />
+              <Tooltip />
+              <Bar dataKey="score" name="Evidence score" fill="#2563eb" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+        <ChartPanel title="Quarterly Thesis Signal Trend">
+          <ResponsiveContainer width="100%" height={340}>
+            <LineChart data={dashboard.quarterlyThesisRows}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+              <YAxis domain={[0, 100]} />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="autoDemandScore" name="Auto demand" stroke="#0f172a" strokeWidth={2.2} dot />
+              <Line type="monotone" dataKey="energyScaleScore" name="Energy scale" stroke="#059669" strokeWidth={2.2} dot />
+              <Line type="monotone" dataKey="autonomyEvidenceScore" name="FSD evidence" stroke="#7c3aed" strokeWidth={2.2} dot />
+              <Line type="monotone" dataKey="valuationRiskScore" name="Valuation risk" stroke="#f97316" strokeWidth={2.2} dot />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+      </div>
+
+      <div className="mt-5 grid gap-3 lg:grid-cols-3">
+        {dashboard.deepDiveIndicators.map((indicator) => (
+          <div key={indicator.id} className={`rounded-lg border p-4 ${signalToneClass(indicator.portfolioSignal)}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-normal opacity-75">{indicator.category}</p>
+                <p className="mt-1 text-sm font-semibold">{indicator.label}</p>
+              </div>
+              <span className="rounded-full border border-current px-2 py-1 text-xs font-semibold uppercase">{indicator.portfolioSignal}</span>
+            </div>
+            <p className="mt-3 text-sm leading-6">{indicator.currentRead}</p>
+            <p className="mt-3 text-xs font-semibold uppercase tracking-normal opacity-75">Model action</p>
+            <p className="mt-1 text-sm leading-6">{indicator.modelAction}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+        <ChartPanel title="FCF Guardrail and Operating Margin">
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={dashboard.quarterlyThesisRows}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={(value) => `${(Number(value) * 100).toFixed(0)}%`} />
+              <Tooltip formatter={(value: number) => pct(value)} />
+              <Legend />
+              <Bar dataKey="operatingMargin" name="Operating margin" fill="#0f172a" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="fcfMarginPct" name="FCF margin" fill="#059669" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+        <DataTable
+          headers={["Segment", "Bear", "Base", "Bull", "Evidence to upgrade"]}
+          rows={dashboard.scenarioBridgeRows.map((row) => [
+            row.segment,
+            row.bear,
+            row.base,
+            row.bull,
+            row.evidenceToUpgrade,
+          ])}
+        />
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4">
+          <p className="font-semibold text-rose-900">Kill criteria</p>
+          <ul className="mt-3 space-y-2 text-sm leading-6 text-rose-900">
+            {dashboard.deepDive.killCriteria.map((item) => <li key={item}>- {item}</li>)}
+          </ul>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <p className="font-semibold text-ink">Monitoring plan</p>
+          <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+            {dashboard.deepDive.monitoringPlan.map((item) => <li key={item}>- {item}</li>)}
+          </ul>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
 function HistoricalValuationPanel({ rows }: { rows: ReturnType<typeof buildTslaDashboardData>["historicalValuationRows"] }) {
   const [visibleCount, setVisibleCount] = useState(12);
   const [selectedId, setSelectedId] = useState(rows[rows.length - 1]?.id ?? "");
@@ -537,6 +659,7 @@ export function TslaDashboard({ module, scenario, onScenarioChange, dataSourceTy
         </Tabs.List>
 
         <Tabs.Content value="dashboard" className="mt-6 space-y-6">
+          <TeslaDeepDivePanel dashboard={dashboard} />
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {dashboard.summary.map((metric) => (
               <MetricCard key={metric.key} metric={metric} currency={module.currency} />

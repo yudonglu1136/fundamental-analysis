@@ -113,6 +113,65 @@ export type TslaFsdSubscriptionProxy = {
   isForecast?: boolean;
 };
 
+export type TslaDeepDiveIndicator = {
+  id: string;
+  label: string;
+  category: "Auto" | "Energy" | "Autonomy" | "China" | "Cash Flow" | "Valuation";
+  sourceStatus: TslaSourceStatus;
+  currentRead: string;
+  bullCase: string;
+  bearCase: string;
+  modelAction: string;
+  portfolioSignal: "constructive" | "neutral" | "caution" | "avoid";
+};
+
+export type TslaDriverScore = {
+  driver: string;
+  score: number;
+  status: "strong" | "watch" | "weak" | "option";
+  evidence: string;
+  monitor: string;
+  valuationImplication: string;
+};
+
+export type TslaQuarterlyThesisPoint = {
+  periodId: string;
+  label: string;
+  asOfDate: string;
+  sourceStatus: TslaSourceStatus;
+  revenue: number;
+  operatingMargin: number;
+  fcfMargin: number;
+  storageGwh?: number;
+  activeFsdSubscriptions?: number;
+  autoDemandScore: number;
+  energyScaleScore: number;
+  autonomyEvidenceScore: number;
+  valuationRiskScore: number;
+  conclusion: string;
+};
+
+export type TslaScenarioBridge = {
+  segment: "Core Auto" | "Energy Storage" | "FSD / Robotaxi" | "FCF Guardrail" | "Valuation Risk";
+  bear: string;
+  base: string;
+  bull: string;
+  evidenceToUpgrade: string;
+};
+
+export type TslaDeepDiveSystem = {
+  verdict: string;
+  currentRead: string;
+  variantView: string;
+  valuationDiscipline: string;
+  indicators: TslaDeepDiveIndicator[];
+  driverScores: TslaDriverScore[];
+  quarterlyThesis: TslaQuarterlyThesisPoint[];
+  scenarioBridge: TslaScenarioBridge[];
+  killCriteria: string[];
+  monitoringPlan: string[];
+};
+
 export type TslaDataset = {
   ticker: "TSLA";
   companyName: string;
@@ -125,6 +184,7 @@ export type TslaDataset = {
   earningsCalls: TslaEarningsCallQuarter[];
   energyStorageDeployments: TslaEnergyStorageDeployment[];
   fsdSubscriptionProxy: TslaFsdSubscriptionProxy[];
+  deepDiveSystem: TslaDeepDiveSystem;
   researchQuestions: Array<{ key: string; question: string; currentView: string; evidenceNeeded: string }>;
   sourceGaps: string[];
 };

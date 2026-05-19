@@ -266,5 +266,18 @@ export function buildTslaDashboardData(dataset: TslaDataset, scenario: Scenario,
       ...row,
       label: `${row.year}${row.isForecast ? "E" : ""}`,
     })),
+    deepDive: dataset.deepDiveSystem,
+    deepDiveIndicators: dataset.deepDiveSystem.indicators,
+    driverScoreRows: dataset.deepDiveSystem.driverScores.map((row) => ({
+      ...row,
+      label: row.driver,
+    })),
+    quarterlyThesisRows: dataset.deepDiveSystem.quarterlyThesis.map((row) => ({
+      ...row,
+      fcfMarginPct: row.fcfMargin,
+      storageGwhValue: row.storageGwh ?? null,
+      activeFsdSubscriptionsMillions: row.activeFsdSubscriptions ?? null,
+    })),
+    scenarioBridgeRows: dataset.deepDiveSystem.scenarioBridge,
   };
 }
