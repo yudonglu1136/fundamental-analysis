@@ -43,7 +43,7 @@ export function AppShell() {
         <Sidebar />
         <div className="min-w-0 flex-1">
           <TopNav />
-          <main className="mx-auto w-full max-w-[1680px] px-4 py-5 sm:px-6 lg:px-8">
+          <main className="mx-auto w-full max-w-[1680px] px-3 py-4 sm:px-5 sm:py-5 lg:px-8">
             <Outlet />
           </main>
         </div>
