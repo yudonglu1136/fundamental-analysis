@@ -33,6 +33,14 @@ import { mrvlModule } from "./mrvl/config";
 import { temModule } from "./tem/config";
 import { ddogModule } from "./ddog/config";
 import { llyModule } from "./lly/config";
+import { avavModule } from "./avav/config";
+import { ktosModule } from "./ktos/config";
+import { jpmModule } from "./jpm/config";
+import { cbModule } from "./cb/config";
+import { trvModule } from "./trv/config";
+import { eqtModule } from "./eqt/config";
+import { qcomModule } from "./qcom/config";
+import { bacModule } from "./bac/config";
 
 export const stockRegistry = {
   "BA.L": baModule,
@@ -68,6 +76,14 @@ export const stockRegistry = {
   TEM: temModule,
   DDOG: ddogModule,
   LLY: llyModule,
+  AVAV: avavModule,
+  KTOS: ktosModule,
+  JPM: jpmModule,
+  CB: cbModule,
+  TRV: trvModule,
+  EQT: eqtModule,
+  QCOM: qcomModule,
+  BAC: bacModule,
   "DGE.L": dgeModule,
   TRI: triModule,
 };

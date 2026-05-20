@@ -21,7 +21,7 @@ const coverageCollections: CoverageCollection[] = [
     label: "AI Infrastructure",
     shortLabel: "AI Infra",
     description: "Compute, memory, networking, foundry, equipment, energy and AI capex beneficiaries.",
-    tickers: ["NVDA", "ASML", "MU", "TSM", "ANET", "MRVL", "CEG"],
+    tickers: ["NVDA", "ASML", "MU", "TSM", "ANET", "MRVL", "QCOM"],
   },
   {
     id: "software-ai",
@@ -39,17 +39,24 @@ const coverageCollections: CoverageCollection[] = [
   },
   {
     id: "financial-infra",
-    label: "Payments & Market Infrastructure",
+    label: "Payments, Banks & Insurance",
     shortLabel: "Finance",
-    description: "Networks, market data, workflow infrastructure and capital-return compounders.",
-    tickers: ["MA", "V", "LSEG"],
+    description: "Payment networks, market data, banks, insurance underwriting and capital-return compounders.",
+    tickers: ["MA", "V", "LSEG", "JPM", "BAC", "CB", "TRV"],
   },
   {
     id: "defense",
     label: "Defense & Aerospace",
     shortLabel: "Defense",
-    description: "Defense primes and aerospace platforms with backlog, program and cash-conversion analysis.",
-    tickers: ["BA.L", "NOC", "RTX", "LMT"],
+    description: "Defense primes, aerospace platforms, drones, autonomy and backlog/cash-conversion analysis.",
+    tickers: ["BA.L", "NOC", "RTX", "LMT", "AVAV", "KTOS"],
+  },
+  {
+    id: "energy-power",
+    label: "Energy & Power",
+    shortLabel: "Energy",
+    description: "Nuclear power scarcity, natural gas, LNG demand, commodity cycles and FCF discipline.",
+    tickers: ["CEG", "EQT"],
   },
   {
     id: "consumer-energy",
@@ -60,7 +67,7 @@ const coverageCollections: CoverageCollection[] = [
   },
 ];
 
-const featuredTickers = ["ASML", "MU", "TSLA", "AMZN", "COST", "MRVL", "DDOG", "LLY"];
+const featuredTickers = ["ASML", "MU", "TSLA", "AMZN", "JPM", "QCOM", "AVAV", "EQT"];
 
 function getCollectionForStock(stock: StockMetadata) {
   return coverageCollections.find((collection) => collection.tickers.includes(stock.ticker));
