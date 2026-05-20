@@ -61,8 +61,8 @@ const coverageCollections: CoverageCollection[] = [
     id: "energy-power",
     label: "Energy & Power",
     shortLabel: "Energy",
-    description: "Nuclear power scarcity, natural gas, LNG demand, commodity cycles and FCF discipline.",
-    tickers: ["CEG", "EQT"],
+    description: "Nuclear power scarcity, fuel cells, AI data-center power, natural gas, LNG demand, commodity cycles and FCF discipline.",
+    tickers: ["CEG", "BE", "EQT"],
     accent: "#d6f75a",
   },
   {

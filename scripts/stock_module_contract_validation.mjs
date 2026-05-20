@@ -5,6 +5,7 @@ import path from "node:path";
 const root = process.cwd();
 const stocksDir = path.join(root, "src", "stocks");
 const registryPath = path.join(stocksDir, "registry.ts");
+const moduleLoadersPath = path.join(stocksDir, "moduleLoaders.ts");
 
 const expectedSupportDirs = new Set(["biopharmaResearch", "deepResearch", "defensePrime", "earningsCall", "template"]);
 const knownFactoryPatterns = [
@@ -52,6 +53,16 @@ function parseRegistry(source) {
   );
 
   return { imports, entries };
+}
+
+function parseModuleLoaderKeys(source) {
+  const objectMatch = source.match(/export\s+const\s+stockModuleLoaders\s*:\s*Record<string,\s*StockModuleLoader>\s*=\s*\{([\s\S]*?)\n\};/);
+  if (!objectMatch) {
+    failures.push("Could not parse stockModuleLoaders object in src/stocks/moduleLoaders.ts");
+    return [];
+  }
+
+  return [...objectMatch[1].matchAll(/^\s*(?:"([^"]+)"|([A-Za-z0-9_.$]+))\s*:/gm)].map(([, quotedKey, bareKey]) => quotedKey ?? bareKey);
 }
 
 function findFactoryName(source) {
@@ -113,9 +124,12 @@ function validateConfig(entry) {
 
 const registrySource = read(registryPath);
 const { imports, entries } = parseRegistry(registrySource);
+const moduleLoaderKeys = existsSync(moduleLoadersPath) ? parseModuleLoaderKeys(read(moduleLoadersPath)) : [];
 const importedVariables = new Set(imports.map((entry) => entry.variableName));
 const registeredVariables = new Set(entries.map((entry) => entry.variableName));
 const registeredDirs = new Set(entries.map((entry) => entry.directory).filter(Boolean));
+const registryKeys = new Set(entries.map((entry) => entry.key));
+const moduleLoaderKeySet = new Set(moduleLoaderKeys);
 
 for (const importEntry of imports) {
   if (!registeredVariables.has(importEntry.variableName)) {
@@ -127,7 +141,16 @@ for (const entry of entries) {
   if (!importedVariables.has(entry.variableName)) {
     failures.push(`Registry entry ${entry.key} uses ${entry.variableName}, but it is not imported.`);
   }
+  if (moduleLoaderKeys.length > 0 && !moduleLoaderKeySet.has(entry.key)) {
+    failures.push(`Registry entry ${entry.key} is missing from src/stocks/moduleLoaders.ts, so /stocks/${entry.key} cannot lazy-load.`);
+  }
   validateConfig(entry);
+}
+
+for (const loaderKey of moduleLoaderKeys) {
+  if (!registryKeys.has(loaderKey)) {
+    failures.push(`src/stocks/moduleLoaders.ts includes ${loaderKey}, but it is not registered in stockRegistry.`);
+  }
 }
 
 const duplicateKeys = entries
@@ -166,6 +189,7 @@ const factoryModules = entries.length - directModules;
 console.log("Stock module contract validation");
 console.log(`- Registry entries: ${entries.length}`);
 console.log(`- Registered config directories: ${registeredDirs.size}`);
+console.log(`- Lazy loader entries: ${moduleLoaderKeys.length}`);
 console.log(`- Direct module configs: ${directModules}`);
 console.log(`- Factory-backed module configs: ${factoryModules}`);
 console.log(`- Support/template directories: ${supportDirs.length ? supportDirs.join(", ") : "none"}`);

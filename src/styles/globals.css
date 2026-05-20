@@ -25,6 +25,13 @@
     background-size: auto, auto, 56px 56px, 56px 56px, auto;
   }
 
+  html,
+  body,
+  #root {
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
   ::selection {
     @apply bg-accent text-ink;
   }
@@ -371,6 +378,65 @@
   .tf-stock-module-canvas [class*="text-emerald"],
   .tf-stock-module-canvas [class*="text-green"] {
     color: #76f0a2 !important;
+  }
+
+  @media (max-width: 640px) {
+    .tf-command-surface,
+    .tf-object-panel {
+      box-shadow: 0 18px 54px rgba(0, 0, 0, 0.36);
+    }
+
+    .tf-stock-module-canvas {
+      padding: 0.75rem !important;
+      overflow-x: hidden;
+    }
+
+    .tf-stock-module-canvas * {
+      min-width: 0;
+    }
+
+    .tf-stock-module-canvas h1 {
+      font-size: clamp(1.5rem, 8vw, 2.25rem) !important;
+      line-height: 1.08 !important;
+      overflow-wrap: anywhere;
+    }
+
+    .tf-stock-module-canvas h2 {
+      font-size: clamp(1.15rem, 6vw, 1.7rem) !important;
+      line-height: 1.12 !important;
+      overflow-wrap: anywhere;
+    }
+
+    .tf-stock-module-canvas [role="tablist"] {
+      display: flex !important;
+      gap: 0.35rem !important;
+      overflow-x: auto !important;
+      padding: 0.35rem !important;
+      scroll-snap-type: x proximity;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tf-stock-module-canvas [role="tab"] {
+      flex: 0 0 auto !important;
+      min-height: 2.5rem !important;
+      padding: 0.62rem 0.8rem !important;
+      scroll-snap-align: start;
+      white-space: nowrap !important;
+    }
+
+    .tf-stock-module-canvas .recharts-wrapper,
+    .tf-stock-module-canvas .recharts-responsive-container {
+      max-width: 100% !important;
+      min-width: 0 !important;
+    }
+
+    .tf-stock-module-canvas table {
+      display: block;
+      max-width: 100%;
+      overflow-x: auto;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+    }
   }
 }
 

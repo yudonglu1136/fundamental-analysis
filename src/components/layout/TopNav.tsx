@@ -3,13 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { LogOut, Radar } from "lucide-react";
 import { useAppShell } from "./AppShell";
 import { useAuth } from "../../auth/useAuth";
-import { ScenarioSelector } from "../shared/ScenarioSelector";
-import { PeriodSelector } from "../shared/PeriodSelector";
 import { stockMetadataList } from "../../stocks/metadata";
 import { Select } from "./StockSelector";
 
 export function TopNav() {
-  const { currentModule, scenario, setScenario, period, setPeriod } = useAppShell();
+  const { currentModule } = useAppShell();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const displayName = user?.provider === "local-dev" ? "Private Workspace" : user?.email ?? user?.name ?? "Signed in";
@@ -25,28 +23,27 @@ export function TopNav() {
             <Radar className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <p className="tf-kicker truncate">{currentModule ? currentModule.sector : "Market ontology workspace"}</p>
-            <h2 className="mt-1 truncate text-lg font-semibold tracking-normal text-white sm:text-xl">
+            <p className="tf-kicker line-clamp-1 break-words">{currentModule ? currentModule.sector : "Market ontology workspace"}</p>
+            <h2 className="mt-1 line-clamp-2 text-base font-semibold tracking-normal text-white sm:line-clamp-1 sm:text-xl">
               {currentModule ? `${currentModule.ticker} · ${currentModule.name}` : "Research Command Map"}
             </h2>
           </div>
         </div>
-        <div className="grid w-full grid-cols-2 gap-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:justify-end lg:gap-3">
+        <div className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_auto] lg:w-auto lg:grid-cols-none lg:flex lg:flex-wrap lg:items-center lg:justify-end lg:gap-3">
           {currentModule ? (
             <Select
               value={currentModule.ticker}
               onValueChange={(ticker) => navigate(`/stocks/${ticker}`)}
               options={stockOptions}
-              className="col-span-2 sm:min-w-0 lg:min-w-[240px]"
+              className="min-w-0 lg:min-w-[240px]"
             />
           ) : null}
-          {currentModule ? <ScenarioSelector value={scenario} onChange={setScenario} className="sm:min-w-0 lg:min-w-[180px]" /> : null}
-          {currentModule ? <PeriodSelector value={period} onChange={setPeriod} options={currentModule.periods} className="sm:min-w-0 lg:min-w-[180px]" /> : null}
           {user ? (
-            <div className="col-span-2 flex min-w-0 items-center justify-between gap-2 border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-white/62 shadow-[0_10px_30px_rgba(0,0,0,0.22)] lg:w-auto lg:max-w-[360px]">
+            <div className="flex min-w-0 items-center justify-between gap-2 border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-white/62 shadow-[0_10px_30px_rgba(0,0,0,0.22)] sm:w-auto lg:max-w-[320px]">
               <div className="flex min-w-0 items-center gap-2">
                 {user.avatarUrl ? <img src={user.avatarUrl} alt="" className="h-7 w-7 shrink-0 rounded-full" referrerPolicy="no-referrer" /> : null}
-                <span className="min-w-0 truncate">{displayName}</span>
+                <span className="hidden min-w-0 truncate sm:inline">{displayName}</span>
+                <span className="min-w-0 truncate sm:hidden">Workspace</span>
               </div>
               <button type="button" onClick={() => void logout()} className="inline-flex shrink-0 items-center gap-1 border border-transparent px-2 py-1 font-semibold text-white hover:border-cyan-300/30 hover:bg-cyan-300/10">
                 <LogOut className="h-3.5 w-3.5" />
