@@ -6,9 +6,10 @@ const root = process.cwd();
 const stocksDir = path.join(root, "src", "stocks");
 const registryPath = path.join(stocksDir, "registry.ts");
 
-const expectedSupportDirs = new Set(["biopharmaResearch", "defensePrime", "earningsCall", "template"]);
+const expectedSupportDirs = new Set(["biopharmaResearch", "deepResearch", "defensePrime", "earningsCall", "template"]);
 const knownFactoryPatterns = [
   { name: "biopharmaResearch", pattern: /createBiopharmaResearchModule\(/ },
+  { name: "deepResearch", pattern: /createDeepResearchStockModule\(/ },
   { name: "defensePrime", pattern: /buildDefenseValuationConfig\(/ },
 ];
 

@@ -28,6 +28,11 @@ import { autlModule } from "./autl/config";
 import { tsmModule } from "./tsm/config";
 import { cegModule } from "./ceg/config";
 import { tslaModule } from "./tsla/config";
+import { costModule } from "./cost/config";
+import { mrvlModule } from "./mrvl/config";
+import { temModule } from "./tem/config";
+import { ddogModule } from "./ddog/config";
+import { llyModule } from "./lly/config";
 
 export const stockRegistry = {
   "BA.L": baModule,
@@ -58,6 +63,11 @@ export const stockRegistry = {
   TSM: tsmModule,
   CEG: cegModule,
   TSLA: tslaModule,
+  COST: costModule,
+  MRVL: mrvlModule,
+  TEM: temModule,
+  DDOG: ddogModule,
+  LLY: llyModule,
   "DGE.L": dgeModule,
   TRI: triModule,
 };

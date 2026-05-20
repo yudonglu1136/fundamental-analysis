@@ -1,4 +1,5 @@
-import { lsegTranscriptIntelligenceLab } from "../data/transcripts";
+import { lsegTranscriptCallEvents } from "../data/transcripts/callEvents";
+import { lsegTranscriptQaPairs } from "../data/transcripts/qaPairs";
 import type { LsegTranscriptQa } from "../types";
 
 const focusDefinitions = [
@@ -42,7 +43,7 @@ function sortByDateDescending<T extends { eventDate: string }>(items: T[]) {
 }
 
 export function calculateLsegTranscriptIntelligenceEngine() {
-  const qaPairs: LsegTranscriptQa[] = lsegTranscriptIntelligenceLab.qaPairs.map((pair) => {
+  const qaPairs: LsegTranscriptQa[] = lsegTranscriptQaPairs.map((pair) => {
     const answer = pair.answerText ?? pair.answerSummary ?? "";
     const question = pair.questionText ?? pair.questionSummary ?? "";
     return {
@@ -70,13 +71,9 @@ export function calculateLsegTranscriptIntelligenceEngine() {
     return acc;
   }, {});
 
-  const quarters = sortByDateDescending(lsegTranscriptIntelligenceLab.events).slice(0, 8).map((event) => {
-    const summary = lsegTranscriptIntelligenceLab.summaryById.get(event.transcriptId);
+  const quarters = sortByDateDescending(lsegTranscriptCallEvents).slice(0, 8).map((event) => {
     const eventQa = qaPairs.filter((pair) => pair.transcriptId === event.transcriptId);
     const evidenceText = [
-      summary?.conclusion ?? "",
-      ...(summary?.topManagementMessages ?? []).map((item) => `${item.title} ${item.explanation} ${item.quote}`),
-      ...(summary?.qaHotTopics ?? []).map((item) => `${item.title} ${item.explanation} ${item.quote}`),
       ...eventQa.map((pair) => `${pair.topic} ${pair.metricMentioned ?? ""} ${pair.question} ${pair.answer}`),
     ].join(" ");
     const focusScores = focusDefinitions.map((definition) => ({
@@ -99,13 +96,13 @@ export function calculateLsegTranscriptIntelligenceEngine() {
       eventType: event.eventType,
       hasQA: eventQa.length > 0,
       qaCount: eventQa.length,
-      conclusion: summary?.conclusion ?? "Transcript summary is not available for this event.",
+      conclusion: buildLightweightConclusion(event.label, eventQa),
       topFocus,
       focusScores,
       sentimentBalance,
-      managementMessages: (summary?.topManagementMessages ?? []).slice(0, 4).map((item) => item.title),
+      managementMessages: buildManagementMessages(eventQa),
       analystQuestions: eventQa.slice(0, 6),
-      watchlist: lsegTranscriptIntelligenceLab.getNextCallWatchlist(event.transcriptId).slice(0, 5),
+      watchlist: buildWatchlist(topFocus, eventQa),
     };
   });
 
@@ -143,14 +140,74 @@ export function calculateLsegTranscriptIntelligenceEngine() {
   ].filter(Boolean).join(" ");
 
   return {
-    events: lsegTranscriptIntelligenceLab.events,
-    summaries: lsegTranscriptIntelligenceLab.summaries,
+    events: lsegTranscriptCallEvents,
+    summaries: [],
     qaPairs,
     topicCounts,
     quarters,
     focusTrend,
     aiTrendSummary,
-    validation: lsegTranscriptIntelligenceLab.validation,
+    validation: validateLightweightTranscriptLayer(qaPairs),
     unresolvedRisks: qaPairs.filter((pair) => pair.followUpRisk && pair.followUpRisk !== "No immediate follow-up flagged by extraction layer.").slice(0, 12),
   };
+}
+
+function unique<T>(items: T[]) {
+  return Array.from(new Set(items));
+}
+
+function buildLightweightConclusion(label: string, eventQa: LsegTranscriptQa[]) {
+  if (eventQa.length === 0) {
+    return `${label} has no structured Q&A items in the transcript layer. Use the source transcript record for full call-review work.`;
+  }
+  const topics = unique(eventQa.map((pair) => pair.topic)).slice(0, 4);
+  const quantifiedAnswers = eventQa.filter((pair) => pair.managementGaveQuantGuidance).length;
+  return `${label} is summarized from structured analyst Q&A. The period has ${eventQa.length} tracked Q&A items across ${topics.join(", ")}; ${quantifiedAnswers} answers included a quantified metric or guidance-like disclosure. Transcript commentary remains source evidence, not a valuation input.`;
+}
+
+function buildManagementMessages(eventQa: LsegTranscriptQa[]) {
+  const drivers = unique(eventQa.map((pair) => pair.metricMentioned).filter(Boolean) as string[]).slice(0, 4);
+  if (drivers.length === 0) {
+    return ["No structured management message extracted in the lightweight layer."];
+  }
+  return drivers.map((driver) => `Management Q&A touched ${driver}; review source transcript before promoting this into model assumptions.`);
+}
+
+function buildWatchlist(
+  topFocus: Array<{ id: string; label: string; score: number }>,
+  eventQa: LsegTranscriptQa[],
+) {
+  return topFocus.slice(0, 5).map((focus) => ({
+    id: `${focus.id}-watchlist`,
+    label: focus.label,
+    rationale:
+      eventQa.length > 0
+        ? `Track whether ${focus.label} remains prominent in future Q&A and whether management provides more quantification.`
+        : `No Q&A yet; monitor future commentary on ${focus.label}.`,
+  }));
+}
+
+function validateLightweightTranscriptLayer(qaPairs: LsegTranscriptQa[]) {
+  const warnings: string[] = [];
+  const checks: string[] = [];
+
+  if (lsegTranscriptCallEvents.length === 0) {
+    warnings.push("No transcript call events are available in the lightweight layer.");
+  } else {
+    checks.push("Transcript call events are available.");
+  }
+
+  if (qaPairs.some((pair) => pair.valuationImpactAllowed)) {
+    warnings.push("Transcript Q&A must remain blocked from valuation.");
+  } else {
+    checks.push("Transcript Q&A remains blocked from valuation.");
+  }
+
+  if (qaPairs.length === 0) {
+    warnings.push("No structured Q&A pairs are available in the lightweight layer.");
+  } else {
+    checks.push("Structured Q&A pairs are available.");
+  }
+
+  return { warnings, checks };
 }
