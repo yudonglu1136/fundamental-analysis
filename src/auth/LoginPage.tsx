@@ -39,33 +39,34 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-mist bg-grid px-4 py-10 text-ink">
-      <div className="w-full max-w-md border border-ink/15 bg-white p-6 shadow-panel">
+    <div className="flex min-h-screen items-center justify-center bg-[#05070b] px-4 py-10 text-white">
+      <div className="tf-command-surface relative w-full max-w-md overflow-hidden p-6">
+        <div className="tf-scan-line" />
         <div className="flex items-center gap-3">
-          <span className="rounded-md bg-ink p-2 text-white">
+          <span className="border border-cyan-300/30 bg-cyan-300/10 p-2 text-cyan-100">
             <LockKeyhole className="h-5 w-5" />
           </span>
           <div>
-            <p className="ontology-label">Fundamental Analysis</p>
-            <h1 className="text-2xl font-semibold">Sign in</h1>
+            <p className="tf-kicker">ThesisForge</p>
+            <h1 className="text-2xl font-semibold text-white">Sign in</h1>
           </div>
         </div>
-        <p className="mt-4 text-sm leading-6 text-slate-600">
+        <p className="mt-4 text-sm leading-6 text-slate-400">
           Access is restricted to authenticated beta users. Continue with the Google account approved for this workspace.
         </p>
 
         {!configured && devBypassEnabled ? (
-          <div className="mt-5 border border-ink/15 bg-slate-50 p-4 text-sm leading-6 text-ink/70">
+          <div className="mt-5 border border-cyan-300/20 bg-cyan-300/10 p-4 text-sm leading-6 text-cyan-100/80">
             Local workspace access is enabled for this environment.
           </div>
         ) : !configured ? (
-          <div className="mt-5 border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+          <div className="mt-5 border border-amber-300/25 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
             Authentication is not configured for this deployment.
           </div>
         ) : null}
 
         {error ? (
-          <div className="mt-5 border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-900">
+          <div className="mt-5 border border-red-300/25 bg-red-300/10 p-4 text-sm leading-6 text-red-100">
             {error}
           </div>
         ) : null}
@@ -74,7 +75,7 @@ export function LoginPage() {
           type="button"
           disabled={(!configured && !devBypassEnabled) || submitting || loading}
           onClick={handleGoogleSignIn}
-          className="mt-6 flex w-full items-center justify-center gap-2 bg-ink px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="mt-6 flex w-full items-center justify-center gap-2 border border-cyan-300/30 bg-cyan-300/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-300/25 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/10 disabled:text-slate-500"
         >
           <Chrome className="h-4 w-4" />
           {submitting ? "Redirecting" : configured ? "Continue with Google" : "Enter Workspace"}

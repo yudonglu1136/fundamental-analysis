@@ -39,11 +39,11 @@ export function AppShell() {
 
   return (
     <AppShellContext.Provider value={value}>
-      <div className="flex min-h-screen bg-mist bg-grid text-ink">
+      <div className="flex min-h-screen bg-[#05070b] text-white">
         <Sidebar />
         <div className="min-w-0 flex-1">
           <TopNav />
-          <main className="mx-auto w-full max-w-[1680px] px-3 py-4 sm:px-5 sm:py-5 lg:px-8">
+          <main className="mx-auto w-full max-w-[1740px] px-3 py-4 sm:px-5 sm:py-5 lg:px-8">
             <Outlet />
           </main>
         </div>

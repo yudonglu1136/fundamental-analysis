@@ -7,10 +7,10 @@ export function ProtectedRoute() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-mist text-ink">
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-panel">
-          <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Loading session</p>
-          <p className="mt-2 text-lg font-semibold">Checking your Google sign-in.</p>
+      <div className="flex min-h-screen items-center justify-center bg-[#05070b] px-4 text-white">
+        <div className="tf-command-surface w-full max-w-md p-6">
+          <p className="tf-kicker">Loading session</p>
+          <p className="mt-2 text-lg font-semibold text-white">Checking your Google sign-in.</p>
         </div>
       </div>
     );

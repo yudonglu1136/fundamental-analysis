@@ -1,11 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
+import { Activity, Home, Search, Waypoints } from "lucide-react";
 
 export function Sidebar() {
   const location = useLocation();
   return (
-    <aside className="hidden w-[88px] shrink-0 border-r border-white/10 bg-[#101418] px-3 py-4 text-white lg:flex lg:flex-col">
-      <Link to="/" className="group flex h-14 w-14 items-center justify-center border border-white/15 bg-white/10 text-sm font-semibold tracking-[0.16em] transition hover:border-accent/80 hover:bg-accent/10">
-        FA
+    <aside className="hidden w-[92px] shrink-0 border-r border-white/10 bg-[#030509] px-3 py-4 text-white lg:flex lg:flex-col">
+      <Link to="/" className="group flex h-14 w-14 items-center justify-center border border-cyan-300/30 bg-cyan-300/10 text-[0.62rem] font-semibold tracking-[0.18em] text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/15">
+        TF
       </Link>
 
       <nav className="mt-8 flex flex-1 flex-col items-center gap-3">
@@ -13,22 +14,25 @@ export function Sidebar() {
           to="/"
           aria-label="Home"
           title="Home"
-          className={`flex h-12 w-12 items-center justify-center border text-xs font-semibold transition ${
+          className={`flex h-12 w-12 items-center justify-center border transition ${
             location.pathname === "/"
-              ? "border-accent bg-accent text-ink"
-              : "border-white/10 bg-white/5 text-white/58 hover:border-white/25 hover:bg-white/10 hover:text-white"
+              ? "border-cyan-300 bg-cyan-300 text-[#05070b]"
+              : "border-white/10 bg-white/5 text-white/55 hover:border-cyan-300/60 hover:bg-cyan-300/10 hover:text-white"
           }`}
         >
-          H
+          <Home className="h-4 w-4" />
         </Link>
         <div className="mt-2 h-px w-8 bg-white/15" />
-        <div className="flex h-12 w-12 items-center justify-center border border-white/10 bg-white/5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-white/45" title="Stocks are selected from the top bar">
-          EQ
+        <div className="flex h-12 w-12 items-center justify-center border border-white/10 bg-white/5 text-white/45" title="Coverage graph">
+          <Waypoints className="h-4 w-4" />
+        </div>
+        <div className="flex h-12 w-12 items-center justify-center border border-white/10 bg-white/5 text-white/45" title="Search first workspace">
+          <Search className="h-4 w-4" />
         </div>
       </nav>
 
-      <div className="mb-1 flex h-14 w-14 items-center justify-center border border-white/10 bg-white/[0.03] text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-white/35 [writing-mode:vertical-rl]">
-        Research
+      <div className="mb-1 flex h-14 w-14 items-center justify-center border border-white/10 bg-white/[0.03] text-cyan-100/45">
+        <Activity className="h-4 w-4" />
       </div>
     </aside>
   );

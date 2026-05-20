@@ -16,3 +16,5 @@ coverage/
 !.env.production.example
 *.sqlite-wal
 *.sqlite-shm
+*.pem
+client_secret_*.json
