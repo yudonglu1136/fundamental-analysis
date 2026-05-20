@@ -51,6 +51,8 @@ export type LocalDeepResearchDatasetInput = {
   backendNextSteps?: string[];
 };
 
+const BACKEND_SUPPORTED_TICKERS = new Set(["AVAV", "KTOS", "JPM", "BAC", "CB", "TRV", "EQT", "QCOM"]);
+
 function buildHistoricalValuations(ticker: string, rows: LocalHistoricalRowInput[]): DeepResearchHistoricalValuation[] {
   return rows.map((row, index) => {
     const targetPrice3Y = row.fairValue * 1.12;
@@ -79,6 +81,7 @@ function buildHistoricalValuations(ticker: string, rows: LocalHistoricalRowInput
 }
 
 export function createLocalDeepResearchDataset(input: LocalDeepResearchDatasetInput): DeepResearchDataset {
+  const backendSupported = BACKEND_SUPPORTED_TICKERS.has(input.ticker.toUpperCase());
   const defaultAssumptions: DeepResearchValuationAssumptions = {
     currentPrice: input.currentPrice,
     ...input.valuationBase,
@@ -129,26 +132,37 @@ export function createLocalDeepResearchDataset(input: LocalDeepResearchDatasetIn
     monitoring: input.monitoring,
     sourceGaps: [
       ...input.sourceGaps,
-      "Backend SQLite, daily price bars, SPY backtest and persisted valuation_runs are not implemented for this ticker yet.",
+      ...(backendSupported
+        ? ["Official filing/transcript ingestion is still pending; backend rows are rich research proxies with imported market prices when available."]
+        : ["Backend SQLite, daily price bars, SPY backtest and persisted valuation_runs are not implemented for this ticker yet."]),
     ],
     backendStatus: {
-      supported: false,
+      supported: backendSupported,
       detail:
         input.backendDetail ??
-        `${input.ticker} has frontend research history and local valuation fallback only. Backend SQLite and AWS data refresh are deferred.`,
+        (backendSupported
+          ? `${input.ticker} is wired to the unified backend for SQLite research events, persisted valuation runs and stock-vs-SPY backtests. Official filing/transcript imports remain a source gap.`
+          : `${input.ticker} has frontend research history and local valuation fallback only. Backend SQLite and AWS data refresh are deferred.`),
       nextSteps:
         input.backendNextSteps ??
-        [
-          `Create data/local/${input.ticker.toLowerCase()}/backend/${input.ticker.toLowerCase()}_research.sqlite.`,
-          `Import ${input.ticker}/SPY daily prices.`,
-          "Persist valuation runs by reporting event.",
-          "Add ticker capabilities to backend_manifest.mjs.",
-        ],
+        (backendSupported
+          ? [
+              `Run npm run deep-research:backend:seed -- --ticker ${input.ticker.toLowerCase()}.`,
+              `Run npm run deep-research:backend:import-prices -- --ticker ${input.ticker.toLowerCase()}.`,
+              `Run npm run deep-research:backend:backfill-valuations -- --ticker ${input.ticker.toLowerCase()}.`,
+              "Replace research proxies with official filings/transcripts as the next data-quality step.",
+            ]
+          : [
+              `Create data/local/${input.ticker.toLowerCase()}/backend/${input.ticker.toLowerCase()}_research.sqlite.`,
+              `Import ${input.ticker}/SPY daily prices.`,
+              "Persist valuation runs by reporting event.",
+              "Add ticker capabilities to backend_manifest.mjs.",
+            ]),
     },
     qualityBadges: [
       { label: "Market price", value: "Manual proxy snapshot", badge: "Placeholder" },
       { label: "Operating KPIs", value: "Manual research model", badge: "Assumption" },
-      { label: "Historical valuation", value: "Local fallback", badge: "Placeholder" },
+      { label: "Historical valuation", value: backendSupported ? "Backend persisted run" : "Local fallback", badge: backendSupported ? "Derived" : "Placeholder" },
     ],
   };
 }

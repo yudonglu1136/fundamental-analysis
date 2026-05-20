@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import { AlertTriangle, Database, ShieldAlert } from "lucide-react";
 import {
@@ -18,6 +18,7 @@ import { InteractiveValuationDashboard } from "../../components/shared/Interacti
 import { MetricCard } from "../../components/shared/MetricCard";
 import { SectionCard } from "../../components/shared/SectionCard";
 import { useValuationAssumptionState } from "../../components/shared/useValuationAssumptionState";
+import { apiFetch } from "../../api/client";
 import { calculateDeepResearchValuation, formatMetricValue, resolveDeepResearchDataset } from "./calculations";
 import type { DeepResearchDataset, DeepResearchHistoricalValuation, DeepResearchKpiSeries } from "./model";
 
@@ -35,12 +36,94 @@ function chartWindow(rows: DeepResearchHistoricalValuation[], windowSize: string
   return rows.slice(Math.max(0, rows.length - count));
 }
 
+type BackendHistoricalPayload = {
+  historicalValuations?: Array<{
+    event?: {
+      id: string;
+      eventDate: string;
+      fiscalPeriod?: string;
+      fiscalYear?: number;
+      fiscalQuarter?: number;
+    };
+    valuationRun?: {
+      id: string;
+      currentPrice?: number | null;
+      fairValue?: number | null;
+      targetPrice3Y?: number | null;
+      expectedShareholderCagr?: number | null;
+      methodOutputsJson?: Array<{ label?: string; value?: number; format?: string; description?: string }>;
+      warningsJson?: Array<{ title?: string; detail?: string }>;
+    } | null;
+  }>;
+};
+
+function backendRowsFromPayload(dataset: DeepResearchDataset, payload: BackendHistoricalPayload): DeepResearchHistoricalValuation[] {
+  return (payload.historicalValuations ?? [])
+    .filter((row) => row.event && row.valuationRun && Number.isFinite(Number(row.valuationRun.fairValue)) && Number.isFinite(Number(row.valuationRun.currentPrice)))
+    .map((row) => {
+      const event = row.event!;
+      const run = row.valuationRun!;
+      const fiscalPeriod = event.fiscalPeriod ?? (event.fiscalYear && event.fiscalQuarter ? `FY${event.fiscalYear} Q${event.fiscalQuarter}` : event.eventDate);
+      const asOfPrice = Number(run.currentPrice);
+      const fairValue = Number(run.fairValue);
+      return {
+        id: run.id,
+        eventDate: event.eventDate,
+        fiscalPeriod,
+        asOfPrice,
+        fairValue,
+        targetPrice3Y: Number(run.targetPrice3Y ?? fairValue * 1.1),
+        expectedShareholderCagr: Number(run.expectedShareholderCagr ?? Math.pow(Math.max(0.01, fairValue) / Math.max(0.01, asOfPrice), 1 / 3) - 1),
+        method: `${dataset.ticker} persisted backend valuation run using event-visible assumption set.`,
+        sourceStatus: "derived",
+        warnings: [
+          "Backend persisted valuation run.",
+          ...((run.warningsJson ?? []).map((warning) => warning.detail ?? warning.title ?? "").filter(Boolean)),
+        ],
+        methodOutputs: (run.methodOutputsJson ?? []).map((item) => ({
+          label: item.label ?? "Backend method",
+          value: Number(item.value ?? fairValue),
+          format: (item.format as DeepResearchHistoricalValuation["methodOutputs"][number]["format"]) ?? "currency",
+          description: item.description ?? "Persisted backend method output.",
+        })),
+      };
+    });
+}
+
 function HistoricalValuationPanel({ dataset }: { dataset: DeepResearchDataset }) {
   const [windowSize, setWindowSize] = useState("12Q");
   const [selectedId, setSelectedId] = useState(dataset.historicalValuations[dataset.historicalValuations.length - 1]?.id ?? "");
-  const visibleRows = chartWindow(dataset.historicalValuations, windowSize);
-  const selected = dataset.historicalValuations.find((row) => row.id === selectedId) ?? dataset.historicalValuations[dataset.historicalValuations.length - 1];
-  const latest = dataset.historicalValuations[dataset.historicalValuations.length - 1];
+  const [backendRows, setBackendRows] = useState<DeepResearchHistoricalValuation[] | null>(null);
+  const [apiStatus, setApiStatus] = useState<"idle" | "loading" | "online" | "offline">("idle");
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!dataset.backendStatus.supported) return;
+    let active = true;
+    setApiStatus("loading");
+    setApiError(null);
+    apiFetch<BackendHistoricalPayload>(`/api/stocks/${dataset.ticker.toLowerCase()}/historical-valuations?scenario=Base`)
+      .then((payload) => {
+        if (!active) return;
+        const rows = backendRowsFromPayload(dataset, payload);
+        setBackendRows(rows.length ? rows : null);
+        setApiStatus(rows.length ? "online" : "offline");
+        if (rows.length) setSelectedId(rows[rows.length - 1].id);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setApiStatus("offline");
+        setApiError(error instanceof Error ? error.message : String(error));
+      });
+    return () => {
+      active = false;
+    };
+  }, [dataset]);
+
+  const rows = backendRows ?? dataset.historicalValuations;
+  const visibleRows = chartWindow(rows, windowSize);
+  const selected = rows.find((row) => row.id === selectedId) ?? rows[rows.length - 1];
+  const latest = rows[rows.length - 1];
   const avgGap =
     visibleRows.reduce((sum, row) => sum + (row.fairValue / Math.max(0.01, row.asOfPrice) - 1), 0) / Math.max(1, visibleRows.length);
   const chartRows = visibleRows.map((row) => ({
@@ -53,8 +136,10 @@ function HistoricalValuationPanel({ dataset }: { dataset: DeepResearchDataset })
     <SectionCard title={`${dataset.ticker} Backend-Style Historical Valuations`}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide">
-          <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700">Local fallback</span>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">{dataset.historicalValuations.length} event rows</span>
+          <span className={`rounded-full px-3 py-1 ${apiStatus === "online" ? "bg-emerald-50 text-emerald-700" : apiStatus === "loading" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"}`}>
+            {apiStatus === "online" ? "Backend online" : apiStatus === "loading" ? "Loading backend" : "Local fallback"}
+          </span>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">{rows.length} event rows</span>
           <span className="rounded-full bg-blue-50 px-3 py-1 text-blue-700">MSFT/AAPL UX pattern</span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -105,7 +190,7 @@ function HistoricalValuationPanel({ dataset }: { dataset: DeepResearchDataset })
       </div>
 
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-        {dataset.historicalValuations.map((row) => (
+        {rows.map((row) => (
           <button
             key={row.id}
             type="button"
@@ -145,6 +230,7 @@ function HistoricalValuationPanel({ dataset }: { dataset: DeepResearchDataset })
           </p>
           <p className="mt-1">{selected.method}</p>
           {selected.warnings.length > 0 ? <p className="mt-2 text-amber-700">{selected.warnings.join(" ")}</p> : null}
+          {apiError ? <p className="mt-2 text-amber-700">API fallback: {apiError}</p> : null}
         </div>
       ) : null}
     </SectionCard>
@@ -285,6 +371,94 @@ function DeepDiveTab({ dataset, tab }: { dataset: DeepResearchDataset; tab: stri
   );
 }
 
+type BackendBacktestResult = {
+  status?: string;
+  warnings?: string[];
+  metrics?: {
+    stock?: { cagr?: number | null; maxDrawdown?: number | null; sharpe?: number | null; volatility?: number | null };
+    spy?: { cagr?: number | null; maxDrawdown?: number | null; sharpe?: number | null; volatility?: number | null };
+  };
+  curve?: Array<{ date: string; stock?: number; spy?: number }>;
+};
+
+function BackendBacktestPanel({ dataset }: { dataset: DeepResearchDataset }) {
+  const [startDate, setStartDate] = useState("2018-01-02");
+  const [endDate, setEndDate] = useState(dataset.updatedAt);
+  const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [result, setResult] = useState<BackendBacktestResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function runBacktest() {
+    setStatus("running");
+    setError(null);
+    try {
+      const payload = await apiFetch<BackendBacktestResult>(`/api/stocks/${dataset.ticker.toLowerCase()}/backtests`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ startDate, endDate, benchmarkTicker: "SPY" }),
+      });
+      setResult(payload);
+      setStatus(payload.status === "completed" ? "done" : "error");
+      if (payload.status !== "completed") setError((payload.warnings ?? []).join(" ") || "Backtest did not complete.");
+    } catch (caught) {
+      setStatus("error");
+      setError(caught instanceof Error ? caught.message : String(caught));
+    }
+  }
+
+  const chartRows = result?.curve?.map((row) => ({
+    date: row.date,
+    stock: row.stock ? row.stock * 100 : null,
+    spy: row.spy ? row.spy * 100 : null,
+  })) ?? [];
+
+  return (
+    <SectionCard title={`${dataset.ticker} vs SPY Backtest`}>
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <label className="grid gap-1 text-sm font-semibold text-slate-700">
+          Start date
+          <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="h-10 border border-slate-200 px-3 font-normal" />
+        </label>
+        <label className="grid gap-1 text-sm font-semibold text-slate-700">
+          End date
+          <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="h-10 border border-slate-200 px-3 font-normal" />
+        </label>
+        <button type="button" onClick={runBacktest} className="h-10 bg-slate-950 px-4 text-sm font-semibold text-white">
+          {status === "running" ? "Running" : "Run backtest"}
+        </button>
+        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${status === "done" ? "bg-emerald-50 text-emerald-700" : status === "error" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+          {status === "done" ? "Backtest ready" : status === "error" ? "Needs data" : "Ready"}
+        </span>
+      </div>
+      {result?.metrics ? (
+        <div className="mb-4 grid gap-3 md:grid-cols-4">
+          <MetricCard metric={{ key: "stock-cagr", label: `${dataset.ticker} CAGR`, value: result.metrics.stock?.cagr ?? 0, format: "percent", description: "Backend daily adjusted buy-and-hold CAGR.", badge: "Derived" }} />
+          <MetricCard metric={{ key: "spy-cagr", label: "SPY CAGR", value: result.metrics.spy?.cagr ?? 0, format: "percent", description: "Backend SPY benchmark CAGR.", badge: "Derived" }} />
+          <MetricCard metric={{ key: "stock-mdd", label: `${dataset.ticker} MDD`, value: result.metrics.stock?.maxDrawdown ?? 0, format: "percent", description: "Maximum drawdown.", badge: "Derived" }} />
+          <MetricCard metric={{ key: "stock-sharpe", label: `${dataset.ticker} Sharpe`, value: result.metrics.stock?.sharpe ?? 0, format: "number", description: "Daily return annualized Sharpe, no risk-free-rate adjustment.", badge: "Derived" }} />
+        </div>
+      ) : null}
+      {chartRows.length ? (
+        <div className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={chartRows}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={28} />
+              <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => `${Number(value).toFixed(0)}`} />
+              <Tooltip formatter={(value, name) => [`${Number(value).toFixed(1)}`, name === "stock" ? dataset.ticker : "SPY"]} />
+              <Legend />
+              <Line type="monotone" dataKey="stock" name={dataset.ticker} stroke="#0f172a" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="spy" name="SPY" stroke="#2563eb" strokeWidth={2} dot={false} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      ) : null}
+      {error ? <p className="mt-3 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{error}</p> : null}
+      {result?.warnings?.length ? <p className="mt-3 text-sm text-amber-700">{result.warnings.join(" ")}</p> : null}
+    </SectionCard>
+  );
+}
+
 function ValuationTab({ dataset, module, scenario, onDataSourceChange }: StockDashboardProps & { dataset: DeepResearchDataset }) {
   const { valuationAssumptions, handleValuationValuesChange } = useValuationAssumptionState({
     ticker: dataset.ticker,
@@ -299,6 +473,7 @@ function ValuationTab({ dataset, module, scenario, onDataSourceChange }: StockDa
   return (
     <div className="space-y-6">
       <HistoricalValuationPanel dataset={dataset} />
+      {dataset.backendStatus.supported ? <BackendBacktestPanel dataset={dataset} /> : null}
       <SectionCard title={`${dataset.ticker} Valuation Triangulation`}>
         <div className="mb-5 grid gap-4 md:grid-cols-4">
           {valuation.methodCards.map((card) => (

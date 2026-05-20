@@ -359,8 +359,10 @@ import {
 import { getDgeBacktests, runDgeBacktest } from "../services/dgeBacktestService.mjs";
 import { createDgeUpdateJob, getDgeUpdateJob } from "../services/dgeUpdateJobService.mjs";
 import { DGE_BACKEND_MODEL_VERSION } from "../../../../modules/dge/valuation/modelVersion.mjs";
+import { deepResearchStockBackendRegistry } from "../services/deepResearchBackendService.mjs";
 
 export const stockBackendRegistry = {
+  ...deepResearchStockBackendRegistry,
   nvda: {
     slug: "nvda",
     ticker: "NVDA",

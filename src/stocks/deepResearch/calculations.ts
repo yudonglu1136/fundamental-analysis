@@ -126,9 +126,11 @@ function buildWarnings(dataset: DeepResearchDataset, assumptions: DeepResearchVa
     ? [
         {
           id: `${dataset.ticker.toLowerCase()}-historical-valuation-local-fallback`,
-          title: "Historical valuation is local research fallback",
+          title: dataset.backendStatus.supported ? "Historical valuation uses backend plus local fallback" : "Historical valuation is local research fallback",
           detail:
-            "Historical event rows are shown in the MSFT/AAPL UX pattern but are not yet persisted in the unified backend daily price/valuation tables.",
+            dataset.backendStatus.supported
+              ? "The valuation tab prefers persisted backend valuation runs. Local rows remain as a fallback if the API is offline."
+              : "Historical event rows are shown in the MSFT/AAPL UX pattern but are not yet persisted in the unified backend daily price/valuation tables.",
           severity: "medium",
         },
       ]
