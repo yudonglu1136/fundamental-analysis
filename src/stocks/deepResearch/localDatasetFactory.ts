@@ -51,7 +51,7 @@ export type LocalDeepResearchDatasetInput = {
   backendNextSteps?: string[];
 };
 
-const BACKEND_SUPPORTED_TICKERS = new Set(["AVAV", "KTOS", "JPM", "BAC", "CB", "TRV", "EQT", "QCOM"]);
+const BACKEND_SUPPORTED_TICKERS = new Set(["AVAV", "KTOS", "JPM", "BAC", "CB", "TRV", "EQT", "QCOM", "UNH"]);
 
 function buildHistoricalValuations(ticker: string, rows: LocalHistoricalRowInput[]): DeepResearchHistoricalValuation[] {
   return rows.map((row, index) => {

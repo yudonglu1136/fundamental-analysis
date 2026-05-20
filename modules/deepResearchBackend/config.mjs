@@ -1,6 +1,6 @@
 import path from "node:path";
 
-export const DEEP_RESEARCH_BACKEND_SLUGS = ["avav", "ktos", "jpm", "cb", "trv", "eqt", "qcom", "bac"];
+export const DEEP_RESEARCH_BACKEND_SLUGS = ["avav", "ktos", "jpm", "cb", "trv", "eqt", "qcom", "bac", "unh"];
 
 const commonStartDate = "2018-01-01";
 const commonLatestDate = "2026-05-20";
@@ -389,6 +389,52 @@ export const deepResearchBackendProfiles = {
       "Can auto and edge AI become large enough to change the multiple?",
     ],
     riskTopics: ["Apple modem transition", "China handset cycle", "licensing pressure", "auto backlog conversion"],
+  }),
+  unh: profile({
+    slug: "unh",
+    ticker: "UNH",
+    displayName: "UnitedHealth Group",
+    companyName: "UnitedHealth Group Incorporated",
+    archetype: "Managed care / Optum services platform",
+    irUrl: "https://www.unitedhealthgroup.com/investors.html",
+    sourceNote: "Research proxy history built from local thesis model; replace with official filings, earnings supplements and transcript ingestion.",
+    revenueStart: 56000,
+    revenueEnd: 112000,
+    operatingMarginStart: 0.075,
+    operatingMarginEnd: 0.079,
+    fcfMarginStart: 0.055,
+    fcfMarginEnd: 0.065,
+    sharesStart: 955,
+    sharesEnd: 920,
+    netDebtEnd: 72000,
+    priceStart: 220,
+    priceEnd: 389,
+    fairValueStart: 225,
+    fairValueEnd: 425,
+    baseAssumptions: {
+      revenueCagr3Y: 0.055,
+      terminalGrowth: 0.025,
+      normalizedFcfMargin: 0.065,
+      exitFcfMultiple: 16,
+      evRevenueMultiple: 1.05,
+      discountRate: 0.095,
+      qualityAdjustment: 1.05,
+      riskHaircut: 0.18,
+      dividendYield: 0.022,
+      buybackYield: 0.018,
+    },
+    segments: [
+      { name: "UnitedHealthcare Benefits", startMix: 0.58, endMix: 0.53, margin: 0.065 },
+      { name: "Optum Health / Value-Based Care", startMix: 0.17, endMix: 0.22, margin: 0.075 },
+      { name: "Optum Rx / Insight", startMix: 0.25, endMix: 0.25, margin: 0.085 },
+    ],
+    peers: ["ELV", "CI", "HUM", "CNC"],
+    debateQuestions: [
+      "Is medical cost trend a temporary pricing lag or a structural reset in managed-care margin?",
+      "Can Medicare Advantage repricing restore profitability without adverse member selection?",
+      "Does Optum still deserve a platform premium under PBM and vertical-integration scrutiny?",
+    ],
+    riskTopics: ["medical cost trend", "Medicare Advantage rates", "PBM regulation", "Optum execution", "cyber remediation"],
   }),
 };
 

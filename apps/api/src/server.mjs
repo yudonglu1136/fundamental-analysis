@@ -78,6 +78,7 @@ const server = http.createServer(async (request, response) => {
         eqtBackendPilot: true,
         qcomBackendPilot: true,
         bacBackendPilot: true,
+        unhBackendPilot: true,
         stockBackends: listStockBackends().map(({ slug, ticker, modelVersion }) => ({ slug, ticker, modelVersion })),
         googlBackendPilot: true,
       });

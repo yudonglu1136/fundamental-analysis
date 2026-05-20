@@ -41,6 +41,7 @@ import { trvModule } from "./trv/config";
 import { eqtModule } from "./eqt/config";
 import { qcomModule } from "./qcom/config";
 import { bacModule } from "./bac/config";
+import { unhModule } from "./unh/config";
 
 export const stockRegistry = {
   "BA.L": baModule,
@@ -84,6 +85,7 @@ export const stockRegistry = {
   EQT: eqtModule,
   QCOM: qcomModule,
   BAC: bacModule,
+  UNH: unhModule,
   "DGE.L": dgeModule,
   TRI: triModule,
 };

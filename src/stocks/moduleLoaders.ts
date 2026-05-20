@@ -44,6 +44,7 @@ export const stockModuleLoaders: Record<string, StockModuleLoader> = {
   EQT: () => import("./eqt/config").then((module) => module.eqtModule),
   QCOM: () => import("./qcom/config").then((module) => module.qcomModule),
   BAC: () => import("./bac/config").then((module) => module.bacModule),
+  UNH: () => import("./unh/config").then((module) => module.unhModule),
   "DGE.L": () => import("./dge/config").then((module) => module.dgeModule),
   TRI: () => import("./tri/config").then((module) => module.triModule),
 };
