@@ -20,6 +20,7 @@ import { SectionCard } from "../../components/shared/SectionCard";
 import { useValuationAssumptionState } from "../../components/shared/useValuationAssumptionState";
 import { apiFetch } from "../../api/client";
 import { calculateDeepResearchValuation, formatMetricValue, resolveDeepResearchDataset } from "./calculations";
+import { buildDeepResearchAttentionOutput, topicColor } from "./earningsAttentionEngine";
 import type { DeepResearchDataset, DeepResearchHistoricalValuation, DeepResearchKpiSeries } from "./model";
 
 function usd(value: number | null | undefined) {
@@ -292,30 +293,106 @@ function ResearchQuestionGrid({ dataset }: { dataset: DeepResearchDataset }) {
 }
 
 function EarningsQuestionPanel({ dataset }: { dataset: DeepResearchDataset }) {
-  const chartRows = dataset.quarterlyQuestions.map((row, index) => ({
-    quarter: row.quarter,
-    focusScore: 60 + (row.keyQuestions.length * 7) + (row.riskSignal === "Negative" ? 8 : row.riskSignal === "Inflecting" ? 5 : 0),
-    riskScore: row.riskSignal === "Positive" ? 35 : row.riskSignal === "Neutral" ? 45 : row.riskSignal === "Inflecting" ? 60 : 70,
-    index,
-  }));
+  const attention = useMemo(() => buildDeepResearchAttentionOutput(dataset), [dataset]);
+  const latestQuarter = attention.quarters[attention.quarters.length - 1];
+  const topTrend = attention.topicTrends[0];
+  const fastestRising = [...attention.topicTrends].sort((left, right) => right.eightQuarterChange - left.eightQuarterChange)[0];
+  const biggestQoq = [...attention.topicTrends].sort((left, right) => Math.abs(right.qoqChange) - Math.abs(left.qoqChange))[0];
+  const attentionByQuarter = new Map(attention.quarters.map((row) => [`${row.quarter}-${row.eventDate}`, row]));
+  const formatChange = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(0)}`;
+
   return (
     <div className="space-y-6">
-      <SectionCard title="Historical Quarterly Earnings Questions">
+      <SectionCard title="AI Market-Focus Score Trend">
         <p className="mb-4 text-sm text-slate-600">
-          Each row frames what investors needed to ask at that reporting event. Rows are local research summaries until transcript ingestion is backend-backed.
+          AI-coded keyword-frequency scores show how market attention has moved across each reporting-event question cluster, management-tone note and model read-through.
         </p>
-        <div className="h-72">
+        <div className="mb-4 grid gap-3 md:grid-cols-4">
+          <div className="border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Latest top focus</p>
+            <p className="mt-2 text-xl font-semibold text-slate-950">{topTrend?.label ?? "n/a"}</p>
+            <p className="mt-1 text-sm text-slate-600">{topTrend ? `${topTrend.latestScore}/100 score` : "No score"}</p>
+          </div>
+          <div className="border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Largest 8Q riser</p>
+            <p className="mt-2 text-xl font-semibold text-slate-950">{fastestRising?.label ?? "n/a"}</p>
+            <p className="mt-1 text-sm text-slate-600">{fastestRising ? `${formatChange(fastestRising.eightQuarterChange)} pts` : "No trend"}</p>
+          </div>
+          <div className="border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Largest QoQ shift</p>
+            <p className="mt-2 text-xl font-semibold text-slate-950">{biggestQoq?.label ?? "n/a"}</p>
+            <p className="mt-1 text-sm text-slate-600">{biggestQoq ? `${formatChange(biggestQoq.qoqChange)} pts` : "No shift"}</p>
+          </div>
+          <div className="border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Latest keyword hits</p>
+            <p className="mt-2 text-xl font-semibold text-slate-950">{latestQuarter?.totalMatchedTerms ?? 0}</p>
+            <p className="mt-1 text-sm text-slate-600">{latestQuarter ? `${latestQuarter.quarter} matched terms` : "No quarter"}</p>
+          </div>
+        </div>
+        <p className="mb-4 border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">{attention.overview}</p>
+        <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartRows}>
+            <ComposedChart data={attention.chartRows}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="quarter" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} tickFormatter={(value) => `${value}`} />
+              <Tooltip
+                formatter={(value, name) => [
+                  `${Number(value).toFixed(0)}/100`,
+                  attention.topChartTopics.find((topic) => topic.id === name)?.label ?? name,
+                ]}
+                labelFormatter={(label, payload) => {
+                  const row = payload?.[0]?.payload as { quarter?: string; eventDate?: string } | undefined;
+                  return row ? `${row.quarter ?? label} · ${row.eventDate ?? ""}` : String(label);
+                }}
+              />
               <Legend />
-              <Bar dataKey="focusScore" name="Question intensity" fill="#0f172a" />
-              <Bar dataKey="riskScore" name="Risk scrutiny" fill="#f59e0b" />
-            </BarChart>
+              {attention.topChartTopics.map((topic, index) => (
+                <Line
+                  key={topic.id}
+                  type="monotone"
+                  dataKey={topic.id}
+                  name={topic.label}
+                  stroke={topicColor(index)}
+                  strokeWidth={2.5}
+                  dot={{ r: 3 }}
+                />
+              ))}
+            </ComposedChart>
           </ResponsiveContainer>
+        </div>
+        <p className="mt-3 text-xs text-slate-500">{attention.sourceBoundary}</p>
+      </SectionCard>
+      <SectionCard title="Topic Score Change Table">
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                <th className="py-2 pr-4">Topic</th>
+                <th className="py-2 pr-4">Latest score</th>
+                <th className="py-2 pr-4">QoQ</th>
+                <th className="py-2 pr-4">8Q change</th>
+                <th className="py-2 pr-4">Latest frequency</th>
+                <th className="py-2 pr-4">Matched terms</th>
+                <th className="py-2 pr-4">Interpretation</th>
+              </tr>
+            </thead>
+            <tbody>
+              {attention.topicTrends.map((trend) => (
+                <tr key={trend.topicId} className="border-b border-slate-100 align-top">
+                  <td className="py-3 pr-4 font-semibold text-slate-950">{trend.label}</td>
+                  <td className="py-3 pr-4 text-slate-700">{trend.latestScore}/100</td>
+                  <td className={`py-3 pr-4 font-semibold ${trend.qoqChange >= 0 ? "text-emerald-700" : "text-red-700"}`}>{formatChange(trend.qoqChange)}</td>
+                  <td className={`py-3 pr-4 font-semibold ${trend.eightQuarterChange >= 0 ? "text-emerald-700" : "text-red-700"}`}>{formatChange(trend.eightQuarterChange)}</td>
+                  <td className="py-3 pr-4 text-slate-700">{trend.latestFrequency}</td>
+                  <td className="py-3 pr-4 text-slate-600">
+                    {trend.latestMatchedTerms.length ? trend.latestMatchedTerms.map((term) => `${term.term} (${term.count})`).join(", ") : "No latest-quarter match"}
+                  </td>
+                  <td className="py-3 pr-4 text-slate-600">{trend.interpretation}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </SectionCard>
       <div className="grid gap-4">
@@ -326,11 +403,23 @@ function EarningsQuestionPanel({ dataset }: { dataset: DeepResearchDataset }) {
                 <p className="font-semibold text-slate-950">{row.quarter} · {row.headline}</p>
                 <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">{row.eventDate} · {row.sourceStatus}</p>
               </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{row.riskSignal}</span>
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{row.riskSignal}</span>
+                {attentionByQuarter.get(`${row.quarter}-${row.eventDate}`) ? (
+                  <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                    Top focus: {attentionByQuarter.get(`${row.quarter}-${row.eventDate}`)?.topTopic} ({attentionByQuarter.get(`${row.quarter}-${row.eventDate}`)?.topTopicScore}/100)
+                  </span>
+                ) : null}
+              </div>
             </div>
             <ul className="mt-3 grid gap-2 text-sm text-slate-600 md:grid-cols-2">
               {row.keyQuestions.map((question) => <li key={question}>• {question}</li>)}
             </ul>
+            {attentionByQuarter.get(`${row.quarter}-${row.eventDate}`) ? (
+              <p className="mt-3 text-sm text-slate-600">
+                <strong>AI frequency signal:</strong> {attentionByQuarter.get(`${row.quarter}-${row.eventDate}`)?.totalMatchedTerms} matched topic terms across the local call-summary text.
+              </p>
+            ) : null}
             <p className="mt-3 text-sm text-slate-700"><strong>Model read-through:</strong> {row.modelReadThrough}</p>
           </div>
         ))}

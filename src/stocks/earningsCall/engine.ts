@@ -76,7 +76,7 @@ export function buildEarningsCallTrend(dataset: EarningsCallDataset, selectedQua
     quarters,
     topicTrendRows,
     overview: {
-      aiTrendSummary: `${dataset.name}'s last eight quarters show a rotation from raw reported results toward the quality and durability of growth. The market is now focused on the topics with the highest latest intensity: ${topicTrendRows.slice(0, 3).map((row) => row.label).join(", ")}.`,
+      aiTrendSummary: `${dataset.name}'s last eight quarters show a rotation from raw reported results toward the quality and durability of growth. The market is now focused on the topics with the highest latest AI-coded attention scores: ${topicTrendRows.slice(0, 3).map((row) => row.label).join(", ")}.`,
       debateNow: selectedQuarter.aiSummary,
       risingDebates,
       fadingDebates,

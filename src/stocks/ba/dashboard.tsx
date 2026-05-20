@@ -449,7 +449,7 @@ export function BaDashboard({ module, scenario, period, dataSourceType, onDataSo
             </div>
 
             <div className="mt-6 grid gap-6 xl:grid-cols-2">
-              <ChartPanel title="Market-Focus Intensity Across The Last Eight Quarter Windows">
+              <ChartPanel title="Market-Focus Score Across The Last Eight Quarter Windows">
                 <ResponsiveContainer width="100%" height={340}>
                   <LineChart data={dashboard.reportingEvents.themeTrendRows}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />

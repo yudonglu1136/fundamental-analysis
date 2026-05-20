@@ -221,7 +221,7 @@ export function EarningsCallPanel({ dashboard }: { dashboard: LegnDashboardData 
       </div>
 
       <LegnTable
-        headers={["Topic", "Selected intensity", "Quarter comment"]}
+        headers={["Topic", "Selected AI score", "Quarter comment"]}
         rows={selected.marketFocus.map((focus) => [
           dashboard.earningsCallTrend.topicTrendRows.find((row) => row.topic === focus.topic)?.label ?? focus.topic,
           `${focus.intensity}/10`,
@@ -239,7 +239,7 @@ export function EarningsCallPanel({ dashboard }: { dashboard: LegnDashboardData 
           }))}
         />
         <LegnTable
-          headers={["Topic", "Trend", "Latest", "8Q avg", "AI synthesis"]}
+          headers={["Topic", "Trend", "Latest AI score", "8Q avg", "AI synthesis"]}
           rows={dashboard.earningsCallTrend.topicTrendRows.map((row) => [
             row.label,
             <LegnBadge tone={row.direction === "rising" ? "amber" : row.direction === "falling" ? "blue" : "slate"}>{row.direction}</LegnBadge>,

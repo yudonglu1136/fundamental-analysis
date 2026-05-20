@@ -65,7 +65,7 @@ function Overview({ dataset, trend }: { dataset: EarningsCallDataset; trend: Ear
 function EarningsCallExplorer({ dataset, trend }: { dataset: EarningsCallDataset; trend: EarningsCallTrendOutput }) {
   const [selectedId, setSelectedId] = useState(trend.selectedQuarter.id);
   const selected = dataset.quarters.find((quarter) => quarter.id === selectedId) ?? trend.selectedQuarter;
-  const maxIntensity = 10;
+  const maxScore = 10;
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-slate-200 bg-white p-4">
@@ -107,7 +107,7 @@ function EarningsCallExplorer({ dataset, trend }: { dataset: EarningsCallDataset
         {table(["Analyst question cluster"], selected.analystQuestions.map((question) => [question]))}
       </div>
       {table(
-        ["Topic", "Intensity", "Comment"],
+        ["Topic", "AI attention score", "Comment"],
         selected.marketFocus.map((focus) => [focus.topic, `${focus.intensity}/10`, focus.summary]),
       )}
       <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
@@ -118,7 +118,7 @@ function EarningsCallExplorer({ dataset, trend }: { dataset: EarningsCallDataset
               <span>{row.latestIntensity}/10</span>
             </div>
             <div className="h-2 rounded-full bg-slate-100">
-              <div className="h-2 rounded-full bg-sky-500" style={{ width: `${Math.max(3, Math.min(100, (row.latestIntensity / maxIntensity) * 100))}%` }} />
+              <div className="h-2 rounded-full bg-sky-500" style={{ width: `${Math.max(3, Math.min(100, (row.latestIntensity / maxScore) * 100))}%` }} />
             </div>
           </div>
         ))}
@@ -149,7 +149,7 @@ export function EarningsCallDashboard({ module, dataSourceType }: StockDashboard
     <div className="space-y-6">
       <SectionCard
         title={`${dataset.ticker} Earnings Call Intelligence`}
-        description="Eight-quarter earnings-call trend overview with scrollable quarter selection and market-focus synthesis."
+        description="Eight-quarter earnings-call trend overview with scrollable quarter selection, AI-coded topic scores and market-focus synthesis."
         badge={<DataQualityBadge badge={dataSourceType === "manual" ? "Assumption" : "Actual"} />}
       >
         <Overview dataset={dataset} trend={trend} />
@@ -168,7 +168,7 @@ export function EarningsCallDashboard({ module, dataSourceType }: StockDashboard
         </Tabs.Content>
         <Tabs.Content value="trend" className="mt-6">
           <SectionCard title="Market Focus Trend">
-            {table(["Topic", "Direction", "Latest", "8Q avg", "AI synthesis"], trend.topicTrendRows.map((row) => [row.label, row.direction, `${row.latestIntensity}/10`, row.eightQuarterAverage.toFixed(1), row.aiSynthesis]))}
+            {table(["Topic", "Direction", "Latest AI score", "8Q avg", "AI synthesis"], trend.topicTrendRows.map((row) => [row.label, row.direction, `${row.latestIntensity}/10`, row.eightQuarterAverage.toFixed(1), row.aiSynthesis]))}
           </SectionCard>
         </Tabs.Content>
         <Tabs.Content value="evidence" className="mt-6">

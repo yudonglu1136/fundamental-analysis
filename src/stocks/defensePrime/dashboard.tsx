@@ -322,7 +322,7 @@ export function DefensePrimeDashboard({ module, scenario }: StockDashboardProps)
               onChange={(event) => setSelectedEventIndex(Number(event.target.value))}
             />
             <div className="mt-6 grid gap-6 xl:grid-cols-2">
-              <ChartPanel title="Market-Focus Intensity by Event">
+              <ChartPanel title="Market-Focus Score by Event">
                 <ResponsiveContainer width="100%" height={340}>
                   <LineChart data={dashboard.reportingTrendRows}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />

@@ -17,7 +17,7 @@ function calculateSummary(data: EarningsCallDataset): SummaryMetric[] {
     metric("Latest Revenue", latest.totalRevenue, "currency", `Reported revenue in ${latest.label}.`, "Actual"),
     metric(data.primaryMetricName, latest.primaryMetric, "currency", `Primary product / segment metric in ${latest.label}.`, "Actual"),
     metric("8Q Revenue Growth", latest.totalRevenue / Math.max(first.totalRevenue, 1) - 1, "percent", "Latest quarter revenue versus first quarter in the 8Q window.", "Derived"),
-    metric("Top Focus Intensity", trend.topicTrendRows[0]?.latestIntensity ?? 0, "number", "Highest latest-quarter market-focus score.", "Derived"),
+    metric("Top AI Focus Score", trend.topicTrendRows[0]?.latestIntensity ?? 0, "number", "Highest latest-quarter AI-coded market-focus score.", "Derived"),
     metric("Evidence Count", data.evidence.length, "number", "Evidence records supporting the module.", "Actual"),
   ];
 }

@@ -199,7 +199,7 @@ function EarningsCalls({ dataset }: { dataset: BiopharmaResearchDataset }) {
         <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-600">{trend.overview.aiTrendSummary}</div>
         <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-600">{selected.aiSummary}</div>
       </div>
-      {table(["Topic", "Direction", "Latest", "8Q avg", "AI synthesis"], trend.topicTrendRows.map((row) => [row.label, row.direction, `${row.latestIntensity}/10`, row.eightQuarterAverage.toFixed(1), row.aiSynthesis]))}
+      {table(["Topic", "Direction", "Latest AI score", "8Q avg", "AI synthesis"], trend.topicTrendRows.map((row) => [row.label, row.direction, `${row.latestIntensity}/10`, row.eightQuarterAverage.toFixed(1), row.aiSynthesis]))}
       {table(["Current quarter question cluster"], selected.analystQuestions.map((question) => [question]))}
     </div>
   );
