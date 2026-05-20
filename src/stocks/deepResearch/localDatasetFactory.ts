@@ -107,7 +107,7 @@ export function createLocalDeepResearchDataset(input: LocalDeepResearchDatasetIn
       priceDate: input.priceDate,
       source:
         input.marketDataSource ??
-        `Live finance snapshot queried ${input.priceDate}; verify against production market-data feed before investment use.`,
+        `Manual local market proxy dated ${input.priceDate}; replace with backend market-data feed before investment use.`,
       sourceStatus: "market_data_proxy",
     },
     tabs: input.tabs,
@@ -146,7 +146,7 @@ export function createLocalDeepResearchDataset(input: LocalDeepResearchDatasetIn
         ],
     },
     qualityBadges: [
-      { label: "Market price", value: "Live proxy snapshot", badge: "Placeholder" },
+      { label: "Market price", value: "Manual proxy snapshot", badge: "Placeholder" },
       { label: "Operating KPIs", value: "Manual research model", badge: "Assumption" },
       { label: "Historical valuation", value: "Local fallback", badge: "Placeholder" },
     ],
