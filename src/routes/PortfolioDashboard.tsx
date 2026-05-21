@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CalendarDays, Database, Download, Landmark, Plus, RefreshCw, ShieldCheck, Trash2, TrendingUp } from "lucide-react";
 import { apiFetch } from "../api/client";
 import { useAuth } from "../auth/useAuth";
@@ -120,6 +120,17 @@ type CompositionPieRow = {
   logoUrl: string | null;
   color: string;
   labelRank: number;
+};
+
+type PassiveIncomeMonth = {
+  month: string;
+  paid: number;
+  declared: number;
+  estimated: number;
+  stock: number;
+  bond: number;
+  total: number;
+  events: IncomeEvent[];
 };
 
 const emptyHolding = {
@@ -243,6 +254,16 @@ function money(value: number | null | undefined, currency = "USD", maximumFracti
   return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: digits }).format(value);
 }
 
+function compactMoneyLabel(value: unknown) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return "";
+  if (Math.abs(numeric) >= 1000) {
+    const digits = Math.abs(numeric) >= 10000 ? 0 : 1;
+    return `$${(numeric / 1000).toFixed(digits)}K`;
+  }
+  return `$${Math.round(numeric).toLocaleString("en-US")}`;
+}
+
 function pct(value: number | null | undefined) {
   if (value == null || Number.isNaN(value)) return "N/A";
   return `${Number(value).toFixed(2)}%`;
@@ -266,6 +287,14 @@ function incomeGross(event: IncomeEvent) {
   if (event.grossAmount != null && Number.isFinite(Number(event.grossAmount))) return Number(event.grossAmount);
   if (event.amountPerUnit != null && event.quantity != null) return Number(event.amountPerUnit) * Number(event.quantity);
   return 0;
+}
+
+function incomeStatusBucket(event: IncomeEvent): "paid" | "declared" | "estimated" {
+  const status = event.status.toLowerCase();
+  const source = event.sourceType.toLowerCase();
+  if (status.includes("estimate") || source.includes("estimate")) return "estimated";
+  if (status === "paid") return "paid";
+  return "declared";
 }
 
 function holdingValue(holding: Holding) {
@@ -605,36 +634,61 @@ export function PortfolioDashboard() {
     () =>
       annualTotals.map((row) => ({
         ...row,
-        totalIncome: row.dividends + row.scheduledIncome,
+        totalIncome: Math.max(row.dividends, row.scheduledIncome),
       })),
     [annualTotals],
   );
 
-  const currentYearIncome = useMemo(() => {
-    const currentYear = String(new Date().getFullYear());
-    const row = annualTotals.find((item) => item.year === currentYear);
-    return row ? row.dividends + row.scheduledIncome : 0;
-  }, [annualTotals]);
-
   const passiveIncomeMonths = useMemo(() => {
-    const buckets = new Map<string, { month: string; stock: number; bond: number; total: number; events: IncomeEvent[] }>();
+    const buckets = new Map<string, PassiveIncomeMonth>();
     const calendarYear = new Date().getFullYear();
     for (let monthIndex = 0; monthIndex < 12; monthIndex += 1) {
       const key = `${calendarYear}-${String(monthIndex + 1).padStart(2, "0")}`;
-      buckets.set(key, { month: key, stock: 0, bond: 0, total: 0, events: [] });
+      buckets.set(key, { month: key, paid: 0, declared: 0, estimated: 0, stock: 0, bond: 0, total: 0, events: [] });
     }
+    const explicitPaidMonths = new Set<string>();
     for (const event of snapshot?.incomeEvents ?? []) {
       if (yearFromDate(event.eventDate) !== String(calendarYear)) continue;
       const key = monthKey(event.eventDate);
       const bucket = buckets.get(key)!;
       const gross = incomeGross(event);
+      const statusBucket = incomeStatusBucket(event);
+      bucket[statusBucket] += gross;
       if (event.assetType === "stock") bucket.stock += gross;
       if (event.assetType === "bond") bucket.bond += gross;
       bucket.total += gross;
       bucket.events.push(event);
+      if (statusBucket === "paid") explicitPaidMonths.add(key);
+    }
+    for (const row of snapshot?.history ?? []) {
+      if (yearFromDate(row.date) !== String(calendarYear) || Number(row.dividends ?? 0) <= 0) continue;
+      const key = monthKey(row.date);
+      if (explicitPaidMonths.has(key)) continue;
+      const bucket = buckets.get(key)!;
+      const gross = Number(row.dividends ?? 0);
+      bucket.paid += gross;
+      bucket.stock += gross;
+      bucket.total += gross;
     }
     return [...buckets.values()].sort((left, right) => left.month.localeCompare(right.month));
-  }, [snapshot?.incomeEvents]);
+  }, [snapshot?.history, snapshot?.incomeEvents]);
+
+  const dividendCalendarSummary = useMemo(() => {
+    const annualIncome = passiveIncomeMonths.reduce((sum, month) => sum + month.total, 0);
+    const paid = passiveIncomeMonths.reduce((sum, month) => sum + month.paid, 0);
+    const declared = passiveIncomeMonths.reduce((sum, month) => sum + month.declared, 0);
+    const estimated = passiveIncomeMonths.reduce((sum, month) => sum + month.estimated, 0);
+    const yetToReceive = declared + estimated;
+    return {
+      annualIncome,
+      monthlyAverage: annualIncome / 12,
+      dailyAverage: annualIncome / 365,
+      paid,
+      declared,
+      estimated,
+      yetToReceive,
+    };
+  }, [passiveIncomeMonths]);
 
   function updateHolding(key: keyof typeof emptyHolding, value: string) {
     setHoldingForm((current) => ({ ...current, [key]: value }));
@@ -761,7 +815,7 @@ export function PortfolioDashboard() {
           <StatTile icon={<TrendingUp className="h-4 w-4" />} label="Latest Net Worth" value={money(snapshot.summary.latestPortfolioValue)} note={snapshot.summary.latestMonth ?? "Latest month"} tone="positive" />
           <StatTile icon={<Download className="h-4 w-4" />} label="Deposits" value={money(snapshot.summary.totalDeposited)} note="Cumulative imported deposits" />
           <StatTile icon={<Landmark className="h-4 w-4" />} label="Cash Funds" value={money(snapshot.summary.cashFunds)} note="Latest imported cash balance" tone="warning" />
-          <StatTile icon={<CalendarDays className="h-4 w-4" />} label="This Year Income" value={money(currentYearIncome)} note={`${new Date().getFullYear()} scheduled cash income`} />
+          <StatTile icon={<CalendarDays className="h-4 w-4" />} label="This Year Income" value={money(dividendCalendarSummary.annualIncome, "USD", 2)} note={`${new Date().getFullYear()} paid, declared, and estimated income`} />
           <StatTile icon={<CalendarDays className="h-4 w-4" />} label="Next Income" value={snapshot.summary.nextIncome ? money(snapshot.summary.nextIncome.grossAmount, snapshot.summary.nextIncome.currency) : "N/A"} note={snapshot.summary.nextIncome ? `${snapshot.summary.nextIncome.symbol} on ${snapshot.summary.nextIncome.eventDate}` : "No upcoming event"} />
         </div>
 
@@ -1060,7 +1114,45 @@ export function PortfolioDashboard() {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
+        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(300px,0.48fr)_minmax(0,1fr)]">
+          <div className="rounded-lg border border-slate-200 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-5 text-white">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-white">Annual Income</p>
+                <p className="mt-3 text-3xl font-semibold tracking-normal">{money(dividendCalendarSummary.annualIncome, "USD", 2)}</p>
+              </div>
+              <div className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-900">{new Date().getFullYear()}</div>
+            </div>
+            <div className="mt-8 rounded-lg border border-white/10 bg-white/10 p-4">
+              <div className="flex items-center justify-between gap-3 py-2">
+                <span className="text-sm text-slate-300">Monthly</span>
+                <span className="text-sm font-semibold text-white">{money(dividendCalendarSummary.monthlyAverage, "USD", 2)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3 py-2">
+                <span className="text-sm text-slate-300">Daily</span>
+                <span className="text-sm font-semibold text-white">{money(dividendCalendarSummary.dailyAverage, "USD", 2)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3 py-2">
+                <span className="text-sm text-slate-300">Yet To Receive</span>
+                <span className="text-sm font-semibold text-white">{money(dividendCalendarSummary.yetToReceive, "USD", 2)}</span>
+              </div>
+            </div>
+            <div className="mt-5 grid grid-cols-3 gap-2 text-xs">
+              <div className="rounded-md bg-white/10 px-3 py-2">
+                <p className="text-slate-300">Paid</p>
+                <p className="mt-1 font-semibold text-white">{money(dividendCalendarSummary.paid, "USD", 2)}</p>
+              </div>
+              <div className="rounded-md bg-white/10 px-3 py-2">
+                <p className="text-slate-300">Declared</p>
+                <p className="mt-1 font-semibold text-white">{money(dividendCalendarSummary.declared, "USD", 2)}</p>
+              </div>
+              <div className="rounded-md bg-white/10 px-3 py-2">
+                <p className="text-slate-300">Estimated</p>
+                <p className="mt-1 font-semibold text-white">{money(dividendCalendarSummary.estimated, "USD", 2)}</p>
+              </div>
+            </div>
+          </div>
+
           <div className="h-96 rounded-lg border border-slate-200 bg-white p-4">
             {passiveIncomeMonths.length ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -1074,8 +1166,12 @@ export function PortfolioDashboard() {
                     labelFormatter={(value) => monthLabel(String(value))}
                   />
                   <Legend />
-                  <Bar dataKey="stock" name="Stock dividends" fill="#3adbea" barSize={10} />
-                  <Bar dataKey="bond" name="Bond coupons" fill="#ffcc66" barSize={10} />
+                  <Bar dataKey="paid" name="Paid" stackId="income" fill="#8b5cf6" barSize={18} />
+                  <Bar dataKey="declared" name="Declared" stackId="income" fill="#0ea5e9" barSize={18} />
+                  <Bar dataKey="estimated" name="Estimated" stackId="income" fill="#2f7fad" barSize={18} />
+                  <Bar dataKey="total" fill="transparent" legendType="none" barSize={18} isAnimationActive={false}>
+                    <LabelList dataKey="total" position="top" formatter={compactMoneyLabel} fill="#f8fafc" fontSize={11} fontWeight={700} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -1101,9 +1197,10 @@ export function PortfolioDashboard() {
                     </div>
                     <p className="text-sm font-semibold text-slate-800">{money(month.total)}</p>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
-                    <div className="rounded-md bg-white px-2 py-1.5">Stocks {money(month.stock)}</div>
-                    <div className="rounded-md bg-white px-2 py-1.5">Bonds {money(month.bond)}</div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-600">
+                    <div className="rounded-md bg-white px-2 py-1.5">Paid {money(month.paid)}</div>
+                    <div className="rounded-md bg-white px-2 py-1.5">Declared {money(month.declared)}</div>
+                    <div className="rounded-md bg-white px-2 py-1.5">Estimated {money(month.estimated)}</div>
                   </div>
                 </div>
               ))}
