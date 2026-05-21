@@ -105,6 +105,23 @@ type AnnualTotalsRow = {
   bondIncome: number;
 };
 
+type HoldingTheme = {
+  color: string;
+  logoBackground: string;
+  logoTile: string;
+  logoText: string;
+};
+
+type CompositionPieRow = {
+  name: string;
+  value: number;
+  type: string;
+  symbol: string;
+  logoUrl: string | null;
+  color: string;
+  labelRank: number;
+};
+
 const emptyHolding = {
   accountName: "Main",
   assetType: "stock",
@@ -135,7 +152,90 @@ const emptyIncome = {
 };
 
 const pieColors = ["#3adbea", "#55f5b0", "#ffcc66", "#7dd3fc", "#ff8f86", "#c4b5fd"];
-const holdingPieColors = ["#3adbea", "#55f5b0", "#ffcc66", "#7dd3fc", "#c4b5fd", "#ff8f86", "#8796ad"];
+const cashTheme: HoldingTheme = {
+  color: "#8fa3b8",
+  logoBackground: "linear-gradient(135deg, #1f2937 0%, #64748b 100%)",
+  logoTile: "rgba(255, 255, 255, 0.94)",
+  logoText: "#334155",
+};
+
+const holdingThemes: Record<string, HoldingTheme> = {
+  DBMF: {
+    color: "#94a3b8",
+    logoBackground: "linear-gradient(135deg, #e5edf7 0%, #ffffff 100%)",
+    logoTile: "rgba(255, 255, 255, 0.96)",
+    logoText: "#64748b",
+  },
+  GOOG: {
+    color: "#4285f4",
+    logoBackground: "linear-gradient(135deg, #4285f4 0%, #34a853 52%, #fbbc05 100%)",
+    logoTile: "rgba(255, 255, 255, 0.96)",
+    logoText: "#174ea6",
+  },
+  IBKR: {
+    color: "#d71920",
+    logoBackground: "linear-gradient(135deg, #111827 0%, #d71920 100%)",
+    logoTile: "rgba(255, 255, 255, 0.95)",
+    logoText: "#d71920",
+  },
+  ISRG: {
+    color: "#d1d5db",
+    logoBackground: "linear-gradient(135deg, #111827 0%, #9ca3af 100%)",
+    logoTile: "rgba(255, 255, 255, 0.98)",
+    logoText: "#374151",
+  },
+  LEGN: {
+    color: "#c084fc",
+    logoBackground: "linear-gradient(135deg, #f5f3ff 0%, #c084fc 100%)",
+    logoTile: "rgba(255, 255, 255, 0.96)",
+    logoText: "#7e22ce",
+  },
+  LSEG: {
+    color: "#00a3e0",
+    logoBackground: "linear-gradient(135deg, #001f4f 0%, #00a3e0 100%)",
+    logoTile: "rgba(255, 255, 255, 0.96)",
+    logoText: "#005eb8",
+  },
+  MCK: {
+    color: "#0072ce",
+    logoBackground: "linear-gradient(135deg, #0072ce 0%, #f58220 100%)",
+    logoTile: "rgba(255, 255, 255, 0.95)",
+    logoText: "#0072ce",
+  },
+  MSFT: {
+    color: "#7fba00",
+    logoBackground: "linear-gradient(135deg, #f25022 0%, #7fba00 38%, #00a4ef 70%, #ffb900 100%)",
+    logoTile: "rgba(255, 255, 255, 0.96)",
+    logoText: "#2563eb",
+  },
+  NOW: {
+    color: "#00a862",
+    logoBackground: "linear-gradient(135deg, #032d42 0%, #00a862 100%)",
+    logoTile: "rgba(255, 255, 255, 0.95)",
+    logoText: "#047857",
+  },
+  PLTR: {
+    color: "#111827",
+    logoBackground: "linear-gradient(135deg, #050505 0%, #4b5563 100%)",
+    logoTile: "rgba(255, 255, 255, 0.94)",
+    logoText: "#111827",
+  },
+  QQQ: {
+    color: "#1d4ed8",
+    logoBackground: "linear-gradient(135deg, #0b1f52 0%, #1d4ed8 100%)",
+    logoTile: "rgba(255, 255, 255, 0.94)",
+    logoText: "#1d4ed8",
+  },
+};
+
+function themeForSymbol(symbol: string | null | undefined): HoldingTheme {
+  return holdingThemes[String(symbol ?? "").toUpperCase()] ?? {
+    color: "#38bdf8",
+    logoBackground: "linear-gradient(135deg, #0f172a 0%, #38bdf8 100%)",
+    logoTile: "rgba(255, 255, 255, 0.95)",
+    logoText: "#0369a1",
+  };
+}
 
 function money(value: number | null | undefined, currency = "USD", maximumFractionDigits?: number) {
   if (value == null || Number.isNaN(value)) return "N/A";
@@ -198,6 +298,12 @@ function monthLabel(month: string) {
   return parsed.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 }
 
+function monthShortLabel(month: string) {
+  const parsed = new Date(`${month}-01T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return month;
+  return parsed.toLocaleDateString("en-US", { month: "short" });
+}
+
 function StatTile({
   icon,
   label,
@@ -246,14 +352,21 @@ function Field({
 
 function LogoBadge({ holding, size = "md" }: { holding: Pick<Holding, "symbol" | "logoUrl">; size?: "sm" | "md" | "lg" }) {
   const sizeClass = size === "lg" ? "h-12 w-12 text-sm" : size === "sm" ? "h-8 w-8 text-xs" : "h-10 w-10 text-xs";
+  const theme = themeForSymbol(holding.symbol);
   return (
-    <span className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100 font-semibold text-slate-500 ${sizeClass}`}>
-      <span className="absolute inset-0 flex items-center justify-center px-1 text-center leading-none">{logoFallbackText(holding.symbol)}</span>
+    <span
+      className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-lg border font-semibold shadow-[0_10px_24px_rgba(0,0,0,0.18)] ${sizeClass}`}
+      style={{ background: theme.logoBackground, borderColor: `${theme.color}99`, color: theme.logoText }}
+    >
+      <span className="absolute inset-1 flex items-center justify-center rounded-md px-1 text-center leading-none" style={{ background: theme.logoTile }}>
+        {logoFallbackText(holding.symbol)}
+      </span>
       {holding.logoUrl ? (
         <img
           src={holding.logoUrl}
           alt={`${holding.symbol} logo`}
-          className="relative h-full w-full bg-white object-contain p-1"
+          className="relative h-[78%] w-[78%] rounded-md object-contain p-0.5"
+          style={{ background: theme.logoTile }}
           loading="lazy"
           onError={(event) => {
             event.currentTarget.style.display = "none";
@@ -261,6 +374,68 @@ function LogoBadge({ holding, size = "md" }: { holding: Pick<Holding, "symbol" |
         />
       ) : null}
     </span>
+  );
+}
+
+const pieLabelRadian = Math.PI / 180;
+
+function renderPieLogoLabel({
+  cx,
+  cy,
+  midAngle,
+  outerRadius,
+  percent,
+  payload,
+}: {
+  cx?: number | string;
+  cy?: number | string;
+  midAngle?: number;
+  outerRadius?: number | string;
+  percent?: number;
+  payload?: CompositionPieRow;
+}) {
+  const row = payload;
+  const share = Number(percent ?? 0);
+  if (!row || row.type === "cash" || share < 0.045 || row.labelRank > 5) return null;
+
+  const centerX = Number(cx ?? 0);
+  const centerY = Number(cy ?? 0);
+  const radius = Number(outerRadius ?? 0);
+  const angle = Number(midAngle ?? 0);
+  const lineStartX = centerX + (radius + 6) * Math.cos(-angle * pieLabelRadian);
+  const lineStartY = centerY + (radius + 6) * Math.sin(-angle * pieLabelRadian);
+  const labelX = centerX + (radius + 50) * Math.cos(-angle * pieLabelRadian);
+  const labelY = centerY + (radius + 50) * Math.sin(-angle * pieLabelRadian);
+  const labelWidth = 112;
+  const labelHeight = 38;
+  const rightSide = labelX >= centerX;
+  const boxX = rightSide ? labelX : labelX - labelWidth;
+  const boxY = labelY - labelHeight / 2;
+  const lineEndX = rightSide ? boxX : boxX + labelWidth;
+  const lineEndY = boxY + labelHeight / 2;
+  const theme = themeForSymbol(row.symbol);
+
+  return (
+    <g>
+      <line x1={lineStartX} y1={lineStartY} x2={lineEndX} y2={lineEndY} stroke={row.color} strokeWidth={1.5} />
+      <g transform={`translate(${boxX}, ${boxY})`}>
+        <rect width={labelWidth} height={labelHeight} rx={10} fill="#070b12" stroke={row.color} strokeOpacity={0.72} />
+        <rect x={5} y={5} width={28} height={28} rx={7} fill={theme.logoTile} />
+        {row.logoUrl ? (
+          <image href={row.logoUrl} x={8} y={8} width={22} height={22} preserveAspectRatio="xMidYMid meet" />
+        ) : (
+          <text x={19} y={23} textAnchor="middle" fontSize={8} fontWeight={700} fill={theme.logoText}>
+            {logoFallbackText(row.symbol)}
+          </text>
+        )}
+        <text x={39} y={16} fontSize={10} fontWeight={700} fill="#f8fafc">
+          {row.name}
+        </text>
+        <text x={39} y={30} fontSize={10} fill="#a8b3c7">
+          {weightPct(share * 100)}
+        </text>
+      </g>
+    </g>
   );
 }
 
@@ -337,12 +512,34 @@ export function PortfolioDashboard() {
     const allocated = rows.reduce((sum, row) => sum + Number(row.marketValue ?? 0), 0);
     const residual = Math.max(latestNav - allocated, 0);
     const overAllocated = Math.max(allocated - latestNav, 0);
+    const positionRows = rows.filter((row) => Number(row.marketValue ?? 0) > 0);
     const pieRows = [
-      ...rows
-        .filter((row) => Number(row.marketValue ?? 0) > 0)
-        .map((row) => ({ name: row.symbol, value: Number(row.marketValue), type: row.assetType })),
-      ...(residual > 0 ? [{ name: "Cash / Unallocated", value: residual, type: "cash" }] : []),
-    ];
+      ...positionRows.map((row, index) => {
+        const theme = themeForSymbol(row.symbol);
+        return {
+          name: row.symbol,
+          value: Number(row.marketValue),
+          type: row.assetType,
+          symbol: row.symbol,
+          logoUrl: row.logoUrl,
+          color: theme.color,
+          labelRank: index,
+        };
+      }),
+      ...(residual > 0
+        ? [
+            {
+              name: "Cash / Unallocated",
+              value: residual,
+              type: "cash",
+              symbol: "CASH",
+              logoUrl: null,
+              color: cashTheme.color,
+              labelRank: positionRows.length,
+            },
+          ]
+        : []),
+    ] satisfies CompositionPieRow[];
     return {
       rows,
       allocated,
@@ -421,11 +618,14 @@ export function PortfolioDashboard() {
 
   const passiveIncomeMonths = useMemo(() => {
     const buckets = new Map<string, { month: string; stock: number; bond: number; total: number; events: IncomeEvent[] }>();
-    const today = new Date().toISOString().slice(0, 10);
+    const calendarYear = new Date().getFullYear();
+    for (let monthIndex = 0; monthIndex < 12; monthIndex += 1) {
+      const key = `${calendarYear}-${String(monthIndex + 1).padStart(2, "0")}`;
+      buckets.set(key, { month: key, stock: 0, bond: 0, total: 0, events: [] });
+    }
     for (const event of snapshot?.incomeEvents ?? []) {
-      if (event.eventDate < today) continue;
+      if (yearFromDate(event.eventDate) !== String(calendarYear)) continue;
       const key = monthKey(event.eventDate);
-      if (!buckets.has(key)) buckets.set(key, { month: key, stock: 0, bond: 0, total: 0, events: [] });
       const bucket = buckets.get(key)!;
       const gross = incomeGross(event);
       if (event.assetType === "stock") bucket.stock += gross;
@@ -433,7 +633,7 @@ export function PortfolioDashboard() {
       bucket.total += gross;
       bucket.events.push(event);
     }
-    return [...buckets.values()].sort((left, right) => left.month.localeCompare(right.month)).slice(0, 18);
+    return [...buckets.values()].sort((left, right) => left.month.localeCompare(right.month));
   }, [snapshot?.incomeEvents]);
 
   function updateHolding(key: keyof typeof emptyHolding, value: string) {
@@ -686,7 +886,7 @@ export function PortfolioDashboard() {
                   Refresh Stock Prices
                 </button>
               </div>
-              <div className="mt-4 h-72">
+              <div className="mt-4 h-96">
                 {composition.pieRows.length ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -697,14 +897,14 @@ export function PortfolioDashboard() {
                         innerRadius={64}
                         outerRadius={110}
                         paddingAngle={2}
-                        label={({ name, percent }) => (Number(percent) >= 0.04 ? `${name} ${(Number(percent) * 100).toFixed(1)}%` : "")}
+                        label={renderPieLogoLabel}
+                        labelLine={false}
                       >
-                        {composition.pieRows.map((row, index) => (
-                          <Cell key={row.name} fill={row.type === "cash" ? "#8796ad" : holdingPieColors[index % holdingPieColors.length]} />
+                        {composition.pieRows.map((row) => (
+                          <Cell key={row.name} fill={row.color} />
                         ))}
                       </Pie>
                       <Tooltip formatter={(value) => money(Number(value))} />
-                      <Legend />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
@@ -714,21 +914,31 @@ export function PortfolioDashboard() {
               <div className="mt-4 border-t border-slate-200 pt-4">
                 <p className="text-sm font-semibold text-ink">Largest Positions</p>
                 <div className="mt-3 space-y-2">
-                  {composition.topRows.map((holding) => (
-                    <div key={holding.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <LogoBadge holding={holding} size="sm" />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-ink">{holding.symbol}</p>
-                          <p className="truncate text-xs text-slate-500">{holding.name ?? holding.assetType}</p>
+                  {composition.topRows.map((holding) => {
+                    const theme = themeForSymbol(holding.symbol);
+                    return (
+                      <div
+                        key={holding.id}
+                        className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
+                        style={{
+                          borderColor: `${theme.color}55`,
+                          background: `linear-gradient(90deg, ${theme.color}18 0%, rgba(15, 23, 42, 0.22) 100%)`,
+                        }}
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <LogoBadge holding={holding} size="sm" />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-ink">{holding.symbol}</p>
+                            <p className="truncate text-xs text-slate-500">{holding.name ?? holding.assetType}</p>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-sm font-semibold text-slate-800">{money(holding.marketValue, holding.currency)}</p>
+                          <p className="text-xs text-slate-500">{weightPct(holding.navWeight)}</p>
                         </div>
                       </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-sm font-semibold text-slate-800">{money(holding.marketValue, holding.currency)}</p>
-                        <p className="text-xs text-slate-500">{weightPct(holding.navWeight)}</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {composition.topRows.length === 0 ? <p className="text-sm text-slate-500">Add holdings to show logo-backed allocation rows.</p> : null}
                 </div>
               </div>
@@ -851,12 +1061,12 @@ export function PortfolioDashboard() {
         </div>
 
         <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
-          <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
+          <div className="h-96 rounded-lg border border-slate-200 bg-white p-4">
             {passiveIncomeMonths.length ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={passiveIncomeMonths} barCategoryGap="42%">
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" tickFormatter={(value) => monthLabel(String(value))} />
+                  <XAxis dataKey="month" tickFormatter={(value) => monthShortLabel(String(value))} />
                   <YAxis tickFormatter={(value) => `$${Math.round(Number(value))}`} />
                   <Tooltip
                     cursor={{ fill: "rgba(58, 219, 234, 0.07)" }}
@@ -877,23 +1087,23 @@ export function PortfolioDashboard() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-ink">Monthly Income Map</p>
-                <p className="mt-1 text-sm text-slate-500">Upcoming stock dividends and bond coupons by pay date.</p>
+                <p className="mt-1 text-sm text-slate-500">{new Date().getFullYear()} stock dividends and bond coupons by pay date, including zero months.</p>
               </div>
               <CalendarDays className="h-5 w-5 text-slate-400" />
             </div>
-            <div className="mt-4 space-y-3">
-              {passiveIncomeMonths.slice(0, 6).map((month) => (
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {passiveIncomeMonths.slice(0, 12).map((month) => (
                 <div key={month.month} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold text-ink">{monthLabel(month.month)}</p>
-                      <p className="mt-1 text-xs font-medium uppercase tracking-normal text-slate-500">{month.events.length} scheduled events</p>
+                      <p className="font-semibold text-ink">{monthShortLabel(month.month)}</p>
+                      <p className="mt-1 text-xs font-medium uppercase tracking-normal text-slate-500">{month.events.length} events</p>
                     </div>
                     <p className="text-sm font-semibold text-slate-800">{money(month.total)}</p>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-600">
-                    <div className="rounded-md bg-white px-3 py-2">Stocks {money(month.stock)}</div>
-                    <div className="rounded-md bg-white px-3 py-2">Bonds {money(month.bond)}</div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
+                    <div className="rounded-md bg-white px-2 py-1.5">Stocks {money(month.stock)}</div>
+                    <div className="rounded-md bg-white px-2 py-1.5">Bonds {money(month.bond)}</div>
                   </div>
                 </div>
               ))}
