@@ -4,6 +4,7 @@ import {
   getPortfolioSnapshot,
   saveHistoryPoint,
 } from "../apps/api/src/services/portfolioService.mjs";
+import { normalizeYahooPriceQuote } from "../apps/api/src/services/portfolioMarketData.mjs";
 
 const OWNER_EMAIL = "luyudong1136@gmail.com";
 const failures = [];
@@ -38,6 +39,7 @@ const firstNavAfterSave = await saveHistoryPoint(firstNavRequest, {
   source: "validation_first_nav",
 });
 const firstNavAfterDelete = deleteHistoryPoint(firstNavRequest, "portfolio-history-2001-02-01");
+const lsegPenceQuote = normalizeYahooPriceQuote("LSEG", 9274, "GBp", { exchangeName: "LSE" });
 
 assert(ownerSnapshot.account.email === OWNER_EMAIL, `Expected local dev portfolio owner ${OWNER_EMAIL}.`);
 assert(ownerSnapshot.account.seededFromWorkbook === true, "Owner account should be seeded from the workbook.");
@@ -59,6 +61,8 @@ assert(
   `First NAV save wrote unexpected value ${firstNavAfterSave.history[0]?.portfolioValue}.`,
 );
 assert(firstNavAfterDelete.history.length === 0, "First-NAV validation cleanup should remove the test row.");
+assert(lsegPenceQuote.currency === "GBP", `LSEG GBp quote should normalize to GBP, found ${lsegPenceQuote.currency}.`);
+assert(approxEqual(lsegPenceQuote.price, 92.74, 0.001), `LSEG 9274 GBp should normalize to 92.74 GBP, found ${lsegPenceQuote.price}.`);
 
 const output = {
   ok: failures.length === 0,
@@ -79,6 +83,13 @@ const output = {
     beforeRows: firstNavBefore.history.length,
     afterSaveRows: firstNavAfterSave.history.length,
     afterCleanupRows: firstNavAfterDelete.history.length,
+  },
+  lsePenceCheck: {
+    symbol: "LSEG",
+    rawPrice: 9274,
+    rawCurrency: "GBp",
+    normalizedPrice: lsegPenceQuote.price,
+    normalizedCurrency: lsegPenceQuote.currency,
   },
   failures,
 };

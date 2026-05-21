@@ -788,7 +788,14 @@ async function refreshStockPricesForAccount(account, options = {}) {
         [price.price, nowIso(), price.sourceUrl, price.currency, nowIso(), holding.id],
         account.dbPath,
       );
-      refreshed.push({ symbol: holding.symbol, price: price.price, currency: price.currency, cached: Boolean(price.cached), stale: Boolean(price.stale) });
+      refreshed.push({
+        symbol: holding.symbol,
+        price: price.price,
+        currency: price.currency,
+        cached: Boolean(price.cached),
+        stale: Boolean(price.stale),
+        unitNote: price.unitNote ?? null,
+      });
     } catch (error) {
       errors.push({ symbol: holding.symbol, message: error instanceof Error ? error.message : String(error) });
     }

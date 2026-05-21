@@ -77,6 +77,9 @@ const yahooSymbolAliases = {
   LSEG: "LSEG.L",
 };
 
+const penceCurrencyCodes = new Set(["GBX", "GBPENCE"]);
+const lseSymbolAliases = new Set(["LSEG"]);
+
 const curatedLogoUrls = {
   GOOG: "https://companiesmarketcap.com/img/company-logos/64/GOOG.png",
   GOOGL: "https://companiesmarketcap.com/img/company-logos/64/GOOG.png",
@@ -228,7 +231,7 @@ SHY|iShares 1-3 Year Treasury Bond ETF|NASDAQ|USD|stock
 HYG|iShares iBoxx $ High Yield Corporate Bond ETF|NYSEARCA|USD|stock
 LQD|iShares iBoxx $ Investment Grade Corporate Bond ETF|NYSEARCA|USD|stock
 BND|Vanguard Total Bond Market ETF|NASDAQ|USD|stock
-LSEG|London Stock Exchange Group PLC|LSE|USD|stock
+LSEG|London Stock Exchange Group PLC|LSE|GBP|stock
 LSEG.L|London Stock Exchange Group PLC|LSE|GBP|stock
 BA.L|BAE Systems plc|LSE|GBP|stock
 DGE.L|Diageo plc|LSE|GBP|stock
@@ -252,6 +255,64 @@ function yahooSymbolFor(symbol) {
   return yahooSymbolAliases[normalized] ?? normalized;
 }
 
+function canonicalCurrency(currency) {
+  const raw = cleanString(currency);
+  if (!raw) return "USD";
+  if (raw === "GBp" || penceCurrencyCodes.has(raw.toUpperCase())) return "GBP";
+  return raw.toUpperCase();
+}
+
+function isLseSymbol(symbol) {
+  const normalized = normalizeSecuritySymbol(symbol);
+  return normalized.endsWith(".L") || lseSymbolAliases.has(normalized);
+}
+
+function isPenceQuote(symbol, price, currency, metadata = {}) {
+  const rawCurrency = cleanString(currency);
+  const currencyUpper = rawCurrency.toUpperCase();
+  if (rawCurrency === "GBp" || penceCurrencyCodes.has(currencyUpper)) return true;
+  const exchange = cleanString(metadata.exchangeName || metadata.fullExchangeName || metadata.exchange).toUpperCase();
+  return currencyUpper === "GBP" && Number(price) > 1000 && (isLseSymbol(symbol) || exchange === "LSE");
+}
+
+export function normalizeYahooPriceQuote(symbol, price, currency, metadata = {}) {
+  const rawPrice = Number(price);
+  if (!Number.isFinite(rawPrice)) return { price: rawPrice, currency: canonicalCurrency(currency), unitScale: 1 };
+  if (isPenceQuote(symbol, rawPrice, currency, metadata)) {
+    return {
+      price: rawPrice / 100,
+      currency: "GBP",
+      rawCurrency: cleanString(currency),
+      rawPrice,
+      unitScale: 0.01,
+      unitNote: "Yahoo LSE quote normalized from pence/GBX to GBP.",
+    };
+  }
+  return {
+    price: rawPrice,
+    currency: canonicalCurrency(currency),
+    rawCurrency: cleanString(currency),
+    rawPrice,
+    unitScale: 1,
+  };
+}
+
+function normalizeMarketSecurityRow(row) {
+  if (!row) return row;
+  const exchange = cleanString(row.exchange).toUpperCase();
+  const output = {
+    ...row,
+    currency: exchange === "LSE" || isLseSymbol(row.symbol) ? "GBP" : canonicalCurrency(row.currency),
+  };
+  if (row.cachedPrice == null) return output;
+  const normalized = normalizeYahooPriceQuote(row.symbol, row.cachedPrice, row.cachedPriceCurrency ?? output.currency, output);
+  return {
+    ...output,
+    cachedPrice: normalized.price,
+    cachedPriceCurrency: normalized.currency,
+  };
+}
+
 export function defaultMarketLogoUrl(symbol, assetType = "stock") {
   if (assetType !== "stock") return null;
   const normalized = normalizeSecuritySymbol(symbol);
@@ -271,7 +332,7 @@ function marketUniverseRows() {
         symbol: normalizeSecuritySymbol(symbol),
         name: cleanString(name),
         exchange: cleanString(exchange),
-        currency: cleanString(currency, "USD").toUpperCase(),
+        currency: canonicalCurrency(currency),
         assetType: cleanString(assetType, "stock"),
         logoUrl: defaultMarketLogoUrl(symbol, assetType),
         logoSource: "companiesmarketcap",
@@ -311,7 +372,7 @@ export function ensureMarketDataDb() {
         name = COALESCE(market_securities.name, excluded.name),
         assetType = COALESCE(market_securities.assetType, excluded.assetType),
         exchange = COALESCE(market_securities.exchange, excluded.exchange),
-        currency = COALESCE(market_securities.currency, excluded.currency),
+        currency = excluded.currency,
         logoUrl = COALESCE(market_securities.logoUrl, excluded.logoUrl),
         logoSource = COALESCE(market_securities.logoSource, excluded.logoSource),
         source = COALESCE(market_securities.source, excluded.source),
@@ -348,7 +409,7 @@ export function upsertMarketSecurity(security) {
       cleanString(security?.name) || null,
       assetType,
       cleanString(security?.exchange || security?.market) || null,
-      cleanString(security?.currency, "USD").toUpperCase() || "USD",
+      canonicalCurrency(security?.currency),
       logoUrl,
       logoUrl ? cleanString(security?.logoSource, "companiesmarketcap") || "companiesmarketcap" : null,
       cleanString(security?.source, "user_or_fetch_observed") || "user_or_fetch_observed",
@@ -364,7 +425,7 @@ export function getMarketSecurity(symbol) {
   const normalized = normalizeSecuritySymbol(symbol);
   if (!normalized) return null;
   ensureMarketDataDb();
-  return query(
+  const row = query(
     `SELECT
       securities.*,
       prices.price AS cachedPrice,
@@ -378,6 +439,7 @@ export function getMarketSecurity(symbol) {
     [normalized],
     MARKET_DATA_DB_PATH,
   )[0] ?? null;
+  return normalizeMarketSecurityRow(row);
 }
 
 export function searchMarketSecurities(searchText, options = {}) {
@@ -406,7 +468,7 @@ export function searchMarketSecurities(searchText, options = {}) {
      LIMIT ?`,
     [like, like, q, `${q}%`, limit],
     MARKET_DATA_DB_PATH,
-  );
+  ).map(normalizeMarketSecurityRow);
 }
 
 async function fetchJson(url) {
@@ -442,7 +504,7 @@ function cachePriceResult(symbol, result) {
     [
       normalizeSecuritySymbol(symbol),
       result.price ?? null,
-      cleanString(result.currency, "USD").toUpperCase() || "USD",
+      canonicalCurrency(result.currency),
       result.sourceUrl ?? null,
       ts,
       result.status ?? "ok",
@@ -458,13 +520,18 @@ function cachedPrice(symbol, maxAgeMs = PRICE_CACHE_TTL_MS) {
   const normalized = normalizeSecuritySymbol(symbol);
   const row = query("SELECT * FROM market_price_cache WHERE symbol = ? LIMIT 1", [normalized], MARKET_DATA_DB_PATH)[0] ?? null;
   if (!row || row.status !== "ok" || row.price == null || !isFresh(row.fetchedAt, maxAgeMs)) return null;
+  const normalizedQuote = normalizeYahooPriceQuote(normalized, row.price, row.currency, row);
   return {
     symbol: normalized,
-    price: Number(row.price),
-    currency: row.currency ?? "USD",
+    price: normalizedQuote.price,
+    currency: normalizedQuote.currency,
     sourceUrl: row.sourceUrl,
     cached: true,
     fetchedAt: row.fetchedAt,
+    rawPrice: normalizedQuote.rawPrice,
+    rawCurrency: normalizedQuote.rawCurrency,
+    unitScale: normalizedQuote.unitScale,
+    unitNote: normalizedQuote.unitNote,
   };
 }
 
@@ -486,14 +553,19 @@ export async function fetchYahooPriceWithCache(symbol, options = {}) {
     const meta = result.meta ?? {};
     const close = result.indicators?.quote?.[0]?.close ?? [];
     const latestClose = [...close].reverse().find((value) => Number.isFinite(Number(value)));
-    const price = Number.isFinite(Number(meta.regularMarketPrice)) ? Number(meta.regularMarketPrice) : Number(latestClose);
-    if (!Number.isFinite(price)) throw new Error("Yahoo chart response did not include a usable price.");
+    const rawPrice = Number.isFinite(Number(meta.regularMarketPrice)) ? Number(meta.regularMarketPrice) : Number(latestClose);
+    if (!Number.isFinite(rawPrice)) throw new Error("Yahoo chart response did not include a usable price.");
+    const normalizedQuote = normalizeYahooPriceQuote(normalized, rawPrice, meta.currency, meta);
     const output = {
       symbol: normalized,
-      price,
-      currency: cleanString(meta.currency, "USD").toUpperCase() || "USD",
+      price: normalizedQuote.price,
+      currency: normalizedQuote.currency,
       sourceUrl: url,
       cached: false,
+      rawPrice: normalizedQuote.rawPrice,
+      rawCurrency: normalizedQuote.rawCurrency,
+      unitScale: normalizedQuote.unitScale,
+      unitNote: normalizedQuote.unitNote,
     };
     upsertMarketSecurity({
       symbol: normalized,
@@ -508,14 +580,19 @@ export async function fetchYahooPriceWithCache(symbol, options = {}) {
     cachePriceResult(normalized, { price: null, currency: "USD", sourceUrl: url, status: "error", message });
     const stale = query("SELECT * FROM market_price_cache WHERE symbol = ? AND price IS NOT NULL LIMIT 1", [normalized], MARKET_DATA_DB_PATH)[0] ?? null;
     if (stale?.price != null) {
+      const normalizedQuote = normalizeYahooPriceQuote(normalized, stale.price, stale.currency, stale);
       return {
         symbol: normalized,
-        price: Number(stale.price),
-        currency: stale.currency ?? "USD",
+        price: normalizedQuote.price,
+        currency: normalizedQuote.currency,
         sourceUrl: stale.sourceUrl,
         cached: true,
         stale: true,
         fetchedAt: stale.fetchedAt,
+        rawPrice: normalizedQuote.rawPrice,
+        rawCurrency: normalizedQuote.rawCurrency,
+        unitScale: normalizedQuote.unitScale,
+        unitNote: normalizedQuote.unitNote,
       };
     }
     throw error;
