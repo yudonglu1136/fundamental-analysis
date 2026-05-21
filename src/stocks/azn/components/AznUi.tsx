@@ -28,15 +28,15 @@ export function AznMiniCard({
 export function AznBadge({ children, tone = "slate" }: { children: ReactNode; tone?: "green" | "amber" | "red" | "blue" | "slate" }) {
   const className =
     tone === "green"
-      ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+      ? "border border-emerald-300/40 bg-emerald-300/10 text-emerald-100 ring-emerald-300/20"
       : tone === "amber"
-        ? "bg-amber-50 text-amber-700 ring-amber-100"
+        ? "border border-amber-300/40 bg-amber-300/10 text-amber-100 ring-amber-300/20"
         : tone === "red"
-          ? "bg-rose-50 text-rose-700 ring-rose-100"
+          ? "border border-rose-300/40 bg-rose-300/10 text-rose-100 ring-rose-300/20"
           : tone === "blue"
-            ? "bg-sky-50 text-sky-700 ring-sky-100"
-            : "bg-slate-100 text-slate-700 ring-slate-200";
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${className}`}>{children}</span>;
+            ? "border border-cyan-300/40 bg-cyan-300/10 text-cyan-100 ring-cyan-300/20"
+            : "border border-slate-300/25 bg-slate-300/10 text-slate-200 ring-slate-300/20";
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 backdrop-blur ${className}`}>{children}</span>;
 }
 
 export function AznTextPanel({ title, children }: { title: string; children: ReactNode }) {

@@ -1,10 +1,11 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, Radar } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useAppShell } from "./AppShell";
 import { useAuth } from "../../auth/useAuth";
 import { stockMetadataList } from "../../stocks/metadata";
 import { SearchableSelect } from "./StockSelector";
+import { ThesisForgeLogo } from "./ThesisForgeLogo";
 
 export function TopNav() {
   const { currentModule } = useAppShell();
@@ -19,13 +20,11 @@ export function TopNav() {
     <header className="sticky top-0 z-20 border-b border-white/10 bg-[#05070b]/88 backdrop-blur-xl">
       <div className="mx-auto grid w-full max-w-[1740px] gap-3 px-3 py-3 sm:px-5 lg:flex lg:items-center lg:justify-between lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-cyan-300/30 bg-cyan-300/10 text-cyan-100 shadow-[0_10px_30px_rgba(8,191,211,0.12)] lg:hidden">
-            <Radar className="h-4 w-4" />
-          </div>
+          <ThesisForgeLogo className="lg:hidden" />
           <div className="min-w-0">
-            <p className="tf-kicker line-clamp-1 break-words">{currentModule ? currentModule.sector : "Market ontology workspace"}</p>
-            <h2 className="mt-1 line-clamp-2 text-base font-semibold tracking-normal text-white sm:line-clamp-1 sm:text-xl">
-              {currentModule ? `${currentModule.ticker} · ${currentModule.name}` : "Research Command Map"}
+            <p className="tf-kicker line-clamp-1 break-words">{currentModule ? currentModule.sector : "Investment research workspace"}</p>
+            <h2 className="mt-1 line-clamp-2 break-words text-base font-semibold leading-snug tracking-normal text-white [overflow-wrap:anywhere] sm:line-clamp-1 sm:text-xl">
+              {currentModule ? `${currentModule.ticker} · ${currentModule.name}` : "Thesis Forge"}
             </h2>
           </div>
         </div>
@@ -40,7 +39,7 @@ export function TopNav() {
             />
           ) : null}
           {user ? (
-            <div className="flex min-w-0 items-center justify-between gap-2 border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-white/62 shadow-[0_10px_30px_rgba(0,0,0,0.22)] sm:w-auto lg:max-w-[320px]">
+            <div className={`${currentModule ? "hidden sm:flex" : "flex"} min-w-0 items-center justify-between gap-2 border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-white/62 shadow-[0_10px_30px_rgba(0,0,0,0.22)] sm:w-auto lg:max-w-[320px]`}>
               <div className="flex min-w-0 items-center gap-2">
                 {user.avatarUrl ? <img src={user.avatarUrl} alt="" className="h-7 w-7 shrink-0 rounded-full" referrerPolicy="no-referrer" /> : null}
                 <span className="hidden min-w-0 truncate sm:inline">{displayName}</span>

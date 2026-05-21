@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Chrome, LockKeyhole } from "lucide-react";
+import { Chrome } from "lucide-react";
 import { useAuth } from "./useAuth";
+import { ThesisForgeLogo } from "../components/layout/ThesisForgeLogo";
 
 function safeRedirectPath(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
@@ -43,11 +44,9 @@ export function LoginPage() {
       <div className="tf-command-surface relative w-full max-w-md overflow-hidden p-6">
         <div className="tf-scan-line" />
         <div className="flex items-center gap-3">
-          <span className="border border-cyan-300/30 bg-cyan-300/10 p-2 text-cyan-100">
-            <LockKeyhole className="h-5 w-5" />
-          </span>
+          <ThesisForgeLogo />
           <div>
-            <p className="tf-kicker">ThesisForge</p>
+            <p className="tf-kicker">Thesis Forge</p>
             <h1 className="text-2xl font-semibold text-white">Sign in</h1>
           </div>
         </div>

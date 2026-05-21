@@ -1,16 +1,16 @@
 import type { DataQualityBadgeType, ValuationSourceType } from "../../stocks/types";
 
 const styles: Record<DataQualityBadgeType | "actual" | "consensus" | "assumption" | "derived" | "placeholder", string> = {
-  Actual: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  Assumption: "bg-amber-50 text-amber-700 ring-amber-200",
-  Derived: "bg-slate-100 text-slate-700 ring-slate-200",
-  Placeholder: "bg-rose-50 text-rose-700 ring-rose-200",
-  "Needs Review": "bg-rose-50 text-rose-700 ring-rose-200",
-  actual: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  consensus: "bg-sky-50 text-sky-700 ring-sky-200",
-  assumption: "bg-amber-50 text-amber-700 ring-amber-200",
-  derived: "bg-slate-100 text-slate-700 ring-slate-200",
-  placeholder: "bg-rose-50 text-rose-700 ring-rose-200",
+  Actual: "border-emerald-300/40 bg-emerald-300/10 text-emerald-100 ring-emerald-300/20 shadow-[0_0_18px_rgba(52,211,153,0.12)]",
+  Assumption: "border-violet-300/40 bg-violet-300/10 text-violet-100 ring-violet-300/20 shadow-[0_0_18px_rgba(167,139,250,0.12)]",
+  Derived: "border-cyan-200/40 bg-cyan-300/10 text-cyan-50 ring-cyan-200/20 shadow-[0_0_18px_rgba(34,211,238,0.12)]",
+  Placeholder: "border-amber-300/40 bg-amber-300/10 text-amber-100 ring-amber-300/20 shadow-[0_0_18px_rgba(251,191,36,0.1)]",
+  "Needs Review": "border-rose-300/40 bg-rose-300/10 text-rose-100 ring-rose-300/20 shadow-[0_0_18px_rgba(251,113,133,0.12)]",
+  actual: "border-emerald-300/40 bg-emerald-300/10 text-emerald-100 ring-emerald-300/20 shadow-[0_0_18px_rgba(52,211,153,0.12)]",
+  consensus: "border-sky-300/40 bg-sky-300/10 text-sky-100 ring-sky-300/20 shadow-[0_0_18px_rgba(56,189,248,0.12)]",
+  assumption: "border-violet-300/40 bg-violet-300/10 text-violet-100 ring-violet-300/20 shadow-[0_0_18px_rgba(167,139,250,0.12)]",
+  derived: "border-cyan-200/40 bg-cyan-300/10 text-cyan-50 ring-cyan-200/20 shadow-[0_0_18px_rgba(34,211,238,0.12)]",
+  placeholder: "border-amber-300/40 bg-amber-300/10 text-amber-100 ring-amber-300/20 shadow-[0_0_18px_rgba(251,191,36,0.1)]",
 };
 
 export function DataQualityBadge({ badge }: { badge: DataQualityBadgeType | ValuationSourceType }) {
@@ -28,5 +28,5 @@ export function DataQualityBadge({ badge }: { badge: DataQualityBadgeType | Valu
               : badge === "Needs Review"
                 ? "Review"
                 : badge;
-  return <span className={`inline-flex items-center border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ring-inset ${styles[badge]}`}>{label}</span>;
+  return <span className={`inline-flex items-center border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ring-inset backdrop-blur ${styles[badge]}`}>{label}</span>;
 }

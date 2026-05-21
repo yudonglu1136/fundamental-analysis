@@ -92,16 +92,7 @@ export function AznDashboard({ module, scenario, period, dataSourceType, onDataS
             text={`London AZN is quoted in GBX and normalized to £${dashboard.dataset.marketData.londonPriceGbp.toFixed(2)}. US valuation is shown for the current NYSE ordinary-share listing; former ADR equivalents are audit-only.`}
           />
         </div>
-        {dashboard.dataStatus.validationWarnings.length > 0 ? (
-          <div className="mt-4 space-y-2">
-            {dashboard.dataStatus.validationWarnings.map((warning) => (
-              <div key={warning.id} className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                <span className="font-semibold">{warning.title}</span>
-                <span className="ml-2">{warning.detail}</span>
-              </div>
-            ))}
-          </div>
-        ) : null}
+        <SourceNoteStack warnings={dashboard.dataStatus.validationWarnings} />
       </SectionCard>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -227,6 +218,20 @@ export function AznDashboard({ module, scenario, period, dataSourceType, onDataS
           </SectionCard>
         </Tabs.Content>
       </Tabs.Root>
+    </div>
+  );
+}
+
+function SourceNoteStack({ warnings }: { warnings: ReturnType<typeof buildAznDashboardData>["dataStatus"]["validationWarnings"] }) {
+  if (!warnings.length) return null;
+  return (
+    <div className="tf-source-note-stack" aria-label="Source notes">
+      {warnings.map((warning) => (
+        <div key={warning.id} className="tf-source-note-row">
+          <p className="tf-source-note-title">{warning.title}</p>
+          <p>{warning.detail}</p>
+        </div>
+      ))}
     </div>
   );
 }

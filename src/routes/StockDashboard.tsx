@@ -71,7 +71,7 @@ export function StockDashboard() {
         <div className="min-w-0">
           <div className="min-w-0">
             <p className="tf-kicker line-clamp-2 break-words">{module.sector}</p>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-4xl">
+            <h1 className="mt-2 break-words text-2xl font-semibold tracking-tight text-white [overflow-wrap:anywhere] sm:text-4xl">
               {module.ticker} · {module.name}
             </h1>
             <p className="mt-3 max-w-5xl text-sm leading-6 text-slate-400">{module.description}</p>

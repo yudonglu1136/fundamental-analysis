@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { exchangeAuthCodeForSession } from "./authClient";
 import { useAuth } from "./useAuth";
+import { ThesisForgeLogo } from "../components/layout/ThesisForgeLogo";
 
 function safeRedirectPath(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
@@ -41,14 +42,14 @@ export function AuthCallbackPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-mist bg-grid px-4 py-10 text-ink">
-      <div className="w-full max-w-md border border-ink/15 bg-white p-6 shadow-panel">
-        <p className="ontology-label">Fundamental Analysis</p>
-        <h1 className="mt-2 text-2xl font-semibold">Completing sign in</h1>
-        <p className="mt-4 text-sm leading-6 text-slate-600">
+      <div className="tf-command-surface w-full max-w-md p-6 text-white">
+        <ThesisForgeLogo showWordmark />
+        <h1 className="mt-5 text-2xl font-semibold">Completing sign in</h1>
+        <p className="mt-4 text-sm leading-6 text-slate-300">
           {error ? "Authentication could not be completed." : "Securing your workspace session..."}
         </p>
         {error ? (
-          <div className="mt-5 border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-900">
+          <div className="mt-5 border border-red-300/25 bg-red-300/10 p-4 text-sm leading-6 text-red-100">
             {error}
           </div>
         ) : null}

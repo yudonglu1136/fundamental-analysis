@@ -101,7 +101,11 @@
   .tf-stock-module-canvas .ontology-node,
   .tf-stock-module-canvas [class*="bg-white"],
   .tf-stock-module-canvas [class*="bg-slate-50"],
-  .tf-stock-module-canvas [class*="bg-gray-50"] {
+  .tf-stock-module-canvas [class*="bg-slate-100"],
+  .tf-stock-module-canvas [class*="bg-slate-200"],
+  .tf-stock-module-canvas [class*="bg-gray-50"],
+  .tf-stock-module-canvas [class*="bg-gray-100"],
+  .tf-stock-module-canvas [class*="bg-gray-200"] {
     background: rgba(11, 15, 22, 0.86) !important;
     border-color: rgba(255, 255, 255, 0.1) !important;
     box-shadow: 0 18px 70px rgba(0, 0, 0, 0.34) !important;
@@ -553,6 +557,14 @@
     border-color: rgba(89, 234, 138, 0.32) !important;
   }
 
+  .tf-stock-module-canvas [class*="bg-sky-50"],
+  .tf-stock-module-canvas [class*="bg-blue-50"],
+  .tf-stock-module-canvas [class*="bg-indigo-50"],
+  .tf-stock-module-canvas [class*="bg-violet-50"] {
+    background: rgba(56, 189, 248, 0.1) !important;
+    border-color: rgba(125, 211, 252, 0.3) !important;
+  }
+
   .tf-stock-module-canvas [class*="text-amber"],
   .tf-stock-module-canvas [class*="text-yellow"] {
     color: #ffc766 !important;
@@ -566,6 +578,63 @@
   .tf-stock-module-canvas [class*="text-emerald"],
   .tf-stock-module-canvas [class*="text-green"] {
     color: #76f0a2 !important;
+  }
+
+  .tf-stock-module-canvas [class*="text-sky"],
+  .tf-stock-module-canvas [class*="text-blue"] {
+    color: #7df9ff !important;
+  }
+
+  .tf-stock-module-canvas [class*="text-indigo"],
+  .tf-stock-module-canvas [class*="text-violet"] {
+    color: #c4b5fd !important;
+  }
+
+  .tf-source-note-stack {
+    margin-top: 1rem;
+    overflow: hidden;
+    border: 1px solid rgba(253, 230, 138, 0.14);
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(34, 211, 238, 0.035) 48%, rgba(7, 10, 16, 0.72));
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(18px);
+  }
+
+  .tf-source-note-row {
+    display: grid;
+    gap: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.75rem 1rem;
+    color: #cbd5e1;
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+  }
+
+  .tf-source-note-row:first-child {
+    border-top: 0;
+  }
+
+  @media (min-width: 768px) {
+    .tf-source-note-row {
+      grid-template-columns: 220px minmax(0, 1fr);
+    }
+  }
+
+  .tf-source-note-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #f8fafc;
+    font-weight: 650;
+  }
+
+  .tf-source-note-title::before {
+    content: "";
+    width: 0.375rem;
+    height: 0.375rem;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background: #fde68a;
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.42);
   }
 
   @media (max-width: 640px) {

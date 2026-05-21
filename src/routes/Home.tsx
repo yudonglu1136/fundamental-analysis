@@ -157,7 +157,7 @@ export function Home() {
               <span className="tf-signal-chip border-amber-300/30 bg-amber-300/10 text-amber-200">Backend aware</span>
             </div>
             <h1 className="mt-6 max-w-5xl text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
-              ThesisForge command map
+              Thesis Forge command map
             </h1>
             <p className="mt-4 max-w-3xl text-base leading-7 text-slate-400 sm:text-lg">
               A graph-first investment workspace for connecting companies, demand cycles, source quality,

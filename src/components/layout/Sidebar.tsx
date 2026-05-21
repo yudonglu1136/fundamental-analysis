@@ -1,12 +1,13 @@
 import { Link, useLocation } from "react-router-dom";
 import { Activity, Home, Search, WalletCards, Waypoints } from "lucide-react";
+import { ThesisForgeLogo } from "./ThesisForgeLogo";
 
 export function Sidebar() {
   const location = useLocation();
   return (
     <aside className="hidden w-[92px] shrink-0 border-r border-white/10 bg-[#030509] px-3 py-4 text-white lg:flex lg:flex-col">
-      <Link to="/" className="group flex h-14 w-14 items-center justify-center border border-cyan-300/30 bg-cyan-300/10 text-[0.62rem] font-semibold tracking-[0.18em] text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/15">
-        TF
+      <Link to="/" className="group flex h-14 w-14 items-center justify-center transition hover:brightness-125" aria-label="Thesis Forge">
+        <ThesisForgeLogo />
       </Link>
 
       <nav className="mt-8 flex flex-1 flex-col items-center gap-3">
