@@ -428,10 +428,10 @@ function renderPieLogoLabel({
             {logoFallbackText(row.symbol)}
           </text>
         )}
-        <text x={39} y={16} fontSize={10} fontWeight={700} fill="#f8fafc">
+        <text x={39} y={16} fontSize={10} fontWeight={800} fill="#ffffff" stroke="#020617" strokeWidth={0.45} paintOrder="stroke">
           {row.name}
         </text>
-        <text x={39} y={30} fontSize={10} fill="#a8b3c7">
+        <text x={39} y={30} fontSize={10} fontWeight={700} fill="#ffffff" stroke="#020617" strokeWidth={0.35} paintOrder="stroke">
           {weightPct(share * 100)}
         </text>
       </g>
