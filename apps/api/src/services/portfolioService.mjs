@@ -218,15 +218,29 @@ function parseMonthLabel(label) {
   return `${2000 + Number(match[2])}-${String(monthIndex + 1).padStart(2, "0")}-01`;
 }
 
-function numeric(value) {
+function parseFlexibleNumber(value) {
   if (value === "-" || value == null || value === "") return null;
-  const number = Number(value);
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const raw = String(value).trim();
+  if (!raw || raw === "-" || raw.toLowerCase() === "n/a") return null;
+  const isParenthesizedNegative = raw.startsWith("(") && raw.endsWith(")");
+  const cleaned = raw
+    .replace(/[\s,$%]/g, "")
+    .replace(/[()]/g, "")
+    .replace(/\u2212/g, "-");
+  if (!cleaned || cleaned === "-" || cleaned === ".") return null;
+  const number = Number(cleaned);
+  if (!Number.isFinite(number)) return null;
+  return isParenthesizedNegative ? -Math.abs(number) : number;
+}
+
+function numeric(value) {
+  const number = parseFlexibleNumber(value);
   return Number.isFinite(number) ? number : null;
 }
 
 function nullableNumber(value) {
-  if (value == null || value === "") return null;
-  const number = Number(value);
+  const number = parseFlexibleNumber(value);
   return Number.isFinite(number) ? number : null;
 }
 

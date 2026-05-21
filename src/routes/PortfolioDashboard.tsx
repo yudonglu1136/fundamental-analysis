@@ -330,6 +330,26 @@ function formText(value: number | string | null | undefined) {
   return value == null ? "" : String(value);
 }
 
+function parseMoneyText(value: string) {
+  const raw = value.trim();
+  if (!raw) return null;
+  const isParenthesizedNegative = raw.startsWith("(") && raw.endsWith(")");
+  const cleaned = raw
+    .replace(/[\s,$%]/g, "")
+    .replace(/[()]/g, "")
+    .replace(/\u2212/g, "-");
+  if (!cleaned || cleaned === "-" || cleaned === ".") return null;
+  const numeric = Number(cleaned);
+  if (!Number.isFinite(numeric)) return null;
+  return isParenthesizedNegative ? -Math.abs(numeric) : numeric;
+}
+
+function parseOptionalMoneyInput(value: string, label: string) {
+  const parsed = parseMoneyText(value);
+  if (parsed == null && value.trim()) throw new Error(`${label} must be a valid number.`);
+  return parsed;
+}
+
 function actionErrorMessage(error: unknown, fallback: string) {
   const detail = error instanceof Error ? error.message : String(error);
   return detail ? `${fallback}: ${detail}` : fallback;
@@ -874,17 +894,27 @@ export function PortfolioDashboard() {
   async function saveHistoryPoint() {
     setSaving(true);
     try {
+      const portfolioValue = parseOptionalMoneyInput(historyForm.portfolioValue, "Portfolio NAV");
+      if (portfolioValue == null) {
+        setMessage("Portfolio NAV is required before adding a ledger point.");
+        return;
+      }
+      const cashFunds = parseOptionalMoneyInput(historyForm.cashFunds, "Cash / uninvested");
+      const deposited = parseOptionalMoneyInput(historyForm.deposited, "Deposit");
+      const withdrawn = parseOptionalMoneyInput(historyForm.withdrawn, "Withdrawal");
+      const dividends = parseOptionalMoneyInput(historyForm.dividends, "Dividends");
+      const totalProfit = parseOptionalMoneyInput(historyForm.totalProfit, "Total profit");
       const payload = await apiFetch<PortfolioSnapshot>("/api/portfolio/history", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ...historyForm,
-          portfolioValue: historyForm.portfolioValue ? Number(historyForm.portfolioValue) : null,
-          cashFunds: historyForm.cashFunds ? Number(historyForm.cashFunds) : null,
-          deposited: historyForm.deposited ? Number(historyForm.deposited) : null,
-          withdrawn: historyForm.withdrawn ? Number(historyForm.withdrawn) : null,
-          dividends: historyForm.dividends ? Number(historyForm.dividends) : null,
-          totalProfit: historyForm.totalProfit ? Number(historyForm.totalProfit) : null,
+          portfolioValue,
+          cashFunds,
+          deposited,
+          withdrawn,
+          dividends,
+          totalProfit,
         }),
       });
       setSnapshot(payload);
@@ -1288,22 +1318,22 @@ export function PortfolioDashboard() {
                 <input className={inputClass} type="date" value={historyForm.date} onChange={(event) => updateHistory("date", event.target.value)} />
               </Field>
               <Field label="Portfolio NAV">
-                <input className={inputClass} type="number" step="0.01" value={historyForm.portfolioValue} onChange={(event) => updateHistory("portfolioValue", event.target.value)} />
+                <input className={inputClass} inputMode="decimal" placeholder="$505,121" value={historyForm.portfolioValue} onChange={(event) => updateHistory("portfolioValue", event.target.value)} />
               </Field>
               <Field label="Cash / uninvested">
-                <input className={inputClass} type="number" step="0.01" value={historyForm.cashFunds} onChange={(event) => updateHistory("cashFunds", event.target.value)} />
+                <input className={inputClass} inputMode="decimal" placeholder="$1,681" value={historyForm.cashFunds} onChange={(event) => updateHistory("cashFunds", event.target.value)} />
               </Field>
               <Field label="Deposit">
-                <input className={inputClass} type="number" step="0.01" value={historyForm.deposited} onChange={(event) => updateHistory("deposited", event.target.value)} />
+                <input className={inputClass} inputMode="decimal" placeholder="$0" value={historyForm.deposited} onChange={(event) => updateHistory("deposited", event.target.value)} />
               </Field>
               <Field label="Withdrawal">
-                <input className={inputClass} type="number" step="0.01" value={historyForm.withdrawn} onChange={(event) => updateHistory("withdrawn", event.target.value)} />
+                <input className={inputClass} inputMode="decimal" placeholder="$0" value={historyForm.withdrawn} onChange={(event) => updateHistory("withdrawn", event.target.value)} />
               </Field>
               <Field label="Dividends">
-                <input className={inputClass} type="number" step="0.01" value={historyForm.dividends} onChange={(event) => updateHistory("dividends", event.target.value)} />
+                <input className={inputClass} inputMode="decimal" placeholder="$0" value={historyForm.dividends} onChange={(event) => updateHistory("dividends", event.target.value)} />
               </Field>
               <div className="flex items-end gap-2">
-                <button type="button" disabled={saving || !historyForm.date} onClick={() => void saveHistoryPoint()} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
+                <button type="button" disabled={saving || !historyForm.date || !historyForm.portfolioValue.trim()} onClick={() => void saveHistoryPoint()} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
                   <Plus className="h-4 w-4" />
                   {historyForm.id ? "Update" : "Add"}
                 </button>
