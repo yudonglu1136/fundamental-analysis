@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { createContext, useContext, useMemo, useState } from "react";
+import { ChartThemeDefs } from "../shared/ChartThemeDefs";
 import { Sidebar } from "./Sidebar";
 import { TopNav } from "./TopNav";
 import type { DataSourceType, Scenario, StockModule } from "../../stocks/types";
@@ -39,6 +40,7 @@ export function AppShell() {
 
   return (
     <AppShellContext.Provider value={value}>
+      <ChartThemeDefs />
       <div className="flex min-h-screen bg-[#05070b] text-white">
         <Sidebar />
         <div className="min-w-0 flex-1">

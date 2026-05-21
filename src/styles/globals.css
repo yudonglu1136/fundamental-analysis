@@ -87,6 +87,13 @@
   }
 
   .tf-stock-module-canvas {
+    --tf-chart-cyan: #7df9ff;
+    --tf-chart-mint: #8cffd3;
+    --tf-chart-violet: #c4b5fd;
+    --tf-chart-amber: #ffe39a;
+    --tf-chart-rose: #ffb3c7;
+    --tf-chart-slate: #dbe7f6;
+    --tf-chart-indigo: #93c5fd;
     color: #f2f7fb;
   }
 
@@ -228,14 +235,130 @@
   }
 
   .tf-stock-module-canvas .recharts-default-tooltip {
-    background: rgba(7, 10, 16, 0.96) !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.36) !important;
+    background:
+      linear-gradient(135deg, rgba(5, 10, 20, 0.96), rgba(9, 18, 33, 0.92) 52%, rgba(34, 211, 238, 0.16)),
+      rgba(7, 10, 16, 0.94) !important;
+    border: 1px solid rgba(125, 211, 252, 0.24) !important;
+    border-radius: 12px !important;
+    box-shadow:
+      0 20px 70px rgba(0, 0, 0, 0.52),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
     color: #f8fafc !important;
+    backdrop-filter: blur(18px);
   }
 
   .tf-stock-module-canvas .recharts-tooltip-label {
     color: #f8fafc !important;
+    font-weight: 700 !important;
+    text-shadow: 0 1px 2px rgba(2, 6, 23, 0.95);
+  }
+
+  .tf-stock-module-canvas .recharts-tooltip-item {
+    color: #f8fafc !important;
+    font-weight: 650 !important;
+    text-shadow:
+      0 1px 2px rgba(2, 6, 23, 0.98),
+      0 0 14px currentColor;
+  }
+
+  .tf-stock-module-canvas .recharts-tooltip-item-name,
+  .tf-stock-module-canvas .recharts-tooltip-item-value,
+  .tf-stock-module-canvas .recharts-tooltip-item-unit,
+  .tf-stock-module-canvas .recharts-tooltip-item-separator {
+    color: inherit !important;
+  }
+
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#2563eb"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#0284c7"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#06b6d4"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#0891b2"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="37, 99, 235"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="2, 132, 199"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="6, 182, 212"] {
+    color: var(--tf-chart-cyan) !important;
+  }
+
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#1e3a8a"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#1d4ed8"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#3b82f6"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#345995"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="30, 58, 138"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="29, 78, 216"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="59, 130, 246"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="52, 89, 149"] {
+    color: var(--tf-chart-indigo) !important;
+  }
+
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#6366f1"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#7c3aed"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#9333ea"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="99, 102, 241"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="124, 58, 237"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="147, 51, 234"] {
+    color: var(--tf-chart-violet) !important;
+  }
+
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#0f766e"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#059669"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#0f8f6f"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#14b8a6"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#16a34a"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#22c55e"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#2dd4bf"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#175c62"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#164e63"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="15, 118, 110"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="20, 184, 166"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="45, 212, 191"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="34, 197, 94"] {
+    color: var(--tf-chart-mint) !important;
+  }
+
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#f97316"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#d97706"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#a16207"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#b45309"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#f59e0b"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#ea580c"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#7f3b54"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#8b5a2b"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="249, 115, 22"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="245, 158, 11"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="127, 59, 84"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="139, 90, 43"] {
+    color: var(--tf-chart-amber) !important;
+  }
+
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#64748b"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#94a3b8"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#e2e8f0"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#334155"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#475569"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#1f2937"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#111827"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#0f172a"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="100, 116, 139"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="148, 163, 184"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="226, 232, 240"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="15, 23, 42"] {
+    color: var(--tf-chart-slate) !important;
+  }
+
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#dc2626"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#e11d48"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#b91c1c"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#b54743"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="#7f1d1d"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="220, 38, 38"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="225, 29, 72"],
+  .tf-stock-module-canvas .recharts-tooltip-item[style*="185, 28, 28"] {
+    color: var(--tf-chart-rose) !important;
+  }
+
+  .tf-stock-module-canvas .recharts-tooltip-cursor {
+    fill: rgba(125, 211, 252, 0.08) !important;
+    stroke: rgba(125, 211, 252, 0.34) !important;
+    stroke-width: 1 !important;
   }
 
   .tf-stock-module-canvas .tf-bright-chart-label {
@@ -256,13 +379,20 @@
   }
 
   .tf-stock-module-canvas .recharts-rectangle:not([fill="transparent"]):not([fill^="url("]) {
-    stroke: rgba(255, 255, 255, 0.22) !important;
+    stroke: rgba(255, 255, 255, 0.26) !important;
     stroke-width: 1 !important;
-    filter: drop-shadow(0 8px 14px rgba(58, 219, 234, 0.12));
+    filter:
+      drop-shadow(0 10px 18px rgba(34, 211, 238, 0.16))
+      drop-shadow(0 0 18px rgba(139, 92, 246, 0.08));
   }
 
   .tf-stock-module-canvas .recharts-line-curve {
-    filter: drop-shadow(0 0 10px rgba(58, 219, 234, 0.18));
+    filter: drop-shadow(0 0 12px rgba(125, 249, 255, 0.22));
+  }
+
+  .tf-stock-module-canvas .recharts-dot,
+  .tf-stock-module-canvas .recharts-line-dot {
+    filter: drop-shadow(0 0 8px currentColor);
   }
 
   .tf-stock-module-canvas svg [fill="transparent"] {
@@ -273,44 +403,70 @@
   .tf-stock-module-canvas svg [fill="#21486f"],
   .tf-stock-module-canvas svg [fill="#1f6f78"],
   .tf-stock-module-canvas svg [fill="#0284c7"],
+  .tf-stock-module-canvas svg [fill="#06b6d4"],
+  .tf-stock-module-canvas svg [fill="#0891b2"] {
+    fill: url(#tf-chart-cyan-gradient) !important;
+  }
+
+  .tf-stock-module-canvas svg [fill="#1e3a8a"],
+  .tf-stock-module-canvas svg [fill="#1d4ed8"],
+  .tf-stock-module-canvas svg [fill="#3b82f6"],
+  .tf-stock-module-canvas svg [fill="#345995"] {
+    fill: url(#tf-chart-indigo-gradient) !important;
+  }
+
   .tf-stock-module-canvas svg [fill="#6366f1"],
-  .tf-stock-module-canvas svg [fill="#7c3aed"] {
-    fill: #3adbea !important;
+  .tf-stock-module-canvas svg [fill="#7c3aed"],
+  .tf-stock-module-canvas svg [fill="#9333ea"] {
+    fill: url(#tf-chart-violet-gradient) !important;
   }
 
   .tf-stock-module-canvas svg [fill="#0f766e"],
   .tf-stock-module-canvas svg [fill="#059669"],
   .tf-stock-module-canvas svg [fill="#0f8f6f"],
   .tf-stock-module-canvas svg [fill="#14b8a6"],
-  .tf-stock-module-canvas svg [fill="#16a34a"] {
-    fill: #55f5b0 !important;
+  .tf-stock-module-canvas svg [fill="#16a34a"],
+  .tf-stock-module-canvas svg [fill="#22c55e"],
+  .tf-stock-module-canvas svg [fill="#2dd4bf"],
+  .tf-stock-module-canvas svg [fill="#175c62"],
+  .tf-stock-module-canvas svg [fill="#164e63"] {
+    fill: url(#tf-chart-mint-gradient) !important;
   }
 
   .tf-stock-module-canvas svg [fill="#f97316"],
   .tf-stock-module-canvas svg [fill="#d97706"],
   .tf-stock-module-canvas svg [fill="#a16207"],
   .tf-stock-module-canvas svg [fill="#b45309"],
-  .tf-stock-module-canvas svg [fill="#f59e0b"] {
-    fill: #ffcc66 !important;
+  .tf-stock-module-canvas svg [fill="#f59e0b"],
+  .tf-stock-module-canvas svg [fill="#ea580c"],
+  .tf-stock-module-canvas svg [fill="#7f3b54"],
+  .tf-stock-module-canvas svg [fill="#8b5a2b"] {
+    fill: url(#tf-chart-amber-gradient) !important;
   }
 
   .tf-stock-module-canvas svg [fill="#64748b"],
   .tf-stock-module-canvas svg [fill="#94a3b8"],
+  .tf-stock-module-canvas svg [fill="#e2e8f0"],
   .tf-stock-module-canvas svg [fill="#334155"],
   .tf-stock-module-canvas svg [fill="#475569"],
   .tf-stock-module-canvas svg [fill="#1f2937"],
+  .tf-stock-module-canvas svg [fill="#111827"],
   .tf-stock-module-canvas svg [fill="#0f172a"] {
-    fill: #8796ad !important;
+    fill: url(#tf-chart-slate-gradient) !important;
   }
 
   .tf-stock-module-canvas svg [fill="#dc2626"],
   .tf-stock-module-canvas svg [fill="#e11d48"],
-  .tf-stock-module-canvas svg [fill="#b54743"] {
-    fill: #ff6f86 !important;
+  .tf-stock-module-canvas svg [fill="#b91c1c"],
+  .tf-stock-module-canvas svg [fill="#b54743"],
+  .tf-stock-module-canvas svg [fill="#7f1d1d"] {
+    fill: url(#tf-chart-rose-gradient) !important;
   }
 
   .tf-stock-module-canvas svg [fill="#ecfdf5"],
   .tf-stock-module-canvas svg [fill="#eff6ff"],
+  .tf-stock-module-canvas svg [fill="#bbf7d0"],
+  .tf-stock-module-canvas svg [fill="#bfdbfe"],
   .tf-stock-module-canvas svg [fill="#fff7ed"],
   .tf-stock-module-canvas svg [fill="#f8fafc"] {
     fill: rgba(255, 255, 255, 0.08) !important;
@@ -320,40 +476,63 @@
   .tf-stock-module-canvas svg [stroke="#21486f"],
   .tf-stock-module-canvas svg [stroke="#1f6f78"],
   .tf-stock-module-canvas svg [stroke="#0284c7"],
+  .tf-stock-module-canvas svg [stroke="#06b6d4"],
+  .tf-stock-module-canvas svg [stroke="#0891b2"] {
+    stroke: var(--tf-chart-cyan) !important;
+  }
+
+  .tf-stock-module-canvas svg [stroke="#1e3a8a"],
+  .tf-stock-module-canvas svg [stroke="#1d4ed8"],
+  .tf-stock-module-canvas svg [stroke="#3b82f6"],
+  .tf-stock-module-canvas svg [stroke="#345995"] {
+    stroke: var(--tf-chart-indigo) !important;
+  }
+
   .tf-stock-module-canvas svg [stroke="#6366f1"],
   .tf-stock-module-canvas svg [stroke="#7c3aed"] {
-    stroke: #3adbea !important;
+    stroke: var(--tf-chart-violet) !important;
   }
 
   .tf-stock-module-canvas svg [stroke="#0f766e"],
   .tf-stock-module-canvas svg [stroke="#059669"],
   .tf-stock-module-canvas svg [stroke="#0f8f6f"],
   .tf-stock-module-canvas svg [stroke="#14b8a6"],
-  .tf-stock-module-canvas svg [stroke="#16a34a"] {
-    stroke: #55f5b0 !important;
+  .tf-stock-module-canvas svg [stroke="#16a34a"],
+  .tf-stock-module-canvas svg [stroke="#22c55e"],
+  .tf-stock-module-canvas svg [stroke="#2dd4bf"],
+  .tf-stock-module-canvas svg [stroke="#175c62"],
+  .tf-stock-module-canvas svg [stroke="#164e63"] {
+    stroke: var(--tf-chart-mint) !important;
   }
 
   .tf-stock-module-canvas svg [stroke="#f97316"],
   .tf-stock-module-canvas svg [stroke="#d97706"],
   .tf-stock-module-canvas svg [stroke="#a16207"],
   .tf-stock-module-canvas svg [stroke="#b45309"],
-  .tf-stock-module-canvas svg [stroke="#f59e0b"] {
-    stroke: #ffcc66 !important;
+  .tf-stock-module-canvas svg [stroke="#f59e0b"],
+  .tf-stock-module-canvas svg [stroke="#ea580c"],
+  .tf-stock-module-canvas svg [stroke="#7f3b54"],
+  .tf-stock-module-canvas svg [stroke="#8b5a2b"] {
+    stroke: var(--tf-chart-amber) !important;
   }
 
   .tf-stock-module-canvas svg [stroke="#64748b"],
   .tf-stock-module-canvas svg [stroke="#94a3b8"],
+  .tf-stock-module-canvas svg [stroke="#e2e8f0"],
   .tf-stock-module-canvas svg [stroke="#334155"],
   .tf-stock-module-canvas svg [stroke="#475569"],
   .tf-stock-module-canvas svg [stroke="#1f2937"],
+  .tf-stock-module-canvas svg [stroke="#111827"],
   .tf-stock-module-canvas svg [stroke="#0f172a"] {
-    stroke: #8796ad !important;
+    stroke: var(--tf-chart-slate) !important;
   }
 
   .tf-stock-module-canvas svg [stroke="#dc2626"],
   .tf-stock-module-canvas svg [stroke="#e11d48"],
-  .tf-stock-module-canvas svg [stroke="#b54743"] {
-    stroke: #ff6f86 !important;
+  .tf-stock-module-canvas svg [stroke="#b91c1c"],
+  .tf-stock-module-canvas svg [stroke="#b54743"],
+  .tf-stock-module-canvas svg [stroke="#7f1d1d"] {
+    stroke: var(--tf-chart-rose) !important;
   }
 
   .tf-stock-module-canvas [class*="bg-amber-50"],

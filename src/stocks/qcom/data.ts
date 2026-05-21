@@ -76,7 +76,7 @@ export const qcomDataset = createLocalDeepResearchDataset({
       subtitle: "QCOM valuation hinges on handset cyclicality plus the durability of the QTL cash annuity.",
       sourceStatus: "research_only",
       measures: [
-        { key: "handsetIndex", label: "Handset revenue index", format: "number", chartType: "bar", color: "#0f172a", axis: "left" },
+        { key: "handsetIndex", label: "Handset revenue index", format: "number", chartType: "bar", color: "#345995", axis: "left" },
         { key: "licensingMargin", label: "Licensing margin %", format: "percent", chartType: "line", color: "#2563eb", axis: "right" },
       ],
       points: [
