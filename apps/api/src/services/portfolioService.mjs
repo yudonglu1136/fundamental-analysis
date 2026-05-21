@@ -261,8 +261,6 @@ function parseCouponSchedule(value) {
 }
 
 function holdingMarketValue(holding) {
-  const manual = nullableNumber(holding.manualMarketValue);
-  if (manual != null) return manual;
   const latestPrice = nullableNumber(holding.latestPrice);
   const quantity = nullableNumber(holding.quantity) ?? 0;
   if (latestPrice != null) return latestPrice * quantity;

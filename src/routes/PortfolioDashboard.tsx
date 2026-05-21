@@ -164,7 +164,6 @@ const emptyHolding = {
   currency: "USD",
   market: "US",
   latestPrice: "",
-  manualMarketValue: "",
   logoUrl: "",
   purchasePrice: "",
   purchaseDate: "",
@@ -350,9 +349,6 @@ function incomeStatusBucket(event: IncomeEvent): "paid" | "declared" | "estimate
 }
 
 function holdingValue(holding: Holding) {
-  if (holding.manualMarketValue != null && Number.isFinite(Number(holding.manualMarketValue))) {
-    return Number(holding.manualMarketValue);
-  }
   if (holding.latestPrice != null && Number.isFinite(Number(holding.latestPrice))) {
     return Number(holding.latestPrice) * Number(holding.quantity ?? 0);
   }
@@ -917,7 +913,6 @@ export function PortfolioDashboard() {
       currency: holding.currency,
       market: holding.market ?? "",
       latestPrice: formText(holding.latestPrice),
-      manualMarketValue: formText(holding.manualMarketValue),
       logoUrl: holding.logoUrl ?? "",
       purchasePrice: formText(holding.purchasePrice),
       purchaseDate: holding.purchaseDate ?? "",
@@ -939,7 +934,6 @@ export function PortfolioDashboard() {
           ...holdingForm,
           quantity: Number(holdingForm.quantity || 0),
           latestPrice: holdingForm.latestPrice ? Number(holdingForm.latestPrice) : null,
-          manualMarketValue: holdingForm.manualMarketValue ? Number(holdingForm.manualMarketValue) : null,
           purchasePrice: holdingForm.purchasePrice ? Number(holdingForm.purchasePrice) : null,
           couponRate: holdingForm.couponRate ? Number(holdingForm.couponRate) : null,
           couponFrequency: holdingForm.couponFrequency ? Number(holdingForm.couponFrequency) : null,
@@ -1061,7 +1055,7 @@ export function PortfolioDashboard() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <StatTile icon={<TrendingUp className="h-4 w-4" />} label="Latest Net Worth" value={money(snapshot.summary.latestPortfolioValue)} note={snapshot.summary.latestMonth ?? "Latest month"} tone="positive" />
           <StatTile icon={<Download className="h-4 w-4" />} label="Deposits" value={money(snapshot.summary.totalDeposited)} note="Cumulative imported deposits" />
-          <StatTile icon={<Landmark className="h-4 w-4" />} label="Cash / Uninvested" value={money(snapshot.summary.cashFunds)} note="Latest cash balance" tone="warning" />
+          <StatTile icon={<Landmark className="h-4 w-4" />} label="Cash / Uninvested" value={money(snapshot.summary.cashFunds)} note="Account cash outside saved positions" tone="warning" />
           <StatTile icon={<CalendarDays className="h-4 w-4" />} label="This Year Income" value={money(dividendCalendarSummary.annualIncome, "USD", 2)} note={`${new Date().getFullYear()} paid, declared, and estimated income`} />
           <StatTile icon={<CalendarDays className="h-4 w-4" />} label="Next Income" value={snapshot.summary.nextIncome ? money(snapshot.summary.nextIncome.grossAmount, snapshot.summary.nextIncome.currency) : "N/A"} note={snapshot.summary.nextIncome ? `${snapshot.summary.nextIncome.symbol} on ${snapshot.summary.nextIncome.eventDate}` : "No upcoming event"} />
         </div>
@@ -1441,26 +1435,23 @@ export function PortfolioDashboard() {
                 <Field label="Currency">
                   <input className={inputClass} value={holdingForm.currency} onChange={(event) => updateHolding("currency", event.target.value)} />
                 </Field>
-                <Field label={holdingForm.assetType === "bond" ? "Current price" : "Current price"}>
+                <Field label={holdingForm.assetType === "bond" ? "Current price / unit" : "Current price"}>
                   <input className={inputClass} type="number" step="0.0001" value={holdingForm.latestPrice} onChange={(event) => updateHolding("latestPrice", event.target.value)} />
                 </Field>
-                <Field label="Manual value">
-                  <input className={inputClass} type="number" step="0.01" value={holdingForm.manualMarketValue} onChange={(event) => updateHolding("manualMarketValue", event.target.value)} />
-                </Field>
-                <Field label="Purchase price">
+                <Field label="Purchase price / unit">
                   <input className={inputClass} type="number" step="0.0001" value={holdingForm.purchasePrice} onChange={(event) => updateHolding("purchasePrice", event.target.value)} />
                 </Field>
                 <Field label="Purchase date">
                   <input className={inputClass} type="date" value={holdingForm.purchaseDate} onChange={(event) => updateHolding("purchaseDate", event.target.value)} />
                 </Field>
-                <Field label="Coupon %">
-                  <input className={inputClass} type="number" step="0.0001" value={holdingForm.couponRate} onChange={(event) => updateHolding("couponRate", event.target.value)} />
+                <Field label="Coupon">
+                  <input className={inputClass} type="number" step="0.0001" placeholder="5.25" value={holdingForm.couponRate} onChange={(event) => updateHolding("couponRate", event.target.value)} />
                 </Field>
                 <Field label="Payments / yr">
                   <input className={inputClass} type="number" step="1" value={holdingForm.couponFrequency} onChange={(event) => updateHolding("couponFrequency", event.target.value)} />
                 </Field>
-                <Field label="Coupon dates">
-                  <input className={inputClass} placeholder="03-15,09-15" value={holdingForm.couponSchedule} onChange={(event) => updateHolding("couponSchedule", event.target.value)} />
+                <Field label="Pay dates">
+                  <input className={inputClass} placeholder="03-15,06-15,09-15,12-15" value={holdingForm.couponSchedule} onChange={(event) => updateHolding("couponSchedule", event.target.value)} />
                 </Field>
                 <Field label="Maturity">
                   <input className={inputClass} type="date" value={holdingForm.maturityDate} onChange={(event) => updateHolding("maturityDate", event.target.value)} />
@@ -1480,11 +1471,11 @@ export function PortfolioDashboard() {
                       <th className="px-3 py-2">Type</th>
                       <th className="px-3 py-2">Holding</th>
                       <th className="px-3 py-2">Quantity</th>
-                      <th className="px-3 py-2">Price</th>
-                      <th className="px-3 py-2">Cost</th>
+                      <th className="px-3 py-2">Current Price</th>
+                      <th className="px-3 py-2">Purchase Price</th>
                       <th className="px-3 py-2">Value</th>
                       <th className="px-3 py-2">NAV %</th>
-                      <th className="px-3 py-2">Bond schedule</th>
+                      <th className="px-3 py-2">Coupon</th>
                       <th className="px-3 py-2">Maturity</th>
                       <th className="px-3 py-2">Action</th>
                     </tr>
@@ -1508,7 +1499,7 @@ export function PortfolioDashboard() {
                         <td className="px-3 py-2 text-slate-600">{money(holding.marketValue, holding.currency)}</td>
                         <td className="px-3 py-2 text-slate-600">{weightPct(holding.navWeight)}</td>
                         <td className="px-3 py-2 text-slate-600">
-                          {holding.assetType === "bond" ? `${holding.couponRate ?? "?"}% · ${holding.couponSchedule ?? "no dates"}` : "-"}
+                          {holding.assetType === "bond" ? `${holding.couponRate ?? "?"} · ${holding.couponSchedule ?? "no pay dates"}` : "-"}
                         </td>
                         <td className="px-3 py-2 text-slate-600">{holding.maturityDate ?? "-"}</td>
                         <td className="px-3 py-2">
