@@ -55,6 +55,15 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     headers.set("authorization", `Bearer ${apiAccessToken}`);
   }
   const response = await fetch(`${apiBaseUrl()}${path}`, { ...init, headers });
-  if (!response.ok) throw new Error(`API returned ${response.status} for ${path}`);
+  if (!response.ok) {
+    let detail = "";
+    try {
+      const payload = await response.clone().json();
+      detail = payload?.message || payload?.error || "";
+    } catch {
+      detail = await response.text().catch(() => "");
+    }
+    throw new Error(detail ? `${detail} (${response.status})` : `API returned ${response.status} for ${path}`);
+  }
   return (await response.json()) as T;
 }

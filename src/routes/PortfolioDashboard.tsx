@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CalendarDays, Database, Download, Landmark, Pencil, Plus, RefreshCw, ShieldCheck, Trash2, TrendingUp, X } from "lucide-react";
 import { apiFetch } from "../api/client";
@@ -330,6 +330,11 @@ function formText(value: number | string | null | undefined) {
   return value == null ? "" : String(value);
 }
 
+function actionErrorMessage(error: unknown, fallback: string) {
+  const detail = error instanceof Error ? error.message : String(error);
+  return detail ? `${fallback}: ${detail}` : fallback;
+}
+
 function yearFromDate(date: string | null | undefined) {
   return date?.slice(0, 4) ?? "";
 }
@@ -634,6 +639,8 @@ export function PortfolioDashboard() {
   const [historyForm, setHistoryForm] = useState(emptyHistoryPoint);
   const [incomeForm, setIncomeForm] = useState(emptyIncome);
   const [saving, setSaving] = useState(false);
+  const historyEditorRef = useRef<HTMLDivElement | null>(null);
+  const holdingEditorRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
     setLoadState("loading");
@@ -858,6 +865,12 @@ export function PortfolioDashboard() {
     setIncomeForm((current) => ({ ...current, [key]: value }));
   }
 
+  function scrollToEditor(ref: RefObject<HTMLDivElement | null>) {
+    window.requestAnimationFrame(() => {
+      ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
   async function saveHistoryPoint() {
     setSaving(true);
     try {
@@ -876,16 +889,27 @@ export function PortfolioDashboard() {
       });
       setSnapshot(payload);
       setHistoryForm({ ...emptyHistoryPoint, date: new Date().toISOString().slice(0, 10) });
-      setMessage("Portfolio ledger point saved. Net worth and cash-flow charts updated.");
+      setMessage(historyForm.id ? "Portfolio ledger point updated. Returns and benchmark data recalculated." : "Portfolio ledger point saved. Net worth and cash-flow charts updated.");
+    } catch (error) {
+      setMessage(actionErrorMessage(error, "Portfolio ledger point was not saved"));
     } finally {
       setSaving(false);
     }
   }
 
   async function deleteHistoryPoint(id: string) {
-    const payload = await apiFetch<PortfolioSnapshot>(`/api/portfolio/history/${encodeURIComponent(id)}`, { method: "DELETE" });
-    setSnapshot(payload);
-    setMessage("Portfolio ledger point deleted.");
+    if (!window.confirm("Delete this portfolio ledger point?")) return;
+    setSaving(true);
+    try {
+      const payload = await apiFetch<PortfolioSnapshot>(`/api/portfolio/history/${encodeURIComponent(id)}`, { method: "DELETE" });
+      setSnapshot(payload);
+      if (historyForm.id === id) setHistoryForm({ ...emptyHistoryPoint, date: new Date().toISOString().slice(0, 10) });
+      setMessage("Portfolio ledger point deleted.");
+    } catch (error) {
+      setMessage(actionErrorMessage(error, "Portfolio ledger point was not deleted"));
+    } finally {
+      setSaving(false);
+    }
   }
 
   function editHistoryPoint(row: PortfolioHistoryRow) {
@@ -900,6 +924,8 @@ export function PortfolioDashboard() {
       totalProfit: formText(row.totalProfit),
       source: row.source ?? "manual",
     });
+    setMessage(`Editing portfolio ledger point for ${row.date}.`);
+    scrollToEditor(historyEditorRef);
   }
 
   function editHolding(holding: Holding) {
@@ -922,6 +948,8 @@ export function PortfolioDashboard() {
       maturityDate: holding.maturityDate ?? "",
       notes: holding.notes ?? "",
     });
+    setMessage(`Editing ${holding.symbol}.`);
+    scrollToEditor(holdingEditorRef);
   }
 
   async function saveHolding() {
@@ -940,12 +968,21 @@ export function PortfolioDashboard() {
         }),
       });
       setSnapshot(saved);
+      let priceRefreshMessage = "";
       if (holdingForm.assetType === "stock" && Number(holdingForm.quantity || 0) > 0) {
-        const priced = await apiFetch<PortfolioSnapshot>("/api/portfolio/holding-prices/refresh", { method: "POST" });
-        setSnapshot(priced);
+        try {
+          const priced = await apiFetch<PortfolioSnapshot>("/api/portfolio/holding-prices/refresh", { method: "POST" });
+          setSnapshot(priced);
+          const errors = priced.priceRefresh?.errors.filter((item) => item.symbol === holdingForm.symbol.toUpperCase()) ?? [];
+          priceRefreshMessage = errors.length ? ` Price refresh warning: ${errors.map((item) => item.message).join("; ")}` : " Latest stock prices refreshed.";
+        } catch (error) {
+          priceRefreshMessage = ` Holding saved, but price refresh failed: ${error instanceof Error ? error.message : String(error)}`;
+        }
       }
       setHoldingForm(emptyHolding);
-      setMessage(holdingForm.id ? "Holding updated. Portfolio composition refreshed." : "Holding saved. Portfolio composition updated.");
+      setMessage(`${holdingForm.id ? "Holding updated." : "Holding saved."} Portfolio composition updated.${priceRefreshMessage}`);
+    } catch (error) {
+      setMessage(actionErrorMessage(error, "Holding was not saved"));
     } finally {
       setSaving(false);
     }
@@ -977,13 +1014,32 @@ export function PortfolioDashboard() {
   }
 
   async function deleteHolding(id: string) {
-    const payload = await apiFetch<PortfolioSnapshot>(`/api/portfolio/holdings/${encodeURIComponent(id)}`, { method: "DELETE" });
-    setSnapshot(payload);
+    if (!window.confirm("Delete this holding and its generated income events?")) return;
+    setSaving(true);
+    try {
+      const payload = await apiFetch<PortfolioSnapshot>(`/api/portfolio/holdings/${encodeURIComponent(id)}`, { method: "DELETE" });
+      setSnapshot(payload);
+      if (holdingForm.id === id) setHoldingForm(emptyHolding);
+      setMessage("Holding deleted. Portfolio composition refreshed.");
+    } catch (error) {
+      setMessage(actionErrorMessage(error, "Holding was not deleted"));
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function deleteIncomeEvent(id: string) {
-    const payload = await apiFetch<PortfolioSnapshot>(`/api/portfolio/income-events/${encodeURIComponent(id)}`, { method: "DELETE" });
-    setSnapshot(payload);
+    if (!window.confirm("Delete this income event?")) return;
+    setSaving(true);
+    try {
+      const payload = await apiFetch<PortfolioSnapshot>(`/api/portfolio/income-events/${encodeURIComponent(id)}`, { method: "DELETE" });
+      setSnapshot(payload);
+      setMessage("Income event deleted.");
+    } catch (error) {
+      setMessage(actionErrorMessage(error, "Income event was not deleted"));
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function refreshDividends() {
@@ -1226,7 +1282,7 @@ export function PortfolioDashboard() {
             </div>
           </div>
 
-          <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
+          <div ref={historyEditorRef} className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
             <div className="grid gap-3 lg:grid-cols-7">
               <Field label="Date">
                 <input className={inputClass} type="date" value={historyForm.date} onChange={(event) => updateHistory("date", event.target.value)} />
@@ -1397,7 +1453,7 @@ export function PortfolioDashboard() {
               ) : null}
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <div ref={holdingEditorRef} className="rounded-lg border border-slate-200 bg-white p-4">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-ink">{holdingForm.id ? "Edit Holding" : "Add Holding"}</p>
