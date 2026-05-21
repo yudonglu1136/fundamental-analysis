@@ -3,6 +3,15 @@ import crypto from "node:crypto";
 import path from "node:path";
 import XLSX from "xlsx";
 import { execute, executescript, query } from "../db/client.mjs";
+import {
+  defaultMarketLogoUrl,
+  fetchYahooDividendsWithCache,
+  fetchYahooPriceWithCache,
+  getMarketSecurity,
+  searchMarketSecurities,
+  upsertMarketSecurity,
+  refreshMarketDataUniverse,
+} from "./portfolioMarketData.mjs";
 
 const PORTFOLIO_ROOT = path.resolve(process.env.PORTFOLIO_DATA_ROOT ?? "data/local/portfolio/accounts");
 const DEFAULT_SEED_OWNER_EMAIL = "luyudong1136@gmail.com";
@@ -249,7 +258,7 @@ function defaultLogoUrl(symbol, assetType = "stock") {
   const key = cleanString(symbol).toUpperCase();
   if (!key) return null;
   const logoSymbol = defaultLogoSymbolAliases[key] ?? key;
-  return defaultHoldingLogos[key] ?? `https://companiesmarketcap.com/img/company-logos/64/${encodeURIComponent(logoSymbol)}.png`;
+  return defaultHoldingLogos[key] ?? defaultMarketLogoUrl(logoSymbol, assetType);
 }
 
 function labelFromDate(date) {
@@ -580,8 +589,15 @@ export function saveHolding(request, payload) {
   const assetType = cleanString(payload?.assetType, "stock").toLowerCase() === "bond" ? "bond" : "stock";
   const symbol = cleanString(payload?.symbol).toUpperCase();
   if (!symbol) throw new Error("Holding symbol is required.");
+  const marketSecurity = assetType === "stock" ? getMarketSecurity(symbol) : null;
+  const name = cleanString(payload?.name) || marketSecurity?.name || null;
+  const currency = cleanString(payload?.currency || marketSecurity?.currency, "USD").toUpperCase() || "USD";
   const explicitLogoUrl = cleanString(payload?.logoUrl);
-  const logoUrl = explicitLogoUrl || defaultLogoUrl(symbol, assetType);
+  const logoUrl = explicitLogoUrl || marketSecurity?.logoUrl || defaultLogoUrl(symbol, assetType);
+  const latestPrice = nullableNumber(payload?.latestPrice) ?? nullableNumber(marketSecurity?.cachedPrice);
+  const latestPriceAt = cleanString(payload?.latestPriceAt) || (latestPrice != null ? marketSecurity?.cachedPriceAt : null);
+  const latestPriceSource = cleanString(payload?.latestPriceSource)
+    || (latestPrice != null && marketSecurity?.cachedPriceAt ? "portfolio_market_data_cache" : null);
   execute(
     `INSERT INTO holdings (
       id, accountName, assetType, symbol, name, quantity, currency, market, latestPrice, latestPriceAt, latestPriceSource,
@@ -615,16 +631,16 @@ export function saveHolding(request, payload) {
       cleanString(payload?.accountName, "Main") || "Main",
       assetType,
       symbol,
-      cleanString(payload?.name) || null,
+      name,
       Number(payload?.quantity ?? 0),
-      cleanString(payload?.currency, "USD").toUpperCase() || "USD",
+      currency,
       cleanString(payload?.market) || null,
-      nullableNumber(payload?.latestPrice),
-      cleanString(payload?.latestPriceAt) || null,
-      cleanString(payload?.latestPriceSource) || null,
+      latestPrice,
+      latestPriceAt,
+      latestPriceSource,
       nullableNumber(payload?.manualMarketValue),
       logoUrl,
-      logoUrl ? (explicitLogoUrl ? "manual" : "default_symbol_map") : null,
+      logoUrl ? (explicitLogoUrl ? "manual" : marketSecurity?.logoSource || "default_symbol_map") : null,
       nullableNumber(payload?.purchasePrice),
       cleanString(payload?.purchaseDate) || null,
       nullableNumber(payload?.couponFrequency),
@@ -637,6 +653,18 @@ export function saveHolding(request, payload) {
     ],
     account.dbPath,
   );
+  if (assetType === "stock") {
+    upsertMarketSecurity({
+      symbol,
+      name,
+      assetType,
+      exchange: cleanString(payload?.market) || marketSecurity?.exchange || null,
+      currency,
+      logoUrl,
+      logoSource: logoUrl ? (explicitLogoUrl ? "manual" : marketSecurity?.logoSource || "default_symbol_map") : null,
+      source: "portfolio_holding_observed",
+    });
+  }
   if (assetType === "bond") {
     generateBondCouponEvents(account, id);
   }
@@ -704,31 +732,20 @@ function generateBondCouponEvents(account, holdingId) {
   }
 }
 
-async function fetchYahooPrice(symbol) {
-  const encoded = encodeURIComponent(symbol);
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?range=5d&interval=1d`;
-  const payload = await fetchJson(url);
-  const result = payload?.chart?.result?.[0] ?? {};
-  const meta = result.meta ?? {};
-  const close = result.indicators?.quote?.[0]?.close ?? [];
-  const latestClose = [...close].reverse().find((value) => Number.isFinite(Number(value)));
-  const price = Number.isFinite(Number(meta.regularMarketPrice)) ? Number(meta.regularMarketPrice) : Number(latestClose);
-  if (!Number.isFinite(price)) throw new Error("Yahoo chart response did not include a usable price.");
-  return {
-    symbol,
-    price,
-    currency: cleanString(meta.currency, "USD").toUpperCase() || "USD",
-    sourceUrl: url,
-  };
-}
-
-async function refreshStockPricesForAccount(account) {
-  const holdings = query("SELECT * FROM holdings WHERE assetType = 'stock' AND quantity > 0 ORDER BY symbol", [], account.dbPath);
+async function refreshStockPricesForAccount(account, options = {}) {
+  const requestedSymbols = new Set(
+    cleanString(options.symbols || options.symbol)
+      .split(",")
+      .map((symbol) => symbol.trim().toUpperCase())
+      .filter(Boolean),
+  );
+  const holdings = query("SELECT * FROM holdings WHERE assetType = 'stock' AND quantity > 0 ORDER BY symbol", [], account.dbPath)
+    .filter((holding) => requestedSymbols.size === 0 || requestedSymbols.has(String(holding.symbol).toUpperCase()));
   const refreshed = [];
   const errors = [];
   for (const holding of holdings) {
     try {
-      const price = await fetchYahooPrice(holding.symbol);
+      const price = await fetchYahooPriceWithCache(holding.symbol, options);
       execute(
         `UPDATE holdings
          SET latestPrice = ?, latestPriceAt = ?, latestPriceSource = ?, currency = ?, updatedAt = ?
@@ -736,18 +753,22 @@ async function refreshStockPricesForAccount(account) {
         [price.price, nowIso(), price.sourceUrl, price.currency, nowIso(), holding.id],
         account.dbPath,
       );
-      refreshed.push({ symbol: holding.symbol, price: price.price, currency: price.currency });
+      refreshed.push({ symbol: holding.symbol, price: price.price, currency: price.currency, cached: Boolean(price.cached), stale: Boolean(price.stale) });
     } catch (error) {
       errors.push({ symbol: holding.symbol, message: error instanceof Error ? error.message : String(error) });
     }
   }
-  return { refreshed, errors, source: "Yahoo Finance chart endpoint" };
+  return { refreshed, errors, source: "Server market data cache + Yahoo Finance chart endpoint" };
 }
 
-export async function refreshHoldingPrices(request) {
+export async function refreshHoldingPrices(request, options = {}) {
   const account = resolveAccount(request);
   ensureDb(account);
-  const priceRefresh = await refreshStockPricesForAccount(account);
+  const priceRefresh = await refreshStockPricesForAccount(account, {
+    force: Boolean(options.force),
+    symbol: options.symbol,
+    symbols: options.symbols,
+  });
   return {
     ...getPortfolioSnapshot(request),
     priceRefresh,
@@ -757,7 +778,7 @@ export async function refreshHoldingPrices(request) {
 export async function refreshPortfolioNav(request) {
   const account = resolveAccount(request);
   ensureDb(account);
-  const priceRefresh = await refreshStockPricesForAccount(account);
+  const priceRefresh = await refreshStockPricesForAccount(account, { force: true });
   const holdings = query("SELECT * FROM holdings ORDER BY assetType, symbol, accountName", [], account.dbPath);
   const positionsValue = holdings.reduce((sum, holding) => sum + holdingMarketValue(holding), 0);
   const latestHistory = query("SELECT * FROM portfolio_history ORDER BY date DESC LIMIT 1", [], account.dbPath)[0] ?? {};
@@ -933,15 +954,24 @@ async function fetchYahooDividends(symbol) {
   return { events, payload, sourceUrl: chartUrl };
 }
 
-export async function refreshStockDividends(request) {
+export async function refreshStockDividends(request, options = {}) {
   const account = resolveAccount(request);
   ensureDb(account);
-  const holdings = rows(account, "SELECT * FROM holdings WHERE assetType = 'stock' AND quantity > 0 ORDER BY symbol");
+  const requestedSymbols = new Set(
+    cleanString(options.symbols || options.symbol)
+      .split(",")
+      .map((symbol) => symbol.trim().toUpperCase())
+      .filter(Boolean),
+  );
+  const holdings = rows(account, "SELECT * FROM holdings WHERE assetType = 'stock' AND quantity > 0 ORDER BY symbol")
+    .filter((holding) => requestedSymbols.size === 0 || requestedSymbols.has(String(holding.symbol).toUpperCase()));
   const refreshed = [];
   const errors = [];
   for (const holding of holdings) {
     try {
-      const { events, payload, sourceUrl } = await fetchYahooDividends(holding.symbol);
+      const { events, payload, sourceUrl, cached, stale } = await fetchYahooDividendsWithCache(holding.symbol, { force: Boolean(options.force) });
+      const currentYearStart = `${new Date().getFullYear()}-01-01`;
+      const accountEvents = events.filter((event) => event.eventDate >= currentYearStart);
       execute(
         `INSERT INTO dividend_fetch_cache (symbol, fetchedAt, status, sourceUrl, payloadJson, message)
          VALUES (?, ?, 'ok', ?, ?, NULL)
@@ -949,7 +979,7 @@ export async function refreshStockDividends(request) {
         [holding.symbol, nowIso(), sourceUrl, JSON.stringify(payload)],
         account.dbPath,
       );
-      for (const event of events) {
+      for (const event of accountEvents) {
         const quantity = Number(holding.quantity ?? 0);
         const grossAmount = event.amountPerUnit == null ? null : event.amountPerUnit * quantity;
         execute(
@@ -980,7 +1010,7 @@ export async function refreshStockDividends(request) {
             event.amountPerUnit,
             quantity,
             grossAmount,
-            holding.currency ?? "USD",
+            event.currency ?? holding.currency ?? "USD",
             event.status,
             event.sourceType,
             event.sourceUrl,
@@ -991,7 +1021,7 @@ export async function refreshStockDividends(request) {
           account.dbPath,
         );
       }
-      refreshed.push({ symbol: holding.symbol, events: events.length });
+      refreshed.push({ symbol: holding.symbol, events: accountEvents.length, cached: Boolean(cached), stale: Boolean(stale) });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       errors.push({ symbol: holding.symbol, message });
@@ -1009,7 +1039,18 @@ export async function refreshStockDividends(request) {
     refresh: {
       refreshed,
       errors,
-      source: "Yahoo Finance chart and quoteSummary endpoints",
+      source: "Server market data cache + Yahoo Finance chart and quoteSummary endpoints",
     },
   };
+}
+
+export function searchPortfolioMarketData(searchText, options = {}) {
+  return {
+    results: searchMarketSecurities(searchText, options),
+    source: "Server public market data cache",
+  };
+}
+
+export async function refreshPortfolioMarketData(options = {}) {
+  return refreshMarketDataUniverse(options);
 }

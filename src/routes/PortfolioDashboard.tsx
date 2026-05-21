@@ -105,6 +105,26 @@ type PortfolioSnapshot = {
   };
 };
 
+type MarketSecurity = {
+  symbol: string;
+  name: string | null;
+  assetType: "stock" | "bond";
+  exchange: string | null;
+  currency: string;
+  logoUrl: string | null;
+  logoSource: string | null;
+  source: string | null;
+  cachedPrice: number | null;
+  cachedPriceCurrency: string | null;
+  cachedPriceAt: string | null;
+  cachedPriceStatus: string | null;
+};
+
+type MarketSearchResponse = {
+  results: MarketSecurity[];
+  source: string;
+};
+
 type AnnualTotalsRow = {
   year: string;
   deposited: number;
@@ -658,6 +678,8 @@ export function PortfolioDashboard() {
   const [holdingForm, setHoldingForm] = useState(emptyHolding);
   const [historyForm, setHistoryForm] = useState(emptyHistoryPoint);
   const [incomeForm, setIncomeForm] = useState(emptyIncome);
+  const [marketSuggestions, setMarketSuggestions] = useState<MarketSecurity[]>([]);
+  const [marketLookupState, setMarketLookupState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [saving, setSaving] = useState(false);
   const historyEditorRef = useRef<HTMLDivElement | null>(null);
   const holdingEditorRef = useRef<HTMLDivElement | null>(null);
@@ -680,6 +702,35 @@ export function PortfolioDashboard() {
     void load();
     return () => setCurrentModule(undefined);
   }, [load, setCurrentModule]);
+
+  useEffect(() => {
+    const query = holdingForm.assetType === "stock" ? holdingForm.symbol.trim() : "";
+    if (!query) {
+      setMarketSuggestions([]);
+      setMarketLookupState("idle");
+      return;
+    }
+    let active = true;
+    setMarketLookupState("loading");
+    const handle = window.setTimeout(async () => {
+      try {
+        const payload = await apiFetch<MarketSearchResponse>(
+          `/api/portfolio/market-data/search?q=${encodeURIComponent(query)}&limit=8`,
+        );
+        if (!active) return;
+        setMarketSuggestions(payload.results);
+        setMarketLookupState("ready");
+      } catch {
+        if (!active) return;
+        setMarketSuggestions([]);
+        setMarketLookupState("error");
+      }
+    }, 180);
+    return () => {
+      active = false;
+      window.clearTimeout(handle);
+    };
+  }, [holdingForm.assetType, holdingForm.symbol]);
 
   const chartRows = useMemo(
     () =>
@@ -882,6 +933,21 @@ export function PortfolioDashboard() {
     setHoldingForm((current) => ({ ...current, [key]: value }));
   }
 
+  function applyMarketSuggestion(security: MarketSecurity) {
+    setHoldingForm((current) => ({
+      ...current,
+      assetType: "stock",
+      symbol: security.symbol,
+      name: current.name || security.name || "",
+      currency: security.cachedPriceCurrency || security.currency || current.currency || "USD",
+      market: security.exchange || current.market || "US",
+      latestPrice: current.latestPrice || formText(security.cachedPrice),
+      logoUrl: current.logoUrl || security.logoUrl || "",
+    }));
+    setMarketSuggestions([]);
+    setMarketLookupState("ready");
+  }
+
   function updateHistory(key: keyof typeof emptyHistoryPoint, value: string) {
     setHistoryForm((current) => ({ ...current, [key]: value }));
   }
@@ -1009,18 +1075,38 @@ export function PortfolioDashboard() {
       });
       setSnapshot(saved);
       let priceRefreshMessage = "";
+      let dividendRefreshMessage = "";
       if (holdingForm.assetType === "stock" && Number(holdingForm.quantity || 0) > 0) {
+        const symbol = holdingForm.symbol.toUpperCase();
         try {
-          const priced = await apiFetch<PortfolioSnapshot>("/api/portfolio/holding-prices/refresh", { method: "POST" });
+          const priced = await apiFetch<PortfolioSnapshot>("/api/portfolio/holding-prices/refresh", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ symbol }),
+          });
           setSnapshot(priced);
-          const errors = priced.priceRefresh?.errors.filter((item) => item.symbol === holdingForm.symbol.toUpperCase()) ?? [];
+          const errors = priced.priceRefresh?.errors.filter((item) => item.symbol === symbol) ?? [];
           priceRefreshMessage = errors.length ? ` Price refresh warning: ${errors.map((item) => item.message).join("; ")}` : " Latest stock prices refreshed.";
         } catch (error) {
           priceRefreshMessage = ` Holding saved, but price refresh failed: ${error instanceof Error ? error.message : String(error)}`;
         }
+        try {
+          const refreshedIncome = await apiFetch<PortfolioSnapshot>("/api/portfolio/stock-dividends/refresh", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ symbol }),
+          });
+          setSnapshot(refreshedIncome);
+          const errors = refreshedIncome.refresh?.errors.filter((item) => item.symbol === symbol) ?? [];
+          dividendRefreshMessage = errors.length
+            ? ` Dividend refresh warning: ${errors.map((item) => item.message).join("; ")}`
+            : " Passive income calendar refreshed.";
+        } catch (error) {
+          dividendRefreshMessage = ` Holding saved, but dividend refresh failed: ${error instanceof Error ? error.message : String(error)}`;
+        }
       }
       setHoldingForm(emptyHolding);
-      setMessage(`${holdingForm.id ? "Holding updated." : "Holding saved."} Portfolio composition updated.${priceRefreshMessage}`);
+      setMessage(`${holdingForm.id ? "Holding updated." : "Holding saved."} Portfolio composition updated.${priceRefreshMessage}${dividendRefreshMessage}`);
     } catch (error) {
       setMessage(actionErrorMessage(error, "Holding was not saved"));
     } finally {
@@ -1085,7 +1171,11 @@ export function PortfolioDashboard() {
   async function refreshDividends() {
     setSaving(true);
     try {
-      const payload = await apiFetch<PortfolioSnapshot>("/api/portfolio/stock-dividends/refresh", { method: "POST" });
+      const payload = await apiFetch<PortfolioSnapshot>("/api/portfolio/stock-dividends/refresh", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ force: true }),
+      });
       setSnapshot(payload);
       const refreshed = payload.refresh?.refreshed.map((item) => `${item.symbol}: ${item.events}`).join(", ") || "none";
       const errors = payload.refresh?.errors.length ? ` Errors: ${payload.refresh.errors.map((item) => `${item.symbol} ${item.message}`).join("; ")}` : "";
@@ -1098,7 +1188,11 @@ export function PortfolioDashboard() {
   async function refreshPrices() {
     setSaving(true);
     try {
-      const payload = await apiFetch<PortfolioSnapshot>("/api/portfolio/holding-prices/refresh", { method: "POST" });
+      const payload = await apiFetch<PortfolioSnapshot>("/api/portfolio/holding-prices/refresh", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ force: true }),
+      });
       setSnapshot(payload);
       const refreshed = payload.priceRefresh?.refreshed.map((item) => `${item.symbol}: ${money(item.price, item.currency, 2)}`).join(", ") || "none";
       const errors = payload.priceRefresh?.errors.length ? ` Errors: ${payload.priceRefresh.errors.map((item) => `${item.symbol} ${item.message}`).join("; ")}` : "";
@@ -1521,9 +1615,32 @@ export function PortfolioDashboard() {
                 <Field label="Account">
                   <input className={inputClass} value={holdingForm.accountName} onChange={(event) => updateHolding("accountName", event.target.value)} />
                 </Field>
-                <Field label="Symbol / CUSIP">
+                <div className="relative text-sm font-medium text-slate-600">
+                  Symbol / CUSIP
                   <input className={inputClass} value={holdingForm.symbol} onChange={(event) => updateHolding("symbol", event.target.value)} />
-                </Field>
+                  {holdingForm.assetType === "stock" && (marketSuggestions.length || marketLookupState === "loading") ? (
+                    <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-lg border border-cyan-200/30 bg-slate-950/95 text-slate-100 shadow-[0_24px_90px_rgba(0,0,0,0.52)] backdrop-blur-xl">
+                      {marketLookupState === "loading" ? <div className="px-3 py-2 text-xs text-slate-300">Searching public market database...</div> : null}
+                      {marketSuggestions.map((security) => (
+                        <button
+                          key={security.symbol}
+                          type="button"
+                          onClick={() => applyMarketSuggestion(security)}
+                          className="flex w-full items-center gap-3 border-t border-white/10 px-3 py-2 text-left first:border-t-0 hover:bg-cyan-300/10"
+                        >
+                          <LogoBadge holding={{ symbol: security.symbol, logoUrl: security.logoUrl }} size="sm" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold text-white">{security.symbol}</span>
+                            <span className="block truncate text-xs text-slate-300">{security.name ?? security.exchange ?? "Public security"}</span>
+                          </span>
+                          <span className="shrink-0 text-xs font-semibold text-cyan-200">
+                            {security.cachedPrice == null ? security.currency : money(security.cachedPrice, security.cachedPriceCurrency ?? security.currency, 2)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
                 <Field label="Name">
                   <input className={inputClass} value={holdingForm.name} onChange={(event) => updateHolding("name", event.target.value)} />
                 </Field>

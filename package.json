@@ -11,6 +11,7 @@
     "api:dev": "API_AUTH_DEV_BYPASS=true node apps/api/src/server.mjs",
     "api:start": "NODE_ENV=production node apps/api/src/server.mjs",
     "portfolio:backend:validate": "node scripts/portfolio_backend_validation.mjs",
+    "portfolio:market-data:refresh": "node scripts/portfolio_market_data_refresh.mjs",
     "stocks:contract:validate": "node scripts/stock_module_contract_validation.mjs",
     "stocks:backend:audit": "node scripts/stock_backend_coverage_audit.mjs",
     "stocks:backend:audit:strict": "node scripts/stock_backend_coverage_audit.mjs --strict",

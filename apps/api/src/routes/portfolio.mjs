@@ -4,11 +4,13 @@ import {
   deleteIncomeEvent,
   getPortfolioSnapshot,
   refreshHoldingPrices,
+  refreshPortfolioMarketData,
   refreshPortfolioNav,
   refreshStockDividends,
   saveHolding,
   saveHistoryPoint,
   saveIncomeEvent,
+  searchPortfolioMarketData,
 } from "../services/portfolioService.mjs";
 
 export async function routePortfolio(request, url, body) {
@@ -46,15 +48,28 @@ export async function routePortfolio(request, url, body) {
   }
 
   if (request.method === "POST" && url.pathname === "/api/portfolio/stock-dividends/refresh") {
-    return { status: 200, body: await refreshStockDividends(request) };
+    return { status: 200, body: await refreshStockDividends(request, body ?? {}) };
   }
 
   if (request.method === "POST" && url.pathname === "/api/portfolio/holding-prices/refresh") {
-    return { status: 200, body: await refreshHoldingPrices(request) };
+    return { status: 200, body: await refreshHoldingPrices(request, body ?? {}) };
   }
 
   if (request.method === "POST" && url.pathname === "/api/portfolio/nav/refresh") {
     return { status: 200, body: await refreshPortfolioNav(request) };
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/portfolio/market-data/search") {
+    return {
+      status: 200,
+      body: searchPortfolioMarketData(url.searchParams.get("q") ?? "", {
+        limit: Number(url.searchParams.get("limit") ?? 20),
+      }),
+    };
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/portfolio/market-data/refresh") {
+    return { status: 200, body: await refreshPortfolioMarketData(body ?? {}) };
   }
 
   return {
