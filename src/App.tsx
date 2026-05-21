@@ -6,6 +6,7 @@ import { ProtectedRoute } from "./auth/ProtectedRoute";
 
 const AppShell = lazy(() => import("./components/layout/AppShell").then((module) => ({ default: module.AppShell })));
 const Home = lazy(() => import("./routes/Home").then((module) => ({ default: module.Home })));
+const PortfolioDashboard = lazy(() => import("./routes/PortfolioDashboard").then((module) => ({ default: module.PortfolioDashboard })));
 const StockDashboard = lazy(() => import("./routes/StockDashboard").then((module) => ({ default: module.StockDashboard })));
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<AppShell />}>
             <Route index element={<Home />} />
+            <Route path="portfolio" element={<PortfolioDashboard />} />
             <Route path="stocks/:ticker" element={<StockDashboard />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

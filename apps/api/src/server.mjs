@@ -2,6 +2,7 @@ import http from "node:http";
 import { corsHeaders, isCorsOriginAllowed } from "./auth/cors.mjs";
 import { requireAuth } from "./auth/requireAuth.mjs";
 import { routeGoogl } from "./routes/googl.mjs";
+import { routePortfolio } from "./routes/portfolio.mjs";
 import { routeStockBackend } from "./routes/stockBackend.mjs";
 import { listStockBackends } from "./stockBackend/registry.mjs";
 
@@ -70,6 +71,7 @@ const server = http.createServer(async (request, response) => {
         amznBackendPilot: true,
         nvdaBackendPilot: true,
         deepResearchBackendPilot: true,
+        portfolioBackendPilot: true,
         avavBackendPilot: true,
         ktosBackendPilot: true,
         jpmBackendPilot: true,
@@ -92,6 +94,11 @@ const server = http.createServer(async (request, response) => {
       }
     }
     const body = request.method === "POST" ? await readBody(request) : null;
+    const portfolioRoute = await routePortfolio(request, url, body);
+    if (portfolioRoute) {
+      send(request, response, portfolioRoute.status, portfolioRoute.body);
+      return;
+    }
     const stockBackendRoute = await routeStockBackend(request, url, body);
     if (stockBackendRoute) {
       send(request, response, stockBackendRoute.status, stockBackendRoute.body);

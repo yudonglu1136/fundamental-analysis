@@ -10,6 +10,7 @@
     "env:validate:production": "node scripts/validate_production_env.mjs",
     "api:dev": "API_AUTH_DEV_BYPASS=true node apps/api/src/server.mjs",
     "api:start": "NODE_ENV=production node apps/api/src/server.mjs",
+    "portfolio:backend:validate": "node scripts/portfolio_backend_validation.mjs",
     "stocks:contract:validate": "node scripts/stock_module_contract_validation.mjs",
     "stocks:backend:audit": "node scripts/stock_backend_coverage_audit.mjs",
     "stocks:backend:audit:strict": "node scripts/stock_backend_coverage_audit.mjs --strict",

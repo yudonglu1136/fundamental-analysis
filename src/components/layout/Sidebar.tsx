@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Activity, Home, Search, Waypoints } from "lucide-react";
+import { Activity, Home, Search, WalletCards, Waypoints } from "lucide-react";
 
 export function Sidebar() {
   const location = useLocation();
@@ -23,6 +23,18 @@ export function Sidebar() {
           <Home className="h-4 w-4" />
         </Link>
         <div className="mt-2 h-px w-8 bg-white/15" />
+        <Link
+          to="/portfolio"
+          aria-label="Portfolio"
+          title="Portfolio"
+          className={`flex h-12 w-12 items-center justify-center border transition ${
+            location.pathname.startsWith("/portfolio")
+              ? "border-cyan-300 bg-cyan-300 text-[#05070b]"
+              : "border-white/10 bg-white/5 text-white/55 hover:border-cyan-300/60 hover:bg-cyan-300/10 hover:text-white"
+          }`}
+        >
+          <WalletCards className="h-4 w-4" />
+        </Link>
         <div className="flex h-12 w-12 items-center justify-center border border-white/10 bg-white/5 text-white/45" title="Coverage graph">
           <Waypoints className="h-4 w-4" />
         </div>
