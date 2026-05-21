@@ -33,6 +33,8 @@ type Holding = {
   latestPriceAt: string | null;
   latestPriceSource: string | null;
   manualMarketValue: number | null;
+  logoUrl: string | null;
+  logoSource: string | null;
   couponRate: number | null;
   maturityDate: string | null;
   notes: string | null;
@@ -112,6 +114,7 @@ const emptyHolding = {
   currency: "USD",
   market: "US",
   manualMarketValue: "",
+  logoUrl: "",
   couponRate: "",
   maturityDate: "",
   notes: "",
@@ -175,6 +178,10 @@ function holdingValue(holding: Holding) {
   return null;
 }
 
+function logoFallbackText(symbol: string) {
+  return symbol.replace(/[^A-Z0-9]/gi, "").slice(0, 4).toUpperCase() || "?";
+}
+
 function monthKey(date: string) {
   return date.slice(0, 7);
 }
@@ -234,6 +241,26 @@ function Field({
       {label}
       {children}
     </label>
+  );
+}
+
+function LogoBadge({ holding, size = "md" }: { holding: Pick<Holding, "symbol" | "logoUrl">; size?: "sm" | "md" | "lg" }) {
+  const sizeClass = size === "lg" ? "h-12 w-12 text-sm" : size === "sm" ? "h-8 w-8 text-xs" : "h-10 w-10 text-xs";
+  return (
+    <span className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100 font-semibold text-slate-500 ${sizeClass}`}>
+      <span className="absolute inset-0 flex items-center justify-center px-1 text-center leading-none">{logoFallbackText(holding.symbol)}</span>
+      {holding.logoUrl ? (
+        <img
+          src={holding.logoUrl}
+          alt={`${holding.symbol} logo`}
+          className="relative h-full w-full bg-white object-contain p-1"
+          loading="lazy"
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+          }}
+        />
+      ) : null}
+    </span>
   );
 }
 
@@ -323,6 +350,7 @@ export function PortfolioDashboard() {
       overAllocated,
       navCoverage: latestNav > 0 ? (allocated / latestNav) * 100 : 0,
       pieRows,
+      topRows: rows.filter((row) => Number(row.marketValue ?? 0) > 0).slice(0, 8),
     };
   }, [snapshot?.holdings, snapshot?.summary.latestPortfolioValue]);
 
@@ -662,7 +690,15 @@ export function PortfolioDashboard() {
                 {composition.pieRows.length ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={composition.pieRows} dataKey="value" nameKey="name" innerRadius={64} outerRadius={110} paddingAngle={2}>
+                      <Pie
+                        data={composition.pieRows}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={64}
+                        outerRadius={110}
+                        paddingAngle={2}
+                        label={({ name, percent }) => (Number(percent) >= 0.04 ? `${name} ${(Number(percent) * 100).toFixed(1)}%` : "")}
+                      >
                         {composition.pieRows.map((row, index) => (
                           <Cell key={row.name} fill={row.type === "cash" ? "#8796ad" : holdingPieColors[index % holdingPieColors.length]} />
                         ))}
@@ -674,6 +710,27 @@ export function PortfolioDashboard() {
                 ) : (
                   <div className="flex h-full items-center justify-center text-sm text-slate-500">No allocation rows yet.</div>
                 )}
+              </div>
+              <div className="mt-4 border-t border-slate-200 pt-4">
+                <p className="text-sm font-semibold text-ink">Largest Positions</p>
+                <div className="mt-3 space-y-2">
+                  {composition.topRows.map((holding) => (
+                    <div key={holding.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <LogoBadge holding={holding} size="sm" />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-ink">{holding.symbol}</p>
+                          <p className="truncate text-xs text-slate-500">{holding.name ?? holding.assetType}</p>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-sm font-semibold text-slate-800">{money(holding.marketValue, holding.currency)}</p>
+                        <p className="text-xs text-slate-500">{weightPct(holding.navWeight)}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {composition.topRows.length === 0 ? <p className="text-sm text-slate-500">Add holdings to show logo-backed allocation rows.</p> : null}
+                </div>
               </div>
               {composition.overAllocated > 0 ? (
                 <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
@@ -698,6 +755,9 @@ export function PortfolioDashboard() {
                 </Field>
                 <Field label="Name">
                   <input className={inputClass} value={holdingForm.name} onChange={(event) => updateHolding("name", event.target.value)} />
+                </Field>
+                <Field label="Logo URL">
+                  <input className={inputClass} value={holdingForm.logoUrl} onChange={(event) => updateHolding("logoUrl", event.target.value)} />
                 </Field>
                 <Field label="Quantity">
                   <input className={inputClass} type="number" step="0.0001" value={holdingForm.quantity} onChange={(event) => updateHolding("quantity", event.target.value)} />
@@ -727,7 +787,7 @@ export function PortfolioDashboard() {
                   <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-normal text-slate-500">
                     <tr>
                       <th className="px-3 py-2">Type</th>
-                      <th className="px-3 py-2">Symbol</th>
+                      <th className="px-3 py-2">Holding</th>
                       <th className="px-3 py-2">Quantity</th>
                       <th className="px-3 py-2">Price</th>
                       <th className="px-3 py-2">Value</th>
@@ -740,7 +800,15 @@ export function PortfolioDashboard() {
                     {composition.rows.map((holding) => (
                       <tr key={holding.id}>
                         <td className="px-3 py-2 font-semibold text-ink">{holding.assetType}</td>
-                        <td className="px-3 py-2 text-slate-600">{holding.symbol}</td>
+                        <td className="px-3 py-2 text-slate-600">
+                          <div className="flex min-w-[180px] items-center gap-3">
+                            <LogoBadge holding={holding} size="sm" />
+                            <div className="min-w-0">
+                              <p className="font-semibold text-ink">{holding.symbol}</p>
+                              <p className="truncate text-xs text-slate-500">{holding.name ?? "-"}</p>
+                            </div>
+                          </div>
+                        </td>
                         <td className="px-3 py-2 text-slate-600">{numberText(holding.quantity)}</td>
                         <td className="px-3 py-2 text-slate-600">{holding.latestPrice == null ? "-" : money(holding.latestPrice, holding.currency, 2)}</td>
                         <td className="px-3 py-2 text-slate-600">{money(holding.marketValue, holding.currency)}</td>

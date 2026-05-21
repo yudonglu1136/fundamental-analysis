@@ -71,6 +71,8 @@ CREATE TABLE IF NOT EXISTS holdings (
   latestPriceAt TEXT,
   latestPriceSource TEXT,
   manualMarketValue REAL,
+  logoUrl TEXT,
+  logoSource TEXT,
   couponRate REAL,
   maturityDate TEXT,
   notes TEXT,
@@ -115,7 +117,23 @@ const holdingColumnMigrations = [
   ["latestPriceAt", "TEXT"],
   ["latestPriceSource", "TEXT"],
   ["manualMarketValue", "REAL"],
+  ["logoUrl", "TEXT"],
+  ["logoSource", "TEXT"],
 ];
+
+const defaultHoldingLogos = {
+  GOOG: "https://companiesmarketcap.com/img/company-logos/64/GOOG.png",
+  IBKR: "https://companiesmarketcap.com/img/company-logos/64/IBKR.png",
+  ISRG: "https://companiesmarketcap.com/img/company-logos/64/ISRG.png",
+  LEGN: "https://companiesmarketcap.com/img/company-logos/64/LEGN.png",
+  LSEG: "https://companiesmarketcap.com/img/company-logos/64/LSEG.L.png",
+  "LSEG.L": "https://companiesmarketcap.com/img/company-logos/64/LSEG.L.png",
+  MCK: "https://companiesmarketcap.com/img/company-logos/64/MCK.png",
+  MSFT: "https://companiesmarketcap.com/img/company-logos/64/MSFT.png",
+  NOW: "https://companiesmarketcap.com/img/company-logos/64/NOW.png",
+  PLTR: "https://companiesmarketcap.com/img/company-logos/64/PLTR.png",
+  QQQ: "https://companiesmarketcap.com/img/company-logos/64/QQQ.png",
+};
 
 const rowMap = {
   "Portfolio value": "portfolioValue",
@@ -190,6 +208,10 @@ function numeric(value) {
   if (value === "-" || value == null || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function defaultLogoUrl(symbol) {
+  return defaultHoldingLogos[cleanString(symbol).toUpperCase()] ?? null;
 }
 
 function parseSeedWorkbook() {
@@ -383,11 +405,13 @@ export function saveHolding(request, payload) {
   const assetType = cleanString(payload?.assetType, "stock").toLowerCase() === "bond" ? "bond" : "stock";
   const symbol = cleanString(payload?.symbol).toUpperCase();
   if (!symbol) throw new Error("Holding symbol is required.");
+  const explicitLogoUrl = cleanString(payload?.logoUrl);
+  const logoUrl = explicitLogoUrl || defaultLogoUrl(symbol);
   execute(
     `INSERT INTO holdings (
       id, accountName, assetType, symbol, name, quantity, currency, market, latestPrice, latestPriceAt, latestPriceSource,
-      manualMarketValue, couponRate, maturityDate, notes, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      manualMarketValue, logoUrl, logoSource, couponRate, maturityDate, notes, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       accountName = excluded.accountName,
       assetType = excluded.assetType,
@@ -400,6 +424,8 @@ export function saveHolding(request, payload) {
       latestPriceAt = COALESCE(excluded.latestPriceAt, latestPriceAt),
       latestPriceSource = COALESCE(excluded.latestPriceSource, latestPriceSource),
       manualMarketValue = excluded.manualMarketValue,
+      logoUrl = excluded.logoUrl,
+      logoSource = excluded.logoSource,
       couponRate = excluded.couponRate,
       maturityDate = excluded.maturityDate,
       notes = excluded.notes,
@@ -417,6 +443,8 @@ export function saveHolding(request, payload) {
       cleanString(payload?.latestPriceAt) || null,
       cleanString(payload?.latestPriceSource) || null,
       payload?.manualMarketValue == null || payload?.manualMarketValue === "" ? null : Number(payload.manualMarketValue),
+      logoUrl,
+      logoUrl ? (explicitLogoUrl ? "manual" : "default_symbol_map") : null,
       payload?.couponRate == null || payload?.couponRate === "" ? null : Number(payload.couponRate),
       cleanString(payload?.maturityDate) || null,
       cleanString(payload?.notes) || null,
