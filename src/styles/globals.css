@@ -238,6 +238,15 @@
     color: #f8fafc !important;
   }
 
+  .tf-stock-module-canvas .tf-bright-chart-label {
+    fill: #ffffff !important;
+    color: #ffffff !important;
+    paint-order: stroke;
+    stroke: rgba(2, 6, 23, 0.78);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+  }
+
   .tf-stock-module-canvas .recharts-wrapper {
     isolation: isolate;
   }

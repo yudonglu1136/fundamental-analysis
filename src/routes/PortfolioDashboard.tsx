@@ -133,6 +133,14 @@ type PassiveIncomeMonth = {
   events: IncomeEvent[];
 };
 
+type TooltipPayloadItem = {
+  name?: string;
+  value?: number | string | null;
+  color?: string;
+  dataKey?: string;
+  payload?: unknown;
+};
+
 const emptyHolding = {
   accountName: "Main",
   assetType: "stock",
@@ -163,6 +171,11 @@ const emptyIncome = {
 };
 
 const pieColors = ["#3adbea", "#55f5b0", "#ffcc66", "#7dd3fc", "#ff8f86", "#c4b5fd"];
+const incomeStatusColors = {
+  paid: "#9b6dff",
+  declared: "#18c7ff",
+  estimated: "#63a9ff",
+};
 const cashTheme: HoldingTheme = {
   color: "#8fa3b8",
   logoBackground: "linear-gradient(135deg, #1f2937 0%, #64748b 100%)",
@@ -264,6 +277,10 @@ function compactMoneyLabel(value: unknown) {
   return `$${Math.round(numeric).toLocaleString("en-US")}`;
 }
 
+function svgSafeId(prefix: string, value: string) {
+  return `${prefix}-${value.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
 function pct(value: number | null | undefined) {
   if (value == null || Number.isNaN(value)) return "N/A";
   return `${Number(value).toFixed(2)}%`;
@@ -331,6 +348,112 @@ function monthShortLabel(month: string) {
   const parsed = new Date(`${month}-01T00:00:00`);
   if (Number.isNaN(parsed.getTime())) return month;
   return parsed.toLocaleDateString("en-US", { month: "short" });
+}
+
+function isPassiveIncomeMonth(value: unknown): value is PassiveIncomeMonth {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      "month" in value &&
+      "paid" in value &&
+      "declared" in value &&
+      "estimated" in value,
+  );
+}
+
+function GlassTooltip({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="min-w-[180px] rounded-lg border border-white/15 bg-[linear-gradient(135deg,rgba(4,8,17,0.96)_0%,rgba(15,23,42,0.92)_52%,rgba(30,64,175,0.38)_100%)] px-4 py-3 text-white shadow-[0_24px_80px_rgba(0,0,0,0.48)] backdrop-blur-xl">
+      <p className="text-sm font-semibold text-white">{title}</p>
+      <div className="mt-3 space-y-2">{children}</div>
+    </div>
+  );
+}
+
+function GenericChartTooltip({
+  active,
+  payload,
+  label,
+  valueFormatter = (value: number) => money(value),
+}: {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string | number;
+  valueFormatter?: (value: number) => string;
+}) {
+  if (!active || !payload?.length) return null;
+  const rows = payload.filter((item) => item.value != null && item.name !== "total");
+  if (!rows.length) return null;
+  return (
+    <GlassTooltip title={String(label ?? "")}>
+      {rows.map((item) => (
+        <div key={`${item.name}-${item.dataKey}`} className="flex min-w-[180px] items-center justify-between gap-5 text-sm">
+          <span className="inline-flex items-center gap-2 text-slate-100">
+            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: item.color ?? "#f8fafc" }} />
+            {item.name ?? item.dataKey}
+          </span>
+          <span className="font-semibold text-white">{valueFormatter(Number(item.value))}</span>
+        </div>
+      ))}
+    </GlassTooltip>
+  );
+}
+
+function PassiveIncomeTooltip({ active, payload, label }: { active?: boolean; payload?: TooltipPayloadItem[]; label?: string | number }) {
+  if (!active || !payload?.length) return null;
+  const row = payload.map((item) => item.payload).find(isPassiveIncomeMonth);
+  if (!row) return null;
+  return (
+    <GlassTooltip title={monthLabel(String(label ?? row.month))}>
+      <div className="flex min-w-[210px] items-center justify-between gap-5 border-b border-white/10 pb-2 text-sm">
+        <span className="text-slate-200">Total</span>
+        <span className="font-semibold text-white">{money(row.total, "USD", 2)}</span>
+      </div>
+      <div className="flex min-w-[210px] items-center justify-between gap-5 text-sm">
+        <span className="text-[#c4a8ff]">Paid</span>
+        <span className="font-semibold text-white">{money(row.paid, "USD", 2)}</span>
+      </div>
+      <div className="flex min-w-[210px] items-center justify-between gap-5 text-sm">
+        <span className="text-[#6ee7ff]">Declared</span>
+        <span className="font-semibold text-white">{money(row.declared, "USD", 2)}</span>
+      </div>
+      <div className="flex min-w-[210px] items-center justify-between gap-5 text-sm">
+        <span className="text-[#9cc9ff]">Estimated</span>
+        <span className="font-semibold text-white">{money(row.estimated, "USD", 2)}</span>
+      </div>
+    </GlassTooltip>
+  );
+}
+
+function CompositionTooltip({ active, payload }: { active?: boolean; payload?: TooltipPayloadItem[] }) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload as CompositionPieRow | undefined;
+  const value = Number(payload[0]?.value ?? row?.value ?? 0);
+  if (!row) return null;
+  return (
+    <GlassTooltip title={row.name}>
+      <div className="flex min-w-[180px] items-center justify-between gap-5 text-sm">
+        <span className="text-slate-200">Market value</span>
+        <span className="font-semibold text-white">{money(value)}</span>
+      </div>
+      <div className="flex min-w-[180px] items-center justify-between gap-5 text-sm">
+        <span className="text-slate-200">Type</span>
+        <span className="font-semibold text-white">{row.type}</span>
+      </div>
+    </GlassTooltip>
+  );
+}
+
+function BrightValueLabel({ x, y, width, value }: { x?: number | string; y?: number | string; width?: number | string; value?: number | string }) {
+  const label = compactMoneyLabel(value);
+  if (!label) return null;
+  const centerX = Number(x ?? 0) + Number(width ?? 0) / 2;
+  const topY = Number(y ?? 0) - 8;
+  return (
+    <text className="tf-bright-chart-label" x={centerX} y={topY} textAnchor="middle" fontSize={11} fontWeight={800}>
+      {label}
+    </text>
+  );
 }
 
 function StatTile({
@@ -824,14 +947,28 @@ export function PortfolioDashboard() {
             <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={annualChartRows}>
+                  <defs>
+                    <linearGradient id="annualDepositedGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#6ee7ff" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="#0891b2" stopOpacity={0.52} />
+                    </linearGradient>
+                    <linearGradient id="annualWithdrawnGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#fb7185" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="#be123c" stopOpacity={0.48} />
+                    </linearGradient>
+                    <linearGradient id="annualIncomeGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#fde68a" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.5} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="year" />
                   <YAxis tickFormatter={(value) => `$${Math.round(Number(value) / 1000)}k`} />
-                  <Tooltip cursor={{ fill: "rgba(58, 219, 234, 0.07)" }} formatter={(value) => money(Number(value))} />
+                  <Tooltip cursor={{ fill: "rgba(58, 219, 234, 0.08)" }} content={<GenericChartTooltip />} />
                   <Legend />
-                  <Bar dataKey="deposited" name="Deposited" fill="#3adbea" />
-                  <Bar dataKey="withdrawn" name="Withdrawn" fill="#ff6f86" />
-                  <Bar dataKey="totalIncome" name="Income total" fill="#ffcc66" />
+                  <Bar dataKey="deposited" name="Deposited" fill="url(#annualDepositedGradient)" />
+                  <Bar dataKey="withdrawn" name="Withdrawn" fill="url(#annualWithdrawnGradient)" />
+                  <Bar dataKey="totalIncome" name="Income total" fill="url(#annualIncomeGradient)" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -840,6 +977,14 @@ export function PortfolioDashboard() {
               {annualDepositPie.length ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
+                    <defs>
+                      {annualDepositPie.map((entry, index) => (
+                        <radialGradient key={entry.name} id={svgSafeId("annual-deposit-pie", entry.name)} cx="35%" cy="30%" r="72%">
+                          <stop offset="0%" stopColor={pieColors[index % pieColors.length]} stopOpacity={0.98} />
+                          <stop offset="100%" stopColor={pieColors[index % pieColors.length]} stopOpacity={0.56} />
+                        </radialGradient>
+                      ))}
+                    </defs>
                     <Pie
                       data={annualDepositPie}
                       dataKey="value"
@@ -850,10 +995,10 @@ export function PortfolioDashboard() {
                       label={({ name, percent }) => `${name} ${(Number(percent) * 100).toFixed(0)}%`}
                     >
                       {annualDepositPie.map((entry, index) => (
-                        <Cell key={entry.name} fill={pieColors[index % pieColors.length]} />
+                        <Cell key={entry.name} fill={`url(#${svgSafeId("annual-deposit-pie", entry.name)})`} stroke="rgba(255,255,255,0.75)" />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => money(Number(value))} />
+                    <Tooltip content={<GenericChartTooltip />} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -900,25 +1045,41 @@ export function PortfolioDashboard() {
             <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartRows}>
+                  <defs>
+                    <linearGradient id="portfolioValueLineGradient" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.72} />
+                      <stop offset="100%" stopColor="#67e8f9" stopOpacity={1} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="label" />
                   <YAxis tickFormatter={(value) => `$${Math.round(Number(value) / 1000)}k`} />
-                  <Tooltip formatter={(value) => money(Number(value))} />
+                  <Tooltip content={<GenericChartTooltip />} />
                   <Legend />
-                  <Line type="monotone" dataKey="portfolioValue" name="Portfolio value" stroke="#0891b2" strokeWidth={2.5} dot={false} />
+                  <Line type="monotone" dataKey="portfolioValue" name="Portfolio value" stroke="url(#portfolioValueLineGradient)" strokeWidth={2.5} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
             <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartRows}>
+                  <defs>
+                    <linearGradient id="portfolioReturnGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#86efac" stopOpacity={0.96} />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity={0.48} />
+                    </linearGradient>
+                    <linearGradient id="spyReturnGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#cbd5e1" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="#64748b" stopOpacity={0.5} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="label" />
                   <YAxis tickFormatter={(value) => `${Number(value).toFixed(0)}%`} />
-                  <Tooltip cursor={{ fill: "rgba(58, 219, 234, 0.07)" }} formatter={(value) => pct(Number(value))} />
+                  <Tooltip cursor={{ fill: "rgba(58, 219, 234, 0.08)" }} content={<GenericChartTooltip valueFormatter={(value) => pct(value)} />} />
                   <Legend />
-                  <Bar dataKey="totalProfitPct" name="Portfolio monthly return" fill="#55f5b0" barSize={8} />
-                  <Bar dataKey="sp500MarketPerformancePct" name="S&P 500 monthly return" fill="#8796ad" barSize={8} />
+                  <Bar dataKey="totalProfitPct" name="Portfolio monthly return" fill="url(#portfolioReturnGradient)" barSize={8} />
+                  <Bar dataKey="sp500MarketPerformancePct" name="S&P 500 monthly return" fill="url(#spyReturnGradient)" barSize={8} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -944,6 +1105,15 @@ export function PortfolioDashboard() {
                 {composition.pieRows.length ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
+                      <defs>
+                        {composition.pieRows.map((row) => (
+                          <radialGradient key={row.name} id={svgSafeId("composition-pie", row.name)} cx="35%" cy="28%" r="76%">
+                            <stop offset="0%" stopColor={row.color} stopOpacity={0.98} />
+                            <stop offset="58%" stopColor={row.color} stopOpacity={0.82} />
+                            <stop offset="100%" stopColor={row.color} stopOpacity={0.5} />
+                          </radialGradient>
+                        ))}
+                      </defs>
                       <Pie
                         data={composition.pieRows}
                         dataKey="value"
@@ -955,10 +1125,10 @@ export function PortfolioDashboard() {
                         labelLine={false}
                       >
                         {composition.pieRows.map((row) => (
-                          <Cell key={row.name} fill={row.color} />
+                          <Cell key={row.name} fill={`url(#${svgSafeId("composition-pie", row.name)})`} stroke="rgba(255,255,255,0.78)" />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value) => money(Number(value))} />
+                      <Tooltip content={<CompositionTooltip />} />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
@@ -1157,20 +1327,33 @@ export function PortfolioDashboard() {
             {passiveIncomeMonths.length ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={passiveIncomeMonths} barCategoryGap="42%">
+                  <defs>
+                    <linearGradient id="incomePaidGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#c4a8ff" stopOpacity={0.98} />
+                      <stop offset="100%" stopColor={incomeStatusColors.paid} stopOpacity={0.56} />
+                    </linearGradient>
+                    <linearGradient id="incomeDeclaredGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#67e8f9" stopOpacity={0.98} />
+                      <stop offset="100%" stopColor={incomeStatusColors.declared} stopOpacity={0.56} />
+                    </linearGradient>
+                    <linearGradient id="incomeEstimatedGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#93c5fd" stopOpacity={0.96} />
+                      <stop offset="100%" stopColor={incomeStatusColors.estimated} stopOpacity={0.5} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" tickFormatter={(value) => monthShortLabel(String(value))} />
                   <YAxis tickFormatter={(value) => `$${Math.round(Number(value))}`} />
                   <Tooltip
-                    cursor={{ fill: "rgba(58, 219, 234, 0.07)" }}
-                    formatter={(value) => money(Number(value))}
-                    labelFormatter={(value) => monthLabel(String(value))}
+                    cursor={{ fill: "rgba(96, 165, 250, 0.10)" }}
+                    content={<PassiveIncomeTooltip />}
                   />
                   <Legend />
-                  <Bar dataKey="paid" name="Paid" stackId="income" fill="#8b5cf6" barSize={18} />
-                  <Bar dataKey="declared" name="Declared" stackId="income" fill="#0ea5e9" barSize={18} />
-                  <Bar dataKey="estimated" name="Estimated" stackId="income" fill="#2f7fad" barSize={18} />
+                  <Bar dataKey="paid" name="Paid" stackId="income" fill="url(#incomePaidGradient)" barSize={18} />
+                  <Bar dataKey="declared" name="Declared" stackId="income" fill="url(#incomeDeclaredGradient)" barSize={18} />
+                  <Bar dataKey="estimated" name="Estimated" stackId="income" fill="url(#incomeEstimatedGradient)" barSize={18} />
                   <Bar dataKey="total" fill="transparent" legendType="none" barSize={18} isAnimationActive={false}>
-                    <LabelList dataKey="total" position="top" formatter={compactMoneyLabel} fill="#f8fafc" fontSize={11} fontWeight={700} />
+                    <LabelList dataKey="total" content={<BrightValueLabel />} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -1262,7 +1445,7 @@ export function PortfolioDashboard() {
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <p className="text-sm font-semibold text-ink">Upcoming Cash Income</p>
             <div className="mt-4 space-y-3">
-              {upcomingEvents.slice(0, 8).map((event) => (
+              {upcomingEvents.slice(0, 12).map((event) => (
                 <div key={event.id} className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 last:border-b-0">
                   <div>
                     <p className="font-semibold text-ink">{event.symbol}</p>
