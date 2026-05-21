@@ -114,8 +114,9 @@ export function Home() {
   );
 
   const filteredStocks = useMemo(() => {
+    const hasQuery = query.trim().length > 0;
     return enrichedStocks.filter((stock) => {
-      const collectionMatch = activeCollectionId === "all" || stock.collection?.id === activeCollectionId;
+      const collectionMatch = hasQuery || activeCollectionId === "all" || stock.collection?.id === activeCollectionId;
       return collectionMatch && matchesSearch(stock, query);
     });
   }, [activeCollectionId, enrichedStocks, query]);

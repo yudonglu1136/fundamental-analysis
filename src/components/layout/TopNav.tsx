@@ -4,7 +4,7 @@ import { LogOut, Radar } from "lucide-react";
 import { useAppShell } from "./AppShell";
 import { useAuth } from "../../auth/useAuth";
 import { stockMetadataList } from "../../stocks/metadata";
-import { Select } from "./StockSelector";
+import { SearchableSelect } from "./StockSelector";
 
 export function TopNav() {
   const { currentModule } = useAppShell();
@@ -31,10 +31,11 @@ export function TopNav() {
         </div>
         <div className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_auto] lg:w-auto lg:grid-cols-none lg:flex lg:flex-wrap lg:items-center lg:justify-end lg:gap-3">
           {currentModule ? (
-            <Select
+            <SearchableSelect
               value={currentModule.ticker}
               onValueChange={(ticker) => navigate(`/stocks/${ticker}`)}
               options={stockOptions}
+              placeholder="Search stocks"
               className="min-w-0 lg:min-w-[240px]"
             />
           ) : null}
