@@ -29,6 +29,10 @@ type Holding = {
   quantity: number;
   currency: string;
   market: string | null;
+  latestPrice: number | null;
+  latestPriceAt: string | null;
+  latestPriceSource: string | null;
+  manualMarketValue: number | null;
   couponRate: number | null;
   maturityDate: string | null;
   notes: string | null;
@@ -79,6 +83,11 @@ type PortfolioSnapshot = {
     errors: Array<{ symbol: string; message: string }>;
     source: string;
   };
+  priceRefresh?: {
+    refreshed: Array<{ symbol: string; price: number; currency: string }>;
+    errors: Array<{ symbol: string; message: string }>;
+    source: string;
+  };
 };
 
 type AnnualTotalsRow = {
@@ -102,6 +111,7 @@ const emptyHolding = {
   quantity: "",
   currency: "USD",
   market: "US",
+  manualMarketValue: "",
   couponRate: "",
   maturityDate: "",
   notes: "",
@@ -122,6 +132,7 @@ const emptyIncome = {
 };
 
 const pieColors = ["#3adbea", "#55f5b0", "#ffcc66", "#7dd3fc", "#ff8f86", "#c4b5fd"];
+const holdingPieColors = ["#3adbea", "#55f5b0", "#ffcc66", "#7dd3fc", "#c4b5fd", "#ff8f86", "#8796ad"];
 
 function money(value: number | null | undefined, currency = "USD", maximumFractionDigits?: number) {
   if (value == null || Number.isNaN(value)) return "N/A";
@@ -132,6 +143,11 @@ function money(value: number | null | undefined, currency = "USD", maximumFracti
 function pct(value: number | null | undefined) {
   if (value == null || Number.isNaN(value)) return "N/A";
   return `${Number(value).toFixed(2)}%`;
+}
+
+function weightPct(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return "N/A";
+  return `${Number(value).toFixed(1)}%`;
 }
 
 function numberText(value: number | null | undefined) {
@@ -149,10 +165,30 @@ function incomeGross(event: IncomeEvent) {
   return 0;
 }
 
+function holdingValue(holding: Holding) {
+  if (holding.manualMarketValue != null && Number.isFinite(Number(holding.manualMarketValue))) {
+    return Number(holding.manualMarketValue);
+  }
+  if (holding.latestPrice != null && Number.isFinite(Number(holding.latestPrice))) {
+    return Number(holding.latestPrice) * Number(holding.quantity ?? 0);
+  }
+  return null;
+}
+
+function monthKey(date: string) {
+  return date.slice(0, 7);
+}
+
 function monthName(date: string) {
   const parsed = new Date(`${date}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) return date;
   return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function monthLabel(month: string) {
+  const parsed = new Date(`${month}-01T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return month;
+  return parsed.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 }
 
 function StatTile({
@@ -252,7 +288,43 @@ export function PortfolioDashboard() {
     [snapshot?.incomeEvents],
   );
 
+  const upcomingEvents = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return calendarEvents.filter((event) => event.eventDate >= today);
+  }, [calendarEvents]);
+
   const bondHoldings = useMemo(() => snapshot?.holdings.filter((holding) => holding.assetType === "bond") ?? [], [snapshot?.holdings]);
+
+  const composition = useMemo(() => {
+    const latestNav = Number(snapshot?.summary.latestPortfolioValue ?? 0);
+    const rows = (snapshot?.holdings ?? [])
+      .map((holding) => {
+        const marketValue = holdingValue(holding);
+        return {
+          ...holding,
+          marketValue,
+          navWeight: latestNav > 0 && marketValue != null ? (marketValue / latestNav) * 100 : null,
+        };
+      })
+      .sort((left, right) => Number(right.marketValue ?? 0) - Number(left.marketValue ?? 0));
+    const allocated = rows.reduce((sum, row) => sum + Number(row.marketValue ?? 0), 0);
+    const residual = Math.max(latestNav - allocated, 0);
+    const overAllocated = Math.max(allocated - latestNav, 0);
+    const pieRows = [
+      ...rows
+        .filter((row) => Number(row.marketValue ?? 0) > 0)
+        .map((row) => ({ name: row.symbol, value: Number(row.marketValue), type: row.assetType })),
+      ...(residual > 0 ? [{ name: "Cash / Unallocated", value: residual, type: "cash" }] : []),
+    ];
+    return {
+      rows,
+      allocated,
+      residual,
+      overAllocated,
+      navCoverage: latestNav > 0 ? (allocated / latestNav) * 100 : 0,
+      pieRows,
+    };
+  }, [snapshot?.holdings, snapshot?.summary.latestPortfolioValue]);
 
   const annualTotals = useMemo(() => {
     const buckets = new Map<string, AnnualTotalsRow>();
@@ -319,6 +391,23 @@ export function PortfolioDashboard() {
     return row ? row.dividends + row.scheduledIncome : 0;
   }, [annualTotals]);
 
+  const passiveIncomeMonths = useMemo(() => {
+    const buckets = new Map<string, { month: string; stock: number; bond: number; total: number; events: IncomeEvent[] }>();
+    const today = new Date().toISOString().slice(0, 10);
+    for (const event of snapshot?.incomeEvents ?? []) {
+      if (event.eventDate < today) continue;
+      const key = monthKey(event.eventDate);
+      if (!buckets.has(key)) buckets.set(key, { month: key, stock: 0, bond: 0, total: 0, events: [] });
+      const bucket = buckets.get(key)!;
+      const gross = incomeGross(event);
+      if (event.assetType === "stock") bucket.stock += gross;
+      if (event.assetType === "bond") bucket.bond += gross;
+      bucket.total += gross;
+      bucket.events.push(event);
+    }
+    return [...buckets.values()].sort((left, right) => left.month.localeCompare(right.month)).slice(0, 18);
+  }, [snapshot?.incomeEvents]);
+
   function updateHolding(key: keyof typeof emptyHolding, value: string) {
     setHoldingForm((current) => ({ ...current, [key]: value }));
   }
@@ -330,18 +419,23 @@ export function PortfolioDashboard() {
   async function saveHolding() {
     setSaving(true);
     try {
-      const payload = await apiFetch<PortfolioSnapshot>("/api/portfolio/holdings", {
+      const saved = await apiFetch<PortfolioSnapshot>("/api/portfolio/holdings", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ...holdingForm,
           quantity: Number(holdingForm.quantity || 0),
+          manualMarketValue: holdingForm.manualMarketValue ? Number(holdingForm.manualMarketValue) : null,
           couponRate: holdingForm.couponRate ? Number(holdingForm.couponRate) : null,
         }),
       });
-      setSnapshot(payload);
+      setSnapshot(saved);
+      if (holdingForm.assetType === "stock" && Number(holdingForm.quantity || 0) > 0) {
+        const priced = await apiFetch<PortfolioSnapshot>("/api/portfolio/holding-prices/refresh", { method: "POST" });
+        setSnapshot(priced);
+      }
       setHoldingForm(emptyHolding);
-      setMessage("Holding saved.");
+      setMessage("Holding saved. Portfolio composition updated.");
     } finally {
       setSaving(false);
     }
@@ -390,6 +484,19 @@ export function PortfolioDashboard() {
       const refreshed = payload.refresh?.refreshed.map((item) => `${item.symbol}: ${item.events}`).join(", ") || "none";
       const errors = payload.refresh?.errors.length ? ` Errors: ${payload.refresh.errors.map((item) => `${item.symbol} ${item.message}`).join("; ")}` : "";
       setMessage(`Dividend refresh complete. ${refreshed}.${errors}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function refreshPrices() {
+    setSaving(true);
+    try {
+      const payload = await apiFetch<PortfolioSnapshot>("/api/portfolio/holding-prices/refresh", { method: "POST" });
+      setSnapshot(payload);
+      const refreshed = payload.priceRefresh?.refreshed.map((item) => `${item.symbol}: ${money(item.price, item.currency, 2)}`).join(", ") || "none";
+      const errors = payload.priceRefresh?.errors.length ? ` Errors: ${payload.priceRefresh.errors.map((item) => `${item.symbol} ${item.message}`).join("; ")}` : "";
+      setMessage(`Price refresh complete. ${refreshed}.${errors}`);
     } finally {
       setSaving(false);
     }
@@ -507,118 +614,159 @@ export function PortfolioDashboard() {
         </SectionCard>
 
         <SectionCard title="Portfolio History" description="Monthly net worth history from the imported portfolio report.">
-        <div className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
-          <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartRows}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" />
-                <YAxis yAxisId="left" tickFormatter={(value) => `$${Math.round(Number(value) / 1000)}k`} />
-                <YAxis yAxisId="right" orientation="right" tickFormatter={(value) => `${Math.round(Number(value) * 100)}%`} />
-                <Tooltip formatter={(value, name) => (String(name).includes("%") ? `${(Number(value) * 100).toFixed(2)}%` : money(Number(value)))} />
-                <Legend />
-                <Line yAxisId="left" type="monotone" dataKey="portfolioValue" name="Portfolio value" stroke="#0891b2" strokeWidth={2.5} dot={false} />
-                <Line yAxisId="right" type="monotone" dataKey="totalProfitPctDecimal" name="Monthly return %" stroke="#16a34a" strokeWidth={2} dot={false} />
-                <Line yAxisId="right" type="monotone" dataKey="sp500PctDecimal" name="S&P 500 %" stroke="#64748b" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+            <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartRows}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" />
+                  <YAxis tickFormatter={(value) => `$${Math.round(Number(value) / 1000)}k`} />
+                  <Tooltip formatter={(value) => money(Number(value))} />
+                  <Legend />
+                  <Line type="monotone" dataKey="portfolioValue" name="Portfolio value" stroke="#0891b2" strokeWidth={2.5} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartRows}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" />
+                  <YAxis tickFormatter={(value) => `${Number(value).toFixed(0)}%`} />
+                  <Tooltip cursor={{ fill: "rgba(58, 219, 234, 0.07)" }} formatter={(value) => pct(Number(value))} />
+                  <Legend />
+                  <Bar dataKey="totalProfitPct" name="Portfolio monthly return" fill="#55f5b0" barSize={8} />
+                  <Bar dataKey="sp500MarketPerformancePct" name="S&P 500 monthly return" fill="#8796ad" barSize={8} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartRows}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" />
-                <YAxis tickFormatter={(value) => `$${Math.round(Number(value) / 1000)}k`} />
-                <Tooltip cursor={{ fill: "rgba(58, 219, 234, 0.07)" }} formatter={(value) => money(Number(value))} />
-                <Legend />
-                <Bar dataKey="flowIn" name="Deposited" fill="#0f766e" />
-                <Bar dataKey="flowOut" name="Withdrawn" fill="#e11d48" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
         </SectionCard>
 
-        <SectionCard title="Current Holdings" description="US stock and bond positions are stored in the signed-in account database.">
-        <div className="grid gap-3 lg:grid-cols-9">
-          <Field label="Type">
-            <select className={inputClass} value={holdingForm.assetType} onChange={(event) => updateHolding("assetType", event.target.value)}>
-              <option value="stock">Stock</option>
-              <option value="bond">Bond</option>
-            </select>
-          </Field>
-          <Field label="Account">
-            <input className={inputClass} value={holdingForm.accountName} onChange={(event) => updateHolding("accountName", event.target.value)} />
-          </Field>
-          <Field label="Symbol / CUSIP">
-            <input className={inputClass} value={holdingForm.symbol} onChange={(event) => updateHolding("symbol", event.target.value)} />
-          </Field>
-          <Field label="Name">
-            <input className={inputClass} value={holdingForm.name} onChange={(event) => updateHolding("name", event.target.value)} />
-          </Field>
-          <Field label="Quantity">
-            <input className={inputClass} type="number" step="0.0001" value={holdingForm.quantity} onChange={(event) => updateHolding("quantity", event.target.value)} />
-          </Field>
-          <Field label="Currency">
-            <input className={inputClass} value={holdingForm.currency} onChange={(event) => updateHolding("currency", event.target.value)} />
-          </Field>
-          <Field label="Coupon %">
-            <input className={inputClass} type="number" step="0.0001" value={holdingForm.couponRate} onChange={(event) => updateHolding("couponRate", event.target.value)} />
-          </Field>
-          <Field label="Maturity">
-            <input className={inputClass} type="date" value={holdingForm.maturityDate} onChange={(event) => updateHolding("maturityDate", event.target.value)} />
-          </Field>
-          <div className="flex items-end">
-            <button type="button" disabled={saving || !holdingForm.symbol} onClick={() => void saveHolding()} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
-              <Plus className="h-4 w-4" />
-              Save
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-normal text-slate-500">
-              <tr>
-                <th className="px-3 py-2">Type</th>
-                <th className="px-3 py-2">Account</th>
-                <th className="px-3 py-2">Symbol</th>
-                <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">Quantity</th>
-                <th className="px-3 py-2">Coupon</th>
-                <th className="px-3 py-2">Maturity</th>
-                <th className="px-3 py-2">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {snapshot.holdings.map((holding) => (
-                <tr key={holding.id}>
-                  <td className="px-3 py-2 font-semibold text-ink">{holding.assetType}</td>
-                  <td className="px-3 py-2 text-slate-600">{holding.accountName}</td>
-                  <td className="px-3 py-2 text-slate-600">{holding.symbol}</td>
-                  <td className="px-3 py-2 text-slate-600">{holding.name ?? "-"}</td>
-                  <td className="px-3 py-2 text-slate-600">{numberText(holding.quantity)}</td>
-                  <td className="px-3 py-2 text-slate-600">{holding.couponRate == null ? "-" : `${holding.couponRate}%`}</td>
-                  <td className="px-3 py-2 text-slate-600">{holding.maturityDate ?? "-"}</td>
-                  <td className="px-3 py-2">
-                    <button type="button" onClick={() => void deleteHolding(holding.id)} className="inline-flex items-center gap-1 text-rose-700">
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {snapshot.holdings.length === 0 ? (
-                <tr>
-                  <td className="px-3 py-4 text-slate-500" colSpan={8}>No holdings saved yet.</td>
-                </tr>
+        <SectionCard title="Portfolio Composition" description="Saved positions explain the imported NAV; they do not add to net worth. Residual value stays in Cash / Unallocated.">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)]">
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-ink">NAV Coverage</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {weightPct(composition.navCoverage)} allocated · {money(composition.residual)} unallocated
+                  </p>
+                </div>
+                <button type="button" disabled={saving} onClick={() => void refreshPrices()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-ink disabled:opacity-40">
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh Stock Prices
+                </button>
+              </div>
+              <div className="mt-4 h-72">
+                {composition.pieRows.length ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={composition.pieRows} dataKey="value" nameKey="name" innerRadius={64} outerRadius={110} paddingAngle={2}>
+                        {composition.pieRows.map((row, index) => (
+                          <Cell key={row.name} fill={row.type === "cash" ? "#8796ad" : holdingPieColors[index % holdingPieColors.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => money(Number(value))} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-slate-500">No allocation rows yet.</div>
+                )}
+              </div>
+              {composition.overAllocated > 0 ? (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                  Positions exceed imported NAV by {money(composition.overAllocated)}.
+                </div>
               ) : null}
-            </tbody>
-          </table>
-        </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <div className="grid gap-3 lg:grid-cols-5">
+                <Field label="Type">
+                  <select className={inputClass} value={holdingForm.assetType} onChange={(event) => updateHolding("assetType", event.target.value)}>
+                    <option value="stock">Stock</option>
+                    <option value="bond">Bond</option>
+                  </select>
+                </Field>
+                <Field label="Account">
+                  <input className={inputClass} value={holdingForm.accountName} onChange={(event) => updateHolding("accountName", event.target.value)} />
+                </Field>
+                <Field label="Symbol / CUSIP">
+                  <input className={inputClass} value={holdingForm.symbol} onChange={(event) => updateHolding("symbol", event.target.value)} />
+                </Field>
+                <Field label="Name">
+                  <input className={inputClass} value={holdingForm.name} onChange={(event) => updateHolding("name", event.target.value)} />
+                </Field>
+                <Field label="Quantity">
+                  <input className={inputClass} type="number" step="0.0001" value={holdingForm.quantity} onChange={(event) => updateHolding("quantity", event.target.value)} />
+                </Field>
+                <Field label="Currency">
+                  <input className={inputClass} value={holdingForm.currency} onChange={(event) => updateHolding("currency", event.target.value)} />
+                </Field>
+                <Field label="Manual Value">
+                  <input className={inputClass} type="number" step="0.01" value={holdingForm.manualMarketValue} onChange={(event) => updateHolding("manualMarketValue", event.target.value)} />
+                </Field>
+                <Field label="Coupon %">
+                  <input className={inputClass} type="number" step="0.0001" value={holdingForm.couponRate} onChange={(event) => updateHolding("couponRate", event.target.value)} />
+                </Field>
+                <Field label="Maturity">
+                  <input className={inputClass} type="date" value={holdingForm.maturityDate} onChange={(event) => updateHolding("maturityDate", event.target.value)} />
+                </Field>
+                <div className="flex items-end">
+                  <button type="button" disabled={saving || !holdingForm.symbol} onClick={() => void saveHolding()} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
+                    <Plus className="h-4 w-4" />
+                    Save
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-normal text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2">Type</th>
+                      <th className="px-3 py-2">Symbol</th>
+                      <th className="px-3 py-2">Quantity</th>
+                      <th className="px-3 py-2">Price</th>
+                      <th className="px-3 py-2">Value</th>
+                      <th className="px-3 py-2">NAV %</th>
+                      <th className="px-3 py-2">Income</th>
+                      <th className="px-3 py-2">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {composition.rows.map((holding) => (
+                      <tr key={holding.id}>
+                        <td className="px-3 py-2 font-semibold text-ink">{holding.assetType}</td>
+                        <td className="px-3 py-2 text-slate-600">{holding.symbol}</td>
+                        <td className="px-3 py-2 text-slate-600">{numberText(holding.quantity)}</td>
+                        <td className="px-3 py-2 text-slate-600">{holding.latestPrice == null ? "-" : money(holding.latestPrice, holding.currency, 2)}</td>
+                        <td className="px-3 py-2 text-slate-600">{money(holding.marketValue, holding.currency)}</td>
+                        <td className="px-3 py-2 text-slate-600">{weightPct(holding.navWeight)}</td>
+                        <td className="px-3 py-2 text-slate-600">{holding.couponRate == null ? "-" : `${holding.couponRate}%`}</td>
+                        <td className="px-3 py-2">
+                          <button type="button" onClick={() => void deleteHolding(holding.id)} className="inline-flex items-center gap-1 text-rose-700">
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {composition.rows.length === 0 ? (
+                      <tr>
+                        <td className="px-3 py-4 text-slate-500" colSpan={8}>No holdings saved yet.</td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </SectionCard>
 
-        <SectionCard title="Income Calendar" description="Stocks are refreshed from public dividend endpoints; bonds and notes are entered manually.">
+        <SectionCard title="Passive Income Calendar" description="Stocks are refreshed from public dividend endpoints; bonds and notes are entered manually.">
         <div className="flex flex-wrap gap-3">
           <button type="button" disabled={saving} onClick={() => void refreshDividends()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-ink disabled:opacity-40">
             <RefreshCw className="h-4 w-4" />
@@ -631,6 +779,58 @@ export function PortfolioDashboard() {
           <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700">
             <Database className="h-4 w-4" />
             Seed: {snapshot.account.seedSource ?? "none"}
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
+          <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
+            {passiveIncomeMonths.length ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={passiveIncomeMonths} barCategoryGap="42%">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" tickFormatter={(value) => monthLabel(String(value))} />
+                  <YAxis tickFormatter={(value) => `$${Math.round(Number(value))}`} />
+                  <Tooltip
+                    cursor={{ fill: "rgba(58, 219, 234, 0.07)" }}
+                    formatter={(value) => money(Number(value))}
+                    labelFormatter={(value) => monthLabel(String(value))}
+                  />
+                  <Legend />
+                  <Bar dataKey="stock" name="Stock dividends" fill="#3adbea" barSize={10} />
+                  <Bar dataKey="bond" name="Bond coupons" fill="#ffcc66" barSize={10} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-slate-500">No upcoming passive income scheduled.</div>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-ink">Monthly Income Map</p>
+                <p className="mt-1 text-sm text-slate-500">Upcoming stock dividends and bond coupons by pay date.</p>
+              </div>
+              <CalendarDays className="h-5 w-5 text-slate-400" />
+            </div>
+            <div className="mt-4 space-y-3">
+              {passiveIncomeMonths.slice(0, 6).map((month) => (
+                <div key={month.month} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-ink">{monthLabel(month.month)}</p>
+                      <p className="mt-1 text-xs font-medium uppercase tracking-normal text-slate-500">{month.events.length} scheduled events</p>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-800">{money(month.total)}</p>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-600">
+                    <div className="rounded-md bg-white px-3 py-2">Stocks {money(month.stock)}</div>
+                    <div className="rounded-md bg-white px-3 py-2">Bonds {money(month.bond)}</div>
+                  </div>
+                </div>
+              ))}
+              {passiveIncomeMonths.length === 0 ? <p className="text-sm text-slate-500">Add bond coupon dates manually or refresh stock dividends after saving stock positions.</p> : null}
+            </div>
           </div>
         </div>
 
@@ -687,7 +887,7 @@ export function PortfolioDashboard() {
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <p className="text-sm font-semibold text-ink">Upcoming Cash Income</p>
             <div className="mt-4 space-y-3">
-              {calendarEvents.slice(0, 8).map((event) => (
+              {upcomingEvents.slice(0, 8).map((event) => (
                 <div key={event.id} className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 last:border-b-0">
                   <div>
                     <p className="font-semibold text-ink">{event.symbol}</p>
@@ -696,7 +896,7 @@ export function PortfolioDashboard() {
                   <p className="text-sm font-semibold text-slate-700">{money(event.grossAmount, event.currency)}</p>
                 </div>
               ))}
-              {calendarEvents.length === 0 ? <p className="text-sm text-slate-500">No income events saved yet.</p> : null}
+              {upcomingEvents.length === 0 ? <p className="text-sm text-slate-500">No upcoming income events saved yet.</p> : null}
             </div>
           </div>
           <div className="overflow-x-auto rounded-lg border border-slate-200">

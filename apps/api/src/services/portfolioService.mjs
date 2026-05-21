@@ -67,6 +67,10 @@ CREATE TABLE IF NOT EXISTS holdings (
   quantity REAL NOT NULL DEFAULT 0,
   currency TEXT NOT NULL DEFAULT 'USD',
   market TEXT,
+  latestPrice REAL,
+  latestPriceAt TEXT,
+  latestPriceSource TEXT,
+  manualMarketValue REAL,
   couponRate REAL,
   maturityDate TEXT,
   notes TEXT,
@@ -105,6 +109,13 @@ CREATE TABLE IF NOT EXISTS dividend_fetch_cache (
   message TEXT
 );
 `;
+
+const holdingColumnMigrations = [
+  ["latestPrice", "REAL"],
+  ["latestPriceAt", "TEXT"],
+  ["latestPriceSource", "TEXT"],
+  ["manualMarketValue", "REAL"],
+];
 
 const rowMap = {
   "Portfolio value": "portfolioValue",
@@ -213,6 +224,7 @@ function parseSeedWorkbook() {
 function ensureDb(account) {
   mkdirSync(path.dirname(account.dbPath), { recursive: true });
   executescript(schemaSql, account.dbPath);
+  ensureHoldingColumns(account.dbPath);
   const createdAt = nowIso();
   execute(
     `INSERT INTO account_profile (id, accountKey, email, userId, seedOwnerEmail, seedSourcePath, createdAt, updatedAt)
@@ -227,6 +239,15 @@ function ensureDb(account) {
     const seedRows = parseSeedWorkbook();
     for (const row of seedRows) {
       upsertHistoryRow(account.dbPath, row);
+    }
+  }
+}
+
+function ensureHoldingColumns(dbPath) {
+  const existingColumns = new Set(query("PRAGMA table_info(holdings)", [], dbPath).map((column) => column.name));
+  for (const [columnName, definition] of holdingColumnMigrations) {
+    if (!existingColumns.has(columnName)) {
+      execute(`ALTER TABLE holdings ADD COLUMN ${columnName} ${definition}`, [], dbPath);
     }
   }
 }
@@ -364,8 +385,9 @@ export function saveHolding(request, payload) {
   if (!symbol) throw new Error("Holding symbol is required.");
   execute(
     `INSERT INTO holdings (
-      id, accountName, assetType, symbol, name, quantity, currency, market, couponRate, maturityDate, notes, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      id, accountName, assetType, symbol, name, quantity, currency, market, latestPrice, latestPriceAt, latestPriceSource,
+      manualMarketValue, couponRate, maturityDate, notes, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       accountName = excluded.accountName,
       assetType = excluded.assetType,
@@ -374,6 +396,10 @@ export function saveHolding(request, payload) {
       quantity = excluded.quantity,
       currency = excluded.currency,
       market = excluded.market,
+      latestPrice = COALESCE(excluded.latestPrice, latestPrice),
+      latestPriceAt = COALESCE(excluded.latestPriceAt, latestPriceAt),
+      latestPriceSource = COALESCE(excluded.latestPriceSource, latestPriceSource),
+      manualMarketValue = excluded.manualMarketValue,
       couponRate = excluded.couponRate,
       maturityDate = excluded.maturityDate,
       notes = excluded.notes,
@@ -387,6 +413,10 @@ export function saveHolding(request, payload) {
       Number(payload?.quantity ?? 0),
       cleanString(payload?.currency, "USD").toUpperCase() || "USD",
       cleanString(payload?.market) || null,
+      payload?.latestPrice == null || payload?.latestPrice === "" ? null : Number(payload.latestPrice),
+      cleanString(payload?.latestPriceAt) || null,
+      cleanString(payload?.latestPriceSource) || null,
+      payload?.manualMarketValue == null || payload?.manualMarketValue === "" ? null : Number(payload.manualMarketValue),
       payload?.couponRate == null || payload?.couponRate === "" ? null : Number(payload.couponRate),
       cleanString(payload?.maturityDate) || null,
       cleanString(payload?.notes) || null,
@@ -396,6 +426,55 @@ export function saveHolding(request, payload) {
     account.dbPath,
   );
   return getPortfolioSnapshot(request);
+}
+
+async function fetchYahooPrice(symbol) {
+  const encoded = encodeURIComponent(symbol);
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?range=5d&interval=1d`;
+  const payload = await fetchJson(url);
+  const result = payload?.chart?.result?.[0] ?? {};
+  const meta = result.meta ?? {};
+  const close = result.indicators?.quote?.[0]?.close ?? [];
+  const latestClose = [...close].reverse().find((value) => Number.isFinite(Number(value)));
+  const price = Number.isFinite(Number(meta.regularMarketPrice)) ? Number(meta.regularMarketPrice) : Number(latestClose);
+  if (!Number.isFinite(price)) throw new Error("Yahoo chart response did not include a usable price.");
+  return {
+    symbol,
+    price,
+    currency: cleanString(meta.currency, "USD").toUpperCase() || "USD",
+    sourceUrl: url,
+  };
+}
+
+export async function refreshHoldingPrices(request) {
+  const account = resolveAccount(request);
+  ensureDb(account);
+  const holdings = rows(account, "SELECT * FROM holdings WHERE assetType = 'stock' AND quantity > 0 ORDER BY symbol");
+  const refreshed = [];
+  const errors = [];
+  for (const holding of holdings) {
+    try {
+      const price = await fetchYahooPrice(holding.symbol);
+      execute(
+        `UPDATE holdings
+         SET latestPrice = ?, latestPriceAt = ?, latestPriceSource = ?, currency = ?, updatedAt = ?
+         WHERE id = ?`,
+        [price.price, nowIso(), price.sourceUrl, price.currency, nowIso(), holding.id],
+        account.dbPath,
+      );
+      refreshed.push({ symbol: holding.symbol, price: price.price, currency: price.currency });
+    } catch (error) {
+      errors.push({ symbol: holding.symbol, message: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  return {
+    ...getPortfolioSnapshot(request),
+    priceRefresh: {
+      refreshed,
+      errors,
+      source: "Yahoo Finance chart endpoint",
+    },
+  };
 }
 
 export function deleteHolding(request, id) {

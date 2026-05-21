@@ -2,6 +2,7 @@ import {
   deleteHolding,
   deleteIncomeEvent,
   getPortfolioSnapshot,
+  refreshHoldingPrices,
   refreshStockDividends,
   saveHolding,
   saveIncomeEvent,
@@ -34,6 +35,10 @@ export async function routePortfolio(request, url, body) {
 
   if (request.method === "POST" && url.pathname === "/api/portfolio/stock-dividends/refresh") {
     return { status: 200, body: await refreshStockDividends(request) };
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/portfolio/holding-prices/refresh") {
+    return { status: 200, body: await refreshHoldingPrices(request) };
   }
 
   return {
