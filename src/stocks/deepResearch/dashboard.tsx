@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import { AlertTriangle, Database, ShieldAlert } from "lucide-react";
 import {
@@ -17,6 +17,7 @@ import type { StockDashboardProps } from "../types";
 import { InteractiveValuationDashboard } from "../../components/shared/InteractiveValuationDashboard";
 import { MetricCard } from "../../components/shared/MetricCard";
 import { SectionCard } from "../../components/shared/SectionCard";
+import { StockResearchMark } from "../../components/shared/StockResearchMark";
 import { useValuationAssumptionState } from "../../components/shared/useValuationAssumptionState";
 import { apiFetch } from "../../api/client";
 import { calculateDeepResearchValuation, formatMetricValue, resolveDeepResearchDataset } from "./calculations";
@@ -239,21 +240,66 @@ function HistoricalValuationPanel({ dataset }: { dataset: DeepResearchDataset })
 }
 
 function KpiSeriesChart({ series }: { series: DeepResearchKpiSeries }) {
+  const chartId = useId().replace(/:/g, "");
+  const leftMeasure = series.measures.find((measure) => (measure.axis ?? "left") === "left");
+  const rightMeasure = series.measures.find((measure) => (measure.axis ?? "left") === "right");
+  const findMeasure = (key: unknown) => series.measures.find((measure) => measure.key === key);
+  const usesMillions = (measure?: DeepResearchKpiSeries["measures"][number]) =>
+    measure?.format === "currency" && (/\(\$m\)|usd\s*m|\$m/i.test(measure.label) || /\$m|usd\s*m/i.test(series.leftAxisLabel ?? ""));
+  const formatChartValue = (value: unknown, measure?: DeepResearchKpiSeries["measures"][number]) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return "n/a";
+    if (measure?.format === "percent") return `${(numeric * 100).toFixed(Math.abs(numeric) >= 1 ? 0 : 1)}%`;
+    if (measure?.format === "multiple") return `${numeric.toFixed(numeric >= 10 ? 0 : 1)}x`;
+    if (measure?.format === "currency") {
+      const formatted = numeric.toLocaleString(undefined, { maximumFractionDigits: Math.abs(numeric) >= 100 ? 0 : 1 });
+      return `$${formatted}${usesMillions(measure) ? "m" : ""}`;
+    }
+    return numeric.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  };
+  const tooltipStyle = {
+    background: "linear-gradient(135deg, rgba(5, 10, 20, 0.97), rgba(9, 18, 33, 0.94) 58%, rgba(34, 211, 238, 0.18))",
+    border: "1px solid rgba(125, 211, 252, 0.28)",
+    borderRadius: 12,
+    color: "#f8fafc",
+    boxShadow: "0 22px 70px rgba(0,0,0,0.56)",
+  };
+
   return (
-    <SectionCard title={series.title}>
+    <SectionCard
+      title={series.title}
+      badge={<span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-cyan-100">{series.sourceStatus.replace(/_/g, " ")}</span>}
+    >
       <p className="mb-4 text-sm text-slate-600">{series.subtitle}</p>
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={series.points}>
+            <defs>
+              {series.measures.map((measure) => (
+                <linearGradient key={measure.key} id={`${chartId}-${measure.key}`} x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor={measure.color} stopOpacity="0.95" />
+                  <stop offset="62%" stopColor={measure.color} stopOpacity="0.68" />
+                  <stop offset="100%" stopColor={measure.color} stopOpacity="0.24" />
+                </linearGradient>
+              ))}
+            </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis dataKey="period" tick={{ fontSize: 11 }} />
-            <YAxis yAxisId="left" tick={{ fontSize: 12 }} />
-            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
-            <Tooltip />
+            <YAxis yAxisId="left" tick={{ fontSize: 12 }} tickFormatter={(value) => formatChartValue(value, leftMeasure)} />
+            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} tickFormatter={(value) => formatChartValue(value, rightMeasure)} />
+            <Tooltip
+              contentStyle={tooltipStyle}
+              labelStyle={{ color: "#ffffff", fontWeight: 700 }}
+              itemStyle={{ color: "#ffffff", fontWeight: 650 }}
+              formatter={(value, _name, item) => {
+                const measure = findMeasure(item.dataKey);
+                return [formatChartValue(value, measure), measure?.label ?? String(item.dataKey ?? "")];
+              }}
+            />
             <Legend />
             {series.measures.map((measure) =>
               measure.chartType === "bar" ? (
-                <Bar key={measure.key} yAxisId={measure.axis ?? "left"} dataKey={measure.key} name={measure.label} fill={measure.color} />
+                <Bar key={measure.key} yAxisId={measure.axis ?? "left"} dataKey={measure.key} name={measure.label} fill={`url(#${chartId}-${measure.key})`} radius={[4, 4, 0, 0]} />
               ) : (
                 <Line
                   key={measure.key}
@@ -262,8 +308,8 @@ function KpiSeriesChart({ series }: { series: DeepResearchKpiSeries }) {
                   dataKey={measure.key}
                   name={measure.label}
                   stroke={measure.color}
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
+                  strokeWidth={2.5}
+                  dot={{ r: 3, strokeWidth: 2, fill: "#05070b" }}
                 />
               ),
             )}
@@ -638,10 +684,13 @@ export function DeepResearchDashboard(props: StockDashboardProps) {
   return (
     <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="space-y-6">
       <div className="flex flex-col gap-4 border-b border-slate-200 pb-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{dataset.archetype}</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{dataset.ticker} · {dataset.companyName}</h1>
-          <p className="mt-2 max-w-5xl text-sm text-slate-600">{dataset.description}</p>
+        <div className="flex min-w-0 items-start gap-4">
+          <StockResearchMark ticker={dataset.ticker} name={dataset.companyName} sector={dataset.sector} size="md" className="mt-0.5" />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{dataset.archetype}</p>
+            <h1 className="mt-2 break-words text-3xl font-semibold tracking-tight text-slate-950">{dataset.ticker} · {dataset.companyName}</h1>
+            <p className="mt-2 max-w-5xl text-sm text-slate-600">{dataset.description}</p>
+          </div>
         </div>
         <div className="flex gap-2">
           {(["Bear", "Base", "Bull"] as const).map((item) => (

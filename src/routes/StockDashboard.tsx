@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useAppShell } from "../components/layout/AppShell";
+import { StockResearchMark } from "../components/shared/StockResearchMark";
 import { getStockModuleLoader, normalizeStockTicker } from "../stocks/moduleLoaders";
 import type { StockModule } from "../stocks/types";
 
@@ -68,7 +69,8 @@ export function StockDashboard() {
     <section className="space-y-4">
       <div className="tf-command-surface relative overflow-hidden p-4 sm:p-5">
         <div className="tf-scan-line" />
-        <div className="min-w-0">
+        <div className="relative z-10 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center">
+          <StockResearchMark ticker={module.ticker} name={module.name} sector={module.sector} size="lg" />
           <div className="min-w-0">
             <p className="tf-kicker line-clamp-2 break-words">{module.sector}</p>
             <h1 className="mt-2 break-words text-2xl font-semibold tracking-tight text-white [overflow-wrap:anywhere] sm:text-4xl">
