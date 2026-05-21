@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CalendarDays, Database, Download, Landmark, Plus, RefreshCw, ShieldCheck, Trash2, TrendingUp } from "lucide-react";
 import { apiFetch } from "../api/client";
 import { useAuth } from "../auth/useAuth";
@@ -81,6 +81,19 @@ type PortfolioSnapshot = {
   };
 };
 
+type AnnualTotalsRow = {
+  year: string;
+  deposited: number;
+  withdrawn: number;
+  netContribution: number;
+  dividends: number;
+  totalProfit: number;
+  endingValue: number | null;
+  scheduledIncome: number;
+  stockIncome: number;
+  bondIncome: number;
+};
+
 const emptyHolding = {
   accountName: "Main",
   assetType: "stock",
@@ -108,6 +121,8 @@ const emptyIncome = {
   notes: "",
 };
 
+const pieColors = ["#3adbea", "#55f5b0", "#ffcc66", "#7dd3fc", "#ff8f86", "#c4b5fd"];
+
 function money(value: number | null | undefined, currency = "USD", maximumFractionDigits?: number) {
   if (value == null || Number.isNaN(value)) return "N/A";
   const digits = maximumFractionDigits ?? (Math.abs(value) < 100 ? 2 : 0);
@@ -122,6 +137,16 @@ function pct(value: number | null | undefined) {
 function numberText(value: number | null | undefined) {
   if (value == null || Number.isNaN(value)) return "N/A";
   return value.toLocaleString("en-US", { maximumFractionDigits: 4 });
+}
+
+function yearFromDate(date: string | null | undefined) {
+  return date?.slice(0, 4) ?? "";
+}
+
+function incomeGross(event: IncomeEvent) {
+  if (event.grossAmount != null && Number.isFinite(Number(event.grossAmount))) return Number(event.grossAmount);
+  if (event.amountPerUnit != null && event.quantity != null) return Number(event.amountPerUnit) * Number(event.quantity);
+  return 0;
 }
 
 function monthName(date: string) {
@@ -229,6 +254,71 @@ export function PortfolioDashboard() {
 
   const bondHoldings = useMemo(() => snapshot?.holdings.filter((holding) => holding.assetType === "bond") ?? [], [snapshot?.holdings]);
 
+  const annualTotals = useMemo(() => {
+    const buckets = new Map<string, AnnualTotalsRow>();
+    const ensureBucket = (year: string) => {
+      if (!buckets.has(year)) {
+        buckets.set(year, {
+          year,
+          deposited: 0,
+          withdrawn: 0,
+          netContribution: 0,
+          dividends: 0,
+          totalProfit: 0,
+          endingValue: null,
+          scheduledIncome: 0,
+          stockIncome: 0,
+          bondIncome: 0,
+        });
+      }
+      return buckets.get(year)!;
+    };
+
+    for (const row of snapshot?.history ?? []) {
+      const year = yearFromDate(row.date);
+      if (!year) continue;
+      const bucket = ensureBucket(year);
+      bucket.deposited += Number(row.deposited ?? 0);
+      bucket.withdrawn += Number(row.withdrawn ?? 0);
+      bucket.netContribution = bucket.deposited - bucket.withdrawn;
+      bucket.dividends += Number(row.dividends ?? 0);
+      bucket.totalProfit += Number(row.totalProfit ?? 0);
+      if (row.portfolioValue != null) bucket.endingValue = Number(row.portfolioValue);
+    }
+
+    for (const event of snapshot?.incomeEvents ?? []) {
+      const year = yearFromDate(event.eventDate);
+      if (!year) continue;
+      const gross = incomeGross(event);
+      const bucket = ensureBucket(year);
+      bucket.scheduledIncome += gross;
+      if (event.assetType === "stock") bucket.stockIncome += gross;
+      if (event.assetType === "bond") bucket.bondIncome += gross;
+    }
+
+    return [...buckets.values()].sort((left, right) => left.year.localeCompare(right.year));
+  }, [snapshot?.history, snapshot?.incomeEvents]);
+
+  const annualDepositPie = useMemo(
+    () => annualTotals.filter((row) => row.deposited > 0).map((row) => ({ name: row.year, value: row.deposited })),
+    [annualTotals],
+  );
+
+  const annualChartRows = useMemo(
+    () =>
+      annualTotals.map((row) => ({
+        ...row,
+        totalIncome: row.dividends + row.scheduledIncome,
+      })),
+    [annualTotals],
+  );
+
+  const currentYearIncome = useMemo(() => {
+    const currentYear = String(new Date().getFullYear());
+    const row = annualTotals.find((item) => item.year === currentYear);
+    return row ? row.dividends + row.scheduledIncome : 0;
+  }, [annualTotals]);
+
   function updateHolding(key: keyof typeof emptyHolding, value: string) {
     setHoldingForm((current) => ({ ...current, [key]: value }));
   }
@@ -329,16 +419,94 @@ export function PortfolioDashboard() {
         </p>
       </div>
 
-      {message ? <div className="rounded-lg border border-cyan-200 bg-cyan-50 p-3 text-sm text-cyan-900">{message}</div> : null}
+      <div className="tf-stock-module-canvas space-y-6 border border-white/10 bg-[#05070b]/70 p-3 shadow-[0_28px_90px_rgba(0,0,0,0.34)] sm:p-4 lg:p-6">
+        {message ? <div className="rounded-lg border border-cyan-300/30 bg-cyan-300/10 p-3 text-sm text-cyan-100">{message}</div> : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatTile icon={<TrendingUp className="h-4 w-4" />} label="Latest Net Worth" value={money(snapshot.summary.latestPortfolioValue)} note={snapshot.summary.latestMonth ?? "Latest month"} tone="positive" />
-        <StatTile icon={<Download className="h-4 w-4" />} label="Deposits" value={money(snapshot.summary.totalDeposited)} note="Cumulative imported deposits" />
-        <StatTile icon={<Landmark className="h-4 w-4" />} label="Cash Funds" value={money(snapshot.summary.cashFunds)} note="Latest imported cash balance" tone="warning" />
-        <StatTile icon={<CalendarDays className="h-4 w-4" />} label="Next Income" value={snapshot.summary.nextIncome ? money(snapshot.summary.nextIncome.grossAmount, snapshot.summary.nextIncome.currency) : "N/A"} note={snapshot.summary.nextIncome ? `${snapshot.summary.nextIncome.symbol} on ${snapshot.summary.nextIncome.eventDate}` : "No upcoming event"} />
-      </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <StatTile icon={<TrendingUp className="h-4 w-4" />} label="Latest Net Worth" value={money(snapshot.summary.latestPortfolioValue)} note={snapshot.summary.latestMonth ?? "Latest month"} tone="positive" />
+          <StatTile icon={<Download className="h-4 w-4" />} label="Deposits" value={money(snapshot.summary.totalDeposited)} note="Cumulative imported deposits" />
+          <StatTile icon={<Landmark className="h-4 w-4" />} label="Cash Funds" value={money(snapshot.summary.cashFunds)} note="Latest imported cash balance" tone="warning" />
+          <StatTile icon={<CalendarDays className="h-4 w-4" />} label="This Year Income" value={money(currentYearIncome)} note={`${new Date().getFullYear()} scheduled cash income`} />
+          <StatTile icon={<CalendarDays className="h-4 w-4" />} label="Next Income" value={snapshot.summary.nextIncome ? money(snapshot.summary.nextIncome.grossAmount, snapshot.summary.nextIncome.currency) : "N/A"} note={snapshot.summary.nextIncome ? `${snapshot.summary.nextIncome.symbol} on ${snapshot.summary.nextIncome.eventDate}` : "No upcoming event"} />
+        </div>
 
-      <SectionCard title="Portfolio History" description="Monthly net worth history from the imported portfolio report.">
+        <SectionCard title="Annual Totals" description="Imported portfolio rows are grouped by calendar year; calendar income is grouped by pay/event date.">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
+            <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={annualChartRows}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="year" />
+                  <YAxis tickFormatter={(value) => `$${Math.round(Number(value) / 1000)}k`} />
+                  <Tooltip cursor={{ fill: "rgba(58, 219, 234, 0.07)" }} formatter={(value) => money(Number(value))} />
+                  <Legend />
+                  <Bar dataKey="deposited" name="Deposited" fill="#3adbea" />
+                  <Bar dataKey="withdrawn" name="Withdrawn" fill="#ff6f86" />
+                  <Bar dataKey="totalIncome" name="Income total" fill="#ffcc66" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
+              {annualDepositPie.length ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={annualDepositPie}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={58}
+                      outerRadius={104}
+                      paddingAngle={3}
+                      label={({ name, percent }) => `${name} ${(Number(percent) * 100).toFixed(0)}%`}
+                    >
+                      {annualDepositPie.map((entry, index) => (
+                        <Cell key={entry.name} fill={pieColors[index % pieColors.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => money(Number(value))} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-slate-500">No annual deposits yet.</div>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-normal text-slate-500">
+                <tr>
+                  <th className="px-3 py-2">Year</th>
+                  <th className="px-3 py-2">Deposited</th>
+                  <th className="px-3 py-2">Withdrawn</th>
+                  <th className="px-3 py-2">Net Flow</th>
+                  <th className="px-3 py-2">Profit</th>
+                  <th className="px-3 py-2">Imported Dividends</th>
+                  <th className="px-3 py-2">Calendar Income</th>
+                  <th className="px-3 py-2">Ending Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {annualTotals.map((row) => (
+                  <tr key={row.year}>
+                    <td className="px-3 py-2 font-semibold text-ink">{row.year}</td>
+                    <td className="px-3 py-2 text-slate-600">{money(row.deposited)}</td>
+                    <td className="px-3 py-2 text-slate-600">{money(row.withdrawn)}</td>
+                    <td className="px-3 py-2 text-slate-600">{money(row.netContribution)}</td>
+                    <td className="px-3 py-2 text-slate-600">{money(row.totalProfit)}</td>
+                    <td className="px-3 py-2 text-slate-600">{money(row.dividends)}</td>
+                    <td className="px-3 py-2 text-slate-600">{money(row.scheduledIncome)}</td>
+                    <td className="px-3 py-2 text-slate-600">{money(row.endingValue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Portfolio History" description="Monthly net worth history from the imported portfolio report.">
         <div className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
           <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
             <ResponsiveContainer width="100%" height="100%">
@@ -361,7 +529,7 @@ export function PortfolioDashboard() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="label" />
                 <YAxis tickFormatter={(value) => `$${Math.round(Number(value) / 1000)}k`} />
-                <Tooltip formatter={(value) => money(Number(value))} />
+                <Tooltip cursor={{ fill: "rgba(58, 219, 234, 0.07)" }} formatter={(value) => money(Number(value))} />
                 <Legend />
                 <Bar dataKey="flowIn" name="Deposited" fill="#0f766e" />
                 <Bar dataKey="flowOut" name="Withdrawn" fill="#e11d48" />
@@ -369,9 +537,9 @@ export function PortfolioDashboard() {
             </ResponsiveContainer>
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
 
-      <SectionCard title="Current Holdings" description="US stock and bond positions are stored in the signed-in account database.">
+        <SectionCard title="Current Holdings" description="US stock and bond positions are stored in the signed-in account database.">
         <div className="grid gap-3 lg:grid-cols-9">
           <Field label="Type">
             <select className={inputClass} value={holdingForm.assetType} onChange={(event) => updateHolding("assetType", event.target.value)}>
@@ -448,9 +616,9 @@ export function PortfolioDashboard() {
             </tbody>
           </table>
         </div>
-      </SectionCard>
+        </SectionCard>
 
-      <SectionCard title="Income Calendar" description="Stocks are refreshed from public dividend endpoints; bonds and notes are entered manually.">
+        <SectionCard title="Income Calendar" description="Stocks are refreshed from public dividend endpoints; bonds and notes are entered manually.">
         <div className="flex flex-wrap gap-3">
           <button type="button" disabled={saving} onClick={() => void refreshDividends()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-ink disabled:opacity-40">
             <RefreshCw className="h-4 w-4" />
@@ -572,7 +740,8 @@ export function PortfolioDashboard() {
             </table>
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      </div>
     </section>
   );
 }
