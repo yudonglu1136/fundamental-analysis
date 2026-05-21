@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { getPortfolioSnapshot } from "../apps/api/src/services/portfolioService.mjs";
 
-const OWNER_EMAIL = "luyudong1136@gmai.com";
+const OWNER_EMAIL = "luyudong1136@gmail.com";
 const failures = [];
 
 function assert(condition, message) {

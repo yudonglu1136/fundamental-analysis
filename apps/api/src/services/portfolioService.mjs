@@ -5,7 +5,7 @@ import XLSX from "xlsx";
 import { execute, executescript, query } from "../db/client.mjs";
 
 const PORTFOLIO_ROOT = path.resolve(process.env.PORTFOLIO_DATA_ROOT ?? "data/local/portfolio/accounts");
-const DEFAULT_SEED_OWNER_EMAIL = "luyudong1136@gmai.com";
+const DEFAULT_SEED_OWNER_EMAIL = "luyudong1136@gmail.com";
 const SEED_OWNER_EMAIL = String(process.env.PORTFOLIO_SEED_OWNER_EMAIL ?? DEFAULT_SEED_OWNER_EMAIL).trim().toLowerCase();
 const DEV_EMAIL = String(process.env.PORTFOLIO_DEV_EMAIL ?? SEED_OWNER_EMAIL).trim().toLowerCase();
 const SEED_XLSX_PATH = path.resolve(
