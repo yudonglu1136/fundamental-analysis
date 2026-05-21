@@ -26,7 +26,7 @@ assert(ownerSnapshot.account.email === OWNER_EMAIL, `Expected local dev portfoli
 assert(ownerSnapshot.account.seededFromWorkbook === true, "Owner account should be seeded from the workbook.");
 assert(ownerSnapshot.history.length >= 12, `Expected at least 12 owner history rows, found ${ownerSnapshot.history.length}.`);
 assert(ownerSnapshot.history[0]?.date === "2025-06-01", `Expected first history month 2025-06-01, found ${ownerSnapshot.history[0]?.date}.`);
-assert(ownerSnapshot.history.at(-1)?.date === "2026-05-01", `Expected latest history month 2026-05-01, found ${ownerSnapshot.history.at(-1)?.date}.`);
+assert(ownerSnapshot.history.at(-1)?.date >= "2026-05-01", `Expected owner history to cover at least 2026-05-01, found ${ownerSnapshot.history.at(-1)?.date}.`);
 assert(Number(ownerSnapshot.summary.latestPortfolioValue) > 0, "Latest owner portfolio value should be positive.");
 assert(approxEqual(ownerSnapshot.summary.totalDeposited, 112066.46), `Unexpected total deposits ${ownerSnapshot.summary.totalDeposited}.`);
 

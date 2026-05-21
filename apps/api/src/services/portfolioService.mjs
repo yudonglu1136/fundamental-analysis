@@ -73,6 +73,10 @@ CREATE TABLE IF NOT EXISTS holdings (
   manualMarketValue REAL,
   logoUrl TEXT,
   logoSource TEXT,
+  purchasePrice REAL,
+  purchaseDate TEXT,
+  couponFrequency INTEGER,
+  couponSchedule TEXT,
   couponRate REAL,
   maturityDate TEXT,
   notes TEXT,
@@ -119,7 +123,17 @@ const holdingColumnMigrations = [
   ["manualMarketValue", "REAL"],
   ["logoUrl", "TEXT"],
   ["logoSource", "TEXT"],
+  ["purchasePrice", "REAL"],
+  ["purchaseDate", "TEXT"],
+  ["couponFrequency", "INTEGER"],
+  ["couponSchedule", "TEXT"],
 ];
+
+const defaultLogoSymbolAliases = {
+  "DGE.L": "DEO",
+  GOOGL: "GOOG",
+  LSEG: "LSEG.L",
+};
 
 const defaultHoldingLogos = {
   GOOG: "https://companiesmarketcap.com/img/company-logos/64/GOOG.png",
@@ -210,8 +224,49 @@ function numeric(value) {
   return Number.isFinite(number) ? number : null;
 }
 
-function defaultLogoUrl(symbol) {
-  return defaultHoldingLogos[cleanString(symbol).toUpperCase()] ?? null;
+function nullableNumber(value) {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function defaultLogoUrl(symbol, assetType = "stock") {
+  if (assetType !== "stock") return null;
+  const key = cleanString(symbol).toUpperCase();
+  if (!key) return null;
+  const logoSymbol = defaultLogoSymbolAliases[key] ?? key;
+  return defaultHoldingLogos[key] ?? `https://companiesmarketcap.com/img/company-logos/64/${encodeURIComponent(logoSymbol)}.png`;
+}
+
+function labelFromDate(date) {
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+}
+
+function parseCouponSchedule(value) {
+  return cleanString(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const match = item.match(/^(\d{1,2})-(\d{1,2})$/);
+      if (!match) return null;
+      const month = Number(match[1]);
+      const day = Number(match[2]);
+      if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+      return `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    })
+    .filter(Boolean);
+}
+
+function holdingMarketValue(holding) {
+  const manual = nullableNumber(holding.manualMarketValue);
+  if (manual != null) return manual;
+  const latestPrice = nullableNumber(holding.latestPrice);
+  const quantity = nullableNumber(holding.quantity) ?? 0;
+  if (latestPrice != null) return latestPrice * quantity;
+  return 0;
 }
 
 function parseSeedWorkbook() {
@@ -397,6 +452,52 @@ export function getPortfolioSnapshot(request) {
   };
 }
 
+export function saveHistoryPoint(request, payload) {
+  const account = resolveAccount(request);
+  ensureDb(account);
+  const date = cleanString(payload?.date);
+  if (!date) throw new Error("Portfolio history date is required.");
+  upsertHistoryRow(account.dbPath, {
+    id: cleanString(payload?.id) || `portfolio-history-${date}`,
+    date,
+    label: cleanString(payload?.label) || labelFromDate(date),
+    portfolioValue: nullableNumber(payload?.portfolioValue),
+    beginValue: nullableNumber(payload?.beginValue),
+    endValue: nullableNumber(payload?.endValue),
+    changeAmount: nullableNumber(payload?.changeAmount),
+    totalProfit: nullableNumber(payload?.totalProfit),
+    totalProfitPct: nullableNumber(payload?.totalProfitPct),
+    netProfitFromSales: nullableNumber(payload?.netProfitFromSales),
+    profitFromPriceChange: nullableNumber(payload?.profitFromPriceChange),
+    profitFromSales: nullableNumber(payload?.profitFromSales),
+    dividends: nullableNumber(payload?.dividends),
+    taxes: nullableNumber(payload?.taxes),
+    commissions: nullableNumber(payload?.commissions),
+    other: nullableNumber(payload?.other),
+    turnover: nullableNumber(payload?.turnover),
+    totalPurchases: nullableNumber(payload?.totalPurchases),
+    totalSales: nullableNumber(payload?.totalSales),
+    totalTrades: nullableNumber(payload?.totalTrades),
+    buyTrades: nullableNumber(payload?.buyTrades),
+    sellTrades: nullableNumber(payload?.sellTrades),
+    cashFunds: nullableNumber(payload?.cashFunds),
+    deposited: nullableNumber(payload?.deposited),
+    withdrawn: nullableNumber(payload?.withdrawn),
+    availableFunds: nullableNumber(payload?.availableFunds),
+    sp500MarketPerformance: nullableNumber(payload?.sp500MarketPerformance),
+    sp500MarketPerformancePct: nullableNumber(payload?.sp500MarketPerformancePct),
+    source: cleanString(payload?.source, "manual") || "manual",
+  });
+  return getPortfolioSnapshot(request);
+}
+
+export function deleteHistoryPoint(request, id) {
+  const account = resolveAccount(request);
+  ensureDb(account);
+  execute("DELETE FROM portfolio_history WHERE id = ? OR date = ?", [id, id], account.dbPath);
+  return getPortfolioSnapshot(request);
+}
+
 export function saveHolding(request, payload) {
   const account = resolveAccount(request);
   ensureDb(account);
@@ -406,12 +507,13 @@ export function saveHolding(request, payload) {
   const symbol = cleanString(payload?.symbol).toUpperCase();
   if (!symbol) throw new Error("Holding symbol is required.");
   const explicitLogoUrl = cleanString(payload?.logoUrl);
-  const logoUrl = explicitLogoUrl || defaultLogoUrl(symbol);
+  const logoUrl = explicitLogoUrl || defaultLogoUrl(symbol, assetType);
   execute(
     `INSERT INTO holdings (
       id, accountName, assetType, symbol, name, quantity, currency, market, latestPrice, latestPriceAt, latestPriceSource,
-      manualMarketValue, logoUrl, logoSource, couponRate, maturityDate, notes, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      manualMarketValue, logoUrl, logoSource, purchasePrice, purchaseDate, couponFrequency, couponSchedule,
+      couponRate, maturityDate, notes, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       accountName = excluded.accountName,
       assetType = excluded.assetType,
@@ -426,6 +528,10 @@ export function saveHolding(request, payload) {
       manualMarketValue = excluded.manualMarketValue,
       logoUrl = excluded.logoUrl,
       logoSource = excluded.logoSource,
+      purchasePrice = excluded.purchasePrice,
+      purchaseDate = excluded.purchaseDate,
+      couponFrequency = excluded.couponFrequency,
+      couponSchedule = excluded.couponSchedule,
       couponRate = excluded.couponRate,
       maturityDate = excluded.maturityDate,
       notes = excluded.notes,
@@ -439,13 +545,17 @@ export function saveHolding(request, payload) {
       Number(payload?.quantity ?? 0),
       cleanString(payload?.currency, "USD").toUpperCase() || "USD",
       cleanString(payload?.market) || null,
-      payload?.latestPrice == null || payload?.latestPrice === "" ? null : Number(payload.latestPrice),
+      nullableNumber(payload?.latestPrice),
       cleanString(payload?.latestPriceAt) || null,
       cleanString(payload?.latestPriceSource) || null,
-      payload?.manualMarketValue == null || payload?.manualMarketValue === "" ? null : Number(payload.manualMarketValue),
+      nullableNumber(payload?.manualMarketValue),
       logoUrl,
       logoUrl ? (explicitLogoUrl ? "manual" : "default_symbol_map") : null,
-      payload?.couponRate == null || payload?.couponRate === "" ? null : Number(payload.couponRate),
+      nullableNumber(payload?.purchasePrice),
+      cleanString(payload?.purchaseDate) || null,
+      nullableNumber(payload?.couponFrequency),
+      cleanString(payload?.couponSchedule) || null,
+      nullableNumber(payload?.couponRate),
       cleanString(payload?.maturityDate) || null,
       cleanString(payload?.notes) || null,
       ts,
@@ -453,7 +563,71 @@ export function saveHolding(request, payload) {
     ],
     account.dbPath,
   );
+  if (assetType === "bond") {
+    generateBondCouponEvents(account, id);
+  }
   return getPortfolioSnapshot(request);
+}
+
+function generateBondCouponEvents(account, holdingId) {
+  const holding = query("SELECT * FROM holdings WHERE id = ? LIMIT 1", [holdingId], account.dbPath)[0];
+  if (!holding || holding.assetType !== "bond") return;
+  execute("DELETE FROM income_events WHERE holdingId = ? AND sourceType = 'bond_coupon_schedule'", [holdingId], account.dbPath);
+
+  const schedule = parseCouponSchedule(holding.couponSchedule);
+  const couponRate = nullableNumber(holding.couponRate);
+  const quantity = nullableNumber(holding.quantity);
+  if (!schedule.length || couponRate == null || quantity == null || quantity <= 0) return;
+
+  const paymentCount = Math.max(1, schedule.length);
+  const grossAmount = (quantity * couponRate) / 100 / paymentCount;
+  const amountPerUnit = couponRate / 100 / paymentCount;
+  const currentYear = new Date().getFullYear();
+  const today = new Date().toISOString().slice(0, 10);
+  const purchaseDate = cleanString(holding.purchaseDate) || null;
+  const maturityDate = cleanString(holding.maturityDate) || null;
+
+  for (const year of [currentYear, currentYear + 1]) {
+    for (const monthDay of schedule) {
+      const eventDate = `${year}-${monthDay}`;
+      if (purchaseDate && eventDate < purchaseDate) continue;
+      if (maturityDate && eventDate > maturityDate) continue;
+      const status = eventDate < today ? "paid" : "estimated";
+      const ts = nowIso();
+      execute(
+        `INSERT INTO income_events (
+          id, holdingId, accountName, assetType, symbol, eventDate, exDate, payDate, amountPerUnit, quantity,
+          grossAmount, currency, status, sourceType, sourceUrl, notes, createdAt, updatedAt
+        ) VALUES (?, ?, ?, 'bond', ?, ?, NULL, ?, ?, ?, ?, ?, ?, 'bond_coupon_schedule', NULL, ?, ?, ?)
+        ON CONFLICT(accountName, symbol, eventDate, sourceType, status) DO UPDATE SET
+          holdingId = excluded.holdingId,
+          payDate = excluded.payDate,
+          amountPerUnit = excluded.amountPerUnit,
+          quantity = excluded.quantity,
+          grossAmount = excluded.grossAmount,
+          currency = excluded.currency,
+          notes = excluded.notes,
+          updatedAt = excluded.updatedAt`,
+        [
+          `bond-coupon-${holding.id}-${eventDate}`,
+          holding.id,
+          holding.accountName,
+          holding.symbol,
+          eventDate,
+          eventDate,
+          amountPerUnit,
+          quantity,
+          grossAmount,
+          holding.currency ?? "USD",
+          status,
+          `Generated from bond coupon schedule ${holding.couponSchedule}; user-maintained bond price and maturity.`,
+          ts,
+          ts,
+        ],
+        account.dbPath,
+      );
+    }
+  }
 }
 
 async function fetchYahooPrice(symbol) {
@@ -474,10 +648,8 @@ async function fetchYahooPrice(symbol) {
   };
 }
 
-export async function refreshHoldingPrices(request) {
-  const account = resolveAccount(request);
-  ensureDb(account);
-  const holdings = rows(account, "SELECT * FROM holdings WHERE assetType = 'stock' AND quantity > 0 ORDER BY symbol");
+async function refreshStockPricesForAccount(account) {
+  const holdings = query("SELECT * FROM holdings WHERE assetType = 'stock' AND quantity > 0 ORDER BY symbol", [], account.dbPath);
   const refreshed = [];
   const errors = [];
   for (const holding of holdings) {
@@ -495,12 +667,53 @@ export async function refreshHoldingPrices(request) {
       errors.push({ symbol: holding.symbol, message: error instanceof Error ? error.message : String(error) });
     }
   }
+  return { refreshed, errors, source: "Yahoo Finance chart endpoint" };
+}
+
+export async function refreshHoldingPrices(request) {
+  const account = resolveAccount(request);
+  ensureDb(account);
+  const priceRefresh = await refreshStockPricesForAccount(account);
   return {
     ...getPortfolioSnapshot(request),
-    priceRefresh: {
-      refreshed,
-      errors,
-      source: "Yahoo Finance chart endpoint",
+    priceRefresh,
+  };
+}
+
+export async function refreshPortfolioNav(request) {
+  const account = resolveAccount(request);
+  ensureDb(account);
+  const priceRefresh = await refreshStockPricesForAccount(account);
+  const holdings = query("SELECT * FROM holdings ORDER BY assetType, symbol, accountName", [], account.dbPath);
+  const positionsValue = holdings.reduce((sum, holding) => sum + holdingMarketValue(holding), 0);
+  const latestHistory = query("SELECT * FROM portfolio_history ORDER BY date DESC LIMIT 1", [], account.dbPath)[0] ?? {};
+  const today = new Date().toISOString().slice(0, 10);
+  const existingToday = query("SELECT * FROM portfolio_history WHERE date = ? LIMIT 1", [today], account.dbPath)[0] ?? {};
+  const cashFunds = nullableNumber(existingToday.cashFunds) ?? nullableNumber(latestHistory.cashFunds) ?? nullableNumber(latestHistory.availableFunds) ?? 0;
+  const portfolioValue = positionsValue + cashFunds;
+
+  upsertHistoryRow(account.dbPath, {
+    ...existingToday,
+    id: existingToday.id ?? `portfolio-history-${today}`,
+    date: today,
+    label: existingToday.label ?? labelFromDate(today),
+    portfolioValue,
+    endValue: portfolioValue,
+    cashFunds,
+    deposited: existingToday.deposited ?? 0,
+    withdrawn: existingToday.withdrawn ?? 0,
+    source: "daily_nav_refresh",
+  });
+
+  return {
+    ...getPortfolioSnapshot(request),
+    priceRefresh,
+    navRefresh: {
+      date: today,
+      portfolioValue,
+      positionsValue,
+      cashFunds,
+      source: "Holdings market value plus latest cash funds",
     },
   };
 }

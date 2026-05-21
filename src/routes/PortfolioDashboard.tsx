@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { CalendarDays, Database, Download, Landmark, Plus, RefreshCw, ShieldCheck, Trash2, TrendingUp } from "lucide-react";
+import { CalendarDays, Database, Download, Landmark, Pencil, Plus, RefreshCw, ShieldCheck, Trash2, TrendingUp, X } from "lucide-react";
 import { apiFetch } from "../api/client";
 import { useAuth } from "../auth/useAuth";
 import { useAppShell } from "../components/layout/AppShell";
 import { SectionCard } from "../components/shared/SectionCard";
 
 type PortfolioHistoryRow = {
+  id: string;
   date: string;
   label: string;
   portfolioValue: number | null;
@@ -18,6 +19,7 @@ type PortfolioHistoryRow = {
   taxes: number | null;
   cashFunds: number | null;
   sp500MarketPerformancePct: number | null;
+  source: string | null;
 };
 
 type Holding = {
@@ -35,6 +37,10 @@ type Holding = {
   manualMarketValue: number | null;
   logoUrl: string | null;
   logoSource: string | null;
+  purchasePrice: number | null;
+  purchaseDate: string | null;
+  couponFrequency: number | null;
+  couponSchedule: string | null;
   couponRate: number | null;
   maturityDate: string | null;
   notes: string | null;
@@ -90,6 +96,13 @@ type PortfolioSnapshot = {
     errors: Array<{ symbol: string; message: string }>;
     source: string;
   };
+  navRefresh?: {
+    date: string;
+    portfolioValue: number;
+    positionsValue: number;
+    cashFunds: number;
+    source: string;
+  };
 };
 
 type AnnualTotalsRow = {
@@ -142,6 +155,7 @@ type TooltipPayloadItem = {
 };
 
 const emptyHolding = {
+  id: "",
   accountName: "Main",
   assetType: "stock",
   symbol: "",
@@ -149,11 +163,30 @@ const emptyHolding = {
   quantity: "",
   currency: "USD",
   market: "US",
+  latestPrice: "",
   manualMarketValue: "",
   logoUrl: "",
+  purchasePrice: "",
+  purchaseDate: "",
   couponRate: "",
+  couponFrequency: "",
+  couponSchedule: "",
   maturityDate: "",
   notes: "",
+};
+
+const emptyHistoryPoint = {
+  id: "",
+  date: new Date().toISOString().slice(0, 10),
+  portfolioValue: "",
+  cashFunds: "",
+  deposited: "",
+  withdrawn: "",
+  dividends: "",
+  totalProfit: "",
+  totalProfitPct: "",
+  sp500MarketPerformancePct: "",
+  source: "manual",
 };
 
 const emptyIncome = {
@@ -294,6 +327,10 @@ function weightPct(value: number | null | undefined) {
 function numberText(value: number | null | undefined) {
   if (value == null || Number.isNaN(value)) return "N/A";
   return value.toLocaleString("en-US", { maximumFractionDigits: 4 });
+}
+
+function formText(value: number | string | null | undefined) {
+  return value == null ? "" : String(value);
 }
 
 function yearFromDate(date: string | null | undefined) {
@@ -600,6 +637,7 @@ export function PortfolioDashboard() {
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [message, setMessage] = useState<string | null>(null);
   const [holdingForm, setHoldingForm] = useState(emptyHolding);
+  const [historyForm, setHistoryForm] = useState(emptyHistoryPoint);
   const [incomeForm, setIncomeForm] = useState(emptyIncome);
   const [saving, setSaving] = useState(false);
 
@@ -628,6 +666,7 @@ export function PortfolioDashboard() {
         ...row,
         flowIn: row.deposited ?? 0,
         flowOut: row.withdrawn ? -Math.abs(row.withdrawn) : 0,
+        netFlow: Number(row.deposited ?? 0) - Number(row.withdrawn ?? 0),
         totalProfitPctDecimal: row.totalProfitPct == null ? null : row.totalProfitPct / 100,
         sp500PctDecimal: row.sp500MarketPerformancePct == null ? null : row.sp500MarketPerformancePct / 100,
       })),
@@ -817,8 +856,83 @@ export function PortfolioDashboard() {
     setHoldingForm((current) => ({ ...current, [key]: value }));
   }
 
+  function updateHistory(key: keyof typeof emptyHistoryPoint, value: string) {
+    setHistoryForm((current) => ({ ...current, [key]: value }));
+  }
+
   function updateIncome(key: keyof typeof emptyIncome, value: string) {
     setIncomeForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function saveHistoryPoint() {
+    setSaving(true);
+    try {
+      const payload = await apiFetch<PortfolioSnapshot>("/api/portfolio/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...historyForm,
+          portfolioValue: historyForm.portfolioValue ? Number(historyForm.portfolioValue) : null,
+          cashFunds: historyForm.cashFunds ? Number(historyForm.cashFunds) : null,
+          deposited: historyForm.deposited ? Number(historyForm.deposited) : null,
+          withdrawn: historyForm.withdrawn ? Number(historyForm.withdrawn) : null,
+          dividends: historyForm.dividends ? Number(historyForm.dividends) : null,
+          totalProfit: historyForm.totalProfit ? Number(historyForm.totalProfit) : null,
+          totalProfitPct: historyForm.totalProfitPct ? Number(historyForm.totalProfitPct) : null,
+          sp500MarketPerformancePct: historyForm.sp500MarketPerformancePct ? Number(historyForm.sp500MarketPerformancePct) : null,
+        }),
+      });
+      setSnapshot(payload);
+      setHistoryForm({ ...emptyHistoryPoint, date: new Date().toISOString().slice(0, 10) });
+      setMessage("Portfolio ledger point saved. Net worth and cash-flow charts updated.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteHistoryPoint(id: string) {
+    const payload = await apiFetch<PortfolioSnapshot>(`/api/portfolio/history/${encodeURIComponent(id)}`, { method: "DELETE" });
+    setSnapshot(payload);
+    setMessage("Portfolio ledger point deleted.");
+  }
+
+  function editHistoryPoint(row: PortfolioHistoryRow) {
+    setHistoryForm({
+      id: row.id,
+      date: row.date,
+      portfolioValue: formText(row.portfolioValue),
+      cashFunds: formText(row.cashFunds),
+      deposited: formText(row.deposited),
+      withdrawn: formText(row.withdrawn),
+      dividends: formText(row.dividends),
+      totalProfit: formText(row.totalProfit),
+      totalProfitPct: formText(row.totalProfitPct),
+      sp500MarketPerformancePct: formText(row.sp500MarketPerformancePct),
+      source: row.source ?? "manual",
+    });
+  }
+
+  function editHolding(holding: Holding) {
+    setHoldingForm({
+      id: holding.id,
+      accountName: holding.accountName,
+      assetType: holding.assetType,
+      symbol: holding.symbol,
+      name: holding.name ?? "",
+      quantity: formText(holding.quantity),
+      currency: holding.currency,
+      market: holding.market ?? "",
+      latestPrice: formText(holding.latestPrice),
+      manualMarketValue: formText(holding.manualMarketValue),
+      logoUrl: holding.logoUrl ?? "",
+      purchasePrice: formText(holding.purchasePrice),
+      purchaseDate: holding.purchaseDate ?? "",
+      couponRate: formText(holding.couponRate),
+      couponFrequency: formText(holding.couponFrequency),
+      couponSchedule: holding.couponSchedule ?? "",
+      maturityDate: holding.maturityDate ?? "",
+      notes: holding.notes ?? "",
+    });
   }
 
   async function saveHolding() {
@@ -830,8 +944,11 @@ export function PortfolioDashboard() {
         body: JSON.stringify({
           ...holdingForm,
           quantity: Number(holdingForm.quantity || 0),
+          latestPrice: holdingForm.latestPrice ? Number(holdingForm.latestPrice) : null,
           manualMarketValue: holdingForm.manualMarketValue ? Number(holdingForm.manualMarketValue) : null,
+          purchasePrice: holdingForm.purchasePrice ? Number(holdingForm.purchasePrice) : null,
           couponRate: holdingForm.couponRate ? Number(holdingForm.couponRate) : null,
+          couponFrequency: holdingForm.couponFrequency ? Number(holdingForm.couponFrequency) : null,
         }),
       });
       setSnapshot(saved);
@@ -840,7 +957,7 @@ export function PortfolioDashboard() {
         setSnapshot(priced);
       }
       setHoldingForm(emptyHolding);
-      setMessage("Holding saved. Portfolio composition updated.");
+      setMessage(holdingForm.id ? "Holding updated. Portfolio composition refreshed." : "Holding saved. Portfolio composition updated.");
     } finally {
       setSaving(false);
     }
@@ -902,6 +1019,19 @@ export function PortfolioDashboard() {
       const refreshed = payload.priceRefresh?.refreshed.map((item) => `${item.symbol}: ${money(item.price, item.currency, 2)}`).join(", ") || "none";
       const errors = payload.priceRefresh?.errors.length ? ` Errors: ${payload.priceRefresh.errors.map((item) => `${item.symbol} ${item.message}`).join("; ")}` : "";
       setMessage(`Price refresh complete. ${refreshed}.${errors}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function refreshDailyNav() {
+    setSaving(true);
+    try {
+      const payload = await apiFetch<PortfolioSnapshot>("/api/portfolio/nav/refresh", { method: "POST" });
+      setSnapshot(payload);
+      const refreshed = payload.priceRefresh?.refreshed.map((item) => `${item.symbol}: ${money(item.price, item.currency, 2)}`).join(", ") || "none";
+      const errors = payload.priceRefresh?.errors.length ? ` Errors: ${payload.priceRefresh.errors.map((item) => `${item.symbol} ${item.message}`).join("; ")}` : "";
+      setMessage(`Daily NAV refreshed: ${money(payload.navRefresh?.portfolioValue, "USD", 2)}. Prices: ${refreshed}.${errors}`);
     } finally {
       setSaving(false);
     }
@@ -1040,8 +1170,8 @@ export function PortfolioDashboard() {
           </div>
         </SectionCard>
 
-        <SectionCard title="Portfolio History" description="Monthly net worth history from the imported portfolio report.">
-          <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <SectionCard title="Portfolio Ledger" description="Manual and imported net worth points, cash flows, dividends, and benchmark returns. Users can edit NAV later after rebalancing.">
+          <div className="grid gap-6 xl:grid-cols-3">
             <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartRows}>
@@ -1058,6 +1188,29 @@ export function PortfolioDashboard() {
                   <Legend />
                   <Line type="monotone" dataKey="portfolioValue" name="Portfolio value" stroke="url(#portfolioValueLineGradient)" strokeWidth={2.5} dot={false} />
                 </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartRows} barCategoryGap="46%">
+                  <defs>
+                    <linearGradient id="cashInGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#5eead4" stopOpacity={0.98} />
+                      <stop offset="100%" stopColor="#0f766e" stopOpacity={0.46} />
+                    </linearGradient>
+                    <linearGradient id="cashOutGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#fb7185" stopOpacity={0.96} />
+                      <stop offset="100%" stopColor="#be123c" stopOpacity={0.44} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" />
+                  <YAxis tickFormatter={(value) => `$${Math.round(Number(value) / 1000)}k`} />
+                  <Tooltip cursor={{ fill: "rgba(45, 212, 191, 0.08)" }} content={<GenericChartTooltip />} />
+                  <Legend />
+                  <Bar dataKey="flowIn" name="Deposits" fill="url(#cashInGradient)" barSize={10} />
+                  <Bar dataKey="flowOut" name="Withdrawals" fill="url(#cashOutGradient)" barSize={10} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
             <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
@@ -1084,6 +1237,93 @@ export function PortfolioDashboard() {
               </ResponsiveContainer>
             </div>
           </div>
+
+          <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
+            <div className="grid gap-3 lg:grid-cols-9">
+              <Field label="Date">
+                <input className={inputClass} type="date" value={historyForm.date} onChange={(event) => updateHistory("date", event.target.value)} />
+              </Field>
+              <Field label="Portfolio NAV">
+                <input className={inputClass} type="number" step="0.01" value={historyForm.portfolioValue} onChange={(event) => updateHistory("portfolioValue", event.target.value)} />
+              </Field>
+              <Field label="Cash funds">
+                <input className={inputClass} type="number" step="0.01" value={historyForm.cashFunds} onChange={(event) => updateHistory("cashFunds", event.target.value)} />
+              </Field>
+              <Field label="Deposit">
+                <input className={inputClass} type="number" step="0.01" value={historyForm.deposited} onChange={(event) => updateHistory("deposited", event.target.value)} />
+              </Field>
+              <Field label="Withdrawal">
+                <input className={inputClass} type="number" step="0.01" value={historyForm.withdrawn} onChange={(event) => updateHistory("withdrawn", event.target.value)} />
+              </Field>
+              <Field label="Dividends">
+                <input className={inputClass} type="number" step="0.01" value={historyForm.dividends} onChange={(event) => updateHistory("dividends", event.target.value)} />
+              </Field>
+              <Field label="Return %">
+                <input className={inputClass} type="number" step="0.0001" value={historyForm.totalProfitPct} onChange={(event) => updateHistory("totalProfitPct", event.target.value)} />
+              </Field>
+              <Field label="S&P 500 %">
+                <input className={inputClass} type="number" step="0.0001" value={historyForm.sp500MarketPerformancePct} onChange={(event) => updateHistory("sp500MarketPerformancePct", event.target.value)} />
+              </Field>
+              <div className="flex items-end gap-2">
+                <button type="button" disabled={saving || !historyForm.date} onClick={() => void saveHistoryPoint()} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
+                  <Plus className="h-4 w-4" />
+                  {historyForm.id ? "Update" : "Add"}
+                </button>
+                {historyForm.id ? (
+                  <button type="button" onClick={() => setHistoryForm({ ...emptyHistoryPoint, date: new Date().toISOString().slice(0, 10) })} className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600">
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-normal text-slate-500">
+                <tr>
+                  <th className="px-3 py-2">Date</th>
+                  <th className="px-3 py-2">NAV</th>
+                  <th className="px-3 py-2">Cash</th>
+                  <th className="px-3 py-2">Deposit</th>
+                  <th className="px-3 py-2">Withdrawal</th>
+                  <th className="px-3 py-2">Return</th>
+                  <th className="px-3 py-2">Source</th>
+                  <th className="px-3 py-2">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {[...(snapshot.history ?? [])].slice(-12).reverse().map((row) => (
+                  <tr key={row.id}>
+                    <td className="px-3 py-2 font-semibold text-ink">{row.date}</td>
+                    <td className="px-3 py-2 text-slate-600">{money(row.portfolioValue)}</td>
+                    <td className="px-3 py-2 text-slate-600">{money(row.cashFunds)}</td>
+                    <td className="px-3 py-2 text-slate-600">{money(row.deposited)}</td>
+                    <td className="px-3 py-2 text-slate-600">{money(row.withdrawn)}</td>
+                    <td className="px-3 py-2 text-slate-600">{pct(row.totalProfitPct)}</td>
+                    <td className="px-3 py-2 text-slate-500">{row.source ?? "manual"}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-wrap gap-3">
+                        <button type="button" onClick={() => editHistoryPoint(row)} className="inline-flex items-center gap-1 text-cyan-700">
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
+                        </button>
+                        <button type="button" onClick={() => void deleteHistoryPoint(row.id)} className="inline-flex items-center gap-1 text-rose-700">
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {snapshot.history.length === 0 ? (
+                  <tr>
+                    <td className="px-3 py-4 text-slate-500" colSpan={8}>No portfolio ledger points saved yet.</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
         </SectionCard>
 
         <SectionCard title="Portfolio Composition" description="Saved positions explain the imported NAV; they do not add to net worth. Residual value stays in Cash / Unallocated.">
@@ -1096,9 +1336,9 @@ export function PortfolioDashboard() {
                     {weightPct(composition.navCoverage)} allocated · {money(composition.residual)} unallocated
                   </p>
                 </div>
-                <button type="button" disabled={saving} onClick={() => void refreshPrices()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-ink disabled:opacity-40">
+                <button type="button" disabled={saving} onClick={() => void refreshDailyNav()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-ink disabled:opacity-40">
                   <RefreshCw className="h-4 w-4" />
-                  Refresh Stock Prices
+                  Refresh Daily NAV
                 </button>
               </div>
               <div className="mt-4 h-96">
@@ -1174,7 +1414,19 @@ export function PortfolioDashboard() {
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-white p-4">
-              <div className="grid gap-3 lg:grid-cols-5">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-ink">{holdingForm.id ? "Edit Holding" : "Add Holding"}</p>
+                  <p className="mt-1 text-sm text-slate-500">Stocks refresh from public prices; bonds use user-maintained price, coupon schedule, and maturity.</p>
+                </div>
+                {holdingForm.id ? (
+                  <button type="button" onClick={() => setHoldingForm(emptyHolding)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
+                    <X className="h-4 w-4" />
+                    Cancel edit
+                  </button>
+                ) : null}
+              </div>
+              <div className="grid gap-3 lg:grid-cols-6">
                 <Field label="Type">
                   <select className={inputClass} value={holdingForm.assetType} onChange={(event) => updateHolding("assetType", event.target.value)}>
                     <option value="stock">Stock</option>
@@ -1193,17 +1445,32 @@ export function PortfolioDashboard() {
                 <Field label="Logo URL">
                   <input className={inputClass} value={holdingForm.logoUrl} onChange={(event) => updateHolding("logoUrl", event.target.value)} />
                 </Field>
-                <Field label="Quantity">
+                <Field label={holdingForm.assetType === "bond" ? "Face / quantity" : "Quantity"}>
                   <input className={inputClass} type="number" step="0.0001" value={holdingForm.quantity} onChange={(event) => updateHolding("quantity", event.target.value)} />
                 </Field>
                 <Field label="Currency">
                   <input className={inputClass} value={holdingForm.currency} onChange={(event) => updateHolding("currency", event.target.value)} />
                 </Field>
-                <Field label="Manual Value">
+                <Field label={holdingForm.assetType === "bond" ? "Current price" : "Current price"}>
+                  <input className={inputClass} type="number" step="0.0001" value={holdingForm.latestPrice} onChange={(event) => updateHolding("latestPrice", event.target.value)} />
+                </Field>
+                <Field label="Manual value">
                   <input className={inputClass} type="number" step="0.01" value={holdingForm.manualMarketValue} onChange={(event) => updateHolding("manualMarketValue", event.target.value)} />
+                </Field>
+                <Field label="Purchase price">
+                  <input className={inputClass} type="number" step="0.0001" value={holdingForm.purchasePrice} onChange={(event) => updateHolding("purchasePrice", event.target.value)} />
+                </Field>
+                <Field label="Purchase date">
+                  <input className={inputClass} type="date" value={holdingForm.purchaseDate} onChange={(event) => updateHolding("purchaseDate", event.target.value)} />
                 </Field>
                 <Field label="Coupon %">
                   <input className={inputClass} type="number" step="0.0001" value={holdingForm.couponRate} onChange={(event) => updateHolding("couponRate", event.target.value)} />
+                </Field>
+                <Field label="Payments / yr">
+                  <input className={inputClass} type="number" step="1" value={holdingForm.couponFrequency} onChange={(event) => updateHolding("couponFrequency", event.target.value)} />
+                </Field>
+                <Field label="Coupon dates">
+                  <input className={inputClass} placeholder="03-15,09-15" value={holdingForm.couponSchedule} onChange={(event) => updateHolding("couponSchedule", event.target.value)} />
                 </Field>
                 <Field label="Maturity">
                   <input className={inputClass} type="date" value={holdingForm.maturityDate} onChange={(event) => updateHolding("maturityDate", event.target.value)} />
@@ -1211,7 +1478,7 @@ export function PortfolioDashboard() {
                 <div className="flex items-end">
                   <button type="button" disabled={saving || !holdingForm.symbol} onClick={() => void saveHolding()} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
                     <Plus className="h-4 w-4" />
-                    Save
+                    {holdingForm.id ? "Update" : "Save"}
                   </button>
                 </div>
               </div>
@@ -1224,9 +1491,11 @@ export function PortfolioDashboard() {
                       <th className="px-3 py-2">Holding</th>
                       <th className="px-3 py-2">Quantity</th>
                       <th className="px-3 py-2">Price</th>
+                      <th className="px-3 py-2">Cost</th>
                       <th className="px-3 py-2">Value</th>
                       <th className="px-3 py-2">NAV %</th>
-                      <th className="px-3 py-2">Income</th>
+                      <th className="px-3 py-2">Bond schedule</th>
+                      <th className="px-3 py-2">Maturity</th>
                       <th className="px-3 py-2">Action</th>
                     </tr>
                   </thead>
@@ -1245,20 +1514,30 @@ export function PortfolioDashboard() {
                         </td>
                         <td className="px-3 py-2 text-slate-600">{numberText(holding.quantity)}</td>
                         <td className="px-3 py-2 text-slate-600">{holding.latestPrice == null ? "-" : money(holding.latestPrice, holding.currency, 2)}</td>
+                        <td className="px-3 py-2 text-slate-600">{holding.purchasePrice == null ? "-" : money(holding.purchasePrice, holding.currency, 2)}</td>
                         <td className="px-3 py-2 text-slate-600">{money(holding.marketValue, holding.currency)}</td>
                         <td className="px-3 py-2 text-slate-600">{weightPct(holding.navWeight)}</td>
-                        <td className="px-3 py-2 text-slate-600">{holding.couponRate == null ? "-" : `${holding.couponRate}%`}</td>
+                        <td className="px-3 py-2 text-slate-600">
+                          {holding.assetType === "bond" ? `${holding.couponRate ?? "?"}% · ${holding.couponSchedule ?? "no dates"}` : "-"}
+                        </td>
+                        <td className="px-3 py-2 text-slate-600">{holding.maturityDate ?? "-"}</td>
                         <td className="px-3 py-2">
-                          <button type="button" onClick={() => void deleteHolding(holding.id)} className="inline-flex items-center gap-1 text-rose-700">
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Delete
-                          </button>
+                          <div className="flex flex-wrap gap-3">
+                            <button type="button" onClick={() => editHolding(holding)} className="inline-flex items-center gap-1 text-cyan-700">
+                              <Pencil className="h-3.5 w-3.5" />
+                              Edit
+                            </button>
+                            <button type="button" onClick={() => void deleteHolding(holding.id)} className="inline-flex items-center gap-1 text-rose-700">
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
                     {composition.rows.length === 0 ? (
                       <tr>
-                        <td className="px-3 py-4 text-slate-500" colSpan={8}>No holdings saved yet.</td>
+                        <td className="px-3 py-4 text-slate-500" colSpan={10}>No holdings saved yet.</td>
                       </tr>
                     ) : null}
                   </tbody>

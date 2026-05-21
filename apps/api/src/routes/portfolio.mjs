@@ -1,10 +1,13 @@
 import {
   deleteHolding,
+  deleteHistoryPoint,
   deleteIncomeEvent,
   getPortfolioSnapshot,
   refreshHoldingPrices,
+  refreshPortfolioNav,
   refreshStockDividends,
   saveHolding,
+  saveHistoryPoint,
   saveIncomeEvent,
 } from "../services/portfolioService.mjs";
 
@@ -17,6 +20,15 @@ export async function routePortfolio(request, url, body) {
 
   if (request.method === "POST" && url.pathname === "/api/portfolio/holdings") {
     return { status: 200, body: saveHolding(request, body ?? {}) };
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/portfolio/history") {
+    return { status: 200, body: saveHistoryPoint(request, body ?? {}) };
+  }
+
+  const historyMatch = url.pathname.match(/^\/api\/portfolio\/history\/([^/]+)$/);
+  if (request.method === "DELETE" && historyMatch) {
+    return { status: 200, body: deleteHistoryPoint(request, decodeURIComponent(historyMatch[1])) };
   }
 
   const holdingMatch = url.pathname.match(/^\/api\/portfolio\/holdings\/([^/]+)$/);
@@ -39,6 +51,10 @@ export async function routePortfolio(request, url, body) {
 
   if (request.method === "POST" && url.pathname === "/api/portfolio/holding-prices/refresh") {
     return { status: 200, body: await refreshHoldingPrices(request) };
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/portfolio/nav/refresh") {
+    return { status: 200, body: await refreshPortfolioNav(request) };
   }
 
   return {
