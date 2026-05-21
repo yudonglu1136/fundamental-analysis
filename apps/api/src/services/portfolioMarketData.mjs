@@ -8,6 +8,7 @@ const MARKET_DATA_DB_PATH = path.resolve(
 );
 const PRICE_CACHE_TTL_MS = Number(process.env.PORTFOLIO_PRICE_CACHE_TTL_MS ?? 15 * 60 * 1000);
 const DIVIDEND_CACHE_TTL_MS = Number(process.env.PORTFOLIO_DIVIDEND_CACHE_TTL_MS ?? 12 * 60 * 60 * 1000);
+const FX_CACHE_TTL_MS = Number(process.env.PORTFOLIO_FX_CACHE_TTL_MS ?? 60 * 60 * 1000);
 const seededDbPaths = new Set();
 
 const marketDataSchemaSql = `
@@ -59,6 +60,18 @@ CREATE TABLE IF NOT EXISTS market_dividend_events (
   fetchedAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   UNIQUE(symbol, eventDate, sourceType, status)
+);
+
+CREATE TABLE IF NOT EXISTS market_fx_rate_cache (
+  pair TEXT PRIMARY KEY,
+  fromCurrency TEXT NOT NULL,
+  toCurrency TEXT NOT NULL,
+  rate REAL,
+  sourceUrl TEXT,
+  fetchedAt TEXT NOT NULL,
+  status TEXT NOT NULL,
+  message TEXT,
+  updatedAt TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS market_securities_name_idx ON market_securities(name);
@@ -260,6 +273,10 @@ function canonicalCurrency(currency) {
   if (!raw) return "USD";
   if (raw === "GBp" || penceCurrencyCodes.has(raw.toUpperCase())) return "GBP";
   return raw.toUpperCase();
+}
+
+export function normalizeCurrencyCode(currency) {
+  return canonicalCurrency(currency);
 }
 
 function isLseSymbol(symbol) {
@@ -533,6 +550,161 @@ function cachedPrice(symbol, maxAgeMs = PRICE_CACHE_TTL_MS) {
     unitScale: normalizedQuote.unitScale,
     unitNote: normalizedQuote.unitNote,
   };
+}
+
+function fxPairKey(fromCurrency, toCurrency) {
+  return `${canonicalCurrency(fromCurrency)}${canonicalCurrency(toCurrency)}`;
+}
+
+function cacheFxRateResult(fromCurrency, toCurrency, result) {
+  ensureMarketDataDb();
+  const from = canonicalCurrency(fromCurrency);
+  const to = canonicalCurrency(toCurrency);
+  const ts = nowIso();
+  execute(
+    `INSERT INTO market_fx_rate_cache (pair, fromCurrency, toCurrency, rate, sourceUrl, fetchedAt, status, message, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(pair) DO UPDATE SET
+       fromCurrency = excluded.fromCurrency,
+       toCurrency = excluded.toCurrency,
+       rate = COALESCE(excluded.rate, market_fx_rate_cache.rate),
+       sourceUrl = COALESCE(excluded.sourceUrl, market_fx_rate_cache.sourceUrl),
+       fetchedAt = excluded.fetchedAt,
+       status = excluded.status,
+       message = excluded.message,
+       updatedAt = excluded.updatedAt`,
+    [
+      fxPairKey(from, to),
+      from,
+      to,
+      result.rate ?? null,
+      result.sourceUrl ?? null,
+      ts,
+      result.status ?? "ok",
+      result.message ?? null,
+      ts,
+    ],
+    MARKET_DATA_DB_PATH,
+  );
+}
+
+function fxRateRow(fromCurrency, toCurrency) {
+  ensureMarketDataDb();
+  return query(
+    "SELECT * FROM market_fx_rate_cache WHERE pair = ? LIMIT 1",
+    [fxPairKey(fromCurrency, toCurrency)],
+    MARKET_DATA_DB_PATH,
+  )[0] ?? null;
+}
+
+export function getCachedFxRate(fromCurrency, toCurrency = "USD", options = {}) {
+  const from = canonicalCurrency(fromCurrency);
+  const to = canonicalCurrency(toCurrency);
+  if (from === to) {
+    return {
+      fromCurrency: from,
+      toCurrency: to,
+      rate: 1,
+      sourceUrl: null,
+      fetchedAt: null,
+      cached: true,
+      stale: false,
+    };
+  }
+  const row = fxRateRow(from, to);
+  if (!row || row.rate == null) return null;
+  const stale = !isFresh(row.fetchedAt, options.maxAgeMs ?? FX_CACHE_TTL_MS);
+  if (stale && !options.allowStale) return null;
+  return {
+    fromCurrency: from,
+    toCurrency: to,
+    rate: Number(row.rate),
+    sourceUrl: row.sourceUrl,
+    fetchedAt: row.fetchedAt,
+    cached: true,
+    stale,
+    status: row.status,
+    message: row.message,
+  };
+}
+
+async function fetchYahooFxQuote(fromCurrency, toCurrency) {
+  const from = canonicalCurrency(fromCurrency);
+  const to = canonicalCurrency(toCurrency);
+  const candidates = [
+    { yahooSymbol: `${from}${to}=X`, inverted: false },
+    { yahooSymbol: `${to}${from}=X`, inverted: true },
+  ];
+  let lastError = null;
+  for (const candidate of candidates) {
+    const encoded = encodeURIComponent(candidate.yahooSymbol);
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?range=5d&interval=1d`;
+    try {
+      const payload = await fetchJson(url);
+      const result = payload?.chart?.result?.[0] ?? {};
+      const meta = result.meta ?? {};
+      const close = result.indicators?.quote?.[0]?.close ?? [];
+      const latestClose = [...close].reverse().find((value) => Number.isFinite(Number(value)));
+      const rawRate = Number.isFinite(Number(meta.regularMarketPrice)) ? Number(meta.regularMarketPrice) : Number(latestClose);
+      if (!Number.isFinite(rawRate) || rawRate <= 0) throw new Error("Yahoo FX response did not include a usable rate.");
+      return {
+        rate: candidate.inverted ? 1 / rawRate : rawRate,
+        sourceUrl: url,
+        rawRate,
+        yahooSymbol: candidate.yahooSymbol,
+        inverted: candidate.inverted,
+      };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError ?? new Error(`No Yahoo FX quote for ${from}/${to}.`);
+}
+
+export async function fetchFxRateWithCache(fromCurrency, toCurrency = "USD", options = {}) {
+  const from = canonicalCurrency(fromCurrency);
+  const to = canonicalCurrency(toCurrency);
+  if (from === to) {
+    return {
+      fromCurrency: from,
+      toCurrency: to,
+      rate: 1,
+      sourceUrl: null,
+      cached: true,
+      stale: false,
+    };
+  }
+  if (!options.force) {
+    const cached = getCachedFxRate(from, to, { maxAgeMs: options.maxAgeMs ?? FX_CACHE_TTL_MS });
+    if (cached) return cached;
+  }
+  try {
+    const quote = await fetchYahooFxQuote(from, to);
+    const output = {
+      fromCurrency: from,
+      toCurrency: to,
+      rate: quote.rate,
+      sourceUrl: quote.sourceUrl,
+      cached: false,
+      stale: false,
+      yahooSymbol: quote.yahooSymbol,
+      inverted: quote.inverted,
+    };
+    cacheFxRateResult(from, to, { ...output, status: "ok" });
+    return output;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const stale = getCachedFxRate(from, to, { allowStale: true, maxAgeMs: 0 });
+    cacheFxRateResult(from, to, { rate: null, status: "error", message });
+    if (stale?.rate != null) {
+      return {
+        ...stale,
+        stale: true,
+        message,
+      };
+    }
+    throw error;
+  }
 }
 
 export async function fetchYahooPriceWithCache(symbol, options = {}) {

@@ -35,6 +35,14 @@ type Holding = {
   latestPriceAt: string | null;
   latestPriceSource: string | null;
   manualMarketValue: number | null;
+  marketValue?: number | null;
+  marketValueCurrency?: string | null;
+  marketValueBase?: number | null;
+  baseCurrency?: string | null;
+  fxRateToBase?: number | null;
+  fxRateSource?: string | null;
+  fxRateFetchedAt?: string | null;
+  fxRateStatus?: string | null;
   logoUrl: string | null;
   logoSource: string | null;
   purchasePrice: number | null;
@@ -101,6 +109,8 @@ type PortfolioSnapshot = {
     portfolioValue: number;
     positionsValue: number;
     cashFunds: number;
+    baseCurrency?: string;
+    fxRates?: Array<{ symbol: string; fromCurrency: string; toCurrency: string; rate: number; sourceUrl: string | null; status: string }>;
     source: string;
   };
 };
@@ -394,6 +404,12 @@ function incomeStatusBucket(event: IncomeEvent): "paid" | "declared" | "estimate
 }
 
 function holdingValue(holding: Holding) {
+  if (holding.marketValueBase != null && Number.isFinite(Number(holding.marketValueBase))) {
+    return Number(holding.marketValueBase);
+  }
+  if ((holding.baseCurrency ?? "USD") === (holding.currency ?? "USD") && holding.marketValue != null && Number.isFinite(Number(holding.marketValue))) {
+    return Number(holding.marketValue);
+  }
   if (holding.latestPrice != null && Number.isFinite(Number(holding.latestPrice))) {
     return Number(holding.latestPrice) * Number(holding.quantity ?? 0);
   }
@@ -766,8 +782,14 @@ export function PortfolioDashboard() {
     const rows = (snapshot?.holdings ?? [])
       .map((holding) => {
         const marketValue = holdingValue(holding);
+        const localMarketValue = holding.marketValue ?? (
+          holding.latestPrice != null && Number.isFinite(Number(holding.latestPrice))
+            ? Number(holding.latestPrice) * Number(holding.quantity ?? 0)
+            : null
+        );
         return {
           ...holding,
+          localMarketValue,
           marketValue,
           navWeight: latestNav > 0 && marketValue != null ? (marketValue / latestNav) * 100 : null,
         };
@@ -1603,8 +1625,13 @@ export function PortfolioDashboard() {
                           </div>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="text-sm font-semibold text-slate-800">{money(holding.marketValue, holding.currency)}</p>
+                          <p className="text-sm font-semibold text-slate-800">{money(holding.marketValue, holding.baseCurrency ?? "USD")}</p>
                           <p className="text-xs text-slate-500">{weightPct(holding.navWeight)}</p>
+                          {holding.currency !== (holding.baseCurrency ?? "USD") && holding.localMarketValue != null ? (
+                            <p className="text-[11px] text-slate-400">
+                              {money(holding.localMarketValue, holding.currency)} @ {numberText(holding.fxRateToBase)}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                     );
@@ -1741,7 +1768,14 @@ export function PortfolioDashboard() {
                         <td className="px-3 py-2 text-slate-600">{numberText(holding.quantity)}</td>
                         <td className="px-3 py-2 text-slate-600">{holding.latestPrice == null ? "-" : money(holding.latestPrice, holding.currency, 2)}</td>
                         <td className="px-3 py-2 text-slate-600">{holding.purchasePrice == null ? "-" : money(holding.purchasePrice, holding.currency, 2)}</td>
-                        <td className="px-3 py-2 text-slate-600">{money(holding.marketValue, holding.currency)}</td>
+                        <td className="px-3 py-2 text-slate-600">
+                          <div className="font-medium text-slate-700">{money(holding.marketValue, holding.baseCurrency ?? "USD")}</div>
+                          {holding.currency !== (holding.baseCurrency ?? "USD") && holding.localMarketValue != null ? (
+                            <div className="text-xs text-slate-400">
+                              {money(holding.localMarketValue, holding.currency)} native · FX {numberText(holding.fxRateToBase)}
+                            </div>
+                          ) : null}
+                        </td>
                         <td className="px-3 py-2 text-slate-600">{weightPct(holding.navWeight)}</td>
                         <td className="px-3 py-2 text-slate-600">
                           {holding.assetType === "bond" ? `${holding.couponRate ?? "?"} · ${holding.couponSchedule ?? "no pay dates"}` : "-"}

@@ -4,7 +4,7 @@ import {
   getPortfolioSnapshot,
   saveHistoryPoint,
 } from "../apps/api/src/services/portfolioService.mjs";
-import { normalizeYahooPriceQuote } from "../apps/api/src/services/portfolioMarketData.mjs";
+import { fetchFxRateWithCache, normalizeYahooPriceQuote } from "../apps/api/src/services/portfolioMarketData.mjs";
 
 const OWNER_EMAIL = "luyudong1136@gmail.com";
 const failures = [];
@@ -16,6 +16,9 @@ function assert(condition, message) {
 function approxEqual(actual, expected, tolerance = 0.05) {
   return Math.abs(Number(actual) - expected) <= tolerance;
 }
+
+const lsegPenceQuote = normalizeYahooPriceQuote("LSEG", 9274, "GBp", { exchangeName: "LSE" });
+const gbpUsdRate = await fetchFxRateWithCache("GBP", "USD", { maxAgeMs: 24 * 60 * 60 * 1000 });
 
 const ownerSnapshot = getPortfolioSnapshot({
   auth: { claims: { localDev: true } },
@@ -39,7 +42,7 @@ const firstNavAfterSave = await saveHistoryPoint(firstNavRequest, {
   source: "validation_first_nav",
 });
 const firstNavAfterDelete = deleteHistoryPoint(firstNavRequest, "portfolio-history-2001-02-01");
-const lsegPenceQuote = normalizeYahooPriceQuote("LSEG", 9274, "GBp", { exchangeName: "LSE" });
+const ownerLsegHolding = ownerSnapshot.holdings.find((holding) => holding.symbol === "LSEG");
 
 assert(ownerSnapshot.account.email === OWNER_EMAIL, `Expected local dev portfolio owner ${OWNER_EMAIL}.`);
 assert(ownerSnapshot.account.seededFromWorkbook === true, "Owner account should be seeded from the workbook.");
@@ -63,6 +66,15 @@ assert(
 assert(firstNavAfterDelete.history.length === 0, "First-NAV validation cleanup should remove the test row.");
 assert(lsegPenceQuote.currency === "GBP", `LSEG GBp quote should normalize to GBP, found ${lsegPenceQuote.currency}.`);
 assert(approxEqual(lsegPenceQuote.price, 92.74, 0.001), `LSEG 9274 GBp should normalize to 92.74 GBP, found ${lsegPenceQuote.price}.`);
+assert(gbpUsdRate.rate > 1 && gbpUsdRate.rate < 2, `GBP/USD rate should be a usable USD conversion rate, found ${gbpUsdRate.rate}.`);
+if (ownerLsegHolding) {
+  assert(ownerLsegHolding.marketValueCurrency === "GBP", `Owner LSEG local market value should be GBP, found ${ownerLsegHolding.marketValueCurrency}.`);
+  assert(ownerLsegHolding.baseCurrency === "USD", `Owner LSEG base currency should be USD, found ${ownerLsegHolding.baseCurrency}.`);
+  assert(
+    Number(ownerLsegHolding.marketValueBase) > Number(ownerLsegHolding.marketValue),
+    `Owner LSEG USD market value should exceed GBP local value, found ${ownerLsegHolding.marketValueBase} vs ${ownerLsegHolding.marketValue}.`,
+  );
+}
 
 const output = {
   ok: failures.length === 0,
@@ -90,6 +102,8 @@ const output = {
     rawCurrency: "GBp",
     normalizedPrice: lsegPenceQuote.price,
     normalizedCurrency: lsegPenceQuote.currency,
+    gbpUsdRate: gbpUsdRate.rate,
+    sampleUsdValue: lsegPenceQuote.price * 200 * gbpUsdRate.rate,
   },
   failures,
 };

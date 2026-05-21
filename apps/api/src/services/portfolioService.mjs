@@ -5,9 +5,12 @@ import XLSX from "xlsx";
 import { execute, executescript, query } from "../db/client.mjs";
 import {
   defaultMarketLogoUrl,
+  fetchFxRateWithCache,
   fetchYahooDividendsWithCache,
   fetchYahooPriceWithCache,
+  getCachedFxRate,
   getMarketSecurity,
+  normalizeCurrencyCode,
   normalizeYahooPriceQuote,
   searchMarketSecurities,
   upsertMarketSecurity,
@@ -15,6 +18,7 @@ import {
 } from "./portfolioMarketData.mjs";
 
 const PORTFOLIO_ROOT = path.resolve(process.env.PORTFOLIO_DATA_ROOT ?? "data/local/portfolio/accounts");
+const PORTFOLIO_BASE_CURRENCY = "USD";
 const DEFAULT_SEED_OWNER_EMAIL = "luyudong1136@gmail.com";
 const SEED_OWNER_EMAIL = String(process.env.PORTFOLIO_SEED_OWNER_EMAIL ?? DEFAULT_SEED_OWNER_EMAIL).trim().toLowerCase();
 const DEV_EMAIL = String(process.env.PORTFOLIO_DEV_EMAIL ?? SEED_OWNER_EMAIL).trim().toLowerCase();
@@ -302,13 +306,30 @@ function parseCouponSchedule(value) {
     .filter(Boolean);
 }
 
-function holdingMarketValue(holding) {
+function holdingMarketValueParts(holding) {
   const latestPrice = normalizedHoldingPrice(holding);
   const quantity = nullableNumber(holding.quantity) ?? 0;
-  if (latestPrice != null) return latestPrice * quantity;
+  const currency = normalizeCurrencyCode(holding?.currency);
+  if (latestPrice != null) {
+    return {
+      marketValue: latestPrice * quantity,
+      marketValueCurrency: currency,
+      marketValueSource: "latest_price_quantity",
+    };
+  }
   const manualMarketValue = nullableNumber(holding.manualMarketValue);
-  if (manualMarketValue != null) return manualMarketValue;
-  return 0;
+  if (manualMarketValue != null) {
+    return {
+      marketValue: manualMarketValue,
+      marketValueCurrency: PORTFOLIO_BASE_CURRENCY,
+      marketValueSource: "manual_market_value_base_currency",
+    };
+  }
+  return {
+    marketValue: null,
+    marketValueCurrency: currency,
+    marketValueSource: "missing_price",
+  };
 }
 
 function normalizedHoldingPrice(holding) {
@@ -330,6 +351,50 @@ function normalizeHoldingRow(holding) {
     latestPrice: normalized.price,
     currency: normalized.currency,
     unitNote: normalized.unitNote ?? null,
+  };
+}
+
+function applyCachedBaseMarketValue(holding) {
+  const normalized = normalizeHoldingRow(holding);
+  const valueParts = holdingMarketValueParts(normalized);
+  const fxRate = getCachedFxRate(valueParts.marketValueCurrency, PORTFOLIO_BASE_CURRENCY, { allowStale: true });
+  const rate = fxRate?.rate ?? (valueParts.marketValueCurrency === PORTFOLIO_BASE_CURRENCY ? 1 : null);
+  const marketValueBase = valueParts.marketValue != null && rate != null ? valueParts.marketValue * rate : null;
+  return {
+    ...normalized,
+    ...valueParts,
+    marketValueBase,
+    baseCurrency: PORTFOLIO_BASE_CURRENCY,
+    fxRateToBase: rate,
+    fxRateSource: fxRate?.sourceUrl ?? null,
+    fxRateFetchedAt: fxRate?.fetchedAt ?? null,
+    fxRateStatus: rate == null ? "missing" : fxRate?.stale ? "stale" : "ok",
+  };
+}
+
+async function holdingMarketValueBase(holding, options = {}) {
+  const normalized = normalizeHoldingRow(holding);
+  const valueParts = holdingMarketValueParts(normalized);
+  if (valueParts.marketValue == null) {
+    return {
+      ...valueParts,
+      marketValueBase: 0,
+      fxRateToBase: null,
+      fxRateSource: null,
+      fxRateFetchedAt: null,
+      fxRateStatus: "missing",
+    };
+  }
+  const fxRate = await fetchFxRateWithCache(valueParts.marketValueCurrency, PORTFOLIO_BASE_CURRENCY, {
+    force: Boolean(options.force),
+  });
+  return {
+    ...valueParts,
+    marketValueBase: valueParts.marketValue * fxRate.rate,
+    fxRateToBase: fxRate.rate,
+    fxRateSource: fxRate.sourceUrl ?? null,
+    fxRateFetchedAt: fxRate.fetchedAt ?? null,
+    fxRateStatus: fxRate.stale ? "stale" : "ok",
   };
 }
 
@@ -600,7 +665,7 @@ function summaryFromRows(history, incomeEvents) {
 export function getPortfolioSnapshotForAccount(account) {
   ensureDb(account);
   const history = rows(account, "SELECT * FROM portfolio_history ORDER BY date");
-  const holdings = rows(account, "SELECT * FROM holdings ORDER BY assetType, symbol, accountName").map(normalizeHoldingRow);
+  const holdings = rows(account, "SELECT * FROM holdings ORDER BY assetType, symbol, accountName").map(applyCachedBaseMarketValue);
   const incomeEvents = rows(account, "SELECT * FROM income_events ORDER BY eventDate, symbol");
   const profile = rows(account, "SELECT * FROM account_profile WHERE id = 'default' LIMIT 1")[0] ?? null;
   return {
@@ -850,7 +915,16 @@ export async function refreshPortfolioNavForAccount(account, options = {}) {
   ensureDb(account);
   const priceRefresh = await refreshStockPricesForAccount(account, { force: options.force ?? true });
   const holdings = query("SELECT * FROM holdings ORDER BY assetType, symbol, accountName", [], account.dbPath);
-  const positionsValue = holdings.reduce((sum, holding) => sum + holdingMarketValue(holding), 0);
+  const holdingValues = [];
+  for (const holding of holdings) {
+    try {
+      holdingValues.push({ symbol: holding.symbol, ...(await holdingMarketValueBase(holding, { force: options.force ?? true })) });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Daily NAV FX conversion failed for ${holding.symbol} (${holding.currency} to ${PORTFOLIO_BASE_CURRENCY}): ${message}`);
+    }
+  }
+  const positionsValue = holdingValues.reduce((sum, holding) => sum + Number(holding.marketValueBase ?? 0), 0);
   const latestHistory = query("SELECT * FROM portfolio_history ORDER BY date DESC LIMIT 1", [], account.dbPath)[0] ?? {};
   const today = new Date().toISOString().slice(0, 10);
   const existingToday = query("SELECT * FROM portfolio_history WHERE date = ? LIMIT 1", [today], account.dbPath)[0] ?? {};
@@ -879,7 +953,18 @@ export async function refreshPortfolioNavForAccount(account, options = {}) {
       portfolioValue,
       positionsValue,
       cashFunds,
-      source: "Holdings market value plus latest cash funds",
+      baseCurrency: PORTFOLIO_BASE_CURRENCY,
+      fxRates: holdingValues
+        .filter((holding) => holding.marketValueCurrency !== PORTFOLIO_BASE_CURRENCY && holding.fxRateToBase != null)
+        .map((holding) => ({
+          symbol: holding.symbol,
+          fromCurrency: holding.marketValueCurrency,
+          toCurrency: PORTFOLIO_BASE_CURRENCY,
+          rate: holding.fxRateToBase,
+          sourceUrl: holding.fxRateSource,
+          status: holding.fxRateStatus,
+        })),
+      source: "Holdings market value converted to USD plus latest cash funds",
     },
   };
 }
