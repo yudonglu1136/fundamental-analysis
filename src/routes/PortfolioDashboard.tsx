@@ -873,6 +873,11 @@ export function PortfolioDashboard() {
     };
   }, [passiveIncomeMonths]);
 
+  const historyDateExists = useMemo(
+    () => Boolean(snapshot?.history.some((row) => row.date === historyForm.date && row.id !== historyForm.id)),
+    [historyForm.date, historyForm.id, snapshot?.history],
+  );
+
   function updateHolding(key: keyof typeof emptyHolding, value: string) {
     setHoldingForm((current) => ({ ...current, [key]: value }));
   }
@@ -904,6 +909,7 @@ export function PortfolioDashboard() {
       const withdrawn = parseOptionalMoneyInput(historyForm.withdrawn, "Withdrawal");
       const dividends = parseOptionalMoneyInput(historyForm.dividends, "Dividends");
       const totalProfit = parseOptionalMoneyInput(historyForm.totalProfit, "Total profit");
+      const willUpdateExistingDate = Boolean(snapshot?.history.some((row) => row.date === historyForm.date && row.id !== historyForm.id));
       const payload = await apiFetch<PortfolioSnapshot>("/api/portfolio/history", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -919,7 +925,11 @@ export function PortfolioDashboard() {
       });
       setSnapshot(payload);
       setHistoryForm({ ...emptyHistoryPoint, date: new Date().toISOString().slice(0, 10) });
-      setMessage(historyForm.id ? "Portfolio ledger point updated. Returns and benchmark data recalculated." : "Portfolio ledger point saved. Net worth and cash-flow charts updated.");
+      setMessage(
+        historyForm.id || willUpdateExistingDate
+          ? `Portfolio ledger point for ${historyForm.date} updated. Returns and benchmark data recalculated.`
+          : "Portfolio ledger point saved. Net worth and cash-flow charts updated.",
+      );
     } catch (error) {
       setMessage(actionErrorMessage(error, "Portfolio ledger point was not saved"));
     } finally {
@@ -1333,9 +1343,9 @@ export function PortfolioDashboard() {
                 <input className={inputClass} inputMode="decimal" placeholder="$0" value={historyForm.dividends} onChange={(event) => updateHistory("dividends", event.target.value)} />
               </Field>
               <div className="flex items-end gap-2">
-                <button type="button" disabled={saving || !historyForm.date || !historyForm.portfolioValue.trim()} onClick={() => void saveHistoryPoint()} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
+                <button type="button" disabled={saving || !historyForm.date} onClick={() => void saveHistoryPoint()} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
                   <Plus className="h-4 w-4" />
-                  {historyForm.id ? "Update" : "Add"}
+                  {historyForm.id || historyDateExists ? "Update" : "Add"}
                 </button>
                 {historyForm.id ? (
                   <button type="button" onClick={() => setHistoryForm({ ...emptyHistoryPoint, date: new Date().toISOString().slice(0, 10) })} className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600">
@@ -1343,6 +1353,11 @@ export function PortfolioDashboard() {
                   </button>
                 ) : null}
               </div>
+            </div>
+            <div className="mt-3 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-slate-700">
+              {historyDateExists
+                ? `A ledger point already exists for ${historyForm.date}; saving will update that row.`
+                : "Portfolio NAV is required. A new date creates a new row; the same date updates the existing row."}
             </div>
           </div>
 
