@@ -1279,6 +1279,18 @@ export function PortfolioDashboard() {
       <div className="tf-stock-module-canvas space-y-6 border border-white/10 bg-[#05070b]/70 p-3 shadow-[0_28px_90px_rgba(0,0,0,0.34)] sm:p-4 lg:p-6">
         {message ? <div className="rounded-lg border border-cyan-300/30 bg-cyan-300/10 p-3 text-sm text-cyan-100">{message}</div> : null}
 
+        <div className="grid grid-cols-3 gap-2 lg:hidden">
+          <a href="#portfolio-ledger" className="border border-white/10 bg-white/[0.055] px-3 py-2 text-center text-xs font-semibold text-white transition hover:border-cyan-200/45 hover:bg-cyan-300/10">
+            Ledger
+          </a>
+          <a href="#portfolio-holdings" className="border border-white/10 bg-white/[0.055] px-3 py-2 text-center text-xs font-semibold text-white transition hover:border-cyan-200/45 hover:bg-cyan-300/10">
+            Holdings
+          </a>
+          <a href="#portfolio-income" className="border border-white/10 bg-white/[0.055] px-3 py-2 text-center text-xs font-semibold text-white transition hover:border-cyan-200/45 hover:bg-cyan-300/10">
+            Income
+          </a>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <StatTile icon={<TrendingUp className="h-4 w-4" />} label="Latest Net Worth" value={money(snapshot.summary.latestPortfolioValue)} note={snapshot.summary.latestMonth ?? "Latest month"} tone="positive" />
           <StatTile icon={<Download className="h-4 w-4" />} label="Deposits" value={money(snapshot.summary.totalDeposited)} note="Cumulative imported deposits" />
@@ -1385,6 +1397,7 @@ export function PortfolioDashboard() {
           </div>
         </SectionCard>
 
+        <div id="portfolio-ledger" className="scroll-mt-32">
         <SectionCard title="Portfolio Ledger" description="Manual and imported net worth points, cash flows, dividends, and benchmark returns. Users can edit NAV later after rebalancing.">
           <div className="grid gap-6 xl:grid-cols-3">
             <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
@@ -1553,7 +1566,9 @@ export function PortfolioDashboard() {
             </table>
           </div>
         </SectionCard>
+        </div>
 
+        <div id="portfolio-holdings" className="scroll-mt-32">
         <SectionCard title="Portfolio Composition" description="Saved positions explain the imported NAV; they do not add to net worth. Residual value stays in Cash / Unallocated.">
           <div className="grid gap-5 xl:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)]">
             <div className="rounded-lg border border-slate-200 bg-white p-4">
@@ -1806,7 +1821,9 @@ export function PortfolioDashboard() {
             </div>
           </div>
         </SectionCard>
+        </div>
 
+        <div id="portfolio-income" className="scroll-mt-32">
         <SectionCard title="Passive Income Calendar" description="Stocks are refreshed from public dividend endpoints; bonds and notes are entered manually.">
         <div className="flex flex-wrap gap-3">
           <button type="button" disabled={saving} onClick={() => void refreshDividends()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-ink disabled:opacity-40">
@@ -2038,6 +2055,7 @@ export function PortfolioDashboard() {
           </div>
         </div>
         </SectionCard>
+        </div>
       </div>
     </section>
   );

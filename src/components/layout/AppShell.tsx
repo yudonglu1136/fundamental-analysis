@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { createContext, useContext, useMemo, useState } from "react";
 import { ChartThemeDefs } from "../shared/ChartThemeDefs";
+import { MobileBottomNav } from "./MobileBottomNav";
 import { Sidebar } from "./Sidebar";
 import { TopNav } from "./TopNav";
 import type { DataSourceType, Scenario, StockModule } from "../../stocks/types";
@@ -45,10 +46,11 @@ export function AppShell() {
         <Sidebar />
         <div className="min-w-0 flex-1">
           <TopNav />
-          <main className="mx-auto w-full max-w-[1740px] px-3 py-4 sm:px-5 sm:py-5 lg:px-8">
+          <main className="mx-auto w-full max-w-[1740px] px-3 pb-28 pt-4 sm:px-5 sm:pb-28 sm:pt-5 lg:px-8 lg:pb-8">
             <Outlet />
           </main>
         </div>
+        <MobileBottomNav />
       </div>
     </AppShellContext.Provider>
   );

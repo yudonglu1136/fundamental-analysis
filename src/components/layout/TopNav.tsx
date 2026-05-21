@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { useAppShell } from "./AppShell";
 import { useAuth } from "../../auth/useAuth";
@@ -10,8 +10,20 @@ import { ThesisForgeLogo } from "./ThesisForgeLogo";
 export function TopNav() {
   const { currentModule } = useAppShell();
   const { user, logout } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
+  const isPortfolio = location.pathname.startsWith("/portfolio");
   const displayName = user?.provider === "local-dev" ? "Private Workspace" : user?.email ?? user?.name ?? "Signed in";
+  const headerKicker = currentModule
+    ? currentModule.sector
+    : isPortfolio
+      ? "Private portfolio workspace"
+      : "Investment research workspace";
+  const headerTitle = currentModule
+    ? `${currentModule.ticker} · ${currentModule.name}`
+    : isPortfolio
+      ? "Net Worth Workspace"
+      : "Thesis Forge";
   const stockOptions = useMemo(
     () => stockMetadataList.map((stock) => ({ value: stock.ticker, label: `${stock.ticker} · ${stock.name}` })),
     [],
@@ -22,24 +34,22 @@ export function TopNav() {
         <div className="flex min-w-0 items-center gap-3">
           <ThesisForgeLogo className="lg:hidden" />
           <div className="min-w-0">
-            <p className="tf-kicker line-clamp-1 break-words">{currentModule ? currentModule.sector : "Investment research workspace"}</p>
+            <p className="tf-kicker line-clamp-1 break-words">{headerKicker}</p>
             <h2 className="mt-1 line-clamp-2 break-words text-base font-semibold leading-snug tracking-normal text-white [overflow-wrap:anywhere] sm:line-clamp-1 sm:text-xl">
-              {currentModule ? `${currentModule.ticker} · ${currentModule.name}` : "Thesis Forge"}
+              {headerTitle}
             </h2>
           </div>
         </div>
         <div className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_auto] lg:w-auto lg:grid-cols-none lg:flex lg:flex-wrap lg:items-center lg:justify-end lg:gap-3">
-          {currentModule ? (
-            <SearchableSelect
-              value={currentModule.ticker}
-              onValueChange={(ticker) => navigate(`/stocks/${ticker}`)}
-              options={stockOptions}
-              placeholder="Search stocks"
-              className="min-w-0 lg:min-w-[240px]"
-            />
-          ) : null}
+          <SearchableSelect
+            value={currentModule?.ticker ?? ""}
+            onValueChange={(ticker) => navigate(`/stocks/${ticker}`)}
+            options={stockOptions}
+            placeholder={currentModule ? "Search stocks" : "Open stock research"}
+            className={`min-w-0 lg:min-w-[240px] ${currentModule ? "" : "lg:hidden"}`}
+          />
           {user ? (
-            <div className={`${currentModule ? "hidden sm:flex" : "flex"} min-w-0 items-center justify-between gap-2 border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-white/62 shadow-[0_10px_30px_rgba(0,0,0,0.22)] sm:w-auto lg:max-w-[320px]`}>
+            <div className="hidden min-w-0 items-center justify-between gap-2 border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-white/62 shadow-[0_10px_30px_rgba(0,0,0,0.22)] sm:flex sm:w-auto lg:max-w-[320px]">
               <div className="flex min-w-0 items-center gap-2">
                 {user.avatarUrl ? <img src={user.avatarUrl} alt="" className="h-7 w-7 shrink-0 rounded-full" referrerPolicy="no-referrer" /> : null}
                 <span className="hidden min-w-0 truncate sm:inline">{displayName}</span>

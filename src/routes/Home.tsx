@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Activity, ArrowUpRight, Crosshair, Layers3, Radar, Search, Sparkles, Waypoints } from "lucide-react";
+import { Activity, ArrowUpRight, Crosshair, Layers3, Radar, Search, Sparkles, WalletCards, Waypoints } from "lucide-react";
 import { stockMetadataList, type StockMetadata } from "../stocks/metadata";
 
 type CoverageCollection = {
@@ -169,6 +169,17 @@ export function Home() {
               <SignalStat label="Themes" value={coverageCollections.length.toString()} note="Coverage clusters" />
               <SignalStat label="Mode" value="Live" note="Registry loaded" />
             </div>
+
+            <Link
+              to="/portfolio"
+              className="mt-3 flex min-h-16 items-center justify-between gap-4 border border-cyan-200/20 bg-cyan-300/[0.08] px-4 py-3 text-left transition hover:border-cyan-200/45 hover:bg-cyan-300/[0.14] sm:max-w-xl"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-white">Net Worth Workspace</span>
+                <span className="mt-1 block truncate text-xs font-medium text-cyan-100/68">Portfolio NAV, holdings, cash flows and passive income calendar</span>
+              </span>
+              <WalletCards className="h-5 w-5 shrink-0 text-cyan-100" />
+            </Link>
           </div>
 
           <div className="tf-object-panel p-4">
