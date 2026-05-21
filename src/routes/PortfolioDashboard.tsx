@@ -1240,6 +1240,9 @@ export function PortfolioDashboard() {
     );
   }
 
+  const historyNavPlaceholder = snapshot.history.length === 0 ? "Enter starting NAV" : "Enter NAV";
+  const cashFundsPlaceholder = "Optional cash balance";
+
   return (
     <section className="space-y-6">
       <div className="tf-command-surface relative overflow-hidden p-4 sm:p-5">
@@ -1437,14 +1440,14 @@ export function PortfolioDashboard() {
                 <input
                   className={inputClass}
                   inputMode="decimal"
-                  placeholder="$505,121"
+                  placeholder={historyNavPlaceholder}
                   value={historyForm.portfolioValue}
                   aria-invalid={!historyForm.portfolioValue.trim() && Boolean(historyFormFeedback)}
                   onChange={(event) => updateHistory("portfolioValue", event.target.value)}
                 />
               </Field>
               <Field label="Cash / uninvested">
-                <input className={inputClass} inputMode="decimal" placeholder="$1,681" value={historyForm.cashFunds} onChange={(event) => updateHistory("cashFunds", event.target.value)} />
+                <input className={inputClass} inputMode="decimal" placeholder={cashFundsPlaceholder} value={historyForm.cashFunds} onChange={(event) => updateHistory("cashFunds", event.target.value)} />
               </Field>
               <Field label="Deposit">
                 <input className={inputClass} inputMode="decimal" placeholder="$0" value={historyForm.deposited} onChange={(event) => updateHistory("deposited", event.target.value)} />

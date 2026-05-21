@@ -6,7 +6,14 @@ let originalFetch: typeof window.fetch | null = null;
 let unauthorizedHandler: (() => void) | null = null;
 
 function apiBaseUrl() {
-  return import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
+  const configured = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
+  return configured || DEFAULT_API_BASE_URL;
+}
+
+function apiUrl(path: string) {
+  const base = apiBaseUrl().replace(/\/+$/, "");
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${normalizedPath}`;
 }
 
 function requestUrl(input: RequestInfo | URL) {
@@ -54,7 +61,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   if (apiAccessToken && !headers.has("authorization")) {
     headers.set("authorization", `Bearer ${apiAccessToken}`);
   }
-  const response = await fetch(`${apiBaseUrl()}${path}`, { ...init, headers });
+  const response = await fetch(apiUrl(path), { ...init, headers });
   if (!response.ok) {
     let detail = "";
     try {
