@@ -23,7 +23,7 @@ export async function routePortfolio(request, url, body) {
   }
 
   if (request.method === "POST" && url.pathname === "/api/portfolio/history") {
-    return { status: 200, body: saveHistoryPoint(request, body ?? {}) };
+    return { status: 200, body: await saveHistoryPoint(request, body ?? {}) };
   }
 
   const historyMatch = url.pathname.match(/^\/api\/portfolio\/history\/([^/]+)$/);

@@ -269,6 +269,97 @@ function holdingMarketValue(holding) {
   return 0;
 }
 
+function unixSecondsForDate(date, endOfDay = false) {
+  const suffix = endOfDay ? "T23:59:59Z" : "T00:00:00Z";
+  return Math.floor(new Date(`${date}${suffix}`).getTime() / 1000);
+}
+
+function calculatePeriodReturn(previousPortfolioValue, currentPortfolioValue, deposited, withdrawn) {
+  const beginningValue = nullableNumber(previousPortfolioValue);
+  const endingValue = nullableNumber(currentPortfolioValue);
+  if (beginningValue == null || beginningValue <= 0 || endingValue == null) return null;
+  const netContribution = (nullableNumber(deposited) ?? 0) - (nullableNumber(withdrawn) ?? 0);
+  const totalProfit = endingValue - beginningValue - netContribution;
+  return {
+    beginValue: beginningValue,
+    endValue: endingValue,
+    changeAmount: endingValue - beginningValue,
+    totalProfit,
+    totalProfitPct: (totalProfit / beginningValue) * 100,
+  };
+}
+
+async function fetchBenchmarkReturnPct(startDate, endDate) {
+  if (!startDate || !endDate || startDate >= endDate) return null;
+  const period1 = unixSecondsForDate(startDate);
+  const period2 = unixSecondsForDate(endDate, true) + 86400;
+  for (const symbol of ["^GSPC", "SPY"]) {
+    try {
+      const encoded = encodeURIComponent(symbol);
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?period1=${period1}&period2=${period2}&interval=1d`;
+      const payload = await fetchJson(url);
+      const result = payload?.chart?.result?.[0] ?? {};
+      const timestamps = result.timestamp ?? [];
+      const closes = result.indicators?.quote?.[0]?.close ?? [];
+      const points = timestamps
+        .map((timestamp, index) => ({ timestamp: Number(timestamp), close: Number(closes[index]) }))
+        .filter((point) => Number.isFinite(point.timestamp) && Number.isFinite(point.close) && point.close > 0)
+        .sort((left, right) => left.timestamp - right.timestamp);
+      if (points.length >= 2) {
+        const first = points[0].close;
+        const last = points[points.length - 1].close;
+        return ((last / first) - 1) * 100;
+      }
+    } catch {
+      // Try the next benchmark symbol. The UI labels this as S&P 500; SPY is a fallback proxy.
+    }
+  }
+  return null;
+}
+
+async function buildCalculatedHistoryRow(dbPath, payload) {
+  const date = cleanString(payload?.date);
+  const existing = query("SELECT * FROM portfolio_history WHERE date = ? LIMIT 1", [date], dbPath)[0] ?? {};
+  const previous = query("SELECT * FROM portfolio_history WHERE date < ? ORDER BY date DESC LIMIT 1", [date], dbPath)[0] ?? null;
+  const portfolioValue = nullableNumber(payload?.portfolioValue) ?? nullableNumber(existing.portfolioValue);
+  const deposited = nullableNumber(payload?.deposited);
+  const withdrawn = nullableNumber(payload?.withdrawn);
+  const calculatedReturn = calculatePeriodReturn(previous?.portfolioValue, portfolioValue, deposited, withdrawn);
+  const benchmarkReturnPct = previous?.date ? await fetchBenchmarkReturnPct(previous.date, date) : null;
+
+  return {
+    id: cleanString(payload?.id) || existing.id || `portfolio-history-${date}`,
+    date,
+    label: cleanString(payload?.label) || existing.label || labelFromDate(date),
+    portfolioValue,
+    beginValue: calculatedReturn?.beginValue ?? nullableNumber(payload?.beginValue) ?? nullableNumber(existing.beginValue),
+    endValue: calculatedReturn?.endValue ?? nullableNumber(payload?.endValue) ?? nullableNumber(existing.endValue),
+    changeAmount: calculatedReturn?.changeAmount ?? nullableNumber(payload?.changeAmount) ?? nullableNumber(existing.changeAmount),
+    totalProfit: calculatedReturn?.totalProfit ?? nullableNumber(payload?.totalProfit) ?? nullableNumber(existing.totalProfit),
+    totalProfitPct: calculatedReturn?.totalProfitPct ?? nullableNumber(existing.totalProfitPct),
+    netProfitFromSales: nullableNumber(payload?.netProfitFromSales) ?? nullableNumber(existing.netProfitFromSales),
+    profitFromPriceChange: nullableNumber(payload?.profitFromPriceChange) ?? nullableNumber(existing.profitFromPriceChange),
+    profitFromSales: nullableNumber(payload?.profitFromSales) ?? nullableNumber(existing.profitFromSales),
+    dividends: nullableNumber(payload?.dividends) ?? nullableNumber(existing.dividends),
+    taxes: nullableNumber(payload?.taxes) ?? nullableNumber(existing.taxes),
+    commissions: nullableNumber(payload?.commissions) ?? nullableNumber(existing.commissions),
+    other: nullableNumber(payload?.other) ?? nullableNumber(existing.other),
+    turnover: nullableNumber(payload?.turnover) ?? nullableNumber(existing.turnover),
+    totalPurchases: nullableNumber(payload?.totalPurchases) ?? nullableNumber(existing.totalPurchases),
+    totalSales: nullableNumber(payload?.totalSales) ?? nullableNumber(existing.totalSales),
+    totalTrades: nullableNumber(payload?.totalTrades) ?? nullableNumber(existing.totalTrades),
+    buyTrades: nullableNumber(payload?.buyTrades) ?? nullableNumber(existing.buyTrades),
+    sellTrades: nullableNumber(payload?.sellTrades) ?? nullableNumber(existing.sellTrades),
+    cashFunds: nullableNumber(payload?.cashFunds) ?? nullableNumber(existing.cashFunds),
+    deposited,
+    withdrawn,
+    availableFunds: nullableNumber(payload?.availableFunds) ?? nullableNumber(existing.availableFunds),
+    sp500MarketPerformance: nullableNumber(payload?.sp500MarketPerformance) ?? nullableNumber(existing.sp500MarketPerformance),
+    sp500MarketPerformancePct: benchmarkReturnPct ?? nullableNumber(existing.sp500MarketPerformancePct),
+    source: cleanString(payload?.source, "manual") || existing.source || "manual",
+  };
+}
+
 function parseSeedWorkbook() {
   if (!existsSync(SEED_XLSX_PATH)) return [];
   const workbook = XLSX.readFile(SEED_XLSX_PATH, { cellDates: false });
@@ -452,42 +543,13 @@ export function getPortfolioSnapshot(request) {
   };
 }
 
-export function saveHistoryPoint(request, payload) {
+export async function saveHistoryPoint(request, payload) {
   const account = resolveAccount(request);
   ensureDb(account);
   const date = cleanString(payload?.date);
   if (!date) throw new Error("Portfolio history date is required.");
-  upsertHistoryRow(account.dbPath, {
-    id: cleanString(payload?.id) || `portfolio-history-${date}`,
-    date,
-    label: cleanString(payload?.label) || labelFromDate(date),
-    portfolioValue: nullableNumber(payload?.portfolioValue),
-    beginValue: nullableNumber(payload?.beginValue),
-    endValue: nullableNumber(payload?.endValue),
-    changeAmount: nullableNumber(payload?.changeAmount),
-    totalProfit: nullableNumber(payload?.totalProfit),
-    totalProfitPct: nullableNumber(payload?.totalProfitPct),
-    netProfitFromSales: nullableNumber(payload?.netProfitFromSales),
-    profitFromPriceChange: nullableNumber(payload?.profitFromPriceChange),
-    profitFromSales: nullableNumber(payload?.profitFromSales),
-    dividends: nullableNumber(payload?.dividends),
-    taxes: nullableNumber(payload?.taxes),
-    commissions: nullableNumber(payload?.commissions),
-    other: nullableNumber(payload?.other),
-    turnover: nullableNumber(payload?.turnover),
-    totalPurchases: nullableNumber(payload?.totalPurchases),
-    totalSales: nullableNumber(payload?.totalSales),
-    totalTrades: nullableNumber(payload?.totalTrades),
-    buyTrades: nullableNumber(payload?.buyTrades),
-    sellTrades: nullableNumber(payload?.sellTrades),
-    cashFunds: nullableNumber(payload?.cashFunds),
-    deposited: nullableNumber(payload?.deposited),
-    withdrawn: nullableNumber(payload?.withdrawn),
-    availableFunds: nullableNumber(payload?.availableFunds),
-    sp500MarketPerformance: nullableNumber(payload?.sp500MarketPerformance),
-    sp500MarketPerformancePct: nullableNumber(payload?.sp500MarketPerformancePct),
-    source: cleanString(payload?.source, "manual") || "manual",
-  });
+  const row = await buildCalculatedHistoryRow(account.dbPath, { ...payload, date });
+  upsertHistoryRow(account.dbPath, row);
   return getPortfolioSnapshot(request);
 }
 
@@ -692,7 +754,7 @@ export async function refreshPortfolioNav(request) {
   const cashFunds = nullableNumber(existingToday.cashFunds) ?? nullableNumber(latestHistory.cashFunds) ?? nullableNumber(latestHistory.availableFunds) ?? 0;
   const portfolioValue = positionsValue + cashFunds;
 
-  upsertHistoryRow(account.dbPath, {
+  const row = await buildCalculatedHistoryRow(account.dbPath, {
     ...existingToday,
     id: existingToday.id ?? `portfolio-history-${today}`,
     date: today,
@@ -704,6 +766,7 @@ export async function refreshPortfolioNav(request) {
     withdrawn: existingToday.withdrawn ?? 0,
     source: "daily_nav_refresh",
   });
+  upsertHistoryRow(account.dbPath, row);
 
   return {
     ...getPortfolioSnapshot(request),

@@ -184,8 +184,6 @@ const emptyHistoryPoint = {
   withdrawn: "",
   dividends: "",
   totalProfit: "",
-  totalProfitPct: "",
-  sp500MarketPerformancePct: "",
   source: "manual",
 };
 
@@ -878,8 +876,6 @@ export function PortfolioDashboard() {
           withdrawn: historyForm.withdrawn ? Number(historyForm.withdrawn) : null,
           dividends: historyForm.dividends ? Number(historyForm.dividends) : null,
           totalProfit: historyForm.totalProfit ? Number(historyForm.totalProfit) : null,
-          totalProfitPct: historyForm.totalProfitPct ? Number(historyForm.totalProfitPct) : null,
-          sp500MarketPerformancePct: historyForm.sp500MarketPerformancePct ? Number(historyForm.sp500MarketPerformancePct) : null,
         }),
       });
       setSnapshot(payload);
@@ -906,8 +902,6 @@ export function PortfolioDashboard() {
       withdrawn: formText(row.withdrawn),
       dividends: formText(row.dividends),
       totalProfit: formText(row.totalProfit),
-      totalProfitPct: formText(row.totalProfitPct),
-      sp500MarketPerformancePct: formText(row.sp500MarketPerformancePct),
       source: row.source ?? "manual",
     });
   }
@@ -1067,7 +1061,7 @@ export function PortfolioDashboard() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <StatTile icon={<TrendingUp className="h-4 w-4" />} label="Latest Net Worth" value={money(snapshot.summary.latestPortfolioValue)} note={snapshot.summary.latestMonth ?? "Latest month"} tone="positive" />
           <StatTile icon={<Download className="h-4 w-4" />} label="Deposits" value={money(snapshot.summary.totalDeposited)} note="Cumulative imported deposits" />
-          <StatTile icon={<Landmark className="h-4 w-4" />} label="Cash Funds" value={money(snapshot.summary.cashFunds)} note="Latest imported cash balance" tone="warning" />
+          <StatTile icon={<Landmark className="h-4 w-4" />} label="Cash / Uninvested" value={money(snapshot.summary.cashFunds)} note="Latest cash balance" tone="warning" />
           <StatTile icon={<CalendarDays className="h-4 w-4" />} label="This Year Income" value={money(dividendCalendarSummary.annualIncome, "USD", 2)} note={`${new Date().getFullYear()} paid, declared, and estimated income`} />
           <StatTile icon={<CalendarDays className="h-4 w-4" />} label="Next Income" value={snapshot.summary.nextIncome ? money(snapshot.summary.nextIncome.grossAmount, snapshot.summary.nextIncome.currency) : "N/A"} note={snapshot.summary.nextIncome ? `${snapshot.summary.nextIncome.symbol} on ${snapshot.summary.nextIncome.eventDate}` : "No upcoming event"} />
         </div>
@@ -1239,14 +1233,14 @@ export function PortfolioDashboard() {
           </div>
 
           <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
-            <div className="grid gap-3 lg:grid-cols-9">
+            <div className="grid gap-3 lg:grid-cols-7">
               <Field label="Date">
                 <input className={inputClass} type="date" value={historyForm.date} onChange={(event) => updateHistory("date", event.target.value)} />
               </Field>
               <Field label="Portfolio NAV">
                 <input className={inputClass} type="number" step="0.01" value={historyForm.portfolioValue} onChange={(event) => updateHistory("portfolioValue", event.target.value)} />
               </Field>
-              <Field label="Cash funds">
+              <Field label="Cash / uninvested">
                 <input className={inputClass} type="number" step="0.01" value={historyForm.cashFunds} onChange={(event) => updateHistory("cashFunds", event.target.value)} />
               </Field>
               <Field label="Deposit">
@@ -1257,12 +1251,6 @@ export function PortfolioDashboard() {
               </Field>
               <Field label="Dividends">
                 <input className={inputClass} type="number" step="0.01" value={historyForm.dividends} onChange={(event) => updateHistory("dividends", event.target.value)} />
-              </Field>
-              <Field label="Return %">
-                <input className={inputClass} type="number" step="0.0001" value={historyForm.totalProfitPct} onChange={(event) => updateHistory("totalProfitPct", event.target.value)} />
-              </Field>
-              <Field label="S&P 500 %">
-                <input className={inputClass} type="number" step="0.0001" value={historyForm.sp500MarketPerformancePct} onChange={(event) => updateHistory("sp500MarketPerformancePct", event.target.value)} />
               </Field>
               <div className="flex items-end gap-2">
                 <button type="button" disabled={saving || !historyForm.date} onClick={() => void saveHistoryPoint()} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
@@ -1288,6 +1276,7 @@ export function PortfolioDashboard() {
                   <th className="px-3 py-2">Deposit</th>
                   <th className="px-3 py-2">Withdrawal</th>
                   <th className="px-3 py-2">Return</th>
+                  <th className="px-3 py-2">S&P 500</th>
                   <th className="px-3 py-2">Source</th>
                   <th className="px-3 py-2">Action</th>
                 </tr>
@@ -1301,6 +1290,7 @@ export function PortfolioDashboard() {
                     <td className="px-3 py-2 text-slate-600">{money(row.deposited)}</td>
                     <td className="px-3 py-2 text-slate-600">{money(row.withdrawn)}</td>
                     <td className="px-3 py-2 text-slate-600">{pct(row.totalProfitPct)}</td>
+                    <td className="px-3 py-2 text-slate-600">{pct(row.sp500MarketPerformancePct)}</td>
                     <td className="px-3 py-2 text-slate-500">{row.source ?? "manual"}</td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-3">
@@ -1318,7 +1308,7 @@ export function PortfolioDashboard() {
                 ))}
                 {snapshot.history.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-4 text-slate-500" colSpan={8}>No portfolio ledger points saved yet.</td>
+                    <td className="px-3 py-4 text-slate-500" colSpan={9}>No portfolio ledger points saved yet.</td>
                   </tr>
                 ) : null}
               </tbody>
