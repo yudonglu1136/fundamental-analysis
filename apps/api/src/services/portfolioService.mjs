@@ -8,6 +8,7 @@ import {
   fetchYahooDividendsWithCache,
   fetchYahooPriceWithCache,
   getMarketSecurity,
+  normalizeYahooPriceQuote,
   searchMarketSecurities,
   upsertMarketSecurity,
   refreshMarketDataUniverse,
@@ -302,12 +303,34 @@ function parseCouponSchedule(value) {
 }
 
 function holdingMarketValue(holding) {
-  const latestPrice = nullableNumber(holding.latestPrice);
+  const latestPrice = normalizedHoldingPrice(holding);
   const quantity = nullableNumber(holding.quantity) ?? 0;
   if (latestPrice != null) return latestPrice * quantity;
   const manualMarketValue = nullableNumber(holding.manualMarketValue);
   if (manualMarketValue != null) return manualMarketValue;
   return 0;
+}
+
+function normalizedHoldingPrice(holding) {
+  const latestPrice = nullableNumber(holding?.latestPrice);
+  if (latestPrice == null) return null;
+  return normalizeYahooPriceQuote(holding?.symbol, latestPrice, holding?.currency, {
+    exchange: holding?.market,
+  }).price;
+}
+
+function normalizeHoldingRow(holding) {
+  const latestPrice = nullableNumber(holding?.latestPrice);
+  if (latestPrice == null) return holding;
+  const normalized = normalizeYahooPriceQuote(holding.symbol, latestPrice, holding.currency, {
+    exchange: holding.market,
+  });
+  return {
+    ...holding,
+    latestPrice: normalized.price,
+    currency: normalized.currency,
+    unitNote: normalized.unitNote ?? null,
+  };
 }
 
 function unixSecondsForDate(date, endOfDay = false) {
@@ -577,7 +600,7 @@ function summaryFromRows(history, incomeEvents) {
 export function getPortfolioSnapshotForAccount(account) {
   ensureDb(account);
   const history = rows(account, "SELECT * FROM portfolio_history ORDER BY date");
-  const holdings = rows(account, "SELECT * FROM holdings ORDER BY assetType, symbol, accountName");
+  const holdings = rows(account, "SELECT * FROM holdings ORDER BY assetType, symbol, accountName").map(normalizeHoldingRow);
   const incomeEvents = rows(account, "SELECT * FROM income_events ORDER BY eventDate, symbol");
   const profile = rows(account, "SELECT * FROM account_profile WHERE id = 'default' LIMIT 1")[0] ?? null;
   return {
@@ -626,10 +649,16 @@ export function saveHolding(request, payload) {
   if (!symbol) throw new Error("Holding symbol is required.");
   const marketSecurity = assetType === "stock" ? getMarketSecurity(symbol) : null;
   const name = cleanString(payload?.name) || marketSecurity?.name || null;
-  const currency = cleanString(payload?.currency || marketSecurity?.currency, "USD").toUpperCase() || "USD";
+  const market = cleanString(payload?.market || marketSecurity?.exchange) || null;
+  let currency = cleanString(payload?.currency || marketSecurity?.currency, "USD").toUpperCase() || "USD";
   const explicitLogoUrl = cleanString(payload?.logoUrl);
   const logoUrl = explicitLogoUrl || marketSecurity?.logoUrl || defaultLogoUrl(symbol, assetType);
-  const latestPrice = nullableNumber(payload?.latestPrice) ?? nullableNumber(marketSecurity?.cachedPrice);
+  const rawLatestPrice = nullableNumber(payload?.latestPrice) ?? nullableNumber(marketSecurity?.cachedPrice);
+  const normalizedLatestQuote = rawLatestPrice == null
+    ? null
+    : normalizeYahooPriceQuote(symbol, rawLatestPrice, currency, { exchange: market });
+  const latestPrice = normalizedLatestQuote?.price ?? null;
+  currency = normalizedLatestQuote?.currency ?? currency;
   const latestPriceAt = cleanString(payload?.latestPriceAt) || (latestPrice != null ? marketSecurity?.cachedPriceAt : null);
   const latestPriceSource = cleanString(payload?.latestPriceSource)
     || (latestPrice != null && marketSecurity?.cachedPriceAt ? "portfolio_market_data_cache" : null);
@@ -669,7 +698,7 @@ export function saveHolding(request, payload) {
       name,
       Number(payload?.quantity ?? 0),
       currency,
-      cleanString(payload?.market) || null,
+      market,
       latestPrice,
       latestPriceAt,
       latestPriceSource,
@@ -693,7 +722,7 @@ export function saveHolding(request, payload) {
       symbol,
       name,
       assetType,
-      exchange: cleanString(payload?.market) || marketSecurity?.exchange || null,
+      exchange: market,
       currency,
       logoUrl,
       logoSource: logoUrl ? (explicitLogoUrl ? "manual" : marketSecurity?.logoSource || "default_symbol_map") : null,
