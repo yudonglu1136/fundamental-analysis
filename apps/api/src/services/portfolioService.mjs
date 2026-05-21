@@ -884,13 +884,17 @@ export function deleteIncomeEvent(request, id) {
   return getPortfolioSnapshot(request);
 }
 
-async function fetchJson(url) {
+async function fetchJson(url, options = {}) {
+  const controller = new AbortController();
+  const timeoutMs = Number(options.timeoutMs ?? 5000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const response = await fetch(url, {
+    signal: controller.signal,
     headers: {
       "User-Agent": "fundamental-analysis-portfolio-income-calendar",
       Accept: "application/json",
     },
-  });
+  }).finally(() => clearTimeout(timeout));
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
 }

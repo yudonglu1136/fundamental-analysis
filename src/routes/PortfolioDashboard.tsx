@@ -680,6 +680,7 @@ export function PortfolioDashboard() {
   const [incomeForm, setIncomeForm] = useState(emptyIncome);
   const [marketSuggestions, setMarketSuggestions] = useState<MarketSecurity[]>([]);
   const [marketLookupState, setMarketLookupState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [historyFormFeedback, setHistoryFormFeedback] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const historyEditorRef = useRef<HTMLDivElement | null>(null);
   const holdingEditorRef = useRef<HTMLDivElement | null>(null);
@@ -949,6 +950,7 @@ export function PortfolioDashboard() {
   }
 
   function updateHistory(key: keyof typeof emptyHistoryPoint, value: string) {
+    if (historyFormFeedback) setHistoryFormFeedback(null);
     setHistoryForm((current) => ({ ...current, [key]: value }));
   }
 
@@ -964,10 +966,13 @@ export function PortfolioDashboard() {
 
   async function saveHistoryPoint() {
     setSaving(true);
+    setHistoryFormFeedback("Saving portfolio ledger point...");
     try {
       const portfolioValue = parseOptionalMoneyInput(historyForm.portfolioValue, "Portfolio NAV");
       if (portfolioValue == null) {
-        setMessage("Portfolio NAV is required before adding a ledger point.");
+        const requiredMessage = "Portfolio NAV is required before adding a ledger point.";
+        setHistoryFormFeedback(requiredMessage);
+        setMessage(requiredMessage);
         return;
       }
       const cashFunds = parseOptionalMoneyInput(historyForm.cashFunds, "Cash / uninvested");
@@ -996,8 +1001,15 @@ export function PortfolioDashboard() {
           ? `Portfolio ledger point for ${historyForm.date} updated. Returns and benchmark data recalculated.`
           : "Portfolio ledger point saved. Net worth and cash-flow charts updated.",
       );
+      setHistoryFormFeedback(
+        historyForm.id || willUpdateExistingDate
+          ? `Saved: ${historyForm.date} was updated.`
+          : `Saved: ${historyForm.date} was added.`,
+      );
     } catch (error) {
-      setMessage(actionErrorMessage(error, "Portfolio ledger point was not saved"));
+      const errorMessage = actionErrorMessage(error, "Portfolio ledger point was not saved");
+      setHistoryFormFeedback(errorMessage);
+      setMessage(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -1422,7 +1434,14 @@ export function PortfolioDashboard() {
                 <input className={inputClass} type="date" value={historyForm.date} onChange={(event) => updateHistory("date", event.target.value)} />
               </Field>
               <Field label="Portfolio NAV">
-                <input className={inputClass} inputMode="decimal" placeholder="$505,121" value={historyForm.portfolioValue} onChange={(event) => updateHistory("portfolioValue", event.target.value)} />
+                <input
+                  className={inputClass}
+                  inputMode="decimal"
+                  placeholder="$505,121"
+                  value={historyForm.portfolioValue}
+                  aria-invalid={!historyForm.portfolioValue.trim() && Boolean(historyFormFeedback)}
+                  onChange={(event) => updateHistory("portfolioValue", event.target.value)}
+                />
               </Field>
               <Field label="Cash / uninvested">
                 <input className={inputClass} inputMode="decimal" placeholder="$1,681" value={historyForm.cashFunds} onChange={(event) => updateHistory("cashFunds", event.target.value)} />
@@ -1439,7 +1458,7 @@ export function PortfolioDashboard() {
               <div className="flex items-end gap-2">
                 <button type="button" disabled={saving || !historyForm.date} onClick={() => void saveHistoryPoint()} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
                   <Plus className="h-4 w-4" />
-                  {historyForm.id || historyDateExists ? "Update" : "Add"}
+                  {saving ? "Saving..." : historyForm.id || historyDateExists ? "Update" : "Add"}
                 </button>
                 {historyForm.id ? (
                   <button type="button" onClick={() => setHistoryForm({ ...emptyHistoryPoint, date: new Date().toISOString().slice(0, 10) })} className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600">
@@ -1453,6 +1472,11 @@ export function PortfolioDashboard() {
                 ? `A ledger point already exists for ${historyForm.date}; saving will update that row.`
                 : "Portfolio NAV is required. A new date creates a new row; the same date updates the existing row."}
             </div>
+            {historyFormFeedback ? (
+              <div className="mt-3 rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm font-semibold text-white">
+                {historyFormFeedback}
+              </div>
+            ) : null}
           </div>
 
           <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
