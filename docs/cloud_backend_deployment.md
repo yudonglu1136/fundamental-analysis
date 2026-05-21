@@ -52,6 +52,30 @@ Health check:
 curl https://your-api-domain.com/api/health
 ```
 
+## Portfolio Daily NAV Job
+
+Portfolio NAV refresh is a backend job, not a browser task. The job scans isolated account databases under `data/local/portfolio/accounts`, skips accounts with no active holdings, refreshes stock prices, keeps user-maintained bond prices, and writes one `daily_nav_refresh` ledger row for the current date.
+
+Dry run:
+
+```bash
+npm run portfolio:daily-nav:dry-run
+```
+
+Run once:
+
+```bash
+npm run portfolio:daily-nav:refresh
+```
+
+Example production cron on the backend host:
+
+```bash
+15 23 * * 1-5 cd ~/fundamental-analysis && npm run portfolio:daily-nav:refresh >> logs/portfolio_daily_nav.log 2>&1
+```
+
+Run it after the US market close for US-heavy portfolios. Keep this on the persistent backend host so the same account-scoped SQLite databases are updated.
+
 ## Frontend environment
 
 Set these for the frontend deployment:

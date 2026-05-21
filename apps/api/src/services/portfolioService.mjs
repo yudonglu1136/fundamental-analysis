@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import crypto from "node:crypto";
 import path from "node:path";
 import XLSX from "xlsx";
@@ -217,6 +217,24 @@ function resolveAccount(request) {
   };
 }
 
+function accountFromExistingDb(accountKey, dbPath) {
+  let profile = null;
+  try {
+    profile = query("SELECT * FROM account_profile WHERE id = 'default' LIMIT 1", [], dbPath)[0] ?? null;
+  } catch {
+    profile = null;
+  }
+  const email = normalizeEmail(profile?.email);
+  return {
+    accountKey,
+    dbPath,
+    email: email || null,
+    userId: profile?.userId ?? null,
+    localDev: false,
+    seededFromWorkbook: email === SEED_OWNER_EMAIL,
+  };
+}
+
 function parseMonthLabel(label) {
   const match = cleanString(label).match(/^([A-Za-z]{3})\s+(\d{2})$/);
   if (!match) return null;
@@ -287,6 +305,8 @@ function holdingMarketValue(holding) {
   const latestPrice = nullableNumber(holding.latestPrice);
   const quantity = nullableNumber(holding.quantity) ?? 0;
   if (latestPrice != null) return latestPrice * quantity;
+  const manualMarketValue = nullableNumber(holding.manualMarketValue);
+  if (manualMarketValue != null) return manualMarketValue;
   return 0;
 }
 
@@ -521,6 +541,18 @@ function rows(account, sql, params = []) {
   return query(sql, params, account.dbPath);
 }
 
+export function listPortfolioAccounts() {
+  if (!existsSync(PORTFOLIO_ROOT)) return [];
+  return readdirSync(PORTFOLIO_ROOT, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => {
+      const dbPath = path.join(PORTFOLIO_ROOT, entry.name, "portfolio.sqlite");
+      return existsSync(dbPath) ? accountFromExistingDb(entry.name, dbPath) : null;
+    })
+    .filter(Boolean)
+    .sort((left, right) => String(left.email ?? left.accountKey).localeCompare(String(right.email ?? right.accountKey)));
+}
+
 function summaryFromRows(history, incomeEvents) {
   const latest = history[history.length - 1] ?? null;
   const first = history[0] ?? null;
@@ -542,8 +574,7 @@ function summaryFromRows(history, incomeEvents) {
   };
 }
 
-export function getPortfolioSnapshot(request) {
-  const account = resolveAccount(request);
+export function getPortfolioSnapshotForAccount(account) {
   ensureDb(account);
   const history = rows(account, "SELECT * FROM portfolio_history ORDER BY date");
   const holdings = rows(account, "SELECT * FROM holdings ORDER BY assetType, symbol, accountName");
@@ -562,6 +593,10 @@ export function getPortfolioSnapshot(request) {
     holdings,
     incomeEvents,
   };
+}
+
+export function getPortfolioSnapshot(request) {
+  return getPortfolioSnapshotForAccount(resolveAccount(request));
 }
 
 export async function saveHistoryPoint(request, payload) {
@@ -775,10 +810,9 @@ export async function refreshHoldingPrices(request, options = {}) {
   };
 }
 
-export async function refreshPortfolioNav(request) {
-  const account = resolveAccount(request);
+export async function refreshPortfolioNavForAccount(account, options = {}) {
   ensureDb(account);
-  const priceRefresh = await refreshStockPricesForAccount(account, { force: true });
+  const priceRefresh = await refreshStockPricesForAccount(account, { force: options.force ?? true });
   const holdings = query("SELECT * FROM holdings ORDER BY assetType, symbol, accountName", [], account.dbPath);
   const positionsValue = holdings.reduce((sum, holding) => sum + holdingMarketValue(holding), 0);
   const latestHistory = query("SELECT * FROM portfolio_history ORDER BY date DESC LIMIT 1", [], account.dbPath)[0] ?? {};
@@ -802,7 +836,7 @@ export async function refreshPortfolioNav(request) {
   upsertHistoryRow(account.dbPath, row);
 
   return {
-    ...getPortfolioSnapshot(request),
+    ...getPortfolioSnapshotForAccount(account),
     priceRefresh,
     navRefresh: {
       date: today,
@@ -812,6 +846,10 @@ export async function refreshPortfolioNav(request) {
       source: "Holdings market value plus latest cash funds",
     },
   };
+}
+
+export async function refreshPortfolioNav(request) {
+  return refreshPortfolioNavForAccount(resolveAccount(request), { force: true });
 }
 
 export function deleteHolding(request, id) {
