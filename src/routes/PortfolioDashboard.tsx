@@ -1504,7 +1504,7 @@ export function PortfolioDashboard() {
             <div className="mt-3 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-slate-700">
               {historyDateExists
                 ? `A ledger point already exists for ${historyForm.date}; saving will update that row.`
-                : "Portfolio NAV is required. Cash / uninvested is calculated from saved positions; dividends come from the passive income calendar."}
+                : "Portfolio NAV is the date snapshot. Deposits and withdrawals are post-NAV cash flows, so they affect the next return period. Cash / uninvested is calculated from saved positions."}
             </div>
             {historyFormFeedback ? (
               <div className="mt-3 rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm font-semibold text-white">

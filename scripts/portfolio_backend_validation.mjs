@@ -42,6 +42,36 @@ const firstNavAfterSave = await saveHistoryPoint(firstNavRequest, {
   source: "validation_first_nav",
 });
 const firstNavAfterDelete = deleteHistoryPoint(firstNavRequest, "portfolio-history-2001-02-01");
+const contributionTimingRequest = {
+  auth: { claims: {} },
+  user: { id: "portfolio-contribution-timing-validation-user", email: "portfolio-contribution-timing@example.com" },
+};
+for (const id of ["portfolio-history-2001-03-01", "portfolio-history-2001-03-02", "portfolio-history-2001-03-03"]) {
+  deleteHistoryPoint(contributionTimingRequest, id);
+}
+await saveHistoryPoint(contributionTimingRequest, {
+  date: "2001-03-01",
+  portfolioValue: 1000,
+  deposited: 100,
+  source: "validation_contribution_timing",
+});
+await saveHistoryPoint(contributionTimingRequest, {
+  date: "2001-03-02",
+  portfolioValue: 1120,
+  deposited: 50,
+  source: "validation_contribution_timing",
+});
+const contributionAfterThird = await saveHistoryPoint(contributionTimingRequest, {
+  date: "2001-03-03",
+  portfolioValue: 1190,
+  source: "validation_contribution_timing",
+});
+const contributionRows = new Map(contributionAfterThird.history.map((row) => [row.date, row]));
+const contributionSecondRow = contributionRows.get("2001-03-02");
+const contributionThirdRow = contributionRows.get("2001-03-03");
+for (const id of ["portfolio-history-2001-03-01", "portfolio-history-2001-03-02", "portfolio-history-2001-03-03"]) {
+  deleteHistoryPoint(contributionTimingRequest, id);
+}
 const ownerLsegHolding = ownerSnapshot.holdings.find((holding) => holding.symbol === "LSEG");
 
 assert(ownerSnapshot.account.email === OWNER_EMAIL, `Expected local dev portfolio owner ${OWNER_EMAIL}.`);
@@ -68,6 +98,26 @@ assert(
   `First NAV save should auto-calculate cash from NAV less holdings; found ${firstNavAfterSave.history[0]?.cashFunds}.`,
 );
 assert(firstNavAfterDelete.history.length === 0, "First-NAV validation cleanup should remove the test row.");
+assert(
+  approxEqual(contributionSecondRow?.beginValue, 1100, 0.001),
+  `Post-NAV contribution timing should make 2001-03-02 begin value 1100, found ${contributionSecondRow?.beginValue}.`,
+);
+assert(
+  approxEqual(contributionSecondRow?.totalProfit, 20, 0.001),
+  `Post-NAV contribution timing should make 2001-03-02 profit 20, found ${contributionSecondRow?.totalProfit}.`,
+);
+assert(
+  approxEqual(contributionSecondRow?.totalProfitPct, (20 / 1100) * 100, 0.001),
+  `Post-NAV contribution timing should make 2001-03-02 return ${(20 / 1100) * 100}, found ${contributionSecondRow?.totalProfitPct}.`,
+);
+assert(
+  approxEqual(contributionThirdRow?.beginValue, 1170, 0.001),
+  `Post-NAV contribution timing should make 2001-03-03 begin value 1170, found ${contributionThirdRow?.beginValue}.`,
+);
+assert(
+  approxEqual(contributionThirdRow?.totalProfit, 20, 0.001),
+  `Post-NAV contribution timing should make 2001-03-03 profit 20, found ${contributionThirdRow?.totalProfit}.`,
+);
 assert(lsegPenceQuote.currency === "GBP", `LSEG GBp quote should normalize to GBP, found ${lsegPenceQuote.currency}.`);
 assert(approxEqual(lsegPenceQuote.price, 92.74, 0.001), `LSEG 9274 GBp should normalize to 92.74 GBP, found ${lsegPenceQuote.price}.`);
 assert(gbpUsdRate.rate > 1 && gbpUsdRate.rate < 2, `GBP/USD rate should be a usable USD conversion rate, found ${gbpUsdRate.rate}.`);
@@ -99,6 +149,14 @@ const output = {
     beforeRows: firstNavBefore.history.length,
     afterSaveRows: firstNavAfterSave.history.length,
     afterCleanupRows: firstNavAfterDelete.history.length,
+  },
+  contributionTimingCheck: {
+    email: contributionAfterThird.account.email,
+    secondBeginValue: contributionSecondRow?.beginValue,
+    secondProfit: contributionSecondRow?.totalProfit,
+    secondReturnPct: contributionSecondRow?.totalProfitPct,
+    thirdBeginValue: contributionThirdRow?.beginValue,
+    thirdProfit: contributionThirdRow?.totalProfit,
   },
   lsePenceCheck: {
     symbol: "LSEG",

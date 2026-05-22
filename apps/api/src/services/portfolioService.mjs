@@ -439,18 +439,66 @@ function unixSecondsForDate(date, endOfDay = false) {
   return Math.floor(new Date(`${date}${suffix}`).getTime() / 1000);
 }
 
-function calculatePeriodReturn(previousPortfolioValue, currentPortfolioValue, deposited, withdrawn) {
-  const beginningValue = nullableNumber(previousPortfolioValue);
+function calculatePeriodReturn(previousRow, currentPortfolioValue) {
+  const previousPortfolioValue = nullableNumber(previousRow?.portfolioValue);
   const endingValue = nullableNumber(currentPortfolioValue);
-  if (beginningValue == null || beginningValue <= 0 || endingValue == null) return null;
-  const netContribution = (nullableNumber(deposited) ?? 0) - (nullableNumber(withdrawn) ?? 0);
-  const totalProfit = endingValue - beginningValue - netContribution;
+  if (previousPortfolioValue == null || previousPortfolioValue <= 0 || endingValue == null) return null;
+  const priorNetContribution = (nullableNumber(previousRow?.deposited) ?? 0) - (nullableNumber(previousRow?.withdrawn) ?? 0);
+  const beginningValue = previousPortfolioValue + priorNetContribution;
+  if (beginningValue <= 0) return null;
+  const totalProfit = endingValue - beginningValue;
   return {
     beginValue: beginningValue,
     endValue: endingValue,
-    changeAmount: endingValue - beginningValue,
+    changeAmount: totalProfit,
     totalProfit,
     totalProfitPct: (totalProfit / beginningValue) * 100,
+  };
+}
+
+function valuesDiffer(left, right, tolerance = 0.000001) {
+  const leftNumber = nullableNumber(left);
+  const rightNumber = nullableNumber(right);
+  if (leftNumber == null && rightNumber == null) return false;
+  if (leftNumber == null || rightNumber == null) return true;
+  return Math.abs(leftNumber - rightNumber) > tolerance;
+}
+
+function recalculatePortfolioHistoryReturns(dbPath) {
+  const history = query("SELECT * FROM portfolio_history ORDER BY date", [], dbPath);
+  let updatedRows = 0;
+  for (const [index, row] of history.entries()) {
+    const calculatedReturn = calculatePeriodReturn(history[index - 1] ?? null, row.portfolioValue);
+    const nextValues = {
+      beginValue: calculatedReturn?.beginValue ?? null,
+      endValue: calculatedReturn?.endValue ?? null,
+      changeAmount: calculatedReturn?.changeAmount ?? null,
+      totalProfit: calculatedReturn?.totalProfit ?? null,
+      totalProfitPct: calculatedReturn?.totalProfitPct ?? null,
+    };
+    const changed = Object.entries(nextValues).some(([key, value]) => valuesDiffer(row[key], value));
+    if (!changed) continue;
+    execute(
+      `UPDATE portfolio_history
+       SET beginValue = ?, endValue = ?, changeAmount = ?, totalProfit = ?, totalProfitPct = ?, updatedAt = ?
+       WHERE id = ?`,
+      [
+        nextValues.beginValue,
+        nextValues.endValue,
+        nextValues.changeAmount,
+        nextValues.totalProfit,
+        nextValues.totalProfitPct,
+        nowIso(),
+        row.id,
+      ],
+      dbPath,
+    );
+    updatedRows += 1;
+  }
+  return {
+    historyRows: history.length,
+    updatedRows,
+    cashFlowTiming: "Deposits and withdrawals are treated as post-NAV flows that affect the next return period.",
   };
 }
 
@@ -492,7 +540,7 @@ async function buildCalculatedHistoryRow(dbPath, payload) {
     : await calculateAutoCashFunds(dbPath, portfolioValue);
   const deposited = nullableNumber(payload?.deposited);
   const withdrawn = nullableNumber(payload?.withdrawn);
-  const calculatedReturn = calculatePeriodReturn(previous?.portfolioValue, portfolioValue, deposited, withdrawn);
+  const calculatedReturn = calculatePeriodReturn(previous, portfolioValue);
   const benchmarkReturnPct = previous?.date ? await fetchBenchmarkReturnPct(previous.date, date) : null;
 
   return {
@@ -703,6 +751,7 @@ function summaryFromRows(history, incomeEvents) {
 
 export function getPortfolioSnapshotForAccount(account) {
   ensureDb(account);
+  recalculatePortfolioHistoryReturns(account.dbPath);
   const history = rows(account, "SELECT * FROM portfolio_history ORDER BY date");
   const holdings = rows(account, "SELECT * FROM holdings ORDER BY assetType, symbol, accountName").map(applyCachedBaseMarketValue);
   const incomeEvents = rows(account, "SELECT * FROM income_events ORDER BY eventDate, symbol");
@@ -733,6 +782,7 @@ export async function saveHistoryPoint(request, payload) {
   if (!date) throw new Error("Portfolio history date is required.");
   const row = await buildCalculatedHistoryRow(account.dbPath, { ...payload, date });
   upsertHistoryRow(account.dbPath, row);
+  recalculatePortfolioHistoryReturns(account.dbPath);
   return getPortfolioSnapshot(request);
 }
 
@@ -740,6 +790,7 @@ export function deleteHistoryPoint(request, id) {
   const account = resolveAccount(request);
   ensureDb(account);
   execute("DELETE FROM portfolio_history WHERE id = ? OR date = ?", [id, id], account.dbPath);
+  recalculatePortfolioHistoryReturns(account.dbPath);
   return getPortfolioSnapshot(request);
 }
 
