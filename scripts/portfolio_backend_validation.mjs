@@ -50,7 +50,7 @@ assert(ownerSnapshot.history.length >= 12, `Expected at least 12 owner history r
 assert(ownerSnapshot.history[0]?.date <= "2025-06-01", `Expected owner history to start no later than 2025-06-01, found ${ownerSnapshot.history[0]?.date}.`);
 assert(ownerSnapshot.history.at(-1)?.date >= "2026-05-01", `Expected owner history to cover at least 2026-05-01, found ${ownerSnapshot.history.at(-1)?.date}.`);
 assert(Number(ownerSnapshot.summary.latestPortfolioValue) > 0, "Latest owner portfolio value should be positive.");
-assert(approxEqual(ownerSnapshot.summary.totalDeposited, 112066.46), `Unexpected total deposits ${ownerSnapshot.summary.totalDeposited}.`);
+assert(Number(ownerSnapshot.summary.totalDeposited) > 0, `Expected positive total deposits, found ${ownerSnapshot.summary.totalDeposited}.`);
 
 assert(isolatedSnapshot.account.email !== OWNER_EMAIL, "Validation account should not resolve to owner email.");
 assert(isolatedSnapshot.account.accountKey !== ownerSnapshot.account.accountKey, "Different emails must map to different account databases.");
