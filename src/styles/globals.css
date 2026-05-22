@@ -382,6 +382,27 @@
     overflow: visible;
   }
 
+  .tf-stock-module-canvas .recharts-sector,
+  .tf-stock-module-canvas .recharts-sector:focus,
+  .tf-stock-module-canvas .recharts-sector:focus-visible,
+  .tf-stock-module-canvas .tf-interactive-pie-slice,
+  .tf-stock-module-canvas .tf-interactive-pie-slice:focus,
+  .tf-stock-module-canvas .tf-interactive-pie-slice:focus-visible {
+    outline: none !important;
+  }
+
+  .tf-stock-module-canvas .tf-interactive-pie-slice {
+    cursor: pointer;
+    transition:
+      opacity 160ms ease,
+      filter 160ms ease,
+      stroke-width 160ms ease;
+  }
+
+  .tf-stock-module-canvas .tf-active-pie-sector .recharts-sector {
+    pointer-events: none;
+  }
+
   .tf-stock-module-canvas .recharts-rectangle:not([fill="transparent"]):not([fill^="url("]) {
     stroke: rgba(255, 255, 255, 0.26) !important;
     stroke-width: 1 !important;

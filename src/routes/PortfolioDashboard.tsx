@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Sector, Tooltip, XAxis, YAxis, type SectorProps } from "recharts";
 import { CalendarDays, Database, Download, Landmark, Pencil, Plus, RefreshCw, ShieldCheck, Trash2, TrendingUp, X } from "lucide-react";
 import { apiFetch } from "../api/client";
 import { useAuth } from "../auth/useAuth";
@@ -148,6 +148,13 @@ type AnnualTotalsRow = {
   bondIncome: number;
 };
 
+type AnnualDepositPieRow = {
+  name: string;
+  value: number;
+  color: string;
+  type: "deposit";
+};
+
 type HoldingTheme = {
   color: string;
   logoBackground: string;
@@ -163,6 +170,13 @@ type CompositionPieRow = {
   logoUrl: string | null;
   color: string;
   labelRank: number;
+};
+
+type InteractivePieRow = AnnualDepositPieRow | CompositionPieRow;
+
+type InteractivePieSectorProps = SectorProps & {
+  fill?: string;
+  payload?: InteractivePieRow;
 };
 
 type PassiveIncomeMonth = {
@@ -534,6 +548,36 @@ function CompositionTooltip({ active, payload }: { active?: boolean; payload?: T
   );
 }
 
+function renderActivePieSector(props: unknown, glowId: string) {
+  const sector = props as InteractivePieSectorProps;
+  const outerRadius = Number(sector.outerRadius ?? 0);
+  const innerRadius = Number(sector.innerRadius ?? 0);
+  const highlightColor = sector.payload?.color ?? sector.fill ?? "#3adbea";
+
+  return (
+    <g className="tf-active-pie-sector">
+      <Sector
+        {...sector}
+        innerRadius={innerRadius}
+        outerRadius={outerRadius + 9}
+        fill={sector.fill}
+        stroke="#ffffff"
+        strokeWidth={2.5}
+        filter={`url(#${glowId})`}
+      />
+      <Sector
+        {...sector}
+        innerRadius={Math.max(innerRadius - 2, 0)}
+        outerRadius={outerRadius + 2}
+        fill="none"
+        stroke={highlightColor}
+        strokeOpacity={0.82}
+        strokeWidth={1.2}
+      />
+    </g>
+  );
+}
+
 function BrightValueLabel({ x, y, width, value }: { x?: number | string; y?: number | string; width?: number | string; value?: number | string }) {
   const label = compactMoneyLabel(value);
   if (!label) return null;
@@ -696,6 +740,8 @@ export function PortfolioDashboard() {
   const [marketLookupState, setMarketLookupState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [historyFormFeedback, setHistoryFormFeedback] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [activeAnnualDepositIndex, setActiveAnnualDepositIndex] = useState<number | null>(null);
+  const [activeCompositionIndex, setActiveCompositionIndex] = useState<number | null>(null);
   const historyEditorRef = useRef<HTMLDivElement | null>(null);
   const holdingEditorRef = useRef<HTMLDivElement | null>(null);
 
@@ -886,7 +932,15 @@ export function PortfolioDashboard() {
   }, [snapshot?.history, snapshot?.incomeEvents]);
 
   const annualDepositPie = useMemo(
-    () => annualTotals.filter((row) => row.deposited > 0).map((row) => ({ name: row.year, value: row.deposited })),
+    () =>
+      annualTotals
+        .filter((row) => row.deposited > 0)
+        .map((row, index) => ({
+          name: row.year,
+          value: row.deposited,
+          color: pieColors[index % pieColors.length],
+          type: "deposit" as const,
+        })),
     [annualTotals],
   );
 
@@ -1332,12 +1386,16 @@ export function PortfolioDashboard() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <defs>
-                      {annualDepositPie.map((entry, index) => (
+                      {annualDepositPie.map((entry) => (
                         <radialGradient key={entry.name} id={svgSafeId("annual-deposit-pie", entry.name)} cx="35%" cy="30%" r="72%">
-                          <stop offset="0%" stopColor={pieColors[index % pieColors.length]} stopOpacity={0.98} />
-                          <stop offset="100%" stopColor={pieColors[index % pieColors.length]} stopOpacity={0.56} />
+                          <stop offset="0%" stopColor={entry.color} stopOpacity={0.98} />
+                          <stop offset="100%" stopColor={entry.color} stopOpacity={0.56} />
                         </radialGradient>
                       ))}
+                      <filter id="annual-deposit-pie-hover-glow" x="-35%" y="-35%" width="170%" height="170%">
+                        <feDropShadow dx="0" dy="16" stdDeviation="10" floodColor="#38bdf8" floodOpacity="0.22" />
+                        <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#f8fafc" floodOpacity="0.28" />
+                      </filter>
                     </defs>
                     <Pie
                       data={annualDepositPie}
@@ -1347,12 +1405,23 @@ export function PortfolioDashboard() {
                       outerRadius={104}
                       paddingAngle={3}
                       label={({ name, percent }) => `${name} ${(Number(percent) * 100).toFixed(0)}%`}
+                      activeIndex={activeAnnualDepositIndex ?? undefined}
+                      activeShape={(props: unknown) => renderActivePieSector(props, "annual-deposit-pie-hover-glow")}
+                      onMouseEnter={(_entry: unknown, index: number) => setActiveAnnualDepositIndex(index)}
+                      onMouseLeave={() => setActiveAnnualDepositIndex(null)}
+                      rootTabIndex={-1}
                     >
                       {annualDepositPie.map((entry, index) => (
-                        <Cell key={entry.name} fill={`url(#${svgSafeId("annual-deposit-pie", entry.name)})`} stroke="rgba(255,255,255,0.75)" />
+                        <Cell
+                          key={entry.name}
+                          fill={`url(#${svgSafeId("annual-deposit-pie", entry.name)})`}
+                          stroke="rgba(255,255,255,0.78)"
+                          opacity={activeAnnualDepositIndex == null || activeAnnualDepositIndex === index ? 1 : 0.36}
+                          className="tf-interactive-pie-slice"
+                        />
                       ))}
                     </Pie>
-                    <Tooltip content={<GenericChartTooltip />} />
+                    <Tooltip cursor={false} content={<GenericChartTooltip />} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -1592,6 +1661,10 @@ export function PortfolioDashboard() {
                             <stop offset="100%" stopColor={row.color} stopOpacity={0.5} />
                           </radialGradient>
                         ))}
+                        <filter id="composition-pie-hover-glow" x="-35%" y="-35%" width="170%" height="170%">
+                          <feDropShadow dx="0" dy="18" stdDeviation="12" floodColor="#22d3ee" floodOpacity="0.2" />
+                          <feDropShadow dx="0" dy="0" stdDeviation="7" floodColor="#f8fafc" floodOpacity="0.26" />
+                        </filter>
                       </defs>
                       <Pie
                         data={composition.pieRows}
@@ -1602,12 +1675,23 @@ export function PortfolioDashboard() {
                         paddingAngle={2}
                         label={renderPieLogoLabel}
                         labelLine={false}
+                        activeIndex={activeCompositionIndex ?? undefined}
+                        activeShape={(props: unknown) => renderActivePieSector(props, "composition-pie-hover-glow")}
+                        onMouseEnter={(_entry: unknown, index: number) => setActiveCompositionIndex(index)}
+                        onMouseLeave={() => setActiveCompositionIndex(null)}
+                        rootTabIndex={-1}
                       >
-                        {composition.pieRows.map((row) => (
-                          <Cell key={row.name} fill={`url(#${svgSafeId("composition-pie", row.name)})`} stroke="rgba(255,255,255,0.78)" />
+                        {composition.pieRows.map((row, index) => (
+                          <Cell
+                            key={row.name}
+                            fill={`url(#${svgSafeId("composition-pie", row.name)})`}
+                            stroke="rgba(255,255,255,0.78)"
+                            opacity={activeCompositionIndex == null || activeCompositionIndex === index ? 1 : 0.34}
+                            className="tf-interactive-pie-slice"
+                          />
                         ))}
                       </Pie>
-                      <Tooltip content={<CompositionTooltip />} />
+                      <Tooltip cursor={false} content={<CompositionTooltip />} />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
