@@ -760,6 +760,11 @@ export function PortfolioDashboard() {
     [snapshot?.history],
   );
 
+  const ledgerRows = useMemo(
+    () => [...(snapshot?.history ?? [])].sort((left, right) => right.date.localeCompare(left.date)),
+    [snapshot?.history],
+  );
+
   const calendarEvents = useMemo(
     () =>
       [...(snapshot?.incomeEvents ?? [])].sort(
@@ -1357,7 +1362,12 @@ export function PortfolioDashboard() {
             </div>
           </div>
 
-          <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
+          <div className="mt-5 flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-normal text-slate-500">
+            <span>{ledgerRows.length} ledger rows</span>
+            <span>Newest first</span>
+          </div>
+
+          <div className="mt-2 max-h-[720px] overflow-auto rounded-lg border border-slate-200">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-normal text-slate-500">
                 <tr>
@@ -1519,7 +1529,7 @@ export function PortfolioDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {[...(snapshot.history ?? [])].slice(-12).reverse().map((row) => (
+                {ledgerRows.map((row) => (
                   <tr key={row.id}>
                     <td className="px-3 py-2 font-semibold text-ink">{row.date}</td>
                     <td className="px-3 py-2 text-slate-600">{money(row.portfolioValue)}</td>
@@ -1543,7 +1553,7 @@ export function PortfolioDashboard() {
                     </td>
                   </tr>
                 ))}
-                {snapshot.history.length === 0 ? (
+                {ledgerRows.length === 0 ? (
                   <tr>
                     <td className="px-3 py-4 text-slate-500" colSpan={9}>No portfolio ledger points saved yet.</td>
                   </tr>
