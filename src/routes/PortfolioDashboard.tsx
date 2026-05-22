@@ -208,10 +208,8 @@ const emptyHistoryPoint = {
   id: "",
   date: new Date().toISOString().slice(0, 10),
   portfolioValue: "",
-  cashFunds: "",
   deposited: "",
   withdrawn: "",
-  dividends: "",
   totalProfit: "",
   source: "manual",
 };
@@ -997,22 +995,20 @@ export function PortfolioDashboard() {
         setMessage(requiredMessage);
         return;
       }
-      const cashFunds = parseOptionalMoneyInput(historyForm.cashFunds, "Cash / uninvested");
       const deposited = parseOptionalMoneyInput(historyForm.deposited, "Deposit");
       const withdrawn = parseOptionalMoneyInput(historyForm.withdrawn, "Withdrawal");
-      const dividends = parseOptionalMoneyInput(historyForm.dividends, "Dividends");
       const totalProfit = parseOptionalMoneyInput(historyForm.totalProfit, "Total profit");
       const willUpdateExistingDate = Boolean(snapshot?.history.some((row) => row.date === historyForm.date && row.id !== historyForm.id));
       const payload = await apiFetch<PortfolioSnapshot>("/api/portfolio/history", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          ...historyForm,
+          id: historyForm.id,
+          date: historyForm.date,
+          source: historyForm.source,
           portfolioValue,
-          cashFunds,
           deposited,
           withdrawn,
-          dividends,
           totalProfit,
         }),
       });
@@ -1057,10 +1053,8 @@ export function PortfolioDashboard() {
       id: row.id,
       date: row.date,
       portfolioValue: formText(row.portfolioValue),
-      cashFunds: formText(row.cashFunds),
       deposited: formText(row.deposited),
       withdrawn: formText(row.withdrawn),
-      dividends: formText(row.dividends),
       totalProfit: formText(row.totalProfit),
       source: row.source ?? "manual",
     });
@@ -1116,7 +1110,7 @@ export function PortfolioDashboard() {
           const priced = await apiFetch<PortfolioSnapshot>("/api/portfolio/holding-prices/refresh", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ symbol }),
+            body: JSON.stringify({ symbol, recalculateLatestCash: true }),
           });
           setSnapshot(priced);
           const errors = priced.priceRefresh?.errors.filter((item) => item.symbol === symbol) ?? [];
@@ -1263,8 +1257,6 @@ export function PortfolioDashboard() {
   }
 
   const historyNavPlaceholder = snapshot.history.length === 0 ? "Enter starting NAV" : "Enter NAV";
-  const cashFundsPlaceholder = "Optional cash balance";
-
   return (
     <section className="space-y-6">
       <div className="tf-command-surface relative overflow-hidden p-4 sm:p-5">
@@ -1294,7 +1286,7 @@ export function PortfolioDashboard() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <StatTile icon={<TrendingUp className="h-4 w-4" />} label="Latest Net Worth" value={money(snapshot.summary.latestPortfolioValue)} note={snapshot.summary.latestMonth ?? "Latest month"} tone="positive" />
           <StatTile icon={<Download className="h-4 w-4" />} label="Deposits" value={money(snapshot.summary.totalDeposited)} note="Cumulative imported deposits" />
-          <StatTile icon={<Landmark className="h-4 w-4" />} label="Cash / Uninvested" value={money(snapshot.summary.cashFunds)} note="Account cash outside saved positions" tone="warning" />
+          <StatTile icon={<Landmark className="h-4 w-4" />} label="Cash / Uninvested" value={money(snapshot.summary.cashFunds)} note="Auto residual after saved positions" tone="warning" />
           <StatTile icon={<CalendarDays className="h-4 w-4" />} label="This Year Income" value={money(dividendCalendarSummary.annualIncome, "USD", 2)} note={`${new Date().getFullYear()} paid, declared, and estimated income`} />
           <StatTile icon={<CalendarDays className="h-4 w-4" />} label="Next Income" value={snapshot.summary.nextIncome ? money(snapshot.summary.nextIncome.grossAmount, snapshot.summary.nextIncome.currency) : "N/A"} note={snapshot.summary.nextIncome ? `${snapshot.summary.nextIncome.symbol} on ${snapshot.summary.nextIncome.eventDate}` : "No upcoming event"} />
         </div>
@@ -1398,7 +1390,7 @@ export function PortfolioDashboard() {
         </SectionCard>
 
         <div id="portfolio-ledger" className="scroll-mt-32">
-        <SectionCard title="Portfolio Ledger" description="Manual and imported net worth points, cash flows, dividends, and benchmark returns. Users can edit NAV later after rebalancing.">
+        <SectionCard title="Portfolio Ledger" description="Manual and imported net worth points, cash flows, residual cash, and benchmark returns. Users can edit NAV later after rebalancing.">
           <div className="grid gap-6 xl:grid-cols-3">
             <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
               <ResponsiveContainer width="100%" height="100%">
@@ -1467,7 +1459,7 @@ export function PortfolioDashboard() {
           </div>
 
           <div ref={historyEditorRef} className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
-            <div className="grid gap-3 lg:grid-cols-7">
+            <div className="grid gap-3 lg:grid-cols-5">
               <Field label="Date">
                 <input className={inputClass} type="date" value={historyForm.date} onChange={(event) => updateHistory("date", event.target.value)} />
               </Field>
@@ -1481,17 +1473,11 @@ export function PortfolioDashboard() {
                   onChange={(event) => updateHistory("portfolioValue", event.target.value)}
                 />
               </Field>
-              <Field label="Cash / uninvested">
-                <input className={inputClass} inputMode="decimal" placeholder={cashFundsPlaceholder} value={historyForm.cashFunds} onChange={(event) => updateHistory("cashFunds", event.target.value)} />
-              </Field>
               <Field label="Deposit">
                 <input className={inputClass} inputMode="decimal" placeholder="$0" value={historyForm.deposited} onChange={(event) => updateHistory("deposited", event.target.value)} />
               </Field>
               <Field label="Withdrawal">
                 <input className={inputClass} inputMode="decimal" placeholder="$0" value={historyForm.withdrawn} onChange={(event) => updateHistory("withdrawn", event.target.value)} />
-              </Field>
-              <Field label="Dividends">
-                <input className={inputClass} inputMode="decimal" placeholder="$0" value={historyForm.dividends} onChange={(event) => updateHistory("dividends", event.target.value)} />
               </Field>
               <div className="flex items-end gap-2">
                 <button type="button" disabled={saving || !historyForm.date} onClick={() => void saveHistoryPoint()} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
@@ -1508,7 +1494,7 @@ export function PortfolioDashboard() {
             <div className="mt-3 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-slate-700">
               {historyDateExists
                 ? `A ledger point already exists for ${historyForm.date}; saving will update that row.`
-                : "Portfolio NAV is required. A new date creates a new row; the same date updates the existing row."}
+                : "Portfolio NAV is required. Cash / uninvested is calculated from saved positions; dividends come from the passive income calendar."}
             </div>
             {historyFormFeedback ? (
               <div className="mt-3 rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm font-semibold text-white">

@@ -22,7 +22,7 @@ export async function routePortfolio(request, url, body) {
   }
 
   if (request.method === "POST" && pathname === "/api/portfolio/holdings") {
-    return { status: 200, body: saveHolding(request, body ?? {}) };
+    return { status: 200, body: await saveHolding(request, body ?? {}) };
   }
 
   if (request.method === "POST" && pathname === "/api/portfolio/history") {
@@ -36,7 +36,7 @@ export async function routePortfolio(request, url, body) {
 
   const holdingMatch = pathname.match(/^\/api\/portfolio\/holdings\/([^/]+)$/);
   if (request.method === "DELETE" && holdingMatch) {
-    return { status: 200, body: deleteHolding(request, decodeURIComponent(holdingMatch[1])) };
+    return { status: 200, body: await deleteHolding(request, decodeURIComponent(holdingMatch[1])) };
   }
 
   if (request.method === "POST" && pathname === "/api/portfolio/income-events") {

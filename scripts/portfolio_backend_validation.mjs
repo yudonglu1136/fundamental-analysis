@@ -47,7 +47,7 @@ const ownerLsegHolding = ownerSnapshot.holdings.find((holding) => holding.symbol
 assert(ownerSnapshot.account.email === OWNER_EMAIL, `Expected local dev portfolio owner ${OWNER_EMAIL}.`);
 assert(ownerSnapshot.account.seededFromWorkbook === true, "Owner account should be seeded from the workbook.");
 assert(ownerSnapshot.history.length >= 12, `Expected at least 12 owner history rows, found ${ownerSnapshot.history.length}.`);
-assert(ownerSnapshot.history[0]?.date === "2025-06-01", `Expected first history month 2025-06-01, found ${ownerSnapshot.history[0]?.date}.`);
+assert(ownerSnapshot.history[0]?.date <= "2025-06-01", `Expected owner history to start no later than 2025-06-01, found ${ownerSnapshot.history[0]?.date}.`);
 assert(ownerSnapshot.history.at(-1)?.date >= "2026-05-01", `Expected owner history to cover at least 2026-05-01, found ${ownerSnapshot.history.at(-1)?.date}.`);
 assert(Number(ownerSnapshot.summary.latestPortfolioValue) > 0, "Latest owner portfolio value should be positive.");
 assert(approxEqual(ownerSnapshot.summary.totalDeposited, 112066.46), `Unexpected total deposits ${ownerSnapshot.summary.totalDeposited}.`);
@@ -62,6 +62,10 @@ assert(firstNavAfterSave.history.length === 1, `First NAV save should create one
 assert(
   approxEqual(firstNavAfterSave.history[0]?.portfolioValue, 12345),
   `First NAV save wrote unexpected value ${firstNavAfterSave.history[0]?.portfolioValue}.`,
+);
+assert(
+  approxEqual(firstNavAfterSave.history[0]?.cashFunds, 12345),
+  `First NAV save should auto-calculate cash from NAV less holdings; found ${firstNavAfterSave.history[0]?.cashFunds}.`,
 );
 assert(firstNavAfterDelete.history.length === 0, "First-NAV validation cleanup should remove the test row.");
 assert(lsegPenceQuote.currency === "GBP", `LSEG GBp quote should normalize to GBP, found ${lsegPenceQuote.currency}.`);

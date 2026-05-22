@@ -398,6 +398,42 @@ async function holdingMarketValueBase(holding, options = {}) {
   };
 }
 
+async function calculatePositionsValueBase(dbPath, options = {}) {
+  const holdings = query("SELECT * FROM holdings ORDER BY assetType, symbol, accountName", [], dbPath);
+  let positionsValue = 0;
+  for (const holding of holdings) {
+    const valueParts = await holdingMarketValueBase(holding, { force: Boolean(options.force) });
+    positionsValue += Number(valueParts.marketValueBase ?? 0);
+  }
+  return positionsValue;
+}
+
+async function calculateAutoCashFunds(dbPath, portfolioValue, options = {}) {
+  const nav = nullableNumber(portfolioValue);
+  if (nav == null) return null;
+  const positionsValue = await calculatePositionsValueBase(dbPath, options);
+  return nav - positionsValue;
+}
+
+async function recalculateLatestCashFromHoldings(account, options = {}) {
+  const latestHistory = query("SELECT * FROM portfolio_history ORDER BY date DESC LIMIT 1", [], account.dbPath)[0] ?? null;
+  const portfolioValue = nullableNumber(latestHistory?.portfolioValue);
+  if (!latestHistory || portfolioValue == null) return null;
+  const positionsValue = await calculatePositionsValueBase(account.dbPath, options);
+  const cashFunds = portfolioValue - positionsValue;
+  execute(
+    "UPDATE portfolio_history SET cashFunds = ?, updatedAt = ? WHERE id = ?",
+    [cashFunds, nowIso(), latestHistory.id],
+    account.dbPath,
+  );
+  return {
+    date: latestHistory.date,
+    portfolioValue,
+    positionsValue,
+    cashFunds,
+  };
+}
+
 function unixSecondsForDate(date, endOfDay = false) {
   const suffix = endOfDay ? "T23:59:59Z" : "T00:00:00Z";
   return Math.floor(new Date(`${date}${suffix}`).getTime() / 1000);
@@ -451,6 +487,9 @@ async function buildCalculatedHistoryRow(dbPath, payload) {
   const existing = query("SELECT * FROM portfolio_history WHERE date = ? LIMIT 1", [date], dbPath)[0] ?? {};
   const previous = query("SELECT * FROM portfolio_history WHERE date < ? ORDER BY date DESC LIMIT 1", [date], dbPath)[0] ?? null;
   const portfolioValue = nullableNumber(payload?.portfolioValue) ?? nullableNumber(existing.portfolioValue);
+  const cashFunds = payload?.autoCashFunds === false
+    ? nullableNumber(payload?.cashFunds) ?? nullableNumber(existing.cashFunds)
+    : await calculateAutoCashFunds(dbPath, portfolioValue);
   const deposited = nullableNumber(payload?.deposited);
   const withdrawn = nullableNumber(payload?.withdrawn);
   const calculatedReturn = calculatePeriodReturn(previous?.portfolioValue, portfolioValue, deposited, withdrawn);
@@ -479,7 +518,7 @@ async function buildCalculatedHistoryRow(dbPath, payload) {
     totalTrades: nullableNumber(payload?.totalTrades) ?? nullableNumber(existing.totalTrades),
     buyTrades: nullableNumber(payload?.buyTrades) ?? nullableNumber(existing.buyTrades),
     sellTrades: nullableNumber(payload?.sellTrades) ?? nullableNumber(existing.sellTrades),
-    cashFunds: nullableNumber(payload?.cashFunds) ?? nullableNumber(existing.cashFunds),
+    cashFunds,
     deposited,
     withdrawn,
     availableFunds: nullableNumber(payload?.availableFunds) ?? nullableNumber(existing.availableFunds),
@@ -704,7 +743,7 @@ export function deleteHistoryPoint(request, id) {
   return getPortfolioSnapshot(request);
 }
 
-export function saveHolding(request, payload) {
+export async function saveHolding(request, payload) {
   const account = resolveAccount(request);
   ensureDb(account);
   const id = cleanString(payload?.id) || crypto.randomUUID();
@@ -797,6 +836,7 @@ export function saveHolding(request, payload) {
   if (assetType === "bond") {
     generateBondCouponEvents(account, id);
   }
+  await recalculateLatestCashFromHoldings(account);
   return getPortfolioSnapshot(request);
 }
 
@@ -905,9 +945,11 @@ export async function refreshHoldingPrices(request, options = {}) {
     symbol: options.symbol,
     symbols: options.symbols,
   });
+  const cashRecalculation = options.recalculateLatestCash ? await recalculateLatestCashFromHoldings(account) : null;
   return {
     ...getPortfolioSnapshot(request),
     priceRefresh,
+    cashRecalculation,
   };
 }
 
@@ -939,6 +981,7 @@ export async function refreshPortfolioNavForAccount(account, options = {}) {
     portfolioValue,
     endValue: portfolioValue,
     cashFunds,
+    autoCashFunds: false,
     deposited: existingToday.deposited ?? 0,
     withdrawn: existingToday.withdrawn ?? 0,
     source: "daily_nav_refresh",
@@ -973,11 +1016,12 @@ export async function refreshPortfolioNav(request) {
   return refreshPortfolioNavForAccount(resolveAccount(request), { force: true });
 }
 
-export function deleteHolding(request, id) {
+export async function deleteHolding(request, id) {
   const account = resolveAccount(request);
   ensureDb(account);
   execute("DELETE FROM holdings WHERE id = ?", [id], account.dbPath);
   execute("DELETE FROM income_events WHERE holdingId = ?", [id], account.dbPath);
+  await recalculateLatestCashFromHoldings(account);
   return getPortfolioSnapshot(request);
 }
 
