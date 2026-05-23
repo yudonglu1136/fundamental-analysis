@@ -198,6 +198,12 @@ type TooltipPayloadItem = {
   payload?: unknown;
 };
 
+type TooltipContentProps = {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string | number;
+};
+
 const emptyHolding = {
   id: "",
   accountName: "Main",
@@ -763,6 +769,56 @@ export function PortfolioDashboard() {
     void load();
     return () => setCurrentModule(undefined);
   }, [load, setCurrentModule]);
+
+  useEffect(() => {
+    if (activeAnnualDepositIndex == null && activeCompositionIndex == null) return;
+
+    const clearIfPointerLeavesSlices = (event: MouseEvent | PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        setActiveAnnualDepositIndex(null);
+        setActiveCompositionIndex(null);
+        return;
+      }
+
+      const isAnnualDepositSlice = Boolean(
+        target.closest('[data-pie-scope="annual-deposits"] .tf-interactive-pie-slice') ||
+          target.closest('[data-pie-scope="annual-deposits"] .recharts-pie-sector'),
+      );
+      const isCompositionSlice = Boolean(
+        target.closest('[data-pie-scope="portfolio-composition"] .tf-interactive-pie-slice') ||
+          target.closest('[data-pie-scope="portfolio-composition"] .recharts-pie-sector'),
+      );
+
+      if (activeAnnualDepositIndex != null && !isAnnualDepositSlice) {
+        setActiveAnnualDepositIndex(null);
+      }
+
+      if (activeCompositionIndex != null && !isCompositionSlice) {
+        setActiveCompositionIndex(null);
+      }
+    };
+
+    const clearAllPieHover = () => {
+      setActiveAnnualDepositIndex(null);
+      setActiveCompositionIndex(null);
+    };
+
+    window.addEventListener("pointermove", clearIfPointerLeavesSlices, { passive: true });
+    window.addEventListener("pointerover", clearIfPointerLeavesSlices, { passive: true });
+    window.addEventListener("mousemove", clearIfPointerLeavesSlices, { passive: true });
+    window.addEventListener("mouseover", clearIfPointerLeavesSlices, { passive: true });
+    window.addEventListener("click", clearIfPointerLeavesSlices);
+    window.addEventListener("blur", clearAllPieHover);
+    return () => {
+      window.removeEventListener("pointermove", clearIfPointerLeavesSlices);
+      window.removeEventListener("pointerover", clearIfPointerLeavesSlices);
+      window.removeEventListener("mousemove", clearIfPointerLeavesSlices);
+      window.removeEventListener("mouseover", clearIfPointerLeavesSlices);
+      window.removeEventListener("click", clearIfPointerLeavesSlices);
+      window.removeEventListener("blur", clearAllPieHover);
+    };
+  }, [activeAnnualDepositIndex, activeCompositionIndex]);
 
   useEffect(() => {
     const query = holdingForm.assetType === "stock" ? holdingForm.symbol.trim() : "";
@@ -1352,7 +1408,11 @@ export function PortfolioDashboard() {
 
         <SectionCard title="Annual Totals" description="Imported portfolio rows are grouped by calendar year; calendar income is grouped by pay/event date.">
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
-            <div className="h-80 rounded-lg border border-slate-200 bg-white p-4">
+            <div
+              className="h-80 rounded-lg border border-slate-200 bg-white p-4"
+              data-pie-scope="annual-deposits"
+              onMouseLeave={() => setActiveAnnualDepositIndex(null)}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={annualChartRows}>
                   <defs>
@@ -1421,7 +1481,10 @@ export function PortfolioDashboard() {
                         />
                       ))}
                     </Pie>
-                    <Tooltip cursor={false} content={<GenericChartTooltip />} />
+                    <Tooltip
+                      cursor={false}
+                      content={(props) => (activeAnnualDepositIndex == null ? null : <GenericChartTooltip {...(props as TooltipContentProps)} />)}
+                    />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -1649,7 +1712,11 @@ export function PortfolioDashboard() {
                   Refresh Daily NAV
                 </button>
               </div>
-              <div className="mt-4 h-96">
+              <div
+                className="mt-4 h-96"
+                data-pie-scope="portfolio-composition"
+                onMouseLeave={() => setActiveCompositionIndex(null)}
+              >
                 {composition.pieRows.length ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -1691,7 +1758,10 @@ export function PortfolioDashboard() {
                           />
                         ))}
                       </Pie>
-                      <Tooltip cursor={false} content={<CompositionTooltip />} />
+                      <Tooltip
+                        cursor={false}
+                        content={(props) => (activeCompositionIndex == null ? null : <CompositionTooltip {...(props as TooltipContentProps)} />)}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (

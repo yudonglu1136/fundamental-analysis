@@ -251,6 +251,10 @@
     backdrop-filter: blur(18px);
   }
 
+  .tf-stock-module-canvas .recharts-tooltip-wrapper {
+    pointer-events: none !important;
+  }
+
   .tf-stock-module-canvas .recharts-tooltip-label {
     color: #f8fafc !important;
     font-weight: 700 !important;
@@ -385,12 +389,16 @@
   .tf-stock-module-canvas .recharts-sector,
   .tf-stock-module-canvas .recharts-sector:focus,
   .tf-stock-module-canvas .recharts-sector:focus-visible,
+  .tf-stock-module-canvas .recharts-pie-sector,
+  .tf-stock-module-canvas .recharts-pie-sector:focus,
+  .tf-stock-module-canvas .recharts-pie-sector:focus-visible,
   .tf-stock-module-canvas .tf-interactive-pie-slice,
   .tf-stock-module-canvas .tf-interactive-pie-slice:focus,
   .tf-stock-module-canvas .tf-interactive-pie-slice:focus-visible {
     outline: none !important;
   }
 
+  .tf-stock-module-canvas .recharts-pie-sector,
   .tf-stock-module-canvas .tf-interactive-pie-slice {
     cursor: pointer;
     transition:
