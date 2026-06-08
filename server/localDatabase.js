@@ -4,10 +4,15 @@ import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, "data");
-const dbPath = path.join(dataDir, "guru-analysis.sqlite");
+const bundledDataDir = path.join(__dirname, "data");
+const bundledDbPath = path.join(bundledDataDir, "guru-analysis.sqlite");
+const dbPath = process.env.SQLITE_DB_PATH || bundledDbPath;
+const dataDir = path.dirname(dbPath);
 
 fs.mkdirSync(dataDir, { recursive: true });
+if (dbPath !== bundledDbPath && !fs.existsSync(dbPath) && fs.existsSync(bundledDbPath)) {
+  fs.copyFileSync(bundledDbPath, dbPath);
+}
 
 const db = new DatabaseSync(dbPath);
 db.exec(`
