@@ -355,6 +355,39 @@ function useGuruContext(guruId, ticker) {
   return { data, loading, error };
 }
 
+function useGuruBacktest(guruId) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
+
+  async function load({ refresh = false } = {}) {
+    if (!guruId) return;
+    if (refresh) setRefreshing(true);
+    else setLoading(true);
+    setError("");
+
+    try {
+      const params = new URLSearchParams({ years: "5" });
+      if (refresh) params.set("refresh", "1");
+      const json = await apiFetch(`/api/gurus/${guruId}/backtest?${params}`);
+      setData(json);
+    } catch (err) {
+      setError(err.message || "加载模拟失败");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => {
+    setData(null);
+    load();
+  }, [guruId]);
+
+  return { data, loading, refreshing, error, refresh: () => load({ refresh: true }) };
+}
+
 function useOperationCommentary(guruId, operation) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -1286,6 +1319,7 @@ function GuruButton({ guru, active, onClick }) {
         <div className="guru-name-row">
           <strong>{guru.name}</strong>
           <span className="mini-badge">{disclosureLabels[guru.type]}</span>
+          {guru.simulationTag ? <span className={`mini-badge sim ${guru.simulationTag.tone || ""}`}>{guru.simulationTag.label}</span> : null}
         </div>
         <span>{latestSignalLabel(guru)}</span>
       </div>
@@ -1319,6 +1353,7 @@ function GuruDetail({ guru }) {
         <div className="profile-main">
           <div className="identity-stack">
             <span className="type-chip">{disclosureLabels[guru.type]}</span>
+            {guru.simulationTag ? <span className={`type-chip sim ${guru.simulationTag.tone || ""}`}>{guru.simulationTag.label}</span> : null}
             <h2>{guru.name}</h2>
             <p>{guru.chineseName} · {guru.entityName}</p>
           </div>
@@ -1353,6 +1388,9 @@ function GuruDetail({ guru }) {
             <TabButton active={tab === "context"} onClick={() => setTab("context")}>
               市场环境
             </TabButton>
+            <TabButton active={tab === "backtest"} onClick={() => setTab("backtest")}>
+              模拟
+            </TabButton>
             <TabButton active={tab === "notes"} onClick={() => setTab("notes")}>
               披露说明
             </TabButton>
@@ -1368,6 +1406,9 @@ function GuruDetail({ guru }) {
             <TabButton active={tab === "context"} onClick={() => setTab("context")}>
               市场环境
             </TabButton>
+            <TabButton active={tab === "backtest"} onClick={() => setTab("backtest")}>
+              模拟
+            </TabButton>
             <TabButton active={tab === "notes"} onClick={() => setTab("notes")}>
               披露说明
             </TabButton>
@@ -1382,6 +1423,9 @@ function GuruDetail({ guru }) {
             </TabButton>
             <TabButton active={tab === "context"} onClick={() => setTab("context")}>
               市场环境
+            </TabButton>
+            <TabButton active={tab === "backtest"} onClick={() => setTab("backtest")}>
+              模拟
             </TabButton>
             <TabButton active={tab === "notes"} onClick={() => setTab("notes")}>
               披露说明
@@ -1400,6 +1444,7 @@ function GuruDetail({ guru }) {
       {tab === "transactions" && guru.type === "congress" ? <CongressTransactionTable guru={guru} /> : null}
       {tab === "holdings" && guru.type === "congress" ? <CongressHoldings guru={guru} /> : null}
       {tab === "context" ? <MarketContextPanel guru={guru} /> : null}
+      {tab === "backtest" ? <BacktestPanel guru={guru} /> : null}
       {tab === "notes" ? <NotesPanel guru={guru} /> : null}
     </div>
   );
@@ -1891,6 +1936,271 @@ function InsiderHoldings({ guru }) {
             )}
           </tbody>
         </table>
+      </div>
+    </section>
+  );
+}
+
+function BacktestPanel({ guru }) {
+  const { data, loading, refreshing, error, refresh } = useGuruBacktest(guru.id);
+  const benchmark = data?.summary?.benchmark || {};
+
+  if (guru.type !== "manager13f") {
+    return (
+      <section className="backtest-shell">
+        <div className="panel-head compact">
+          <div>
+            <h3>复制模拟不适用</h3>
+            <p>{guru.simulationTag?.description || "该披露不是完整季度13F组合。"}</p>
+          </div>
+        </div>
+        <div className="rationale-note subdued">
+          <span>为什么过滤</span>
+          <p>Form 4 / STOCK Act 不是完整组合披露，无法按季度总持仓权重调仓；创始人控制性持股也会严重扭曲“抄作业”信号。</p>
+        </div>
+      </section>
+    );
+  }
+
+  const metrics = [
+    {
+      label: "CAGR",
+      value: formatReturnPct(data?.summary?.cagr),
+      sub: `SPY ${formatReturnPct(benchmark.cagr)}`,
+      tone: (data?.summary?.cagr || 0) >= (benchmark.cagr || 0) ? "positive" : "negative",
+      icon: TrendingUp
+    },
+    {
+      label: "Sharpe",
+      value: formatNumber(data?.summary?.sharpe, { maximumFractionDigits: 2 }),
+      sub: `SPY ${formatNumber(benchmark.sharpe, { maximumFractionDigits: 2 })}`,
+      tone: (data?.summary?.sharpe || 0) >= (benchmark.sharpe || 0) ? "positive" : "negative",
+      icon: Gauge
+    },
+    {
+      label: "Max drawdown",
+      value: formatReturnPct(data?.summary?.maxDrawdown),
+      sub: `SPY ${formatReturnPct(benchmark.maxDrawdown)}`,
+      tone: "negative",
+      icon: ArrowDownRight
+    },
+    {
+      label: "Vol",
+      value: formatReturnPct(data?.summary?.volatility),
+      sub: `SPY ${formatReturnPct(benchmark.volatility)}`,
+      icon: Activity
+    }
+  ];
+
+  return (
+    <section className="backtest-shell">
+      <div className="market-head">
+        <div>
+          <span className="market-kicker">
+            <LineChart size={15} />
+            Copy-trade simulation
+          </span>
+          <h3>{guru.name} 披露日复制模拟</h3>
+          <p>
+            {data?.window
+              ? `${formatDate(data.window.start)} - ${formatDate(data.window.end)} · benchmark SPY`
+              : "五年13F披露日调仓 · benchmark SPY"}
+          </p>
+        </div>
+        <button className="secondary-action" onClick={refresh} disabled={loading || refreshing}>
+          {refreshing ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
+          <span>{refreshing ? "重算中" : "重算"}</span>
+        </button>
+      </div>
+
+      {error ? <ErrorBanner error={error} /> : null}
+
+      {loading && !data ? (
+        <div className="table-panel loading-table" />
+      ) : data?.status === "ready" ? (
+        <>
+          <div className="metric-grid">
+            {metrics.map((metric) => <MetricBox metric={metric} key={metric.label} />)}
+          </div>
+          <div className="backtest-stats-row">
+            <MarketChip label="Total return" value={formatReturnPct(data.summary.totalReturn)} tone={data.summary.totalReturn >= benchmark.totalReturn ? "positive" : "negative"} />
+            <MarketChip label="SPY total" value={formatReturnPct(benchmark.totalReturn)} />
+            <MarketChip label="Rebalances" value={formatNumber(data.summary.rebalances)} />
+            <MarketChip label="Avg positions" value={formatNumber(data.summary.averagePositions, { maximumFractionDigits: 0 })} />
+            <MarketChip label="Coverage" value={formatPct(data.summary.averageCoverage)} />
+          </div>
+          <BacktestChart equity={data.equity || []} />
+          <BacktestRebalanceTable rebalances={data.rebalances || []} />
+          <BacktestMethod data={data} />
+        </>
+      ) : (
+        <div className="rationale-note subdued">
+          <span>{data?.tag?.label || "模拟待补数据"}</span>
+          <p>{data?.method?.reason || "还没有足够的历史13F和价格数据。点击重算会尝试从SEC和Yahoo补齐。"}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function BacktestChart({ equity }) {
+  const width = 860;
+  const height = 320;
+  const padding = { top: 28, right: 28, bottom: 38, left: 58 };
+  const points = useMemo(() => (equity || []).filter((point) => point.date && Number.isFinite(point.value) && Number.isFinite(point.benchmark)), [equity]);
+  const chart = useMemo(() => makeBacktestChartModel(points, width, height, padding), [points]);
+
+  if (!chart) {
+    return (
+      <section className="chart-panel">
+        <div className="chart-head">
+          <div>
+            <span>portfolio vs SPY</span>
+            <h3>回测曲线</h3>
+          </div>
+        </div>
+        <div className="chart-empty">暂无回测曲线</div>
+      </section>
+    );
+  }
+
+  const portfolioPath = valueLinePath(points, chart.xScale, chart.yScale, "value");
+  const benchmarkPath = valueLinePath(points, chart.xScale, chart.yScale, "benchmark");
+  const gridValues = chartGridValues(chart.minY, chart.maxY);
+
+  return (
+    <section className="chart-panel backtest-chart-panel">
+      <div className="chart-head">
+        <div>
+          <span>portfolio vs SPY</span>
+          <h3>披露日复制组合走势</h3>
+        </div>
+        <div className="chart-legend">
+          <span><i className="portfolio" />Copy</span>
+          <span><i className="benchmark" />SPY</span>
+        </div>
+      </div>
+      <svg className="price-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="backtest chart">
+        <rect className="chart-bg" x="0" y="0" width={width} height={height} />
+        {gridValues.map((value) => (
+          <g key={value}>
+            <line className="chart-gridline" x1={padding.left} x2={width - padding.right} y1={chart.yScale(value)} y2={chart.yScale(value)} />
+            <text className="chart-axis-label" x={padding.left - 10} y={chart.yScale(value) + 4} textAnchor="end">
+              {formatReturnPct(value - 1)}
+            </text>
+          </g>
+        ))}
+        <path className="backtest-line benchmark" d={benchmarkPath} />
+        <path className="backtest-line portfolio" d={portfolioPath} />
+        <text className="chart-axis-label" x={padding.left} y={height - 12}>
+          {formatDate(points[0]?.date)}
+        </text>
+        <text className="chart-axis-label" x={width - padding.right} y={height - 12} textAnchor="end">
+          {formatDate(points[points.length - 1]?.date)}
+        </text>
+      </svg>
+    </section>
+  );
+}
+
+function makeBacktestChartModel(points, width, height, padding) {
+  if (!points.length) return null;
+  const times = points.map((point) => dateValue(point.date)).filter(Boolean);
+  const values = points.flatMap((point) => [point.value, point.benchmark]).filter(Number.isFinite);
+  if (!times.length || !values.length) return null;
+  let minY = Math.min(...values);
+  let maxY = Math.max(...values);
+  if (minY === maxY) {
+    minY -= 0.1;
+    maxY += 0.1;
+  }
+  const padY = (maxY - minY) * 0.08;
+  minY = Math.max(0, minY - padY);
+  maxY += padY;
+  const minX = Math.min(...times);
+  const maxX = Math.max(...times);
+  const innerWidth = width - padding.left - padding.right;
+  const innerHeight = height - padding.top - padding.bottom;
+  return {
+    minY,
+    maxY,
+    xScale(value) {
+      const pct = maxX === minX ? 0 : (dateValue(value) - minX) / (maxX - minX);
+      return padding.left + Math.max(0, Math.min(1, pct)) * innerWidth;
+    },
+    yScale(value) {
+      const pct = maxY === minY ? 0.5 : (value - minY) / (maxY - minY);
+      return padding.top + (1 - Math.max(0, Math.min(1, pct))) * innerHeight;
+    }
+  };
+}
+
+function valueLinePath(points, xScale, yScale, key) {
+  return points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${xScale(point.date).toFixed(2)} ${yScale(point[key]).toFixed(2)}`)
+    .join(" ");
+}
+
+function BacktestRebalanceTable({ rebalances }) {
+  return (
+    <section className="table-panel">
+      <div className="panel-head">
+        <div>
+          <h3>调仓日志</h3>
+          <p>13F filing date 后第一个可交易日执行</p>
+        </div>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>执行日</th>
+              <th>报告季度</th>
+              <th>覆盖</th>
+              <th>持仓数</th>
+              <th>Top weights</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rebalances.length ? rebalances.slice().reverse().map((rebalance) => (
+              <tr key={`${rebalance.reportDate}-${rebalance.executionDate}`}>
+                <td>
+                  <strong>{formatDate(rebalance.executionDate)}</strong>
+                  <span>{formatDate(rebalance.filingDate)} 披露</span>
+                </td>
+                <td>{formatDate(rebalance.reportDate)}</td>
+                <td>{formatPct(rebalance.coveragePct)}</td>
+                <td>{formatNumber(rebalance.pricedPositions)} / {formatNumber(rebalance.selectedPositions)}</td>
+                <td>
+                  <div className="weight-chip-row">
+                    {(rebalance.topHoldings || []).slice(0, 5).map((holding) => (
+                      <span key={`${rebalance.executionDate}-${holding.ticker}`}>{holding.ticker} {formatPct(holding.weight)}</span>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            )) : (
+              <tr><td colSpan="5" className="empty-cell">暂无调仓记录</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function BacktestMethod({ data }) {
+  return (
+    <section className="notes-grid">
+      <div className="note-block">
+        <h3>模拟规则</h3>
+        <p>{data.method?.execution}</p>
+        <p>{data.method?.weighting}</p>
+        <p>最多纳入每次披露前 {formatNumber(data.method?.maxHoldingsPerFiling || 0)} 个公开长仓，按可交易且有价格的数据重新归一。</p>
+      </div>
+      <div className="note-block">
+        <h3>边界</h3>
+        {(data.method?.assumptions || []).map((item) => <p key={item}>{item}</p>)}
       </div>
     </section>
   );

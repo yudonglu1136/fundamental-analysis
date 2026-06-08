@@ -914,6 +914,22 @@ h1 {
   color: var(--blue);
 }
 
+.mini-badge.sim,
+.type-chip.sim {
+  background: #e7f5ee;
+  color: var(--green);
+}
+
+.mini-badge.sim.muted,
+.type-chip.sim.muted {
+  background: #f0eee8;
+  color: var(--amber);
+}
+
+.guru-name-row .mini-badge.sim {
+  display: none;
+}
+
 .guru-metric {
   min-width: 74px;
   text-align: right;
@@ -1473,6 +1489,103 @@ tbody tr:last-child td {
   fill: var(--amber);
 }
 
+.backtest-shell {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.secondary-action {
+  align-items: center;
+  background: #edf1f7;
+  border: 0;
+  border-radius: 8px;
+  color: var(--blue);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.secondary-action:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.backtest-stats-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.backtest-chart-panel .chart-head {
+  align-items: flex-start;
+}
+
+.chart-legend {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.chart-legend span {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  text-transform: none;
+}
+
+.chart-legend i {
+  border-radius: 99px;
+  display: inline-block;
+  height: 9px;
+  width: 18px;
+}
+
+.chart-legend i.portfolio {
+  background: var(--green);
+}
+
+.chart-legend i.benchmark {
+  background: var(--blue);
+}
+
+.backtest-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.8;
+}
+
+.backtest-line.portfolio {
+  stroke: var(--green);
+}
+
+.backtest-line.benchmark {
+  opacity: 0.76;
+  stroke: var(--blue);
+}
+
+.weight-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.weight-chip-row span {
+  background: #f3f6f2;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--slate);
+  font-size: 11px;
+  font-weight: 900;
+  padding: 4px 6px;
+  white-space: nowrap;
+}
+
 .chart-empty {
   align-items: center;
   color: var(--muted);
@@ -1854,6 +1967,10 @@ tbody tr:last-child td {
     min-width: 0;
   }
 
+  .backtest-stats-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .chart-grid {
     grid-template-columns: 1fr;
   }
@@ -1906,6 +2023,7 @@ tbody tr:last-child td {
   .terminal-stats,
   .notes-grid,
   .market-stats,
+  .backtest-stats-row,
   .market-summary {
     grid-template-columns: 1fr;
   }

@@ -732,6 +732,51 @@ async function load13fTimeline(guru, limit = 10) {
   return operations;
 }
 
+export async function load13fHoldingHistory(guru, { years = 5, limit = 24 } = {}) {
+  if (guru.type !== "manager13f") {
+    return [];
+  }
+
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - years);
+  const cutoffDate = cutoff.toISOString().slice(0, 10);
+  const submission = await getSubmission(guru.cik);
+  const filings = recentFilings(submission)
+    .filter((filing) => /^13F-HR/.test(filing.form))
+    .filter((filing) => filing.accessionNumber)
+    .filter((filing) => String(filing.filingDate || filing.reportDate || "") >= cutoffDate)
+    .sort((a, b) => {
+      const dateCompare = String(a.reportDate || "").localeCompare(String(b.reportDate || ""));
+      return dateCompare || String(a.filingDate || "").localeCompare(String(b.filingDate || ""));
+    })
+    .slice(-limit);
+
+  const history = [];
+  for (const filing of filings) {
+    try {
+      const doc = await getFilingDocument(guru.cik, filing);
+      const rawHoldings = parse13fInfoTable(doc.text);
+      const totalValue = rawHoldings.reduce((sum, holding) => sum + holding.value, 0);
+      history.push({
+        filing: decorateFiling(guru, filing, doc.url),
+        reportDate: filing.reportDate,
+        filingDate: filing.filingDate,
+        totalValue,
+        holdings: rawHoldings
+          .map((holding) => ({
+            ...holding,
+            pctPortfolio: totalValue ? holding.value / totalValue : 0
+          }))
+          .sort((a, b) => b.value - a.value)
+      });
+    } catch {
+      // Historical filings occasionally point to malformed archives. Skip that quarter only.
+    }
+  }
+
+  return history;
+}
+
 async function loadInsiderTimeline(guru, limit = 24) {
   const submission = await getSubmission(guru.cik);
   const filings = recentFilings(submission)
@@ -890,6 +935,21 @@ function withResolvedTicker(item) {
   return ticker ? { ...item, ticker } : item;
 }
 
+function simulationTagForGuru(guru) {
+  if (guru.type === "manager13f") {
+    return {
+      label: "13F copy 模拟",
+      tone: "simulatable",
+      description: "按披露发布日复制公开13F长仓权重，并和SPY做五年回测。"
+    };
+  }
+  return {
+    label: "不做13F复制",
+    tone: "muted",
+    description: "该披露不是完整季度13F组合，复制调仓会失真。"
+  };
+}
+
 function withConfiguredGuruMetadata(guruPayload) {
   if (!guruPayload || typeof guruPayload !== "object") return guruPayload;
   const configured = gurus.find((guru) => guru.id === guruPayload.id);
@@ -897,7 +957,8 @@ function withConfiguredGuruMetadata(guruPayload) {
   return {
     ...guruPayload,
     excludeFromHeatmap: Boolean(configured.excludeFromHeatmap),
-    heatmapExclusionReason: configured.heatmapExclusionReason || ""
+    heatmapExclusionReason: configured.heatmapExclusionReason || "",
+    simulationTag: simulationTagForGuru(configured)
   };
 }
 
@@ -1057,6 +1118,7 @@ function withGuruShell(guru, data) {
     notes: guru.notes,
     excludeFromHeatmap: Boolean(guru.excludeFromHeatmap),
     heatmapExclusionReason: guru.heatmapExclusionReason || "",
+    simulationTag: simulationTagForGuru(guru),
     sourceLabel: guru.sourceLabel || (guru.cik ? "SEC EDGAR" : ""),
     profileUrl: guru.profileUrl || secCompanyUrl,
     secCompanyUrl,

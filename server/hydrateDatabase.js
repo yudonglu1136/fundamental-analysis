@@ -3,11 +3,13 @@ import { gurus } from "./gurus.js";
 import { loadGuruDashboard, loadGuruMarketContext } from "./secClient.js";
 import { loadPriceSeries } from "./marketData.js";
 import { loadDbmfDashboard } from "./dbmfClient.js";
+import { loadGuruBacktest } from "./backtest.js";
 
 const args = new Set(process.argv.slice(2));
 const skipGuruRefresh = args.has("--skip-gurus");
 const skipPrices = args.has("--skip-prices");
 const skipDbmf = args.has("--skip-dbmf");
+const skipBacktests = args.has("--skip-backtests");
 const start = process.env.HYDRATE_START || "2020-01-01";
 const end = process.env.HYDRATE_END || new Date().toISOString().slice(0, 10);
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -172,6 +174,31 @@ async function hydrateDbmf() {
   });
 }
 
+async function hydrateBacktests() {
+  if (skipBacktests) {
+    log("[hydrate] skipping guru backtests");
+    return;
+  }
+
+  for (const guru of gurus.filter((item) => item.type === "manager13f")) {
+    try {
+      const payload = await loadGuruBacktest(guru.id, { refresh: false, years: 5 });
+      log("[hydrate] backtest", {
+        guru: guru.id,
+        status: payload.status,
+        start: payload.window?.start || "",
+        end: payload.window?.end || "",
+        cagr: payload.summary?.cagr ?? null,
+        benchmarkCagr: payload.summary?.benchmark?.cagr ?? null,
+        rebalances: payload.summary?.rebalances || 0
+      });
+    } catch (error) {
+      log("[hydrate] backtest failed", { guru: guru.id, reason: error.message });
+    }
+    await wait(600);
+  }
+}
+
 async function main() {
   log("[hydrate] local database", databaseInfo());
   const dashboard = await hydrateGurus();
@@ -183,6 +210,7 @@ async function main() {
   await hydrateContextPrices(dashboard);
   const tickers = collectTickers(dashboard);
   await hydratePrices(tickers);
+  await hydrateBacktests();
   await hydrateDbmf();
   log("[hydrate] done", { database: databaseInfo().path });
 }

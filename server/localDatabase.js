@@ -55,6 +55,16 @@ db.exec(`
     generated_at TEXT NOT NULL,
     payload_json TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS guru_backtests (
+    guru_id TEXT NOT NULL,
+    years INTEGER NOT NULL,
+    generated_at TEXT NOT NULL,
+    start_date TEXT,
+    end_date TEXT,
+    payload_json TEXT NOT NULL,
+    PRIMARY KEY (guru_id, years)
+  );
 `);
 
 function parsePayload(value) {
@@ -124,6 +134,34 @@ export function writeDbmfSnapshot(payload) {
     "latest",
     payload.summary?.latest_date || payload.latestDate || "",
     payload.generatedAt || new Date().toISOString(),
+    JSON.stringify(payload)
+  );
+}
+
+export function readGuruBacktest(guruId, years = 5) {
+  const row = db.prepare(`
+    SELECT payload_json
+    FROM guru_backtests
+    WHERE guru_id = ? AND years = ?
+  `).get(guruId, years);
+  return parsePayload(row?.payload_json);
+}
+
+export function writeGuruBacktest(guruId, years, payload) {
+  db.prepare(`
+    INSERT INTO guru_backtests (guru_id, years, generated_at, start_date, end_date, payload_json)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(guru_id, years) DO UPDATE SET
+      generated_at = excluded.generated_at,
+      start_date = excluded.start_date,
+      end_date = excluded.end_date,
+      payload_json = excluded.payload_json
+  `).run(
+    guruId,
+    years,
+    payload.generatedAt || new Date().toISOString(),
+    payload.window?.start || payload.startDate || "",
+    payload.window?.end || payload.endDate || "",
     JSON.stringify(payload)
   );
 }

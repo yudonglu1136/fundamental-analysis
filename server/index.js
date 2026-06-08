@@ -7,6 +7,7 @@ import { loadOperationCommentary } from "./commentarySearch.js";
 import { gurus } from "./gurus.js";
 import { loadDbmfDashboard } from "./dbmfClient.js";
 import { requireAuth } from "./auth/requireAuth.js";
+import { loadGuruBacktest, loadGuruBacktests } from "./backtest.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -88,6 +89,30 @@ app.get("/api/gurus/:id/context", async (request, response) => {
     const payload = await loadGuruMarketContext(request.params.id, {
       ticker: request.query.ticker,
       refresh: request.query.refresh === "1" || request.query.refresh === "true"
+    });
+    response.json(payload);
+  } catch (error) {
+    response.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/gurus/:id/backtest", async (request, response) => {
+  try {
+    const payload = await loadGuruBacktest(request.params.id, {
+      refresh: request.query.refresh === "1" || request.query.refresh === "true",
+      years: request.query.years || 5
+    });
+    response.json(payload);
+  } catch (error) {
+    response.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/backtests", async (request, response) => {
+  try {
+    const payload = await loadGuruBacktests({
+      refresh: request.query.refresh === "1" || request.query.refresh === "true",
+      years: request.query.years || 5
     });
     response.json(payload);
   } catch (error) {
