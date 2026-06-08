@@ -8,6 +8,7 @@ import { gurus } from "./gurus.js";
 import { loadDbmfDashboard } from "./dbmfClient.js";
 import { requireAuth } from "./auth/requireAuth.js";
 import { loadGuruBacktest, loadGuruBacktests } from "./backtest.js";
+import { loadValuationDashboard, loadValuationTicker } from "./valuationClient.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -65,6 +66,24 @@ app.get("/api/dbmf", async (request, response) => {
     response.json(payload);
   } catch (error) {
     response.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/valuation", async (_request, response) => {
+  try {
+    const payload = await loadValuationDashboard();
+    response.json(payload);
+  } catch (error) {
+    response.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/valuation/:ticker", async (request, response) => {
+  try {
+    const payload = await loadValuationTicker(request.params.ticker);
+    response.json(payload);
+  } catch (error) {
+    response.status(404).json({ error: error.message });
   }
 });
 

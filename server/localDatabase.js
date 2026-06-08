@@ -65,6 +65,18 @@ db.exec(`
     payload_json TEXT NOT NULL,
     PRIMARY KEY (guru_id, years)
   );
+
+  CREATE TABLE IF NOT EXISTS valuation_snapshots (
+    id TEXT PRIMARY KEY,
+    generated_at TEXT NOT NULL,
+    payload_json TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS valuation_ticker_snapshots (
+    ticker TEXT PRIMARY KEY,
+    generated_at TEXT NOT NULL,
+    payload_json TEXT NOT NULL
+  );
 `);
 
 function parsePayload(value) {
@@ -145,6 +157,40 @@ export function readGuruBacktest(guruId, years = 5) {
     WHERE guru_id = ? AND years = ?
   `).get(guruId, years);
   return parsePayload(row?.payload_json);
+}
+
+export function readValuationSnapshot() {
+  const row = db.prepare("SELECT payload_json FROM valuation_snapshots WHERE id = ?").get("latest");
+  return parsePayload(row?.payload_json);
+}
+
+export function writeValuationSnapshot(payload) {
+  db.prepare(`
+    INSERT INTO valuation_snapshots (id, generated_at, payload_json)
+    VALUES (?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      generated_at = excluded.generated_at,
+      payload_json = excluded.payload_json
+  `).run("latest", payload.generatedAt || new Date().toISOString(), JSON.stringify(payload));
+}
+
+export function readValuationTickerSnapshot(ticker) {
+  const normalized = String(ticker || "").trim().toUpperCase();
+  if (!normalized) return null;
+  const row = db.prepare("SELECT payload_json FROM valuation_ticker_snapshots WHERE ticker = ?").get(normalized);
+  return parsePayload(row?.payload_json);
+}
+
+export function writeValuationTickerSnapshot(ticker, payload) {
+  const normalized = String(ticker || payload?.ticker || "").trim().toUpperCase();
+  if (!normalized) return;
+  db.prepare(`
+    INSERT INTO valuation_ticker_snapshots (ticker, generated_at, payload_json)
+    VALUES (?, ?, ?)
+    ON CONFLICT(ticker) DO UPDATE SET
+      generated_at = excluded.generated_at,
+      payload_json = excluded.payload_json
+  `).run(normalized, payload.generatedAt || new Date().toISOString(), JSON.stringify(payload));
 }
 
 export function writeGuruBacktest(guruId, years, payload) {

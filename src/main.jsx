@@ -330,6 +330,62 @@ function useDbmfData() {
   return { data, loading, refreshing, error, refresh: () => load({ refresh: true }) };
 }
 
+function useValuationData() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
+
+  async function load({ refresh = false } = {}) {
+    if (refresh) setRefreshing(true);
+    else setLoading(true);
+    setError("");
+
+    try {
+      const json = await apiFetch("/api/valuation");
+      setData(json);
+    } catch (err) {
+      setError(err.message || "加载 Valuation 失败");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  return { data, loading, refreshing, error, refresh: () => load({ refresh: true }) };
+}
+
+function useValuationTicker(ticker) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!ticker) {
+      setData(null);
+      return;
+    }
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+
+    apiFetch(`/api/valuation/${encodeURIComponent(ticker)}`, { signal: controller.signal })
+      .then((json) => setData(json.ticker || null))
+      .catch((err) => {
+        if (err.name !== "AbortError") setError(err.message || "加载估值详情失败");
+      })
+      .finally(() => setLoading(false));
+
+    return () => controller.abort();
+  }, [ticker]);
+
+  return { data, loading, error };
+}
+
 function useGuruContext(guruId, ticker) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -439,6 +495,7 @@ function useOperationCommentary(guruId, operation) {
 function App() {
   const guruState = useGuruData();
   const dbmfState = useDbmfData();
+  const valuationState = useValuationData();
   const [mode, setModeState] = useState(() => currentDashboardMode());
   const { user, logout } = useAuth();
 
@@ -452,26 +509,42 @@ function App() {
 
   function setMode(nextMode) {
     setModeState(nextMode);
-    const nextHash = nextMode === "dbmf" ? "#dbmf" : "#guru";
+    const nextHash = nextMode === "dbmf" ? "#dbmf" : nextMode === "valuation" ? "#valuation" : "#guru";
     if (window.location.hash !== nextHash) {
       window.history.replaceState(null, "", nextHash);
     }
   }
 
-  const activeState = mode === "guru" ? guruState : dbmfState;
-  const title = mode === "guru" ? "Guru Intelligence Terminal" : "DBMF Exposure Dashboard";
-  const subtitle = mode === "guru"
-    ? "季度 13F、Form 4、STOCK Act 的统一信号工作台"
-    : "DBMF 官方持仓、历史敞口与趋势仓位的统一工作台";
-  const sourceLabel = activeState.data?.source?.label || (mode === "guru" ? "SEC EDGAR" : "DBMF local data");
+  const activeState = mode === "guru" ? guruState : mode === "dbmf" ? dbmfState : valuationState;
+  const pageMeta = {
+    guru: {
+      eyebrow: "Guru Analysis",
+      title: "Guru Intelligence Terminal",
+      subtitle: "季度 13F、Form 4、STOCK Act 的统一信号工作台",
+      source: "SEC EDGAR"
+    },
+    dbmf: {
+      eyebrow: "Managed Futures",
+      title: "DBMF Exposure Dashboard",
+      subtitle: "DBMF 官方持仓、历史敞口与趋势仓位的统一工作台",
+      source: "DBMF local data"
+    },
+    valuation: {
+      eyebrow: "Valuation",
+      title: "Valuation Research Terminal",
+      subtitle: "旧 Fundamental Analysis 股票估值、历史估值与最新股价的统一工作台",
+      source: "Local valuation database"
+    }
+  }[mode] || {};
+  const sourceLabel = activeState.data?.source?.label || pageMeta.source;
 
   return (
     <main className="app-shell">
       <header className="top-bar">
         <div>
-          <div className="eyebrow">{mode === "guru" ? "Guru Analysis" : "Managed Futures"}</div>
-          <h1>{title}</h1>
-          <p className="page-subtitle">{subtitle}</p>
+          <div className="eyebrow">{pageMeta.eyebrow}</div>
+          <h1>{pageMeta.title}</h1>
+          <p className="page-subtitle">{pageMeta.subtitle}</p>
         </div>
         <div className="top-actions">
           <ModeSwitch mode={mode} onChange={setMode} />
@@ -498,7 +571,7 @@ function App() {
         </div>
       </header>
 
-      {mode === "guru" ? <GuruWorkspace {...guruState} /> : <DbmfWorkspace {...dbmfState} />}
+      {mode === "guru" ? <GuruWorkspace {...guruState} /> : mode === "dbmf" ? <DbmfWorkspace {...dbmfState} /> : <ValuationWorkspace {...valuationState} />}
     </main>
   );
 }
@@ -543,7 +616,10 @@ function AuthLoadingScreen() {
 }
 
 function currentDashboardMode() {
-  return window.location.hash.toLowerCase().includes("dbmf") ? "dbmf" : "guru";
+  const hash = window.location.hash.toLowerCase();
+  if (hash.includes("valuation")) return "valuation";
+  if (hash.includes("dbmf")) return "dbmf";
+  return "guru";
 }
 
 function ModeSwitch({ mode, onChange }) {
@@ -554,6 +630,9 @@ function ModeSwitch({ mode, onChange }) {
       </button>
       <button className={mode === "dbmf" ? "active" : ""} onClick={() => onChange("dbmf")}>
         DBMF
+      </button>
+      <button className={mode === "valuation" ? "active" : ""} onClick={() => onChange("valuation")}>
+        Valuation
       </button>
     </div>
   );
@@ -651,6 +730,454 @@ function GuruWorkspace({ data, loading, error }) {
         </section>
       </section>
     </>
+  );
+}
+
+function valuationCurrency(value, currency = "USD") {
+  if (!Number.isFinite(value)) return "-";
+  const symbol = currency === "GBP" ? "£" : currency === "GBX" ? "p" : "$";
+  if (currency === "GBX") return `${value.toFixed(value >= 100 ? 0 : 1)}p`;
+  if (Math.abs(value) >= 1000) return `${symbol}${value.toFixed(0)}`;
+  return `${symbol}${value.toFixed(2)}`;
+}
+
+function buildValuationModel(data, tickers) {
+  const rows = tickers || [];
+  const sortedUpside = [...rows]
+    .filter((row) => Number.isFinite(row.latest?.upsideToBase))
+    .sort((a, b) => b.latest.upsideToBase - a.latest.upsideToBase);
+  const livePriceCount = rows.filter((row) => row.dataQuality?.hasLivePriceSeries).length;
+  const avgUpside = sortedUpside.length
+    ? sortedUpside.reduce((sum, row) => sum + row.latest.upsideToBase, 0) / sortedUpside.length
+    : 0;
+
+  return {
+    rows,
+    topUpside: sortedUpside[0] || null,
+    topDownside: sortedUpside.at(-1) || null,
+    livePriceCount,
+    avgUpside,
+    summary: data?.summary || {}
+  };
+}
+
+function ValuationWorkspace({ data, loading, error }) {
+  const [activeTicker, setActiveTicker] = useState("");
+  const [query, setQuery] = useState("");
+  const [sector, setSector] = useState("all");
+  const [sortBy, setSortBy] = useState("upside");
+  const tickers = data?.tickers || [];
+  const sectors = useMemo(() => {
+    const names = [...new Set(tickers.map((item) => item.sector).filter(Boolean))];
+    return ["all", ...names.sort()];
+  }, [tickers]);
+
+  const visibleTickers = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const sorters = {
+      upside: (a, b) => (b.latest?.upsideToBase ?? -Infinity) - (a.latest?.upsideToBase ?? -Infinity),
+      ticker: (a, b) => String(a.ticker).localeCompare(String(b.ticker)),
+      price: (a, b) => (b.latest?.latestPrice || 0) - (a.latest?.latestPrice || 0),
+      history: (a, b) => (b.history?.length || 0) - (a.history?.length || 0)
+    };
+    return tickers
+      .filter((item) => {
+        const matchesSector = sector === "all" || item.sector === sector;
+        const haystack = `${item.ticker} ${item.name} ${item.sector} ${item.modelType}`.toLowerCase();
+        return matchesSector && (!normalizedQuery || haystack.includes(normalizedQuery));
+      })
+      .sort(sorters[sortBy] || sorters.upside);
+  }, [query, sector, sortBy, tickers]);
+
+  useEffect(() => {
+    if (!activeTicker && visibleTickers[0]) setActiveTicker(visibleTickers[0].ticker);
+    if (activeTicker && visibleTickers.length && !visibleTickers.some((item) => item.ticker === activeTicker)) {
+      setActiveTicker(visibleTickers[0].ticker);
+    }
+  }, [activeTicker, visibleTickers]);
+
+  const activeCompact = tickers.find((item) => item.ticker === activeTicker) || visibleTickers[0] || tickers[0];
+  const tickerDetail = useValuationTicker(activeCompact?.ticker);
+  const active = tickerDetail.data || activeCompact;
+  const model = useMemo(() => buildValuationModel(data, tickers), [data, tickers]);
+
+  if (loading && !data) {
+    return (
+      <section className="dbmf-shell">
+        <div className="command-deck loading-block" />
+        <div className="table-panel loading-table" />
+      </section>
+    );
+  }
+
+  return (
+    <>
+      {error ? <ErrorBanner error={error} /> : null}
+      <ValuationCommandDeck data={data} model={model} loading={loading} onSelectTicker={setActiveTicker} />
+
+      <section className="workspace valuation-workspace">
+        <aside className="guru-rail valuation-rail">
+          <div className="rail-tools">
+            <label className="search-box">
+              <Search size={16} />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索 ticker / 公司" />
+            </label>
+            <div className="valuation-select-row">
+              <select value={sector} onChange={(event) => setSector(event.target.value)}>
+                {sectors.map((option) => (
+                  <option value={option} key={option}>{option === "all" ? "全部行业" : option}</option>
+                ))}
+              </select>
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+                <option value="upside">按 upside</option>
+                <option value="ticker">按 ticker</option>
+                <option value="price">按最新价</option>
+                <option value="history">按历史行</option>
+              </select>
+            </div>
+          </div>
+          <div className="guru-list valuation-list">
+            {loading ? <SkeletonList /> : visibleTickers.map((item) => (
+              <ValuationTickerButton
+                key={item.ticker}
+                ticker={item}
+                active={active?.ticker === item.ticker}
+                onClick={() => setActiveTicker(item.ticker)}
+              />
+            ))}
+          </div>
+        </aside>
+
+        <section className="detail-pane">
+          {!active ? <DetailSkeleton /> : (
+            <ValuationDetail
+              ticker={active}
+              compact={activeCompact}
+              loading={tickerDetail.loading}
+              error={tickerDetail.error}
+            />
+          )}
+        </section>
+      </section>
+    </>
+  );
+}
+
+function ValuationCommandDeck({ data, model, loading, onSelectTicker }) {
+  const summary = model.summary || {};
+  const movers = [model.topUpside, model.topDownside].filter(Boolean);
+  const maxAbsUpside = Math.max(...(model.rows || []).map((row) => Math.abs(row.latest?.upsideToBase || 0)), 0.01);
+
+  return (
+    <section className="command-deck valuation-command">
+      <div className="deck-head">
+        <div>
+          <span className="deck-kicker">
+            <BadgeDollarSign size={15} />
+            Valuation cockpit
+          </span>
+          <h2>从旧 Fundamental 模型到当前市场价格</h2>
+        </div>
+        <div className={`bias-chip ${(model.avgUpside || 0) >= 0 ? "positive" : "negative"}`}>
+          {(model.avgUpside || 0) >= 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+          <span>平均 {formatReturnPct(model.avgUpside || 0)}</span>
+        </div>
+      </div>
+
+      <div className="command-grid valuation-command-grid">
+        <section className="terminal-panel stat-panel">
+          <div className="panel-title">
+            <Layers size={16} />
+            Coverage
+          </div>
+          <div className="terminal-stats">
+            <TerminalStat icon={Layers} label="股票数" value={formatNumber(summary.tickerCount || 0)} sub="legacy modules" />
+            <TerminalStat icon={LineChart} label="历史估值" value={formatNumber(summary.historyRows || 0)} sub="valuation rows" />
+            <TerminalStat icon={Activity} label="价格点" value={formatNumber(summary.pricePointCount || 0)} sub="cached bars" />
+            <TerminalStat icon={CheckCircle2} label="实时价格" value={`${formatNumber(model.livePriceCount || 0)}/${formatNumber(summary.tickerCount || 0)}`} sub={formatDate(summary.latestPriceDate)} />
+          </div>
+        </section>
+
+        <section className="terminal-panel signal-panel">
+          <div className="panel-title">
+            <Sparkles size={16} />
+            Valuation extremes
+          </div>
+          <div className="signal-list">
+            {loading ? <SignalSkeleton /> : movers.map((item) => (
+              <button className="signal-row" key={item.ticker} onClick={() => onSelectTicker(item.ticker)}>
+                <div className={`signal-marker ${(item.latest?.upsideToBase || 0) >= 0 ? "positive" : "negative"}`} />
+                <div className="signal-main">
+                  <strong>{item.ticker}</strong>
+                  <span>{item.name} · {item.currency}</span>
+                </div>
+                <div className="signal-meta">
+                  <strong>{formatReturnPct(item.latest?.upsideToBase)}</strong>
+                  <span>{valuationCurrency(item.latest?.baseFairValue, item.currency)} fair</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="terminal-panel exposure-panel">
+          <div className="panel-title">
+            <Crosshair size={16} />
+            Fair value heatmap
+            <small>Base fair value vs latest price</small>
+          </div>
+          <div className="exposure-list">
+            {(model.rows || []).slice(0, 8).map((item) => (
+              <div className="exposure-row valuation-heat-row" key={item.ticker}>
+                <div className="exposure-copy">
+                  <strong>{item.ticker}</strong>
+                  <span>{item.name}</span>
+                </div>
+                <div className="exposure-meter" aria-label={`${item.ticker} upside`}>
+                  <span style={{ width: `${Math.max(8, Math.min(100, Math.abs(item.latest?.upsideToBase || 0) / maxAbsUpside * 100))}%` }} />
+                </div>
+                <div className={`exposure-value ${(item.latest?.upsideToBase || 0) >= 0 ? "positive-text" : "negative-text"}`}>
+                  {formatReturnPct(item.latest?.upsideToBase)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function ValuationTickerButton({ ticker, active, onClick }) {
+  const upside = ticker.latest?.upsideToBase;
+  return (
+    <button className={`guru-card valuation-card ${active ? "active" : ""}`} onClick={onClick}>
+      <div className="guru-avatar">{ticker.ticker.slice(0, 1)}</div>
+      <div className="guru-copy">
+        <div className="guru-name-row">
+          <strong>{ticker.ticker}</strong>
+          <span className={`mini-badge ${(upside || 0) >= 0 ? "simulatable" : "muted"}`}>{formatReturnPct(upside)}</span>
+        </div>
+        <span>{ticker.name}</span>
+        <small>{valuationCurrency(ticker.latest?.latestPrice, ticker.currency)} 最新 · {formatNumber(ticker.history?.length || 0)} 历史点</small>
+      </div>
+      <div className="score-ring">{ticker.dataQuality?.hasLivePriceSeries ? "P" : "A"}</div>
+    </button>
+  );
+}
+
+function ValuationDetail({ ticker, compact, loading, error }) {
+  const active = ticker || compact;
+  const scenarios = active.scenarios || [];
+  const base = scenarios.find((item) => item.scenario === "Base") || scenarios[0] || {};
+  const history = active.history || [];
+
+  return (
+    <article className="guru-detail valuation-detail">
+      {error ? <ErrorBanner error={error} /> : null}
+      <section className="profile-band valuation-profile">
+        <div className="profile-main">
+          <div className="identity-stack">
+            <span className="type-chip">Valuation</span>
+            <h2>{active.ticker} · {active.name}</h2>
+            <p>{active.sector}</p>
+          </div>
+          <div className="profile-meta">
+            <span>{active.modelType || "Fundamental valuation model"}</span>
+            <span>{active.dataQuality?.sourceNote || "Local valuation snapshot"}</span>
+          </div>
+        </div>
+        <div className="metric-grid">
+          <MetricBox metric={{ label: "最新股价", value: valuationCurrency(active.latest?.latestPrice, active.currency), sub: formatDate(active.latest?.latestPriceDate), icon: LineChart }} />
+          <MetricBox metric={{ label: "Base fair value", value: valuationCurrency(active.latest?.baseFairValue, active.currency), sub: active.latest?.latestPriceSource || "-", icon: BadgeDollarSign }} />
+          <MetricBox metric={{ label: "Upside / downside", value: formatReturnPct(active.latest?.upsideToBase), sub: "fair / latest price", tone: (active.latest?.upsideToBase || 0) >= 0 ? "positive" : "negative", icon: active.latest?.upsideToBase >= 0 ? ArrowUpRight : ArrowDownRight }} />
+          <MetricBox metric={{ label: "3Y target", value: valuationCurrency(base.targetPrice3Y || active.latest?.targetPrice3Y, active.currency), sub: `CAGR ${formatReturnPct(base.expectedReturn3Y || active.latest?.expectedReturn3Y)}`, icon: TrendingUp }} />
+        </div>
+      </section>
+
+      <section className="insight-deck valuation-scenarios">
+        {["Bear", "Base", "Bull"].map((scenario) => {
+          const item = scenarios.find((row) => row.scenario === scenario) || {};
+          return (
+            <div className={`insight-item ${scenario === "Base" ? "primary" : ""}`} key={scenario}>
+              <div className="insight-icon"><BadgeDollarSign size={17} /></div>
+              <span>{scenario}</span>
+              <strong>{valuationCurrency(item.fairValue, active.currency)}</strong>
+              <small>{formatReturnPct(item.upsideDownside)} vs latest</small>
+            </div>
+          );
+        })}
+      </section>
+
+      <div className="dbmf-panel-stack valuation-stack">
+        <ValuationHistoryPanel ticker={active} loading={loading} />
+        <ValuationTable ticker={active} history={history} />
+        <ValuationMethodPanel ticker={active} />
+      </div>
+    </article>
+  );
+}
+
+function ValuationHistoryPanel({ ticker, loading }) {
+  return (
+    <section className="chart-panel valuation-chart-panel">
+      <div className="chart-head">
+        <div>
+          <span>HISTORICAL VALUATION + PRICE</span>
+          <h3>{ticker.ticker} 历史估值与股价</h3>
+        </div>
+        <strong>{loading ? "加载价格线..." : ticker.currency}</strong>
+      </div>
+      <ValuationHistoryChart ticker={ticker} />
+    </section>
+  );
+}
+
+function ValuationHistoryChart({ ticker }) {
+  const width = 860;
+  const height = 320;
+  const padding = { top: 24, right: 22, bottom: 38, left: 58 };
+  const pricePoints = (ticker.priceHistory || []).filter((point) => point.date && Number.isFinite(point.close));
+  const valuationPoints = (ticker.history || [])
+    .filter((point) => point.asOfDate && Number.isFinite(point.fairValue))
+    .map((point) => ({
+      date: point.asOfDate,
+      close: point.fairValue,
+      priceAtDate: point.priceAtDate,
+      label: point.label
+    }));
+  const fallbackPricePoints = (ticker.history || [])
+    .filter((point) => point.asOfDate && Number.isFinite(point.priceAtDate))
+    .map((point) => ({ date: point.asOfDate, close: point.priceAtDate }));
+  const allPoints = [...pricePoints, ...valuationPoints, ...fallbackPricePoints]
+    .filter((point) => point.date && Number.isFinite(point.close))
+    .sort((a, b) => dateValue(a.date) - dateValue(b.date));
+  const chart = makeChartModel(allPoints, width, height, padding);
+
+  if (!chart) {
+    return <div className="chart-empty">暂无历史价格/估值数据</div>;
+  }
+
+  const priceLine = linePath(pricePoints.length ? pricePoints : fallbackPricePoints, chart.xScale, chart.yScale);
+  const fairLine = linePath(valuationPoints, chart.xScale, chart.yScale);
+  const gridValues = chartGridValues(chart.minY, chart.maxY);
+
+  return (
+    <svg className="price-chart valuation-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${ticker.ticker} valuation chart`}>
+      <rect className="chart-bg" x="0" y="0" width={width} height={height} />
+      {gridValues.map((value) => (
+        <g key={value}>
+          <line className="chart-gridline" x1={padding.left} x2={width - padding.right} y1={chart.yScale(value)} y2={chart.yScale(value)} />
+          <text className="chart-axis-label" x={padding.left - 10} y={chart.yScale(value) + 4} textAnchor="end">
+            {valuationCurrency(value, ticker.currency)}
+          </text>
+        </g>
+      ))}
+      {priceLine ? <path className="price-line" d={priceLine} /> : null}
+      {fairLine ? <path className="valuation-fair-line" d={fairLine} /> : null}
+      {valuationPoints.map((point) => (
+        <g className="chart-marker positive" key={`${point.date}-${point.label}`}>
+          <circle cx={chart.xScale(point.date)} cy={chart.yScale(point.close)} r="5" />
+          <title>{`${formatDate(point.date)} · fair ${valuationCurrency(point.close, ticker.currency)} · price ${valuationCurrency(point.priceAtDate, ticker.currency)}`}</title>
+        </g>
+      ))}
+      <text className="chart-axis-label" x={padding.left} y={height - 12}>
+        {formatDate(allPoints[0]?.date)}
+      </text>
+      <text className="chart-axis-label" x={width - padding.right} y={height - 12} textAnchor="end">
+        {formatDate(allPoints.at(-1)?.date)}
+      </text>
+      <g className="valuation-legend">
+        <circle cx={width - 196} cy={24} r="4" />
+        <text x={width - 186} y={28}>Fair value</text>
+        <line x1={width - 104} x2={width - 76} y1={24} y2={24} />
+        <text x={width - 68} y={28}>Price</text>
+      </g>
+    </svg>
+  );
+}
+
+function ValuationTable({ ticker, history }) {
+  return (
+    <section className="table-panel">
+      <div className="panel-head">
+        <div>
+          <h3>历史 valuation</h3>
+          <p>{ticker.ticker} · valuation run vs as-of price</p>
+        </div>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>日期 / 期间</th>
+              <th>Fair value</th>
+              <th>当时/锚定股价</th>
+              <th>Upside</th>
+              <th>3Y Target</th>
+              <th>方法</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(history || []).map((row) => (
+              <tr key={`${row.periodId}-${row.asOfDate}-${row.label}`}>
+                <td>
+                  <strong>{formatDate(row.asOfDate)}</strong>
+                  <span>{row.label || row.periodId}</span>
+                </td>
+                <td className="num">{valuationCurrency(row.fairValue, ticker.currency)}</td>
+                <td className="num">{valuationCurrency(row.priceAtDate, ticker.currency)}</td>
+                <td className={`num ${(row.upsideDownside || 0) >= 0 ? "positive-text" : "negative-text"}`}>{formatReturnPct(row.upsideDownside)}</td>
+                <td className="num">{valuationCurrency(row.targetPrice3Y, ticker.currency)}</td>
+                <td>{row.method || "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function ValuationMethodPanel({ ticker }) {
+  return (
+    <section className="table-panel valuation-method-panel">
+      <div className="panel-head">
+        <div>
+          <h3>模型方法与假设</h3>
+          <p>{ticker.modelType || "legacy fundamental-analysis valuation model"}</p>
+        </div>
+      </div>
+      <div className="valuation-method-grid">
+        <div>
+          <h4>Method cards</h4>
+          <div className="valuation-chip-list">
+            {(ticker.methodCards || []).length ? ticker.methodCards.map((card) => (
+              <div className="valuation-chip" key={card.key || card.label}>
+                <strong>{card.label}</strong>
+                <span>{card.format === "percent" ? formatPct(card.value) : valuationCurrency(card.value, ticker.currency)}</span>
+                <small>{card.description}</small>
+              </div>
+            )) : <div className="empty-panel">旧模型没有暴露 method card</div>}
+          </div>
+        </div>
+        <div>
+          <h4>Assumptions</h4>
+          <div className="valuation-chip-list">
+            {(ticker.assumptions || []).slice(0, 8).map((item) => (
+              <div className="valuation-chip compact" key={item.key}>
+                <strong>{item.label || item.key}</strong>
+                <span>{item.format === "percent" ? formatPct(item.value) : item.format === "multiple" ? `${formatNumber(item.value)}x` : formatNumber(item.value)}</span>
+                <small>{item.category || item.source || item.description}</small>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="valuation-note">
+        数据来自旧 Fundamental Analysis module 的 valuation output，当前价格优先使用本项目 SQLite/Yahoo price cache；无行情的英股/特殊 ticker 使用旧模型 price anchor。
+      </div>
+    </section>
   );
 }
 
