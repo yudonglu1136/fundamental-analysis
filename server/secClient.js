@@ -147,16 +147,24 @@ async function getFilingDocument(cik, filing, preferredName) {
   const items = toArray(index?.directory?.item);
   const candidates = items.map((item) => item.name).filter(Boolean);
   const preferredBaseName = preferredName ? String(preferredName).split("/").pop() : "";
+  const primaryBaseName = filing.primaryDocument ? String(filing.primaryDocument).split("/").pop() : "";
   const preferredFromIndex = candidates.find(
     (item) => item === preferredName || item === preferredBaseName
+  );
+  const is13f = /^13F-HR/.test(filing.form || "");
+  const xmlCandidates = candidates.filter((item) => /\.xml$/i.test(item));
+  const nonPrimaryXml = xmlCandidates.filter(
+    (item) => item !== filing.primaryDocument && item !== primaryBaseName
   );
 
   const name =
     preferredFromIndex ||
-    candidates.find((item) => /infotable/i.test(item) && /\.xml$/i.test(item)) ||
-    candidates.find((item) => /form13f/i.test(item) && /\.xml$/i.test(item)) ||
-    candidates.find((item) => /ownership|form4|wk-form4/i.test(item) && /\.xml$/i.test(item)) ||
-    candidates.find((item) => /\.xml$/i.test(item) && item !== filing.primaryDocument) ||
+    (is13f ? nonPrimaryXml.find((item) => /infotable|13f|q[1-4]/i.test(item)) : "") ||
+    (is13f ? nonPrimaryXml[0] : "") ||
+    xmlCandidates.find((item) => /infotable/i.test(item)) ||
+    xmlCandidates.find((item) => /form13f/i.test(item)) ||
+    xmlCandidates.find((item) => /ownership|form4|wk-form4/i.test(item)) ||
+    nonPrimaryXml[0] ||
     filing.primaryDocument;
 
   if (!name) {

@@ -79,6 +79,36 @@ export const gurus = [
     ]
   },
   {
+    id: "stanley-druckenmiller",
+    name: "Stanley Druckenmiller",
+    chineseName: "德鲁肯米勒",
+    entityName: "Duquesne Family Office LLC",
+    cik: "0001536411",
+    type: "manager13f",
+    role: "Duquesne Family Office founder / macro public-equity proxy",
+    thesisTag: "Macro-informed concentrated 13F",
+    notes: [
+      "Duquesne Family Office files quarterly Form 13F-HR reports. The app treats this entity as Stanley Druckenmiller's public long-equity proxy.",
+      "The 13F does not show the macro book, shorts, FX, rates, commodities, private investments, or positions outside the U.S. reportable universe.",
+      "Use the copy-trade simulation as a delayed public-equity read, not as a full recreation of Druckenmiller's portfolio."
+    ]
+  },
+  {
+    id: "brad-gerstner",
+    name: "Brad Gerstner",
+    chineseName: "Brad Gerstner",
+    entityName: "Altimeter Capital Management, LP",
+    cik: "0001541617",
+    type: "manager13f",
+    role: "Altimeter Capital founder / CEO",
+    thesisTag: "Concentrated technology and travel compounders",
+    notes: [
+      "Altimeter Capital files quarterly Form 13F-HR reports. The app treats the firm-level 13F as Brad Gerstner's public-market proxy.",
+      "The 13F can miss private holdings, short exposure, swaps, venture positions, and non-reportable securities.",
+      "Public letters and interviews are useful context for large position changes because Altimeter often frames holdings with a platform-level thesis."
+    ]
+  },
+  {
     id: "philippe-laffont",
     name: "Philippe Laffont",
     chineseName: "Philippe Laffont",
@@ -179,6 +209,57 @@ export const gurus = [
       "Members of Congress do not file SEC Form 4 or 13F reports for household trades.",
       "This view tracks disclosed household transactions under the STOCK Act; trades can be reported with a delay and amounts are ranges, not exact share counts.",
       "The normalized feed starts from Pelosi Tracker's public congressional disclosure page and links back to the original tracker/source view."
+    ]
+  },
+  {
+    id: "david-sacks",
+    name: "David Sacks",
+    chineseName: "David Sacks",
+    entityName: "Sacks David O",
+    cik: "0001891801",
+    type: "insider",
+    role: "Craft Ventures co-founder / public issuer reporting owner",
+    thesisTag: "Venture operator Form 4 disclosures",
+    excludeFromHeatmap: true,
+    heatmapExclusionReason: "venture/private holdings and issuer-specific Form 4 disclosures are not complete portfolio signals",
+    notes: [
+      "David Sacks does not publish a current complete quarterly public-equity portfolio comparable to a 13F manager.",
+      "This card tracks SEC Form 4 ownership-change disclosures tied to public issuer relationships and should not be read as Craft Ventures' full portfolio.",
+      "Private investments, token or crypto exposure, venture funds, and non-reportable positions are outside this feed."
+    ]
+  },
+  {
+    id: "david-friedberg",
+    name: "David Friedberg",
+    chineseName: "David Friedberg",
+    entityName: "Friedberg David A",
+    cik: "0001619941",
+    type: "insider",
+    role: "The Production Board founder / public issuer reporting owner",
+    thesisTag: "Sparse operating-founder Form 4 disclosures",
+    excludeFromHeatmap: true,
+    heatmapExclusionReason: "sparse Form 4 disclosures are not a complete investable portfolio",
+    notes: [
+      "David Friedberg's SEC feed is a sparse Form 4 history, not a full public-equity portfolio.",
+      "The Production Board's private-company and venture exposure is not captured by this SEC owner feed.",
+      "Treat this card as a public issuer disclosure trail rather than a copy-tradable strategy."
+    ]
+  },
+  {
+    id: "reid-hoffman",
+    name: "Reid Hoffman",
+    chineseName: "Reid Hoffman",
+    entityName: "Hoffman Reid",
+    cik: "0001519339",
+    type: "insider",
+    role: "LinkedIn co-founder / Greylock partner / public issuer reporting owner",
+    thesisTag: "Venture and board-level Form 4 disclosures",
+    excludeFromHeatmap: true,
+    heatmapExclusionReason: "board, founder, and venture-linked Form 4 disclosures are not broad public-equity consensus signals",
+    notes: [
+      "Reid Hoffman's personal SEC feed is mostly Form 4 ownership-change activity tied to issuer relationships and affiliated vehicles.",
+      "Greylock entities can file separate 13Fs, but this profile avoids treating a single fund vehicle as Hoffman's complete personal portfolio.",
+      "The app uses these disclosures as a thesis/context trail, not as a proportional 13F copy-trade source."
     ]
   },
   {
