@@ -106,7 +106,7 @@ app.get("/api/gurus/:id/commentary", async (request, response) => {
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(rootDir, "dist")));
-  app.get("*", (_request, response) => {
+  app.use((_request, response) => {
     response.sendFile(path.join(rootDir, "dist", "index.html"));
   });
 }
