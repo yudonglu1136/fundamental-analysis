@@ -1,9 +1,16 @@
-const DEFAULT_API_BASE_URL = "http://127.0.0.1:8787";
+const LOCAL_API_BASE_URL = "http://127.0.0.1:8787";
 
 let apiAccessToken = null;
 
 function apiBaseUrl() {
-  return (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL).trim().replace(/\/+$/, "");
+  const configured = (import.meta.env.VITE_API_BASE_URL || "").trim();
+  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+  const isLocal = hostname === "localhost" || hostname === "127.0.0.1";
+  const isVercel = hostname.endsWith(".vercel.app");
+
+  if (isVercel) return "";
+  if (configured) return configured.replace(/\/+$/, "");
+  return isLocal ? LOCAL_API_BASE_URL : "";
 }
 
 export function setApiAccessToken(token) {
@@ -12,7 +19,8 @@ export function setApiAccessToken(token) {
 
 export function apiUrl(path) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${apiBaseUrl()}${normalizedPath}`;
+  const baseUrl = apiBaseUrl();
+  return baseUrl ? `${baseUrl}${normalizedPath}` : normalizedPath;
 }
 
 export async function apiFetch(path, init = {}) {
