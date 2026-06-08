@@ -1,8 +1,0 @@
-{
-  "name": "@fundamental-analysis/api",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "node src/server.mjs"
-  }
-}

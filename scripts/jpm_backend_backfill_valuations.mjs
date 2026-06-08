@@ -1,3 +1,0 @@
-#!/usr/bin/env node
-process.argv.push("--ticker", "jpm");
-await import("./deep_research_backend_backfill_valuations.mjs");
