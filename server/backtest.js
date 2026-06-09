@@ -88,6 +88,94 @@ function eligibleHolding(holding) {
   );
 }
 
+function snapshotCompleteness(snapshot) {
+  const selected = (snapshot.holdings || [])
+    .filter(eligibleHolding)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, maxHoldingsPerFiling);
+  const selectedValue = selected.reduce((sum, holding) => sum + holding.value, 0);
+  const totalValue = Number(snapshot.totalValue) || selectedValue || 0;
+  return {
+    positions: snapshot.holdings?.length || 0,
+    selectedPositions: selected.length,
+    selectedValue,
+    totalValue
+  };
+}
+
+function compareSnapshotCompleteness(candidate, current) {
+  const candidateStats = candidate.completeness;
+  const currentStats = current.completeness;
+  if (candidateStats.selectedPositions !== currentStats.selectedPositions) {
+    return candidateStats.selectedPositions - currentStats.selectedPositions;
+  }
+
+  const materialValueGap = Math.max(1_000_000, currentStats.selectedValue * 0.05);
+  if (Math.abs(candidateStats.selectedValue - currentStats.selectedValue) > materialValueGap) {
+    return candidateStats.selectedValue - currentStats.selectedValue;
+  }
+
+  return dateMs(candidate.filingDate) - dateMs(current.filingDate);
+}
+
+function compactExcludedFiling(snapshot, reason) {
+  return {
+    reportDate: snapshot.reportDate,
+    filingDate: snapshot.filingDate,
+    form: snapshot.filing?.form,
+    accessionNumber: snapshot.filing?.accessionNumber,
+    positions: snapshot.completeness?.positions || snapshot.holdings?.length || 0,
+    selectedPositions: snapshot.completeness?.selectedPositions || 0,
+    selectedValue: snapshot.completeness?.selectedValue || 0,
+    totalValue: snapshot.completeness?.totalValue || snapshot.totalValue || 0,
+    reason
+  };
+}
+
+function normalizeBacktestHistory(history) {
+  const byReportDate = new Map();
+  const excludedFilings = [];
+
+  for (const snapshot of history) {
+    const key = snapshot.reportDate || snapshot.filing?.reportDate || snapshot.filingDate;
+    const enriched = {
+      ...snapshot,
+      completeness: snapshotCompleteness(snapshot)
+    };
+    if (!key) {
+      byReportDate.set(`${snapshot.filingDate}-${byReportDate.size}`, enriched);
+      continue;
+    }
+
+    const current = byReportDate.get(key);
+    if (!current) {
+      byReportDate.set(key, enriched);
+      continue;
+    }
+
+    if (compareSnapshotCompleteness(enriched, current) > 0) {
+      excludedFilings.push(compactExcludedFiling(
+        current,
+        "Duplicate report date replaced by a more complete filing snapshot."
+      ));
+      byReportDate.set(key, enriched);
+    } else {
+      excludedFilings.push(compactExcludedFiling(
+        enriched,
+        "Duplicate report date excluded because it has fewer usable holdings than the full-quarter filing."
+      ));
+    }
+  }
+
+  const normalizedHistory = [...byReportDate.values()]
+    .sort((a, b) => {
+      const reportCompare = String(a.reportDate || "").localeCompare(String(b.reportDate || ""));
+      return reportCompare || String(a.filingDate || "").localeCompare(String(b.filingDate || ""));
+    });
+
+  return { history: normalizedHistory, excludedFilings };
+}
+
 function buildWeights(snapshot, priceMaps, executionDate) {
   const selected = (snapshot.holdings || [])
     .filter(eligibleHolding)
@@ -183,8 +271,11 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
     loadPriceSeries("SPY", { start, end })
   ]);
   const spyPoints = (spySeries.points || []).filter((point) => point.date >= start && point.date <= end);
+  const normalizedHistory = normalizeBacktestHistory(history);
+  const backtestHistory = normalizedHistory.history;
+  const excludedFilings = normalizedHistory.excludedFilings;
 
-  if (history.length < 2 || spyPoints.length < 30) {
+  if (backtestHistory.length < 2 || spyPoints.length < 30) {
     const payload = {
       generatedAt: new Date().toISOString(),
       status: "insufficient_data",
@@ -203,6 +294,8 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
         years: normalizedYears,
         benchmark: "SPY",
         maxHoldingsPerFiling,
+        rawFilings: history.length,
+        excludedFilings,
         reason: "Not enough historical 13F filings or SPY price points are available."
       },
       summary: {},
@@ -213,7 +306,7 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
     return payload;
   }
 
-  const universe = [...new Set(history
+  const universe = [...new Set(backtestHistory
     .flatMap((snapshot) => (snapshot.holdings || [])
       .filter(eligibleHolding)
       .sort((a, b) => b.value - a.value)
@@ -231,7 +324,7 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
     await wait(80);
   }
 
-  const rebalances = history
+  const rebalances = backtestHistory
     .map((snapshot) => ({
       ...snapshot,
       executionDate: nextTradingDate(spyPoints, snapshot.filingDate)
@@ -276,6 +369,8 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
         years: normalizedYears,
         benchmark: "SPY",
         maxHoldingsPerFiling,
+        rawFilings: history.length,
+        excludedFilings,
         reason: "Historical filings were found, but no holdings had usable ticker price coverage."
       },
       summary: {},
@@ -301,11 +396,6 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
     const previousDate = dates[index - 1];
     const date = dates[index];
 
-    while (rebalanceIndex + 1 < rebalances.length && rebalances[rebalanceIndex + 1].executionDate <= date) {
-      rebalanceIndex += 1;
-      activeWeights = rebalances[rebalanceIndex].weights;
-    }
-
     const portfolio = portfolioReturn(activeWeights, priceMaps, previousDate, date);
     const spyReturn = dailyReturn(priceMaps.get("SPY"), previousDate, date) ?? 0;
     portfolioValue *= 1 + portfolio.returnPct;
@@ -318,6 +408,11 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
       value: portfolioValue,
       benchmark: benchmarkValue
     });
+
+    while (rebalanceIndex + 1 < rebalances.length && rebalances[rebalanceIndex + 1].executionDate <= date) {
+      rebalanceIndex += 1;
+      activeWeights = rebalances[rebalanceIndex].weights;
+    }
   }
 
   const portfolioEquity = equity.map((point) => ({ date: point.date, value: point.value }));
@@ -346,13 +441,16 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
     method: {
       years: normalizedYears,
       benchmark: "SPY",
-      execution: "Use the first tradable SPY date on or after each 13F filing date.",
+      execution: "Use the first tradable SPY date on or after each 13F filing date; new weights apply after that close.",
       weighting: "Use disclosed 13F market values, cap to top holdings, then normalize priced holdings to 100%.",
       maxHoldingsPerFiling,
+      rawFilings: history.length,
+      excludedFilings,
       assumptions: [
         "13F only contains long U.S.-reportable holdings and is delayed from quarter end.",
         "The simulation trades at the first market date on or after the public filing date.",
         "Missing, non-ticker, option, or unpriced rows are excluded before weights are normalized.",
+        "Duplicate filings for the same report date keep the more complete quarter snapshot and drop sparse amendments.",
         "Transaction costs, taxes, slippage, shorts, private holdings, and fund-level cash are excluded."
       ]
     },
@@ -366,7 +464,9 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
         ? rebalances.reduce((sum, item) => sum + item.pricedPositions, 0) / rebalances.length
         : 0,
       averageCoverage: coverage.length ? mean(coverage) : 0,
-      filings: history.length,
+      filings: backtestHistory.length,
+      rawFilings: history.length,
+      excludedFilings: excludedFilings.length,
       universe: universe.length
     },
     equity,
