@@ -1081,8 +1081,10 @@ function valuationCurrency(value, currency = "USD") {
 function fairValueSourceLabel(ticker, t) {
   const quality = ticker?.dataQuality || {};
   const source = String(ticker?.latest?.fairValueSource || "");
+  if (quality.legacyBackendValuationRows > 0 && /legacy|fundamental analysis/i.test(source)) return t("valuation.fairValueSource.legacy");
   if (source && /sec|companyfacts|financials/i.test(source)) return t("valuation.fairValueSource.sec");
   if (source && /youtube|earnings-call|transcript/i.test(source)) return t("valuation.fairValueSource.youtube");
+  if (source && /legacy|fundamental analysis/i.test(source)) return t("valuation.fairValueSource.legacy");
   if (source) return source;
   if (quality.secCompanyFactsQuarterlyRows > 0) return t("valuation.fairValueSource.sec");
   if (quality.youtubeEarningsMetricValuationRows > 0) return t("valuation.fairValueSource.youtube");

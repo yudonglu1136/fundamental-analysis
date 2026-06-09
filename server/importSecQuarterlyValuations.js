@@ -2154,6 +2154,27 @@ function secLookupTicker(ticker) {
   return String(ticker || "").toUpperCase().replace(".", "-");
 }
 
+function shouldPreserveLegacyBackendSnapshot(snapshot, valuationRows, sourceIsTrinity) {
+  if (!sourceIsTrinity) return false;
+  const legacyBackendRows = Number(snapshot?.dataQuality?.legacyBackendValuationRows || 0);
+  const history = Array.isArray(snapshot?.history) ? snapshot.history : [];
+  const distinctFairValues = new Set(
+    history
+      .map((row) => finiteNumber(row?.fairValue))
+      .filter((value) => value != null)
+      .map((value) => value.toFixed(4))
+  ).size;
+  const hasLegacyHistory = history.some((row) => {
+    const sourceText = `${row?.sourceType || ""} ${row?.dataSnapshot?.sourceType || ""} ${row?.dataSnapshot?.valuationSemantics?.sourceType || ""}`.toLowerCase();
+    return sourceText && !sourceText.includes("trinity_official_financial_model") && !sourceText.includes("sec_companyfacts_quarterly_model");
+  });
+  return legacyBackendRows >= 8 &&
+    history.length >= 8 &&
+    history.length > valuationRows.length &&
+    distinctFairValues > 1 &&
+    hasLegacyHistory;
+}
+
 async function main() {
   if (!fs.existsSync(TRINITY_MODEL_PATH)) {
     throw new Error(`Trinity model not found at ${TRINITY_MODEL_PATH}`);
@@ -2228,6 +2249,60 @@ async function main() {
       });
       const valuationRows = secRows.length >= 4 || !trinityRows.length ? secRows : trinityRows;
       const sourceIsTrinity = valuationRows === trinityRows;
+      if (shouldPreserveLegacyBackendSnapshot(snapshot, valuationRows, sourceIsTrinity)) {
+        const legacySourceLabel = "Legacy Fundamental Analysis financial/guidance model";
+        const legacySourceNote = "Legacy Fundamental Analysis backend valuation runs: each fair-value bar is recomputed from event-visible financials/guidance and scenario assumptions; market price is used only for comparison, upside/downside, and return math.";
+        const preserved = {
+          ...snapshot,
+          ticker,
+          modelType: /ai trinity/i.test(String(snapshot.modelType || ""))
+            ? "Fundamental Analysis backend valuation model"
+            : snapshot.modelType || "Fundamental Analysis backend valuation model",
+          generatedAt: new Date().toISOString(),
+          latest: {
+            ...(snapshot.latest || {}),
+            fairValueSource: legacySourceLabel,
+            fairValueInputPolicy: "event-visible financials/guidance and scenario assumptions; price excluded from fair-value input"
+          },
+          dataQuality: {
+            ...(snapshot.dataQuality || {}),
+            legacyValuationRows: snapshot.history?.length || snapshot.dataQuality?.legacyBackendValuationRows || 0,
+            sourceNote: legacySourceNote,
+            fairValueSource: legacySourceLabel,
+            secCompanyFacts: snapshot.dataQuality?.secCompanyFacts
+              ? {
+                  ...snapshot.dataQuality.secCompanyFacts,
+                  usedForFairValue: false,
+                  supersededBy: "Legacy Fundamental Analysis backend valuation history"
+                }
+              : snapshot.dataQuality?.secCompanyFacts,
+            trinityCandidateRowsSkipped: valuationRows.length,
+            trinityCandidateSkipReason: "Preserved richer legacy backend valuation history over sparse AI Trinity proxy rows."
+          },
+          warnings: [
+            "Preserved richer legacy backend valuation history over sparse AI Trinity proxy rows.",
+            ...(snapshot.warnings || []).filter((warning) => !String(warning).includes("Preserved richer legacy backend"))
+          ]
+        };
+        currentTickers.set(ticker, preserved);
+        currentDb.prepare(`
+          INSERT INTO valuation_ticker_snapshots (ticker, generated_at, payload_json)
+          VALUES (?, ?, ?)
+          ON CONFLICT(ticker) DO UPDATE SET
+            generated_at = excluded.generated_at,
+            payload_json = excluded.payload_json
+        `).run(ticker, preserved.generatedAt, JSON.stringify(preserved));
+        updated.push({
+          ticker,
+          source: "Preserved Legacy Fundamental Analysis",
+          rows: preserved.history?.length || 0,
+          secRows: secRows.length,
+          trinityRows: valuationRows.length,
+          quarterlyFinancialRows: quarterlyRows.length,
+          youtubePeriods: 0
+        });
+        continue;
+      }
       if (valuationRows.length < 1) {
         const legacy = normalizeLegacyFinancialSnapshot({ ticker, snapshot: { ...snapshot, ticker } });
         if (legacy) {

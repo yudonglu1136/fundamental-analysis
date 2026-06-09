@@ -519,7 +519,7 @@ function updateTickerSnapshot(snapshot, legacyTicker, runs, eventsById) {
       : finiteNumber(latestHistoryRow?.expectedReturn3Y ?? latestRun.expectedShareholderCagr);
 
   const methodCards = methodCardsFromRun(latestRun);
-  const sourceNote = "Legacy backend valuation runs: each bar is recomputed from the reporting-event-visible financials/guidance and the as-of market price.";
+  const sourceNote = "Legacy Fundamental Analysis backend valuation runs: each fair-value bar is recomputed from event-visible financials/guidance and scenario assumptions; market price is used only for comparison, upside/downside, and return math.";
   const coverageNote = partialCoverage[legacyTicker] || null;
   const historyCoverageKind = coverageKind(history);
   const pricePoints = snapshot.priceHistory?.length || snapshot.dataQuality?.pricePoints || 0;
@@ -552,6 +552,7 @@ function updateTickerSnapshot(snapshot, legacyTicker, runs, eventsById) {
     ],
     dataQuality: {
       ...(snapshot.dataQuality || {}),
+      legacyValuationRows: history.length,
       legacyBackendValuationRows: history.length,
       legacyBackendRawValuationRows: rawHistory.length,
       excludedLegacyBackendRows: exclusions.length,
@@ -565,6 +566,7 @@ function updateTickerSnapshot(snapshot, legacyTicker, runs, eventsById) {
       valuationCoverageKind: historyCoverageKind,
       hasQuarterlyValuationRuns: historyCoverageKind === "quarterly",
       sourceNote,
+      fairValueSource: "Legacy Fundamental Analysis financial/guidance model",
       coverageNote
     }
   };
