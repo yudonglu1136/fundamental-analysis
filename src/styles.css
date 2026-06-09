@@ -200,6 +200,34 @@ h1 {
   color: var(--ink);
 }
 
+.language-switch {
+  background: #e9eee8;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: inline-grid;
+  gap: 3px;
+  grid-template-columns: repeat(2, 38px);
+  min-height: 40px;
+  padding: 3px;
+}
+
+.language-switch button {
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 0;
+}
+
+.language-switch button.active {
+  background: var(--paper);
+  box-shadow: 0 1px 5px rgba(30, 40, 35, 0.08);
+  color: var(--ink);
+}
+
 .source-pill,
 .icon-button {
   align-items: center;
@@ -2249,7 +2277,8 @@ tbody tr:last-child td {
     flex-direction: column;
   }
 
-  .mode-switch {
+  .mode-switch,
+  .language-switch {
     width: 100%;
   }
 

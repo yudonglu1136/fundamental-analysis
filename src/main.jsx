@@ -32,6 +32,222 @@ import { LoginPage } from "./auth/LoginPage.jsx";
 import { useAuth } from "./auth/useAuth";
 import "./styles.css";
 
+const I18nContext = React.createContext({ language: "zh", t: (key) => key });
+
+const uiText = {
+  zh: {
+    "app.privateWorkspace": "Private Workspace",
+    "app.logout": "退出",
+    "app.refresh": "刷新",
+    "app.refreshing": "刷新中",
+    "lang.label": "语言",
+    "mode.aria": "dashboard mode",
+    "mode.guru": "Guru",
+    "mode.dbmf": "DBMF",
+    "mode.valuation": "Valuation",
+    "page.guru.eyebrow": "Guru Analysis",
+    "page.guru.title": "Guru Intelligence Terminal",
+    "page.guru.subtitle": "季度 13F、Form 4、STOCK Act 的统一信号工作台",
+    "page.dbmf.eyebrow": "Managed Futures",
+    "page.dbmf.title": "DBMF Exposure Dashboard",
+    "page.dbmf.subtitle": "DBMF 官方持仓、历史敞口与趋势仓位的统一工作台",
+    "page.valuation.eyebrow": "Valuation",
+    "page.valuation.title": "Valuation Research Terminal",
+    "page.valuation.subtitle": "旧 Fundamental Analysis 股票估值、历史估值与最新股价的统一工作台",
+    "guru.search": "搜索 guru / 机构",
+    "guru.filter.all": "全部",
+    "guru.deck.kicker": "Signal cockpit",
+    "guru.deck.title": "从披露到可行动信号",
+    "guru.bias.positive": "净买入/加仓倾向",
+    "guru.bias.negative": "净卖出/减仓倾向",
+    "guru.coverage": "Coverage",
+    "guru.monitored": "监控对象",
+    "guru.aum": "13F 规模",
+    "guru.recentTrades": "近期交易",
+    "guru.signalSpread": "信号差",
+    "guru.latestTape": "Latest signal tape",
+    "guru.heatmap": "Ticker heatmap",
+    "guru.heatmapNote": "已过滤公司创始人 / 控制股东",
+    "guru.noConsensus": "暂无外部共识持仓",
+    "guru.transactions": "笔",
+    "guru.holdings": "个持仓",
+    "valuation.cockpit": "Valuation cockpit",
+    "valuation.deckTitle": "从旧 Fundamental 模型到当前市场价格",
+    "valuation.avg": "平均",
+    "valuation.coverage": "Coverage",
+    "valuation.stockCount": "股票数",
+    "valuation.history": "历史估值",
+    "valuation.pricePoints": "价格点",
+    "valuation.livePrice": "实时价格",
+    "valuation.extremes": "Valuation extremes",
+    "valuation.fair": "fair",
+    "valuation.heatmap": "Fair value heatmap",
+    "valuation.heatmapSub": "Base fair value vs latest price",
+    "valuation.search": "搜索 ticker / 公司",
+    "valuation.allSectors": "全部行业",
+    "valuation.sort.upside": "按 upside",
+    "valuation.sort.ticker": "按 ticker",
+    "valuation.sort.price": "按最新价",
+    "valuation.sort.history": "按历史行",
+    "valuation.latest": "最新",
+    "valuation.historyPoints": "历史点",
+    "valuation.latestPrice": "最新股价",
+    "valuation.upside": "Upside / downside",
+    "valuation.fairLatest": "fair / latest price",
+    "valuation.target3y": "3Y target",
+    "valuation.vsLatest": "vs latest",
+    "valuation.chartKicker": "HISTORICAL VALUATION + PRICE",
+    "valuation.chartTitleSuffix": "历史估值与股价",
+    "valuation.loadingPrice": "加载价格线...",
+    "valuation.emptyChart": "暂无历史价格/估值数据",
+    "valuation.tableTitle": "历史 valuation",
+    "valuation.tableSub": "valuation run vs as-of price",
+    "valuation.datePeriod": "日期 / 期间",
+    "valuation.anchorPrice": "当时/锚定股价",
+    "valuation.method": "方法",
+    "valuation.methodTitle": "模型方法与假设",
+    "valuation.methodEmpty": "旧模型没有暴露 method card",
+    "valuation.note": "数据来自旧 Fundamental Analysis module 的 valuation output，当前价格优先使用本项目 SQLite/Yahoo price cache；无行情的英股/特殊 ticker 使用旧模型 price anchor。",
+    "dbmf.dashboard": "DBMF dashboard",
+    "dbmf.toolbarTitle": "趋势复制仓位：看当前，也看相对上期怎么变",
+    "dbmf.currentDate": "当前日期",
+    "dbmf.compareDate": "对比日期",
+    "dbmf.sort": "排序",
+    "dbmf.sort.exposure": "按敞口",
+    "dbmf.sort.delta": "按变化",
+    "dbmf.sort.risk": "按风险占比",
+    "dbmf.sort.market": "按市值",
+    "dbmf.holdingsType": "ETF 持仓",
+    "dbmf.profileSub": "iMGP DBi Managed Futures Strategy ETF · 官方日度持仓 + 本地历史敞口",
+    "dbmf.snapshot": "当前快照",
+    "dbmf.totalAssets": "总资产",
+    "dbmf.topLong": "最大多头",
+    "dbmf.topShort": "最大空头",
+    "dbmf.long": "多头",
+    "dbmf.short": "空头",
+    "dbmf.waiting": "等待 DBMF 数据",
+    "dbmf.primaryRead": "Primary read",
+    "dbmf.flowBalance": "Flow balance",
+    "dbmf.netDirection": "净方向变化",
+    "dbmf.rebalance": "Rebalance",
+    "dbmf.upDownFlip": "增 / {down} 降 / {flip} 反向",
+    "dbmf.assetExposure": "资产敞口",
+    "dbmf.officialHoldings": "官方持仓",
+    "dbmf.historyCurve": "历史曲线",
+    "dbmf.notes": "说明"
+  },
+  en: {
+    "app.privateWorkspace": "Private Workspace",
+    "app.logout": "Sign out",
+    "app.refresh": "Refresh",
+    "app.refreshing": "Refreshing",
+    "lang.label": "Language",
+    "mode.aria": "dashboard mode",
+    "mode.guru": "Guru",
+    "mode.dbmf": "DBMF",
+    "mode.valuation": "Valuation",
+    "page.guru.eyebrow": "Guru Analysis",
+    "page.guru.title": "Guru Intelligence Terminal",
+    "page.guru.subtitle": "Unified signal workspace for quarterly 13F, Form 4, and STOCK Act disclosures",
+    "page.dbmf.eyebrow": "Managed Futures",
+    "page.dbmf.title": "DBMF Exposure Dashboard",
+    "page.dbmf.subtitle": "Official DBMF holdings, historical exposure, and trend-position dashboard",
+    "page.valuation.eyebrow": "Valuation",
+    "page.valuation.title": "Valuation Research Terminal",
+    "page.valuation.subtitle": "Legacy Fundamental Analysis valuation history, fair value, and latest market price",
+    "guru.search": "Search guru / institution",
+    "guru.filter.all": "All",
+    "guru.deck.kicker": "Signal cockpit",
+    "guru.deck.title": "From disclosure to actionable signals",
+    "guru.bias.positive": "Net buying / add bias",
+    "guru.bias.negative": "Net selling / trim bias",
+    "guru.coverage": "Coverage",
+    "guru.monitored": "Tracked people",
+    "guru.aum": "13F AUM",
+    "guru.recentTrades": "Recent trades",
+    "guru.signalSpread": "Signal spread",
+    "guru.latestTape": "Latest signal tape",
+    "guru.heatmap": "Ticker heatmap",
+    "guru.heatmapNote": "Founders / control holders filtered out",
+    "guru.noConsensus": "No external consensus holdings",
+    "guru.transactions": "txns",
+    "guru.holdings": "holdings",
+    "valuation.cockpit": "Valuation cockpit",
+    "valuation.deckTitle": "Legacy Fundamental models vs current market prices",
+    "valuation.avg": "Average",
+    "valuation.coverage": "Coverage",
+    "valuation.stockCount": "Stocks",
+    "valuation.history": "Historical valuations",
+    "valuation.pricePoints": "Price points",
+    "valuation.livePrice": "Live prices",
+    "valuation.extremes": "Valuation extremes",
+    "valuation.fair": "fair",
+    "valuation.heatmap": "Fair value heatmap",
+    "valuation.heatmapSub": "Base fair value vs latest price",
+    "valuation.search": "Search ticker / company",
+    "valuation.allSectors": "All sectors",
+    "valuation.sort.upside": "Sort by upside",
+    "valuation.sort.ticker": "Sort by ticker",
+    "valuation.sort.price": "Sort by latest price",
+    "valuation.sort.history": "Sort by history rows",
+    "valuation.latest": "latest",
+    "valuation.historyPoints": "history points",
+    "valuation.latestPrice": "Latest price",
+    "valuation.upside": "Upside / downside",
+    "valuation.fairLatest": "fair / latest price",
+    "valuation.target3y": "3Y target",
+    "valuation.vsLatest": "vs latest",
+    "valuation.chartKicker": "HISTORICAL VALUATION + PRICE",
+    "valuation.chartTitleSuffix": "historical valuation and price",
+    "valuation.loadingPrice": "Loading price line...",
+    "valuation.emptyChart": "No historical price / valuation data",
+    "valuation.tableTitle": "Historical valuation",
+    "valuation.tableSub": "valuation run vs as-of price",
+    "valuation.datePeriod": "Date / period",
+    "valuation.anchorPrice": "As-of / anchor price",
+    "valuation.method": "Method",
+    "valuation.methodTitle": "Model methods and assumptions",
+    "valuation.methodEmpty": "No method card exposed by legacy model",
+    "valuation.note": "Data comes from legacy Fundamental Analysis module valuation output. Latest prices prioritize this project's SQLite/Yahoo price cache; UK or special tickers without market data use the legacy model price anchor.",
+    "dbmf.dashboard": "DBMF dashboard",
+    "dbmf.toolbarTitle": "Trend replication positioning: current exposure and changes vs prior snapshot",
+    "dbmf.currentDate": "Current date",
+    "dbmf.compareDate": "Compare date",
+    "dbmf.sort": "Sort",
+    "dbmf.sort.exposure": "By exposure",
+    "dbmf.sort.delta": "By change",
+    "dbmf.sort.risk": "By risk share",
+    "dbmf.sort.market": "By market value",
+    "dbmf.holdingsType": "ETF holdings",
+    "dbmf.profileSub": "iMGP DBi Managed Futures Strategy ETF · official daily holdings + local historical exposure",
+    "dbmf.snapshot": "Current snapshot",
+    "dbmf.totalAssets": "Total assets",
+    "dbmf.topLong": "Largest long",
+    "dbmf.topShort": "Largest short",
+    "dbmf.long": "long",
+    "dbmf.short": "short",
+    "dbmf.waiting": "Waiting for DBMF data",
+    "dbmf.primaryRead": "Primary read",
+    "dbmf.flowBalance": "Flow balance",
+    "dbmf.netDirection": "net directional change",
+    "dbmf.rebalance": "Rebalance",
+    "dbmf.upDownFlip": "up / {down} down / {flip} flips",
+    "dbmf.assetExposure": "Asset exposure",
+    "dbmf.officialHoldings": "Official holdings",
+    "dbmf.historyCurve": "History",
+    "dbmf.notes": "Notes"
+  }
+};
+
+function currentLanguage() {
+  const stored = window.localStorage.getItem("guru-analysis-language");
+  return stored === "en" ? "en" : "zh";
+}
+
+function useI18n() {
+  return React.useContext(I18nContext);
+}
+
 const disclosureLabels = {
   manager13f: "13F 机构",
   insider: "Form 4 个人",
@@ -505,6 +721,7 @@ function App() {
   const dbmfState = useDbmfData();
   const valuationState = useValuationData();
   const [mode, setModeState] = useState(() => currentDashboardMode());
+  const [language, setLanguageState] = useState(() => currentLanguage());
   const { user, logout } = useAuth();
 
   useEffect(() => {
@@ -514,6 +731,26 @@ function App() {
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("guru-analysis-language", language);
+    document.documentElement.lang = language === "en" ? "en" : "zh-CN";
+  }, [language]);
+
+  function setLanguage(nextLanguage) {
+    setLanguageState(nextLanguage === "en" ? "en" : "zh");
+  }
+
+  const i18n = useMemo(() => {
+    const dictionary = uiText[language] || uiText.zh;
+    return {
+      language,
+      t(key) {
+        return dictionary[key] ?? uiText.zh[key] ?? key;
+      }
+    };
+  }, [language]);
+  const { t } = i18n;
 
   function setMode(nextMode) {
     setModeState(nextMode);
@@ -526,61 +763,64 @@ function App() {
   const activeState = mode === "guru" ? guruState : mode === "dbmf" ? dbmfState : valuationState;
   const pageMeta = {
     guru: {
-      eyebrow: "Guru Analysis",
-      title: "Guru Intelligence Terminal",
-      subtitle: "季度 13F、Form 4、STOCK Act 的统一信号工作台",
+      eyebrow: t("page.guru.eyebrow"),
+      title: t("page.guru.title"),
+      subtitle: t("page.guru.subtitle"),
       source: "SEC EDGAR"
     },
     dbmf: {
-      eyebrow: "Managed Futures",
-      title: "DBMF Exposure Dashboard",
-      subtitle: "DBMF 官方持仓、历史敞口与趋势仓位的统一工作台",
+      eyebrow: t("page.dbmf.eyebrow"),
+      title: t("page.dbmf.title"),
+      subtitle: t("page.dbmf.subtitle"),
       source: "DBMF local data"
     },
     valuation: {
-      eyebrow: "Valuation",
-      title: "Valuation Research Terminal",
-      subtitle: "旧 Fundamental Analysis 股票估值、历史估值与最新股价的统一工作台",
+      eyebrow: t("page.valuation.eyebrow"),
+      title: t("page.valuation.title"),
+      subtitle: t("page.valuation.subtitle"),
       source: "Local valuation database"
     }
   }[mode] || {};
   const sourceLabel = activeState.data?.source?.label || pageMeta.source;
 
   return (
-    <main className="app-shell">
-      <header className="top-bar">
-        <div>
-          <div className="eyebrow">{pageMeta.eyebrow}</div>
-          <h1>{pageMeta.title}</h1>
-          <p className="page-subtitle">{pageMeta.subtitle}</p>
-        </div>
-        <div className="top-actions">
-          <ModeSwitch mode={mode} onChange={setMode} />
-          <div className="source-pill">
-            <CheckCircle2 size={16} />
-            <span>{sourceLabel}</span>
-            <span>{activeState.data?.generatedAt ? formatDate(activeState.data.generatedAt) : "-"}</span>
+    <I18nContext.Provider value={i18n}>
+      <main className="app-shell">
+        <header className="top-bar">
+          <div>
+            <div className="eyebrow">{pageMeta.eyebrow}</div>
+            <h1>{pageMeta.title}</h1>
+            <p className="page-subtitle">{pageMeta.subtitle}</p>
           </div>
-          <div className="source-pill auth-user-pill">
-            <span>{user?.name || user?.email || "Workspace"}</span>
+          <div className="top-actions">
+            <ModeSwitch mode={mode} onChange={setMode} />
+            <LanguageSwitch language={language} onChange={setLanguage} />
+            <div className="source-pill">
+              <CheckCircle2 size={16} />
+              <span>{sourceLabel}</span>
+              <span>{activeState.data?.generatedAt ? formatDate(activeState.data.generatedAt) : "-"}</span>
+            </div>
+            <div className="source-pill auth-user-pill">
+              <span>{user?.name || user?.email || t("app.privateWorkspace")}</span>
+            </div>
+            <button className="icon-button" onClick={() => void logout()}>
+              <LogOut size={18} />
+              <span>{t("app.logout")}</span>
+            </button>
+            <button
+              className="icon-button primary"
+              onClick={activeState.refresh}
+              disabled={activeState.refreshing || activeState.loading}
+            >
+              {activeState.refreshing ? <Loader2 className="spin" size={18} /> : <RefreshCw size={18} />}
+              <span>{activeState.refreshing ? t("app.refreshing") : t("app.refresh")}</span>
+            </button>
           </div>
-          <button className="icon-button" onClick={() => void logout()}>
-            <LogOut size={18} />
-            <span>退出</span>
-          </button>
-          <button
-            className="icon-button primary"
-            onClick={activeState.refresh}
-            disabled={activeState.refreshing || activeState.loading}
-          >
-            {activeState.refreshing ? <Loader2 className="spin" size={18} /> : <RefreshCw size={18} />}
-            <span>{activeState.refreshing ? "刷新中" : "刷新"}</span>
-          </button>
-        </div>
-      </header>
+        </header>
 
-      {mode === "guru" ? <GuruWorkspace {...guruState} /> : mode === "dbmf" ? <DbmfWorkspace {...dbmfState} /> : <ValuationWorkspace {...valuationState} />}
-    </main>
+        {mode === "guru" ? <GuruWorkspace {...guruState} /> : mode === "dbmf" ? <DbmfWorkspace {...dbmfState} /> : <ValuationWorkspace {...valuationState} />}
+      </main>
+    </I18nContext.Provider>
   );
 }
 
@@ -631,22 +871,38 @@ function currentDashboardMode() {
 }
 
 function ModeSwitch({ mode, onChange }) {
+  const { t } = useI18n();
   return (
-    <div className="mode-switch" aria-label="dashboard mode">
+    <div className="mode-switch" aria-label={t("mode.aria")}>
       <button className={mode === "guru" ? "active" : ""} onClick={() => onChange("guru")}>
-        Guru
+        {t("mode.guru")}
       </button>
       <button className={mode === "dbmf" ? "active" : ""} onClick={() => onChange("dbmf")}>
-        DBMF
+        {t("mode.dbmf")}
       </button>
       <button className={mode === "valuation" ? "active" : ""} onClick={() => onChange("valuation")}>
-        Valuation
+        {t("mode.valuation")}
+      </button>
+    </div>
+  );
+}
+
+function LanguageSwitch({ language, onChange }) {
+  const { t } = useI18n();
+  return (
+    <div className="language-switch" aria-label={t("lang.label")}>
+      <button className={language === "zh" ? "active" : ""} onClick={() => onChange("zh")}>
+        中
+      </button>
+      <button className={language === "en" ? "active" : ""} onClick={() => onChange("en")}>
+        EN
       </button>
     </div>
   );
 }
 
 function GuruWorkspace({ data, loading, error }) {
+  const { t } = useI18n();
   const [activeId, setActiveId] = useState("");
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
@@ -689,12 +945,12 @@ function GuruWorkspace({ data, loading, error }) {
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜索 guru / 机构"
+                placeholder={t("guru.search")}
               />
             </label>
             <div className="segmented" aria-label="disclosure filter">
               <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>
-                全部
+                {t("guru.filter.all")}
               </button>
               <button
                 className={filter === "manager13f" ? "active" : ""}
@@ -770,6 +1026,7 @@ function buildValuationModel(data, tickers) {
 }
 
 function ValuationWorkspace({ data, loading, error }) {
+  const { t } = useI18n();
   const [activeTicker, setActiveTicker] = useState("");
   const [query, setQuery] = useState("");
   const [sector, setSector] = useState("all");
@@ -828,19 +1085,19 @@ function ValuationWorkspace({ data, loading, error }) {
           <div className="rail-tools">
             <label className="search-box">
               <Search size={16} />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索 ticker / 公司" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("valuation.search")} />
             </label>
             <div className="valuation-select-row">
               <select value={sector} onChange={(event) => setSector(event.target.value)}>
                 {sectors.map((option) => (
-                  <option value={option} key={option}>{option === "all" ? "全部行业" : option}</option>
+                  <option value={option} key={option}>{option === "all" ? t("valuation.allSectors") : option}</option>
                 ))}
               </select>
               <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-                <option value="upside">按 upside</option>
-                <option value="ticker">按 ticker</option>
-                <option value="price">按最新价</option>
-                <option value="history">按历史行</option>
+                <option value="upside">{t("valuation.sort.upside")}</option>
+                <option value="ticker">{t("valuation.sort.ticker")}</option>
+                <option value="price">{t("valuation.sort.price")}</option>
+                <option value="history">{t("valuation.sort.history")}</option>
               </select>
             </div>
           </div>
@@ -872,6 +1129,7 @@ function ValuationWorkspace({ data, loading, error }) {
 }
 
 function ValuationCommandDeck({ data, model, loading, onSelectTicker }) {
+  const { t } = useI18n();
   const summary = model.summary || {};
   const movers = [model.topUpside, model.topDownside].filter(Boolean);
   const maxAbsUpside = Math.max(...(model.rows || []).map((row) => Math.abs(row.latest?.upsideToBase || 0)), 0.01);
@@ -882,13 +1140,13 @@ function ValuationCommandDeck({ data, model, loading, onSelectTicker }) {
         <div>
           <span className="deck-kicker">
             <BadgeDollarSign size={15} />
-            Valuation cockpit
+            {t("valuation.cockpit")}
           </span>
-          <h2>从旧 Fundamental 模型到当前市场价格</h2>
+          <h2>{t("valuation.deckTitle")}</h2>
         </div>
         <div className={`bias-chip ${(model.avgUpside || 0) >= 0 ? "positive" : "negative"}`}>
           {(model.avgUpside || 0) >= 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
-          <span>平均 {formatReturnPct(model.avgUpside || 0)}</span>
+          <span>{t("valuation.avg")} {formatReturnPct(model.avgUpside || 0)}</span>
         </div>
       </div>
 
@@ -896,20 +1154,20 @@ function ValuationCommandDeck({ data, model, loading, onSelectTicker }) {
         <section className="terminal-panel stat-panel">
           <div className="panel-title">
             <Layers size={16} />
-            Coverage
+            {t("valuation.coverage")}
           </div>
           <div className="terminal-stats">
-            <TerminalStat icon={Layers} label="股票数" value={formatNumber(summary.tickerCount || 0)} sub="legacy modules" />
-            <TerminalStat icon={LineChart} label="历史估值" value={formatNumber(summary.historyRows || 0)} sub="valuation rows" />
-            <TerminalStat icon={Activity} label="价格点" value={formatNumber(summary.pricePointCount || 0)} sub="cached bars" />
-            <TerminalStat icon={CheckCircle2} label="实时价格" value={`${formatNumber(model.livePriceCount || 0)}/${formatNumber(summary.tickerCount || 0)}`} sub={formatDate(summary.latestPriceDate)} />
+            <TerminalStat icon={Layers} label={t("valuation.stockCount")} value={formatNumber(summary.tickerCount || 0)} sub="legacy modules" />
+            <TerminalStat icon={LineChart} label={t("valuation.history")} value={formatNumber(summary.historyRows || 0)} sub="valuation rows" />
+            <TerminalStat icon={Activity} label={t("valuation.pricePoints")} value={formatNumber(summary.pricePointCount || 0)} sub="cached bars" />
+            <TerminalStat icon={CheckCircle2} label={t("valuation.livePrice")} value={`${formatNumber(model.livePriceCount || 0)}/${formatNumber(summary.tickerCount || 0)}`} sub={formatDate(summary.latestPriceDate)} />
           </div>
         </section>
 
         <section className="terminal-panel signal-panel">
           <div className="panel-title">
             <Sparkles size={16} />
-            Valuation extremes
+            {t("valuation.extremes")}
           </div>
           <div className="signal-list">
             {loading ? <SignalSkeleton /> : movers.map((item) => (
@@ -921,7 +1179,7 @@ function ValuationCommandDeck({ data, model, loading, onSelectTicker }) {
                 </div>
                 <div className="signal-meta">
                   <strong>{formatReturnPct(item.latest?.upsideToBase)}</strong>
-                  <span>{valuationCurrency(item.latest?.baseFairValue, item.currency)} fair</span>
+                  <span>{valuationCurrency(item.latest?.baseFairValue, item.currency)} {t("valuation.fair")}</span>
                 </div>
               </button>
             ))}
@@ -931,8 +1189,8 @@ function ValuationCommandDeck({ data, model, loading, onSelectTicker }) {
         <section className="terminal-panel exposure-panel">
           <div className="panel-title">
             <Crosshair size={16} />
-            Fair value heatmap
-            <small>Base fair value vs latest price</small>
+            {t("valuation.heatmap")}
+            <small>{t("valuation.heatmapSub")}</small>
           </div>
           <div className="exposure-list">
             {(model.rows || []).slice(0, 8).map((item) => (
@@ -957,6 +1215,7 @@ function ValuationCommandDeck({ data, model, loading, onSelectTicker }) {
 }
 
 function ValuationTickerButton({ ticker, active, onClick }) {
+  const { t } = useI18n();
   const upside = ticker.latest?.upsideToBase;
   const historyCount = ticker.dataQuality?.fullHistoryRowsAvailable || ticker.history?.length || 0;
   return (
@@ -968,7 +1227,7 @@ function ValuationTickerButton({ ticker, active, onClick }) {
           <span className={`mini-badge ${(upside || 0) >= 0 ? "simulatable" : "muted"}`}>{formatReturnPct(upside)}</span>
         </div>
         <span>{ticker.name}</span>
-        <small>{valuationCurrency(ticker.latest?.latestPrice, ticker.currency)} 最新 · {formatNumber(historyCount)} 历史点</small>
+        <small>{valuationCurrency(ticker.latest?.latestPrice, ticker.currency)} {t("valuation.latest")} · {formatNumber(historyCount)} {t("valuation.historyPoints")}</small>
       </div>
       <div className="score-ring">{ticker.dataQuality?.hasLivePriceSeries ? "P" : "A"}</div>
     </button>
@@ -976,6 +1235,7 @@ function ValuationTickerButton({ ticker, active, onClick }) {
 }
 
 function ValuationDetail({ ticker, compact, loading, error }) {
+  const { t } = useI18n();
   const active = ticker || compact;
   const scenarios = active.scenarios || [];
   const base = scenarios.find((item) => item.scenario === "Base") || scenarios[0] || {};
@@ -1000,10 +1260,10 @@ function ValuationDetail({ ticker, compact, loading, error }) {
           </div>
         </div>
         <div className="metric-grid">
-          <MetricBox metric={{ label: "最新股价", value: valuationCurrency(active.latest?.latestPrice, active.currency), sub: formatDate(active.latest?.latestPriceDate), icon: LineChart }} />
+          <MetricBox metric={{ label: t("valuation.latestPrice"), value: valuationCurrency(active.latest?.latestPrice, active.currency), sub: formatDate(active.latest?.latestPriceDate), icon: LineChart }} />
           <MetricBox metric={{ label: "Base fair value", value: valuationCurrency(active.latest?.baseFairValue, active.currency), sub: active.latest?.latestPriceSource || "-", icon: BadgeDollarSign }} />
-          <MetricBox metric={{ label: "Upside / downside", value: formatReturnPct(active.latest?.upsideToBase), sub: "fair / latest price", tone: (active.latest?.upsideToBase || 0) >= 0 ? "positive" : "negative", icon: active.latest?.upsideToBase >= 0 ? ArrowUpRight : ArrowDownRight }} />
-          <MetricBox metric={{ label: "3Y target", value: valuationCurrency(base.targetPrice3Y || active.latest?.targetPrice3Y, active.currency), sub: `CAGR ${formatReturnPct(base.expectedReturn3Y || active.latest?.expectedReturn3Y)}`, icon: TrendingUp }} />
+          <MetricBox metric={{ label: t("valuation.upside"), value: formatReturnPct(active.latest?.upsideToBase), sub: t("valuation.fairLatest"), tone: (active.latest?.upsideToBase || 0) >= 0 ? "positive" : "negative", icon: active.latest?.upsideToBase >= 0 ? ArrowUpRight : ArrowDownRight }} />
+          <MetricBox metric={{ label: t("valuation.target3y"), value: valuationCurrency(base.targetPrice3Y || active.latest?.targetPrice3Y, active.currency), sub: `CAGR ${formatReturnPct(base.expectedReturn3Y || active.latest?.expectedReturn3Y)}`, icon: TrendingUp }} />
         </div>
       </section>
 
@@ -1018,7 +1278,7 @@ function ValuationDetail({ ticker, compact, loading, error }) {
               <div className="insight-icon"><BadgeDollarSign size={17} /></div>
               <span>{item.scenario}</span>
               <strong>{valuationCurrency(item.fairValue, active.currency)}</strong>
-              <small>{formatReturnPct(scenarioUpside)} vs latest</small>
+              <small>{formatReturnPct(scenarioUpside)} {t("valuation.vsLatest")}</small>
             </div>
           );
         })}
@@ -1034,14 +1294,15 @@ function ValuationDetail({ ticker, compact, loading, error }) {
 }
 
 function ValuationHistoryPanel({ ticker, loading }) {
+  const { t } = useI18n();
   return (
     <section className="chart-panel valuation-chart-panel">
       <div className="chart-head">
         <div>
-          <span>HISTORICAL VALUATION + PRICE</span>
-          <h3>{ticker.ticker} 历史估值与股价</h3>
+          <span>{t("valuation.chartKicker")}</span>
+          <h3>{ticker.ticker} {t("valuation.chartTitleSuffix")}</h3>
         </div>
-        <strong>{loading ? "加载价格线..." : ticker.currency}</strong>
+        <strong>{loading ? t("valuation.loadingPrice") : ticker.currency}</strong>
       </div>
       <ValuationHistoryChart ticker={ticker} />
     </section>
@@ -1049,6 +1310,7 @@ function ValuationHistoryPanel({ ticker, loading }) {
 }
 
 function ValuationHistoryChart({ ticker }) {
+  const { t } = useI18n();
   const [hover, setHover] = useState(null);
   const width = 860;
   const height = 320;
@@ -1081,7 +1343,7 @@ function ValuationHistoryChart({ ticker }) {
   const chart = makeChartModel(allPoints, width, height, padding);
 
   if (!chart) {
-    return <div className="chart-empty">暂无历史价格/估值数据</div>;
+    return <div className="chart-empty">{t("valuation.emptyChart")}</div>;
   }
 
   const priceLine = linePath(chartPricePoints, chart.xScale, chart.yScale);
@@ -1242,24 +1504,25 @@ function ValuationChartHover({ model, chart, ticker, padding, height }) {
 }
 
 function ValuationTable({ ticker, history }) {
+  const { t } = useI18n();
   return (
     <section className="table-panel">
       <div className="panel-head">
         <div>
-          <h3>历史 valuation</h3>
-          <p>{ticker.ticker} · valuation run vs as-of price</p>
+          <h3>{t("valuation.tableTitle")}</h3>
+          <p>{ticker.ticker} · {t("valuation.tableSub")}</p>
         </div>
       </div>
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>日期 / 期间</th>
+              <th>{t("valuation.datePeriod")}</th>
               <th>Fair value</th>
-              <th>当时/锚定股价</th>
+              <th>{t("valuation.anchorPrice")}</th>
               <th>Upside</th>
               <th>3Y Target</th>
-              <th>方法</th>
+              <th>{t("valuation.method")}</th>
             </tr>
           </thead>
           <tbody>
@@ -1284,11 +1547,12 @@ function ValuationTable({ ticker, history }) {
 }
 
 function ValuationMethodPanel({ ticker }) {
+  const { t } = useI18n();
   return (
     <section className="table-panel valuation-method-panel">
       <div className="panel-head">
         <div>
-          <h3>模型方法与假设</h3>
+          <h3>{t("valuation.methodTitle")}</h3>
           <p>{ticker.modelType || "legacy fundamental-analysis valuation model"}</p>
         </div>
       </div>
@@ -1302,7 +1566,7 @@ function ValuationMethodPanel({ ticker }) {
                 <span>{card.format === "percent" ? formatPct(card.value) : valuationCurrency(card.value, ticker.currency)}</span>
                 <small>{card.description}</small>
               </div>
-            )) : <div className="empty-panel">旧模型没有暴露 method card</div>}
+            )) : <div className="empty-panel">{t("valuation.methodEmpty")}</div>}
           </div>
         </div>
         <div>
@@ -1319,7 +1583,7 @@ function ValuationMethodPanel({ ticker }) {
         </div>
       </div>
       <div className="valuation-note">
-        数据来自旧 Fundamental Analysis module 的 valuation output，当前价格优先使用本项目 SQLite/Yahoo price cache；无行情的英股/特殊 ticker 使用旧模型 price anchor。
+        {t("valuation.note")}
       </div>
     </section>
   );
@@ -1400,6 +1664,7 @@ function buildDbmfModel(data, selectedDate, compareDate, sortBy) {
 }
 
 function DbmfWorkspace({ data, loading, error }) {
+  const { t } = useI18n();
   const [selectedDate, setSelectedDate] = useState("");
   const [compareDate, setCompareDate] = useState("");
   const [sortBy, setSortBy] = useState("exposure");
@@ -1434,22 +1699,22 @@ function DbmfWorkspace({ data, loading, error }) {
           <div>
             <span className="deck-kicker">
               <Radar size={15} />
-              DBMF dashboard
+              {t("dbmf.dashboard")}
             </span>
-            <h2>趋势复制仓位：看当前，也看相对上期怎么变</h2>
+            <h2>{t("dbmf.toolbarTitle")}</h2>
           </div>
           <div className="dbmf-controls">
-            <DbmfSelect label="当前日期" value={selectedDate} onChange={setSelectedDate} options={dates} />
-            <DbmfSelect label="对比日期" value={compareDate} onChange={setCompareDate} options={dates.filter((date) => date !== selectedDate)} />
+            <DbmfSelect label={t("dbmf.currentDate")} value={selectedDate} onChange={setSelectedDate} options={dates} />
+            <DbmfSelect label={t("dbmf.compareDate")} value={compareDate} onChange={setCompareDate} options={dates.filter((date) => date !== selectedDate)} />
             <DbmfSelect
-              label="排序"
+              label={t("dbmf.sort")}
               value={sortBy}
               onChange={setSortBy}
               options={[
-                ["exposure", "按敞口"],
-                ["delta", "按变化"],
-                ["risk", "按风险占比"],
-                ["market", "按市值"]
+                ["exposure", t("dbmf.sort.exposure")],
+                ["delta", t("dbmf.sort.delta")],
+                ["risk", t("dbmf.sort.risk")],
+                ["market", t("dbmf.sort.market")]
               ]}
             />
           </div>
@@ -1458,9 +1723,9 @@ function DbmfWorkspace({ data, loading, error }) {
         <section className="profile-band dbmf-profile">
           <div className="profile-main">
             <div className="identity-stack">
-              <span className="type-chip">ETF 持仓</span>
+              <span className="type-chip">{t("dbmf.holdingsType")}</span>
               <h2>DBMF Managed Futures</h2>
-              <p>iMGP DBi Managed Futures Strategy ETF · 官方日度持仓 + 本地历史敞口</p>
+              <p>{t("dbmf.profileSub")}</p>
             </div>
             <div className="profile-meta">
               <span>{model.rawHoldings.length} 条官方持仓 · {data?.registry?.snapshot_count || dates.length} 个历史 snapshot</span>
@@ -1473,36 +1738,36 @@ function DbmfWorkspace({ data, loading, error }) {
             </div>
           </div>
           <div className="metric-grid">
-            <MetricBox metric={{ label: "当前快照", value: formatDate(selectedDate), sub: model.selectedSnapshot?.meta?.sourceFile || "-", icon: CalendarDays }} />
-            <MetricBox metric={{ label: "总资产", value: formatMoney(model.totalNetAssets), sub: "Total net assets", icon: Wallet }} />
-            <MetricBox metric={{ label: "最大多头", value: model.topLong?.assetName || "-", sub: formatExposure(model.topLong?.exposure), tone: "positive", icon: ArrowUpRight }} />
-            <MetricBox metric={{ label: "最大空头", value: model.topShort?.assetName || "-", sub: formatExposure(model.topShort?.exposure), tone: "negative", icon: ArrowDownRight }} />
+            <MetricBox metric={{ label: t("dbmf.snapshot"), value: formatDate(selectedDate), sub: model.selectedSnapshot?.meta?.sourceFile || "-", icon: CalendarDays }} />
+            <MetricBox metric={{ label: t("dbmf.totalAssets"), value: formatMoney(model.totalNetAssets), sub: "Total net assets", icon: Wallet }} />
+            <MetricBox metric={{ label: t("dbmf.topLong"), value: model.topLong?.assetName || "-", sub: formatExposure(model.topLong?.exposure), tone: "positive", icon: ArrowUpRight }} />
+            <MetricBox metric={{ label: t("dbmf.topShort"), value: model.topShort?.assetName || "-", sub: formatExposure(model.topShort?.exposure), tone: "negative", icon: ArrowDownRight }} />
           </div>
         </section>
 
         <section className="insight-deck">
           <div className="insight-item primary">
-            <div className="insight-icon"><TrendingUp size={17} /></div>
-            <span>Primary read</span>
-            <strong>{model.topShort && model.topLong ? `${model.topShort.assetName} 空头 / ${model.topLong.assetName} 多头` : "等待 DBMF 数据"}</strong>
+          <div className="insight-icon"><TrendingUp size={17} /></div>
+            <span>{t("dbmf.primaryRead")}</span>
+            <strong>{model.topShort && model.topLong ? `${model.topShort.assetName} ${t("dbmf.short")} / ${model.topLong.assetName} ${t("dbmf.long")}` : t("dbmf.waiting")}</strong>
           </div>
           <div className="insight-item">
             <div className="insight-icon"><BarChart3 size={17} /></div>
-            <span>Flow balance</span>
-            <strong>{formatExposure(model.netDirectionalChange)} 净方向变化</strong>
+            <span>{t("dbmf.flowBalance")}</span>
+            <strong>{formatExposure(model.netDirectionalChange)} {t("dbmf.netDirection")}</strong>
           </div>
           <div className="insight-item">
             <div className="insight-icon"><Filter size={17} /></div>
-            <span>Rebalance</span>
-            <strong>{model.increased} 增 / {model.decreased} 降 / {model.signFlips} 反向</strong>
+            <span>{t("dbmf.rebalance")}</span>
+            <strong>{model.increased} {t("dbmf.upDownFlip").replace("{down}", model.decreased).replace("{flip}", model.signFlips)}</strong>
           </div>
         </section>
 
         <nav className="tab-row dbmf-anchor-row" aria-label="dbmf sections">
-          <a href="#dbmf-exposure">资产敞口</a>
-          <a href="#dbmf-holdings">官方持仓</a>
-          <a href="#dbmf-history">历史曲线</a>
-          <a href="#dbmf-notes">说明</a>
+          <a href="#dbmf-exposure">{t("dbmf.assetExposure")}</a>
+          <a href="#dbmf-holdings">{t("dbmf.officialHoldings")}</a>
+          <a href="#dbmf-history">{t("dbmf.historyCurve")}</a>
+          <a href="#dbmf-notes">{t("dbmf.notes")}</a>
         </nav>
 
         <div className="dbmf-panel-stack">
@@ -1539,6 +1804,7 @@ function DbmfSelect({ label, value, onChange, options }) {
 }
 
 function DbmfCommandDeck({ data, model, loading }) {
+  const { t } = useI18n();
   const maxAbsExposure = Math.max(...(model.rows || []).map((row) => Math.abs(row.exposure || 0)), 1);
   const changeRows = [...(model.riskRows || [])]
     .filter((row) => Number.isFinite(row.delta))
@@ -1553,7 +1819,7 @@ function DbmfCommandDeck({ data, model, loading }) {
             <Gauge size={15} />
             Managed futures cockpit
           </span>
-          <h2>DBMF 仓位雷达</h2>
+          <h2>{t("dbmf.dashboard")}</h2>
         </div>
         <div className={`bias-chip ${(model.netDirectionalChange || 0) >= 0 ? "positive" : "negative"}`}>
           {(model.netDirectionalChange || 0) >= 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
@@ -1568,10 +1834,10 @@ function DbmfCommandDeck({ data, model, loading }) {
             Snapshot
           </div>
           <div className="terminal-stats">
-            <TerminalStat icon={CalendarDays} label="最新日期" value={formatDate(data?.summary?.latest_date)} sub="official holdings" />
-            <TerminalStat icon={Layers} label="历史快照" value={formatNumber(data?.registry?.snapshot_count || 0)} sub="local DBMF history" />
-            <TerminalStat icon={Wallet} label="总资产" value={formatMoney(model.totalNetAssets || 0)} sub="total net assets" />
-            <TerminalStat icon={Activity} label="资产桶" value={formatNumber(data?.summary?.asset_count || 0)} sub="normalized buckets" />
+            <TerminalStat icon={CalendarDays} label={t("dbmf.currentDate")} value={formatDate(data?.summary?.latest_date)} sub="official holdings" />
+            <TerminalStat icon={Layers} label={t("dbmf.historyCurve")} value={formatNumber(data?.registry?.snapshot_count || 0)} sub="local DBMF history" />
+            <TerminalStat icon={Wallet} label={t("dbmf.totalAssets")} value={formatMoney(model.totalNetAssets || 0)} sub="total net assets" />
+            <TerminalStat icon={Activity} label={t("dbmf.assetExposure")} value={formatNumber(data?.summary?.asset_count || 0)} sub="normalized buckets" />
           </div>
         </section>
 
@@ -1859,6 +2125,7 @@ function DataStatusBanner({ guru }) {
 }
 
 function CommandDeck({ loading, model, activeGuruId, onSelectGuru }) {
+  const { t } = useI18n();
   const stats = model?.stats || {};
   const maxExposure = Math.max(...(model?.exposures || []).map((item) => item.value), 1);
   const biasPositive = (stats.netBias || 0) >= 0;
@@ -1869,13 +2136,13 @@ function CommandDeck({ loading, model, activeGuruId, onSelectGuru }) {
         <div>
           <span className="deck-kicker">
             <Radar size={15} />
-            Signal cockpit
+            {t("guru.deck.kicker")}
           </span>
-          <h2>从披露到可行动信号</h2>
+          <h2>{t("guru.deck.title")}</h2>
         </div>
         <div className={`bias-chip ${biasPositive ? "positive" : "negative"}`}>
           {biasPositive ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
-          <span>{biasPositive ? "净买入/加仓倾向" : "净卖出/减仓倾向"}</span>
+          <span>{biasPositive ? t("guru.bias.positive") : t("guru.bias.negative")}</span>
         </div>
       </div>
 
@@ -1883,20 +2150,20 @@ function CommandDeck({ loading, model, activeGuruId, onSelectGuru }) {
         <section className="terminal-panel stat-panel">
           <div className="panel-title">
             <Gauge size={16} />
-            Coverage
+            {t("guru.coverage")}
           </div>
           <div className="terminal-stats">
-            <TerminalStat icon={Layers} label="监控对象" value={formatNumber(stats.gurus || 0)} sub="guru universe" />
-            <TerminalStat icon={Wallet} label="13F 规模" value={formatMoney(stats.total13fValue || 0)} sub="live 13F AUM" />
-            <TerminalStat icon={Activity} label="近期交易" value={formatNumber(stats.totalTransactions || 0)} sub="Form 4 / STOCK" />
-            <TerminalStat icon={LineChart} label="信号差" value={`${(stats.netBias || 0) > 0 ? "+" : ""}${formatNumber(stats.netBias || 0)}`} sub="buy minus sell" />
+            <TerminalStat icon={Layers} label={t("guru.monitored")} value={formatNumber(stats.gurus || 0)} sub="guru universe" />
+            <TerminalStat icon={Wallet} label={t("guru.aum")} value={formatMoney(stats.total13fValue || 0)} sub="live 13F AUM" />
+            <TerminalStat icon={Activity} label={t("guru.recentTrades")} value={formatNumber(stats.totalTransactions || 0)} sub="Form 4 / STOCK" />
+            <TerminalStat icon={LineChart} label={t("guru.signalSpread")} value={`${(stats.netBias || 0) > 0 ? "+" : ""}${formatNumber(stats.netBias || 0)}`} sub="buy minus sell" />
           </div>
         </section>
 
         <section className="terminal-panel signal-panel">
           <div className="panel-title">
             <Sparkles size={16} />
-            Latest signal tape
+            {t("guru.latestTape")}
           </div>
           <div className="signal-list">
             {loading ? (
@@ -1926,8 +2193,8 @@ function CommandDeck({ loading, model, activeGuruId, onSelectGuru }) {
         <section className="terminal-panel exposure-panel">
           <div className="panel-title">
             <Crosshair size={16} />
-            Ticker heatmap
-            <small>已过滤公司创始人 / 控制股东</small>
+            {t("guru.heatmap")}
+            <small>{t("guru.heatmapNote")}</small>
           </div>
           <div className="exposure-list">
             {(model.exposures || []).length ? (model.exposures || []).map((item) => (
@@ -1942,7 +2209,7 @@ function CommandDeck({ loading, model, activeGuruId, onSelectGuru }) {
                 <div className="exposure-value">{formatMoney(item.value || 0)}</div>
               </div>
             )) : (
-              <div className="empty-panel">暂无外部共识持仓</div>
+              <div className="empty-panel">{t("guru.noConsensus")}</div>
             )}
           </div>
         </section>
@@ -1975,11 +2242,12 @@ function SignalSkeleton() {
 }
 
 function GuruButton({ guru, active, onClick }) {
+  const { t } = useI18n();
   const metric = guru.type === "manager13f"
     ? formatMoney(guru.summary?.totalValue || 0)
-    : `${formatNumber(guru.summary?.recentTransactions || 0)} 笔`;
+    : `${formatNumber(guru.summary?.recentTransactions || 0)} ${t("guru.transactions")}`;
   const subtitle = guru.type === "manager13f"
-    ? `${formatNumber(guru.summary?.totalPositions || 0)} 个持仓`
+    ? `${formatNumber(guru.summary?.totalPositions || 0)} ${t("guru.holdings")}`
     : guru.summary?.latestTicker || guru.focusTicker || guru.disclosureKind;
   const score = Math.round(guruSignalScore(guru));
 
