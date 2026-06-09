@@ -1318,8 +1318,9 @@ function ValuationQualityBanner({ ticker }) {
   if (quality.priceDisplayMode === "as-of-price-anchors" || (!quality.hasLivePriceSeries && (ticker.history || []).some((row) => Number.isFinite(row.priceAtDate)))) {
     messages.push(t("valuation.qualityNoDaily"));
   }
-  if (Number(quality.excludedLegacyBackendRows) > 0) {
-    messages.push(`${t("valuation.qualityExcluded")} ${formatNumber(Number(quality.excludedLegacyBackendRows))}`);
+  const excludedRows = Number(quality.excludedLegacyBackendRows || 0) + Number(quality.excludedSnapshotRows || 0);
+  if (excludedRows > 0) {
+    messages.push(`${t("valuation.qualityExcluded")} ${formatNumber(excludedRows)}`);
   }
   if (!messages.length) return null;
   return (
@@ -1501,10 +1502,19 @@ function valuationBarWidth(points, chart, innerWidth) {
 
 function chartValuationPointPriority(point) {
   const label = String(point.label || "").toLowerCase();
+  const text = label;
   let score = 0;
   if (/q[1-4]/.test(label) || point.fiscalQuarter) score += 20;
   if (/fy\d{2,4}/.test(label)) score += 8;
-  if (label.includes("market snapshot")) score -= 8;
+  if (label.includes("market snapshot")) score -= 16;
+  if (/(q[1-4]|fy\d{2,4})e\b/.test(text) || /estimate|estimated|consensus|forecast/.test(text)) score -= 8;
+  const yearMatch = text.match(/(?:fy)?(20\d{2}|\d{2})/);
+  if (yearMatch) {
+    const year = Number(yearMatch[1].length === 2 ? `20${yearMatch[1]}` : yearMatch[1]);
+    if (Number.isFinite(year)) score += (year - 2000) / 100;
+  }
+  const quarterMatch = text.match(/q([1-4])/);
+  if (quarterMatch) score += Number(quarterMatch[1]) / 10;
   if (Number.isFinite(point.priceAtDate) && point.priceAtDate > 0) score += 4;
   return score;
 }
@@ -3721,15 +3731,21 @@ function makeChartModel(points, width, height, padding) {
 
   const minX = Math.min(...times);
   const maxX = Math.max(...times);
-  let minY = Math.min(...closes);
-  let maxY = Math.max(...closes);
+  const rawMinY = Math.min(...closes);
+  const rawMaxY = Math.max(...closes);
+  let minY = rawMinY;
+  let maxY = rawMaxY;
   if (minY === maxY) {
-    minY -= 1;
-    maxY += 1;
+    const singlePointPad = Math.max(Math.abs(minY) * 0.08, 1);
+    minY -= singlePointPad;
+    maxY += singlePointPad;
   }
   const padY = (maxY - minY) * 0.08;
   minY -= padY;
   maxY += padY;
+  if (rawMinY >= 0 && minY < 0) {
+    minY = rawMinY > 0 ? rawMinY * 0.8 : 0;
+  }
 
   const innerWidth = width - padding.left - padding.right;
   const innerHeight = height - padding.top - padding.bottom;

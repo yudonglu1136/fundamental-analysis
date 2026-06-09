@@ -174,11 +174,20 @@ function invalidRatioReason(row) {
 function periodPriority(row) {
   const id = String(row.periodId || "").toLowerCase();
   const label = String(row.label || "").toLowerCase();
+  const text = `${id} ${label}`;
   let score = 0;
   if (/q[1-4]/.test(id) || /q[1-4]/.test(label)) score += 30;
   if (/fy\d{2,4}/.test(id) || /fy\d{2,4}/.test(label)) score += 10;
   if (id.startsWith("period-")) score -= 8;
-  if (label.includes("market snapshot") || id.includes("market-snapshot")) score -= 12;
+  if (label.includes("market snapshot") || id.includes("market-snapshot")) score -= 20;
+  if (/(q[1-4]|fy\d{2,4})e\b/.test(text) || /estimate|estimated|consensus|forecast/.test(text)) score -= 8;
+  const yearMatch = text.match(/(?:fy)?(20\d{2}|\d{2})/);
+  if (yearMatch) {
+    const year = Number(yearMatch[1].length === 2 ? `20${yearMatch[1]}` : yearMatch[1]);
+    if (Number.isFinite(year)) score += (year - 2000) / 100;
+  }
+  const quarterMatch = text.match(/q([1-4])/);
+  if (quarterMatch) score += Number(quarterMatch[1]) / 10;
   if (row.runCreatedAt) score += Math.min(Date.parse(row.runCreatedAt) || 0, 4102444800000) / 4102444800000;
   return score;
 }
@@ -300,6 +309,21 @@ function buildScenarioFromRun(run, scenario = "Base") {
   };
 }
 
+function buildScenarioFromHistoryRow(row, run, scenario = "Base") {
+  const currentPrice = finiteNumber(row?.priceAtDate ?? row?.currentPrice ?? run?.currentPrice);
+  const fairValue = finiteNumber(row?.fairValue ?? run?.fairValue);
+  return {
+    scenario,
+    currentPrice,
+    fairValue,
+    upsideDownside: currentPrice && fairValue ? fairValue / currentPrice - 1 : finiteNumber(row?.upsideDownside ?? run?.upsideDownside),
+    targetPrice3Y: finiteNumber(row?.targetPrice3Y ?? run?.targetPrice3Y),
+    expectedReturn3Y: finiteNumber(row?.expectedReturn3Y ?? run?.expectedShareholderCagr),
+    recommendedMethod: row?.method || methodLabel(methodCardsFromRun(run)),
+    modelSummary: "Legacy backend valuation run"
+  };
+}
+
 function updateTickerSnapshot(snapshot, legacyTicker, runs, eventsById) {
   const rawHistory = runs
     .map((run) => buildHistoryRow(run, eventsById.get(run.reportingEventId)))
@@ -314,13 +338,15 @@ function updateTickerSnapshot(snapshot, legacyTicker, runs, eventsById) {
   if (!latestRun) return null;
 
   const latestPrice = latestPricePoint(snapshot.priceHistory);
-  const latestFairValue = finiteNumber(latestRun.fairValue);
+  const latestFairValue = finiteNumber(latestHistoryRow?.fairValue ?? latestRun.fairValue);
+  const latestAnchorPrice = finiteNumber(latestHistoryRow?.priceAtDate ?? latestHistoryRow?.currentPrice ?? latestRun.currentPrice);
+  const latestAnchorDate = latestHistoryRow?.asOfDate || latestRun.asOfDate;
   const latestMarketPrice = finiteNumber(latestPrice?.close ?? snapshot.latest?.latestPrice);
-  const targetPrice3Y = finiteNumber(latestRun.targetPrice3Y);
+  const targetPrice3Y = finiteNumber(latestHistoryRow?.targetPrice3Y ?? latestRun.targetPrice3Y);
   const expectedReturn3Y =
     latestMarketPrice && targetPrice3Y
       ? (targetPrice3Y / latestMarketPrice) ** (1 / 3) - 1
-      : finiteNumber(latestRun.expectedShareholderCagr);
+      : finiteNumber(latestHistoryRow?.expectedReturn3Y ?? latestRun.expectedShareholderCagr);
 
   const methodCards = methodCardsFromRun(latestRun);
   const sourceNote = "Legacy backend valuation runs: each bar is recomputed from the reporting-event-visible financials/guidance and the as-of market price.";
@@ -338,14 +364,14 @@ function updateTickerSnapshot(snapshot, legacyTicker, runs, eventsById) {
       latestPrice: latestMarketPrice ?? snapshot.latest?.latestPrice ?? null,
       latestPriceDate: latestPrice?.date || snapshot.latest?.latestPriceDate || null,
       latestPriceSource: latestPrice?.source || snapshot.latest?.latestPriceSource || snapshot.priceSource || null,
-      valuationAnchorPrice: finiteNumber(latestRun.currentPrice),
-      valuationAnchorDate: latestRun.asOfDate,
+      valuationAnchorPrice: latestAnchorPrice,
+      valuationAnchorDate: latestAnchorDate,
       baseFairValue: latestFairValue,
       upsideToBase: latestMarketPrice && latestFairValue ? latestFairValue / latestMarketPrice - 1 : finiteNumber(latestRun.upsideDownside),
       targetPrice3Y,
       expectedReturn3Y
     },
-    scenarios: [buildScenarioFromRun(latestRun, "Base")],
+    scenarios: [buildScenarioFromHistoryRow(latestHistoryRow, latestRun, "Base")],
     history,
     methodCards: methodCards.length ? methodCards : snapshot.methodCards,
     warnings: [
@@ -382,6 +408,100 @@ function compactTicker(snapshot) {
     dataQuality: {
       ...(snapshot.dataQuality || {}),
       fullHistoryRowsAvailable: snapshot.history?.length || 0
+    }
+  };
+}
+
+function normalizeHistoryRow(row, snapshot) {
+  const asOfDate = row.asOfDate || row.valuationDate || row.priceDate || row.date;
+  const pricePoint = pricePointAtOrBefore(snapshot.priceHistory, asOfDate);
+  const fairValue = finiteNumber(row.fairValue ?? row.close);
+  const priceAtDate = finiteNumber(pricePoint?.close ?? row.priceAtDate ?? row.currentPrice);
+  return {
+    ...row,
+    asOfDate,
+    currentPrice: priceAtDate,
+    priceAtDate,
+    priceDate: pricePoint?.date || row.priceDate || asOfDate,
+    fairValue,
+    upsideDownside: Number.isFinite(fairValue) && Number.isFinite(priceAtDate) && priceAtDate > 0
+      ? fairValue / priceAtDate - 1
+      : finiteNumber(row.upsideDownside),
+    dataSnapshot: {
+      ...(row.dataSnapshot || {}),
+      asOfPriceSource: pricePoint ? {
+        ...(row.dataSnapshot?.asOfPriceSource || {}),
+        priceDate: pricePoint.date,
+        source: pricePoint.source || "local daily close fallback"
+      } : row.dataSnapshot?.asOfPriceSource
+    }
+  };
+}
+
+function sanitizeTickerSnapshot(snapshot) {
+  const rawHistory = Array.isArray(snapshot.history) ? snapshot.history : [];
+  if (!rawHistory.length) return snapshot;
+
+  const normalizedRows = rawHistory
+    .map((row) => normalizeHistoryRow(row, snapshot))
+    .filter((row) => row.asOfDate && Number.isFinite(row.fairValue));
+  const { history, exclusions } = sanitizeHistoryRows(normalizedRows);
+  if (!history.length) return snapshot;
+
+  const latestHistoryRow = history.at(-1);
+  const latestPrice = latestPricePoint(snapshot.priceHistory);
+  const latestMarketPrice = finiteNumber(latestPrice?.close ?? snapshot.latest?.latestPrice);
+  const latestFairValue = finiteNumber(latestHistoryRow.fairValue);
+  const latestAnchorPrice = finiteNumber(latestHistoryRow.priceAtDate ?? latestHistoryRow.currentPrice);
+  const targetPrice3Y = finiteNumber(latestHistoryRow.targetPrice3Y ?? snapshot.latest?.targetPrice3Y);
+  const expectedReturn3Y =
+    latestMarketPrice && targetPrice3Y
+      ? (targetPrice3Y / latestMarketPrice) ** (1 / 3) - 1
+      : finiteNumber(latestHistoryRow.expectedReturn3Y ?? snapshot.latest?.expectedReturn3Y);
+  const pricePoints = snapshot.priceHistory?.length || snapshot.dataQuality?.pricePoints || 0;
+  const hasLivePriceSeries = pricePoints >= 120;
+  const inferredCoverageKind = coverageKind(history);
+  const existingCoverageKind = snapshot.dataQuality?.valuationCoverageKind;
+  const valuationCoverageKind = existingCoverageKind === "quarterly" && inferredCoverageKind !== "quarterly"
+    ? inferredCoverageKind
+    : existingCoverageKind || inferredCoverageKind;
+  const scenario = snapshot.scenarios?.[0] || {};
+
+  return {
+    ...snapshot,
+    generatedAt: new Date().toISOString(),
+    latest: {
+      ...(snapshot.latest || {}),
+      latestPrice: latestMarketPrice ?? snapshot.latest?.latestPrice ?? null,
+      latestPriceDate: latestPrice?.date || snapshot.latest?.latestPriceDate || null,
+      latestPriceSource: latestPrice?.source || snapshot.latest?.latestPriceSource || snapshot.priceSource || null,
+      valuationAnchorPrice: latestAnchorPrice,
+      valuationAnchorDate: latestHistoryRow.asOfDate,
+      baseFairValue: latestFairValue,
+      upsideToBase: latestMarketPrice && latestFairValue ? latestFairValue / latestMarketPrice - 1 : latestHistoryRow.upsideDownside,
+      targetPrice3Y,
+      expectedReturn3Y
+    },
+    scenarios: [{
+      ...scenario,
+      scenario: scenario.scenario || "Base",
+      currentPrice: latestAnchorPrice,
+      fairValue: latestFairValue,
+      upsideDownside: Number.isFinite(latestAnchorPrice) && latestAnchorPrice > 0 ? latestFairValue / latestAnchorPrice - 1 : latestHistoryRow.upsideDownside,
+      targetPrice3Y,
+      expectedReturn3Y
+    }],
+    history,
+    dataQuality: {
+      ...(snapshot.dataQuality || {}),
+      pricePoints,
+      hasLivePriceSeries,
+      priceDisplayMode: hasLivePriceSeries ? "daily-price-line" : "as-of-price-anchors",
+      valuationCoverageKind,
+      hasQuarterlyValuationRuns: valuationCoverageKind === "quarterly",
+      snapshotRawValuationRows: rawHistory.length,
+      excludedSnapshotRows: exclusions.length,
+      excludedSnapshotRowDetails: exclusions.slice(0, 12)
     }
   };
 }
@@ -444,6 +564,28 @@ for (const legacyTickerDir of fs.readdirSync(path.join(LEGACY_ROOT, "data/local"
   });
 }
 
+const sanitized = [];
+for (const [ticker, snapshot] of currentTickers) {
+  const updated = sanitizeTickerSnapshot(snapshot);
+  currentTickers.set(ticker, updated);
+  currentDb.prepare(`
+    INSERT INTO valuation_ticker_snapshots (ticker, generated_at, payload_json)
+    VALUES (?, ?, ?)
+    ON CONFLICT(ticker) DO UPDATE SET
+      generated_at = excluded.generated_at,
+      payload_json = excluded.payload_json
+  `).run(ticker, updated.generatedAt || new Date().toISOString(), JSON.stringify(updated));
+  const excludedRows = Number(updated.dataQuality?.excludedSnapshotRows || 0);
+  if (excludedRows > 0) {
+    sanitized.push({
+      ticker,
+      excludedRows,
+      historyRows: updated.history?.length || 0,
+      coverageKind: updated.dataQuality?.valuationCoverageKind
+    });
+  }
+}
+
 const tickers = [...currentTickers.values()].map(compactTicker).sort((left, right) => {
   const leftUpside = Number(left.latest?.upsideToBase);
   const rightUpside = Number(right.latest?.upsideToBase);
@@ -496,6 +638,7 @@ console.log(JSON.stringify({
   minBaseRuns: MIN_BASE_RUNS,
   minCleanRuns: MIN_CLEAN_RUNS,
   imported,
+  sanitized,
   skipped,
   summary
 }, null, 2));
