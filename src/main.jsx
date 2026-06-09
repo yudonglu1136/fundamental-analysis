@@ -2584,6 +2584,7 @@ function BacktestChart({ equity }) {
   const padding = { top: 28, right: 28, bottom: 38, left: 58 };
   const points = useMemo(() => (equity || []).filter((point) => point.date && Number.isFinite(point.value) && Number.isFinite(point.benchmark)), [equity]);
   const chart = useMemo(() => makeBacktestChartModel(points, width, height, padding), [points]);
+  const [hoverPoint, setHoverPoint] = useState(null);
 
   if (!chart) {
     return (
@@ -2602,6 +2603,13 @@ function BacktestChart({ equity }) {
   const portfolioPath = valueLinePath(points, chart.xScale, chart.yScale, "value");
   const benchmarkPath = valueLinePath(points, chart.xScale, chart.yScale, "benchmark");
   const gridValues = chartGridValues(chart.minY, chart.maxY);
+  const hover = hoverPoint ? backtestHoverModel(hoverPoint, chart, width, height, padding) : null;
+
+  function handlePointerMove(event) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * width;
+    setHoverPoint(nearestBacktestPoint(points, chart, x));
+  }
 
   return (
     <section className="chart-panel backtest-chart-panel">
@@ -2615,7 +2623,14 @@ function BacktestChart({ equity }) {
           <span><i className="benchmark" />SPY</span>
         </div>
       </div>
-      <svg className="price-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="backtest chart">
+      <svg
+        className="price-chart interactive-chart"
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label="backtest chart"
+        onPointerMove={handlePointerMove}
+        onPointerLeave={() => setHoverPoint(null)}
+      >
         <rect className="chart-bg" x="0" y="0" width={width} height={height} />
         {gridValues.map((value) => (
           <g key={value}>
@@ -2627,15 +2642,61 @@ function BacktestChart({ equity }) {
         ))}
         <path className="backtest-line benchmark" d={benchmarkPath} />
         <path className="backtest-line portfolio" d={portfolioPath} />
+        {hover ? (
+          <g className="chart-hover-layer">
+            <line className="chart-hover-line" x1={hover.x} x2={hover.x} y1={padding.top} y2={height - padding.bottom} />
+            <circle className="chart-hover-dot benchmark" cx={hover.x} cy={hover.benchmarkY} r="5" />
+            <circle className="chart-hover-dot portfolio" cx={hover.x} cy={hover.portfolioY} r="5" />
+            <g className="chart-tooltip" transform={`translate(${hover.tooltipX} ${hover.tooltipY})`}>
+              <rect width={hover.tooltipWidth} height="82" rx="7" />
+              <text className="chart-tooltip-title" x="10" y="18">{formatDate(hover.point.date)}</text>
+              <text className="chart-tooltip-row portfolio" x="10" y="38">Copy</text>
+              <text className="chart-tooltip-value" x={hover.tooltipWidth - 10} y="38" textAnchor="end">{formatReturnPct(hover.point.value - 1)}</text>
+              <text className="chart-tooltip-row benchmark" x="10" y="56">SPY</text>
+              <text className="chart-tooltip-value" x={hover.tooltipWidth - 10} y="56" textAnchor="end">{formatReturnPct(hover.point.benchmark - 1)}</text>
+              <text className="chart-tooltip-row" x="10" y="74">差值</text>
+              <text className="chart-tooltip-value" x={hover.tooltipWidth - 10} y="74" textAnchor="end">{formatReturnPct(hover.point.value - hover.point.benchmark)}</text>
+            </g>
+          </g>
+        ) : null}
         <text className="chart-axis-label" x={padding.left} y={height - 12}>
           {formatDate(points[0]?.date)}
         </text>
         <text className="chart-axis-label" x={width - padding.right} y={height - 12} textAnchor="end">
           {formatDate(points[points.length - 1]?.date)}
         </text>
+        <rect
+          className="chart-hover-target"
+          x={padding.left}
+          y={padding.top}
+          width={width - padding.left - padding.right}
+          height={height - padding.top - padding.bottom}
+        />
       </svg>
     </section>
   );
+}
+
+function nearestBacktestPoint(points, chart, x) {
+  if (!points.length) return null;
+  const targetX = Math.max(chart.bounds.left, Math.min(chart.bounds.right, x));
+  return points.reduce((nearest, point) => {
+    const distance = Math.abs(chart.xScale(point.date) - targetX);
+    if (!nearest || distance < nearest.distance) return { point, distance };
+    return nearest;
+  }, null)?.point || null;
+}
+
+function backtestHoverModel(point, chart, width, height, padding) {
+  const x = chart.xScale(point.date);
+  const portfolioY = chart.yScale(point.value);
+  const benchmarkY = chart.yScale(point.benchmark);
+  const tooltipWidth = 148;
+  const tooltipHeight = 82;
+  const tooltipX = x > width - padding.right - tooltipWidth - 14 ? x - tooltipWidth - 12 : x + 12;
+  const preferredY = Math.min(portfolioY, benchmarkY) - tooltipHeight - 12;
+  const tooltipY = Math.max(padding.top + 4, Math.min(height - padding.bottom - tooltipHeight, preferredY));
+  return { point, x, portfolioY, benchmarkY, tooltipX, tooltipY, tooltipWidth };
 }
 
 function makeBacktestChartModel(points, width, height, padding) {
@@ -2659,6 +2720,12 @@ function makeBacktestChartModel(points, width, height, padding) {
   return {
     minY,
     maxY,
+    bounds: {
+      left: padding.left,
+      right: width - padding.right,
+      top: padding.top,
+      bottom: height - padding.bottom
+    },
     xScale(value) {
       const pct = maxX === minX ? 0 : (dateValue(value) - minX) / (maxX - minX);
       return padding.left + Math.max(0, Math.min(1, pct)) * innerWidth;
