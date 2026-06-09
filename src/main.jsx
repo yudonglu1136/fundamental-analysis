@@ -92,6 +92,11 @@ const uiText = {
     "valuation.latest": "最新",
     "valuation.historyPoints": "历史点",
     "valuation.latestPrice": "最新股价",
+    "valuation.baseFairValue": "Base fair value",
+    "valuation.fairValueSource.sec": "SEC 财务数据 / 指引模型",
+    "valuation.fairValueSource.youtube": "财报电话会指标模型",
+    "valuation.fairValueSource.unsupported": "未验证估值",
+    "valuation.fairValueSource.legacy": "财务/指引模型",
     "valuation.upside": "Upside / downside",
     "valuation.fairLatest": "fair / latest price",
     "valuation.target3y": "3Y target",
@@ -203,6 +208,11 @@ const uiText = {
     "valuation.latest": "latest",
     "valuation.historyPoints": "history points",
     "valuation.latestPrice": "Latest price",
+    "valuation.baseFairValue": "Base fair value",
+    "valuation.fairValueSource.sec": "SEC financials / guidance model",
+    "valuation.fairValueSource.youtube": "Earnings-call metric model",
+    "valuation.fairValueSource.unsupported": "Unverified valuation",
+    "valuation.fairValueSource.legacy": "Financial/guidance model",
     "valuation.upside": "Upside / downside",
     "valuation.fairLatest": "fair / latest price",
     "valuation.target3y": "3Y target",
@@ -1025,6 +1035,18 @@ function valuationCurrency(value, currency = "USD") {
   return `${symbol}${value.toFixed(2)}`;
 }
 
+function fairValueSourceLabel(ticker, t) {
+  const quality = ticker?.dataQuality || {};
+  const source = String(ticker?.latest?.fairValueSource || "");
+  if (source && /sec|companyfacts|financials/i.test(source)) return t("valuation.fairValueSource.sec");
+  if (source && /youtube|earnings-call|transcript/i.test(source)) return t("valuation.fairValueSource.youtube");
+  if (source) return source;
+  if (quality.secCompanyFactsQuarterlyRows > 0) return t("valuation.fairValueSource.sec");
+  if (quality.youtubeEarningsMetricValuationRows > 0) return t("valuation.fairValueSource.youtube");
+  if (quality.valuationCoverageKind === "unsupported") return t("valuation.fairValueSource.unsupported");
+  return quality.modelInputAudit?.sourceGrade || t("valuation.fairValueSource.legacy");
+}
+
 function buildValuationModel(data, tickers) {
   const rows = tickers || [];
   const sortedUpside = [...rows]
@@ -1281,7 +1303,7 @@ function ValuationDetail({ ticker, compact, loading, error }) {
         </div>
         <div className="metric-grid">
           <MetricBox metric={{ label: t("valuation.latestPrice"), value: valuationCurrency(active.latest?.latestPrice, active.currency), sub: formatDate(active.latest?.latestPriceDate), icon: LineChart }} />
-          <MetricBox metric={{ label: "Base fair value", value: valuationCurrency(active.latest?.baseFairValue, active.currency), sub: active.latest?.latestPriceSource || "-", icon: BadgeDollarSign }} />
+          <MetricBox metric={{ label: t("valuation.baseFairValue"), value: valuationCurrency(active.latest?.baseFairValue, active.currency), sub: fairValueSourceLabel(active, t), icon: BadgeDollarSign }} />
           <MetricBox metric={{ label: t("valuation.upside"), value: formatReturnPct(active.latest?.upsideToBase), sub: t("valuation.fairLatest"), tone: (active.latest?.upsideToBase || 0) >= 0 ? "positive" : "negative", icon: active.latest?.upsideToBase >= 0 ? ArrowUpRight : ArrowDownRight }} />
           <MetricBox metric={{ label: t("valuation.target3y"), value: valuationCurrency(base.targetPrice3Y || active.latest?.targetPrice3Y, active.currency), sub: `CAGR ${formatReturnPct(base.expectedReturn3Y || active.latest?.expectedReturn3Y)}`, icon: TrendingUp }} />
         </div>

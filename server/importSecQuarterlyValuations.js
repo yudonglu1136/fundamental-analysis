@@ -33,6 +33,12 @@ const TAGS = {
   ]
 };
 
+const SHARE_TAGS = [
+  "WeightedAverageNumberOfDilutedSharesOutstanding",
+  "WeightedAverageNumberOfSharesOutstandingBasic",
+  "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"
+];
+
 const TRINITY_TO_DASHBOARD_TICKER = {
   GOOG: "GOOGL"
 };
@@ -143,10 +149,12 @@ function fiscalPeriodFromEnd(endDate, fiscalYearEnd) {
   return { fiscalYear, fiscalQuarter: fallbackQuarter };
 }
 
-function factRowsForMetric(facts, metric, fiscalYearEnd) {
+function factRowsForMetric(facts, metric, fiscalYearEnd, options = {}) {
+  const tags = options.tags || TAGS[metric] || [];
+  const unit = options.unit || "USD";
   const rows = [];
-  for (const tag of TAGS[metric] || []) {
-    for (const row of unitsFor(facts, tag, "USD")) {
+  for (const tag of tags) {
+    for (const row of unitsFor(facts, tag, unit)) {
       if (!row?.fy || !row?.fp || !row?.filed || !row?.end || !row?.form) continue;
       const rowDays = days(row);
       const value = rowValueM(row);
@@ -212,8 +220,8 @@ function ytdRows(rows) {
   return ytd;
 }
 
-function buildMetricQuarterMap(facts, metric, fiscalYearEnd) {
-  const rows = factRowsForMetric(facts, metric, fiscalYearEnd);
+function buildMetricQuarterMap(facts, metric, fiscalYearEnd, options = {}) {
+  const rows = factRowsForMetric(facts, metric, fiscalYearEnd, options);
   const direct = directQuarterRows(rows);
   const ytd = ytdRows(rows);
   const years = [...new Set(rows.map((row) => row.fy))].sort((left, right) => left - right);
@@ -249,7 +257,7 @@ function buildMetricQuarterMap(facts, metric, fiscalYearEnd) {
     const q1 = quarters.get(`${fy}::Q1`);
     const q2 = quarters.get(`${fy}::Q2`);
     const q3 = quarters.get(`${fy}::Q3`);
-    if (annual && q1 && q2 && q3) {
+    if (options.deriveAnnualQ4 !== false && annual && q1 && q2 && q3) {
       quarters.set(`${fy}::Q4`, {
         value: annual.value - q1.value - q2.value - q3.value,
         filed: annual.filed,
@@ -266,7 +274,15 @@ function buildMetricQuarterMap(facts, metric, fiscalYearEnd) {
 function buildQuarterlyFinancials(facts) {
   const fiscalYearEnd = inferFiscalYearEnd(facts);
   const metricMaps = Object.fromEntries(Object.keys(TAGS).map((metric) => [metric, buildMetricQuarterMap(facts, metric, fiscalYearEnd)]));
-  const keys = new Set(Object.values(metricMaps).flatMap((map) => [...map.keys()]));
+  const sharesMap = buildMetricQuarterMap(facts, "shares_m", fiscalYearEnd, {
+    tags: SHARE_TAGS,
+    unit: "shares",
+    deriveAnnualQ4: false
+  });
+  const keys = new Set([
+    ...Object.values(metricMaps).flatMap((map) => [...map.keys()]),
+    ...sharesMap.keys()
+  ]);
   const rows = [...keys].map((key) => {
     const [fyText, fp] = key.split("::");
     const fy = Number(fyText);
@@ -282,6 +298,17 @@ function buildQuarterlyFinancials(facts) {
         form: row.form,
         end: row.end,
         derived: row.derived
+      };
+    }
+    const shareRow = sharesMap.get(key);
+    if (shareRow) {
+      metricData.shares_m = shareRow.value;
+      sources.shares_m = {
+        tag: shareRow.tag,
+        filed: shareRow.filed,
+        form: shareRow.form,
+        end: shareRow.end,
+        derived: shareRow.derived
       };
     }
     const filedDates = Object.values(sources).map((source) => source.filed).filter(Boolean).sort();
@@ -303,7 +330,7 @@ function buildQuarterlyFinancials(facts) {
     Number(left.fiscalQuarter.replace("Q", "")) - Number(right.fiscalQuarter.replace("Q", ""))
   );
 
-  const byPeriod = new Map(rows.map((row) => [`${row.fiscalYear - 1}::${row.fiscalQuarter}`, row]));
+  const byPeriod = new Map(rows.map((row) => [`${row.fiscalYear}::${row.fiscalQuarter}`, row]));
   for (const row of rows) {
     const prior = byPeriod.get(`${row.fiscalYear - 1}::${row.fiscalQuarter}`);
     row.revenue_growth_pct = pct(row.revenue_m, prior?.revenue_m);
@@ -342,6 +369,14 @@ function trailingSum(rows, index, key) {
   return window.reduce((sum, row) => sum + Number(row[key]), 0);
 }
 
+function latestKnownValue(rows, index, key) {
+  for (let i = index; i >= 0; i -= 1) {
+    const value = finiteNumber(rows[i]?.[key]);
+    if (value != null) return value;
+  }
+  return null;
+}
+
 function valuationMultiples(row, ttm) {
   const growth = finiteNumber(row.revenue_growth_pct) ?? 8;
   const opMargin = finiteNumber(ttm.operating_margin_pct ?? row.operating_margin_pct) ?? 25;
@@ -354,8 +389,8 @@ function valuationMultiples(row, ttm) {
 }
 
 function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, factsUrl, quarterlyRows, youtubeByPeriod }) {
-  const sharesM = finiteNumber(companyModel?.diluted_or_outstanding_shares_m);
-  if (!(sharesM > 0)) return [];
+  const fallbackSharesM = finiteNumber(companyModel?.diluted_or_outstanding_shares_m);
+  if (!(fallbackSharesM > 0)) return [];
   const priceHistory = Array.isArray(snapshot.priceHistory) ? snapshot.priceHistory : [];
   const minDate = priceHistory[0]?.date || OUTPUT_START_DATE;
   const rows = [];
@@ -369,6 +404,8 @@ function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, fac
     const ttmCapex = trailingSum(quarterlyRows, index, "capex_m");
     const ttmFcf = ttmCfo != null && ttmCapex != null ? ttmCfo - ttmCapex : null;
     if (!(ttmRevenue > 0) || !(ttmNetIncome > 0)) return;
+    const sharesM = finiteNumber(row.shares_m) ?? latestKnownValue(quarterlyRows, index, "shares_m") ?? fallbackSharesM;
+    if (!(sharesM > 0)) return;
 
     const ttm = {
       revenue_m: ttmRevenue,
@@ -376,6 +413,7 @@ function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, fac
       net_income_m: ttmNetIncome,
       cfo_m: ttmCfo,
       capex_m: ttmCapex,
+      shares_m: sharesM,
       fcf_after_capex_m: ttmFcf,
       operating_margin_pct: margin(ttmOperatingIncome, ttmRevenue),
       net_margin_pct: margin(ttmNetIncome, ttmRevenue),
@@ -465,6 +503,7 @@ function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, fac
           net_income_m: row.net_income_m,
           cfo_m: row.cfo_m,
           capex_m: row.capex_m,
+          shares_m: row.shares_m,
           fcf_after_capex_m: row.fcf_after_capex_m
         },
         trailingTwelveMonths: ttm,
@@ -712,6 +751,8 @@ function updateTickerSnapshot({ ticker, snapshot, secRows, coverage }) {
       valuationAnchorPrice: finiteNumber(latestRow?.priceAtDate ?? latestRow?.currentPrice ?? snapshot.latest?.valuationAnchorPrice),
       valuationAnchorDate: latestRow?.asOfDate || snapshot.latest?.valuationAnchorDate || null,
       baseFairValue: latestFairValue,
+      fairValueSource: "SEC CompanyFacts financials + transcript guidance model",
+      fairValueInputPolicy: "reported financials / guidance only; price excluded",
       upsideToBase: latestMarketPrice && latestFairValue ? latestFairValue / latestMarketPrice - 1 : finiteNumber(latestRow?.upsideDownside ?? snapshot.latest?.upsideToBase),
       targetPrice3Y: latestTarget,
       expectedReturn3Y: latestMarketPrice && latestTarget ? (latestTarget / latestMarketPrice) ** (1 / 3) - 1 : finiteNumber(latestRow?.expectedReturn3Y ?? snapshot.latest?.expectedReturn3Y)
@@ -721,10 +762,10 @@ function updateTickerSnapshot({ ticker, snapshot, secRows, coverage }) {
     methodCards: [
       {
         key: "sec-quarterly-fundamental-model",
-        label: "SEC quarterly model",
+        label: "AI Trinity-style SEC model",
         value: history.length,
         format: "number",
-        description: "Quarterly fair values are rebuilt from SEC CompanyFacts revenue, income, cash flow and capex. Price is excluded."
+        description: "Quarterly fair values are rebuilt from SEC CompanyFacts revenue, income, cash flow, capex and share count. Price is excluded."
       },
       {
         key: "price-anchor-audit",
@@ -733,7 +774,9 @@ function updateTickerSnapshot({ ticker, snapshot, secRows, coverage }) {
         format: "number",
         description: "Market price is stored only for comparison, upside and chart hover."
       },
-      ...(snapshot.methodCards || []).filter((card) => card?.key !== "youtube-earnings-metric-model").slice(0, 4)
+      ...(snapshot.methodCards || [])
+        .filter((card) => !["sec-quarterly-fundamental-model", "price-anchor-audit", "youtube-earnings-metric-model"].includes(card?.key))
+        .slice(0, 4)
     ],
     warnings: [
       `Imported ${history.length} SEC CompanyFacts quarterly valuation rows.`,
@@ -746,6 +789,7 @@ function updateTickerSnapshot({ ticker, snapshot, secRows, coverage }) {
       hasLivePriceSeries: pricePoints >= 120,
       priceDisplayMode: pricePoints >= 120 ? "daily-price-line" : "as-of-price-anchors",
       sourceNote: "SEC CompanyFacts quarterly financials + YouTube earnings-call transcript evidence; fair value excludes market price.",
+      fairValueSource: "SEC CompanyFacts financials + transcript guidance model",
       secCompanyFacts: coverage,
       secCompanyFactsQuarterlyRows: history.length,
       youtubeEarningsMetricValuationRows: snapshot.dataQuality?.youtubeEarningsMetricValuationRows || 0,
@@ -837,7 +881,7 @@ async function main() {
         valuationRows: secRows.length,
         youtubePeriods,
         priceExcludedFromFairValue: true,
-        modelInputPolicy: "TTM financials, normalized P/E and FCF yield; market price comparison only"
+        modelInputPolicy: "AI Trinity-style TTM financials, normalized P/E and FCF yield; market price comparison only"
       };
       const next = updateTickerSnapshot({ ticker, snapshot: { ...snapshot, ticker }, secRows, coverage });
       currentTickers.set(ticker, next);
