@@ -73,6 +73,15 @@ function methodLabel(methodCards) {
   return labels.slice(0, 3).join(" / ");
 }
 
+function sourceTypeFromSnapshot(dataSnapshot, event) {
+  return event?.sourceType ||
+    dataSnapshot?.reportingEvent?.sourceType ||
+    dataSnapshot?.valuationSemantics?.sourceType ||
+    dataSnapshot?.sourceType ||
+    dataSnapshot?.reportingEvent?.metadataJson?.lineage?.sourceType ||
+    null;
+}
+
 function compactWarnings(value) {
   const warnings = parseJson(value, []);
   if (!Array.isArray(warnings)) return [];
@@ -125,6 +134,7 @@ function buildHistoryRow(run, event) {
   const asOfDate = run.asOfDate || event?.eventDate || dataSnapshot?.reportingEventDate;
   const fairValue = finiteNumber(run.fairValue);
   const priceAtDate = finiteNumber(run.currentPrice);
+  const sourceType = sourceTypeFromSnapshot(dataSnapshot, event);
   return {
     periodId: run.reportingEventId || event?.id || `${asOfDate}-base`,
     runCreatedAt: run.createdAt || null,
@@ -133,7 +143,7 @@ function buildHistoryRow(run, event) {
     fiscalYear: finiteNumber(event?.fiscalYear ?? dataSnapshot?.latestFinancialPeriod?.fiscalYear),
     fiscalQuarter: event?.fiscalQuarter || dataSnapshot?.latestFinancialPeriod?.fiscalQuarter || null,
     eventType: event?.eventType || null,
-    sourceType: event?.sourceType || null,
+    sourceType,
     sourceUrl: event?.sourceUrl || null,
     currentPrice: priceAtDate,
     fairValue,
@@ -147,8 +157,22 @@ function buildHistoryRow(run, event) {
     priceAtDate,
     dataSnapshot: {
       fiscalPeriod: dataSnapshot?.fiscalPeriod,
+      sourceType,
+      sourceQuality: dataSnapshot?.sourceQuality || dataSnapshot?.reportingEvent?.metadataJson?.lineage?.sourceType || null,
       sourceMaxAsOfDate: dataSnapshot?.sourceMaxAsOfDate,
       latestFinancialPeriod: dataSnapshot?.latestFinancialPeriod,
+      selectedFinancialPeriod: dataSnapshot?.selectedFinancialPeriod,
+      financialPeriodCount: dataSnapshot?.financialPeriodCount,
+      segmentFinancialCount: dataSnapshot?.segmentFinancialCount,
+      guidanceCandidateCount: dataSnapshot?.guidanceCandidateCount ?? dataSnapshot?.guidanceItemCount,
+      transcriptCandidateCount: dataSnapshot?.transcriptCandidateCount ?? dataSnapshot?.transcriptExtractionCount,
+      valuationSemantics: dataSnapshot?.valuationSemantics,
+      latestAnnualizedRevenue: dataSnapshot?.latestAnnualizedRevenue,
+      latestAnnualizedOperatingIncome: dataSnapshot?.latestAnnualizedOperatingIncome,
+      latestAnnualizedFcf: dataSnapshot?.latestAnnualizedFcf,
+      latestAnnualizedNetIncome: dataSnapshot?.latestAnnualizedNetIncome,
+      dilutedShares: dataSnapshot?.dilutedShares,
+      asOfAssumptionOverrideKeys: dataSnapshot?.asOfAssumptionOverrides ? Object.keys(dataSnapshot.asOfAssumptionOverrides) : [],
       asOfPriceSource: dataSnapshot?.asOfPriceSource
     }
   };
@@ -281,6 +305,152 @@ function coverageKind(history) {
   }
   if (history.length >= 12) return "partial";
   return "limited";
+}
+
+function countBy(values) {
+  return values.reduce((counts, value) => {
+    const key = value || "unknown";
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+function methodText(method) {
+  return [
+    method?.key,
+    method?.label,
+    method?.description,
+    method?.valuationBase
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function isNegatedPriceReference(text) {
+  return /no current trading multiple|no (?:current )?(?:market )?price|not (?:derived|anchored|based|built|using|used).{0,50}(?:price|market|trading multiple)|not allowed.{0,50}(?:price|market)|diagnostic only|audit only|comparison only|upside|downside|expected return|margin of safety/.test(text);
+}
+
+function priceAnchoredMethodSignals(methods = []) {
+  return methods
+    .filter((method) => {
+      const text = methodText(method);
+      if (!text || isNegatedPriceReference(text)) return false;
+      return /price anchor|anchored to (?:current )?(?:market )?price|derived from (?:current )?(?:market )?price|based on (?:current )?(?:market )?price|current trading multiple|current market multiple|market price multiple/.test(text);
+    })
+    .map((method) => ({
+      key: method?.key || null,
+      label: method?.label || null,
+      description: method?.description || null,
+      valuationBase: method?.valuationBase || null
+    }));
+}
+
+function rowHasFinancialOrGuidanceEvidence(row) {
+  const snapshot = row?.dataSnapshot || {};
+  const sourceText = JSON.stringify({
+    sourceType: row?.sourceType,
+    fiscalQuarter: row?.fiscalQuarter,
+    label: row?.label,
+    method: row?.method,
+    snapshot
+  }).toLowerCase();
+  return Boolean(
+    snapshot.financialPeriodCount ||
+    snapshot.segmentFinancialCount ||
+    snapshot.selectedFinancialPeriod ||
+    snapshot.latestFinancialPeriod ||
+    snapshot.latestAnnualizedRevenue ||
+    snapshot.latestAnnualizedOperatingIncome ||
+    snapshot.latestAnnualizedFcf ||
+    snapshot.guidanceCandidateCount ||
+    snapshot.valuationSemantics ||
+    /financial|guidance|forecast|run-rate|run rate|revenue|fcf|eps|ebit|income|margin|actual/.test(sourceText)
+  );
+}
+
+function valuePriceCorrelation(rows) {
+  const points = rows
+    .filter((row) => Number.isFinite(row.fairValue) && Number.isFinite(row.priceAtDate))
+    .map((row) => [row.fairValue, row.priceAtDate]);
+  if (points.length < 3) return null;
+  const fairMean = points.reduce((sum, [fair]) => sum + fair, 0) / points.length;
+  const priceMean = points.reduce((sum, [, price]) => sum + price, 0) / points.length;
+  let covariance = 0;
+  let fairVariance = 0;
+  let priceVariance = 0;
+  for (const [fair, price] of points) {
+    const fairDelta = fair - fairMean;
+    const priceDelta = price - priceMean;
+    covariance += fairDelta * priceDelta;
+    fairVariance += fairDelta * fairDelta;
+    priceVariance += priceDelta * priceDelta;
+  }
+  return fairVariance && priceVariance ? covariance / Math.sqrt(fairVariance * priceVariance) : null;
+}
+
+function ratioStdDev(rows) {
+  const ratios = rows
+    .filter((row) => row.priceAtDate > 0 && row.fairValue > 0)
+    .map((row) => row.fairValue / row.priceAtDate);
+  if (ratios.length < 2) return 0;
+  const mean = ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length;
+  return Math.sqrt(ratios.reduce((sum, ratio) => sum + (ratio - mean) ** 2, 0) / (ratios.length - 1));
+}
+
+function auditModelInputs(snapshot) {
+  const history = Array.isArray(snapshot.history) ? snapshot.history : [];
+  const methodCards = Array.isArray(snapshot.methodCards) ? snapshot.methodCards : [];
+  const historyMethods = history.flatMap((row) => Array.isArray(row.methodOutputs) ? row.methodOutputs : []);
+  const methods = [...methodCards, ...historyMethods];
+  const priceSignals = priceAnchoredMethodSignals(methods);
+  const sourceTypes = countBy(history.map((row) => row.sourceType || row.dataSnapshot?.sourceType || row.dataSnapshot?.sourceQuality || null));
+  const financialEvidenceRows = history.filter(rowHasFinancialOrGuidanceEvidence).length;
+  const currentPriceStoredRows = history.filter((row) => (row.dataSnapshot?.asOfAssumptionOverrideKeys || []).includes("currentPrice")).length;
+  const uniqueFairValues = new Set(history.map((row) => Number(row.fairValue).toFixed(4))).size;
+  const correlation = valuePriceCorrelation(history);
+  const ratioVolatility = ratioStdDev(history);
+  const warnings = [];
+  let status = "pass";
+  let sourceGrade = "event-financials-guidance";
+
+  if (priceSignals.length) {
+    status = "fail";
+    warnings.push("Potential price-anchored valuation method detected.");
+  }
+  if (!financialEvidenceRows) {
+    status = status === "fail" ? status : "review";
+    warnings.push("No financial or guidance input evidence found in the local valuation snapshot.");
+  }
+  if (history.length < MIN_CLEAN_RUNS || uniqueFairValues <= 1) {
+    status = status === "fail" ? status : "review";
+    warnings.push("Limited valuation history; cannot verify a full event-driven model path.");
+    sourceGrade = "limited-snapshot";
+  }
+  if (Object.keys(sourceTypes).some((source) => /research_proxy|market_data_proxy/.test(source))) {
+    sourceGrade = "research-proxy-financials";
+  } else if (Object.keys(sourceTypes).some((source) => /research_only/.test(source))) {
+    sourceGrade = "mixed-official-research";
+  }
+  if (correlation != null && correlation > 0.96 && ratioVolatility < 0.12 && history.length >= 8) {
+    status = status === "fail" ? status : "review";
+    warnings.push("Fair value is statistically very close to the price path; review model drivers before treating it as independent.");
+  }
+
+  return {
+    status,
+    passesNoPriceAnchorAudit: status !== "fail",
+    fairValueInputPolicy: priceSignals.length ? "price-anchor-risk" : "financial-guidance-and-scenario-inputs",
+    priceUsage: currentPriceStoredRows ? "stored-for-comparison-upside-and-returns" : "comparison-price-series-only",
+    sourceGrade,
+    valuationRows: history.length,
+    financialOrGuidanceEvidenceRows: financialEvidenceRows,
+    currentPriceStoredRows,
+    methodPriceAnchorSignalCount: priceSignals.length,
+    methodPriceAnchorSignals: priceSignals.slice(0, 8),
+    sourceTypes,
+    fairValuePriceCorrelation: correlation,
+    fairToPriceRatioStdDev: ratioVolatility,
+    uniqueFairValues,
+    warnings
+  };
 }
 
 function findRunForHistoryRow(runs, row) {
@@ -466,8 +636,7 @@ function sanitizeTickerSnapshot(snapshot) {
     ? inferredCoverageKind
     : existingCoverageKind || inferredCoverageKind;
   const scenario = snapshot.scenarios?.[0] || {};
-
-  return {
+  const nextSnapshot = {
     ...snapshot,
     generatedAt: new Date().toISOString(),
     latest: {
@@ -491,7 +660,12 @@ function sanitizeTickerSnapshot(snapshot) {
       targetPrice3Y,
       expectedReturn3Y
     }],
-    history,
+    history
+  };
+  const modelInputAudit = auditModelInputs(nextSnapshot);
+
+  return {
+    ...nextSnapshot,
     dataQuality: {
       ...(snapshot.dataQuality || {}),
       pricePoints,
@@ -501,7 +675,8 @@ function sanitizeTickerSnapshot(snapshot) {
       hasQuarterlyValuationRuns: valuationCoverageKind === "quarterly",
       snapshotRawValuationRows: rawHistory.length,
       excludedSnapshotRows: exclusions.length,
-      excludedSnapshotRowDetails: exclusions.slice(0, 12)
+      excludedSnapshotRowDetails: exclusions.slice(0, 12),
+      modelInputAudit
     }
   };
 }
@@ -605,6 +780,9 @@ const summary = {
     .sort()
     .at(-1) || null,
   quarterlyBackendValuationTickerCount: [...currentTickers.values()].filter((ticker) => ticker.dataQuality?.hasQuarterlyValuationRuns).length,
+  modelInputAuditPassCount: [...currentTickers.values()].filter((ticker) => ticker.dataQuality?.modelInputAudit?.status === "pass").length,
+  modelInputAuditReviewCount: [...currentTickers.values()].filter((ticker) => ticker.dataQuality?.modelInputAudit?.status === "review").length,
+  modelInputAuditFailCount: [...currentTickers.values()].filter((ticker) => ticker.dataQuality?.modelInputAudit?.status === "fail").length,
   positiveUpsideCount: tickers.filter((ticker) => Number(ticker.latest?.upsideToBase) > 0).length,
   negativeUpsideCount: tickers.filter((ticker) => Number(ticker.latest?.upsideToBase) < 0).length
 };
@@ -616,7 +794,8 @@ const updatedDashboard = {
     ...(dashboard.source || {}),
     upstreamLabel: "Legacy fundamental-analysis backend valuation runs",
     extraction: "backend valuation_runs import from reporting-event financials/guidance",
-    priceSource: "Current local price history plus legacy backend as-of market-price anchors"
+    priceSource: "Current local price history for comparison and return math only",
+    modelInputPolicy: "Fair value must be driven by event-visible financials, guidance, and scenario assumptions; price is not accepted as a fair-value input."
   },
   summary,
   tickers

@@ -1777,6 +1777,21 @@ tbody tr:last-child td {
   grid-column: 1 / -1;
 }
 
+.valuation-chip.audit-pass {
+  background: #edf7f0;
+  border-color: rgba(26, 127, 87, 0.28);
+}
+
+.valuation-chip.audit-review {
+  background: #fff8ea;
+  border-color: rgba(150, 100, 18, 0.32);
+}
+
+.valuation-chip.audit-fail {
+  background: #fff0ee;
+  border-color: rgba(184, 58, 54, 0.34);
+}
+
 .valuation-note {
   background: #f4f7f2;
   border: 1px solid var(--line);

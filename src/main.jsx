@@ -103,17 +103,19 @@ const uiText = {
     "valuation.tableTitle": "历史 valuation",
     "valuation.tableSub": "valuation run vs as-of price",
     "valuation.datePeriod": "日期 / 期间",
-    "valuation.anchorPrice": "当时/锚定股价",
+    "valuation.anchorPrice": "当时股价（对比用）",
 	    "valuation.method": "方法",
 	    "valuation.methodTitle": "模型方法与假设",
 	    "valuation.methodEmpty": "旧模型没有暴露 method card",
 	    "valuation.qualityTitle": "数据质量提示",
 	    "valuation.qualityPartial": "这只股票不是 MA 级别的完整季度序列；图中只展示旧模型已完成的事件估值。",
 	    "valuation.qualityLimited": "这只股票目前只有有限 valuation snapshot，不能按完整历史季度模型解读。",
-	    "valuation.qualityNoDaily": "本地库没有可靠日线价格，图中只显示披露日价格锚点，不连接成价格线。",
+	    "valuation.qualityNoDaily": "本地库没有可靠日线价格，图中只显示披露日价格标记，不连接成价格线。",
 	    "valuation.qualityExcluded": "已过滤异常/重复 valuation 行：",
-	    "valuation.priceAnchors": "价格锚点",
-	    "valuation.note": "数据来自旧 Fundamental Analysis module 的 valuation output，当前价格优先使用本项目 SQLite/Yahoo price cache；无行情的英股/特殊 ticker 使用旧模型 price anchor。",
+	    "valuation.qualityInputReview": "估值输入需要复核：历史点不足、来源为研究代理，或无法完整验证 fair value 只来自财务/指引。",
+	    "valuation.qualityInputFail": "发现疑似价格锚定 valuation method；不要把这只股票当作独立估值模型使用。",
+	    "valuation.priceAnchors": "价格标记",
+	    "valuation.note": "估值来自旧 Fundamental Analysis module 的 valuation output；fair value 必须由事件可见财务、管理层指引和场景假设驱动，股价只用于图表对比、upside/downside 和回报计算。",
     "dbmf.dashboard": "DBMF dashboard",
     "dbmf.toolbarTitle": "趋势复制仓位：看当前，也看相对上期怎么变",
     "dbmf.currentDate": "当前日期",
@@ -210,17 +212,19 @@ const uiText = {
     "valuation.tableTitle": "Historical valuation",
     "valuation.tableSub": "valuation run vs as-of price",
     "valuation.datePeriod": "Date / period",
-    "valuation.anchorPrice": "As-of / anchor price",
+    "valuation.anchorPrice": "As-of price (comparison)",
 	    "valuation.method": "Method",
 	    "valuation.methodTitle": "Model methods and assumptions",
 	    "valuation.methodEmpty": "No method card exposed by legacy model",
 	    "valuation.qualityTitle": "Data quality",
 	    "valuation.qualityPartial": "This ticker is not a MA-grade full quarterly series; the chart only shows completed legacy model event valuations.",
 	    "valuation.qualityLimited": "This ticker currently has limited valuation snapshots and should not be read as a full quarterly history.",
-	    "valuation.qualityNoDaily": "The local database has no reliable daily price series, so the chart shows as-of price anchors instead of a connected price line.",
+	    "valuation.qualityNoDaily": "The local database has no reliable daily price series, so the chart shows as-of price markers instead of a connected price line.",
 	    "valuation.qualityExcluded": "Filtered abnormal / duplicate valuation rows:",
-	    "valuation.priceAnchors": "Anchors",
-	    "valuation.note": "Data comes from legacy Fundamental Analysis module valuation output. Latest prices prioritize this project's SQLite/Yahoo price cache; UK or special tickers without market data use the legacy model price anchor.",
+	    "valuation.qualityInputReview": "Model inputs need review: limited history, research-proxy source, or incomplete proof that fair value is driven only by financials/guidance.",
+	    "valuation.qualityInputFail": "Potential price-anchored valuation method detected; do not treat this ticker as an independent valuation model.",
+	    "valuation.priceAnchors": "Markers",
+	    "valuation.note": "Data comes from legacy Fundamental Analysis module valuation output. Fair value must be driven by event-visible financials, management guidance, and scenario assumptions; price is used only for chart comparison, upside/downside, and return math.",
     "dbmf.dashboard": "DBMF dashboard",
     "dbmf.toolbarTitle": "Trend replication positioning: current exposure and changes vs prior snapshot",
     "dbmf.currentDate": "Current date",
@@ -1309,6 +1313,7 @@ function ValuationDetail({ ticker, compact, loading, error }) {
 function ValuationQualityBanner({ ticker }) {
   const { t } = useI18n();
   const quality = ticker.dataQuality || {};
+  const inputAudit = quality.modelInputAudit || {};
   const messages = [];
   if (quality.valuationCoverageKind === "limited" || (!quality.legacyBackendValuationRows && (ticker.history || []).length < 12)) {
     messages.push(t("valuation.qualityLimited"));
@@ -1321,6 +1326,11 @@ function ValuationQualityBanner({ ticker }) {
   const excludedRows = Number(quality.excludedLegacyBackendRows || 0) + Number(quality.excludedSnapshotRows || 0);
   if (excludedRows > 0) {
     messages.push(`${t("valuation.qualityExcluded")} ${formatNumber(excludedRows)}`);
+  }
+  if (inputAudit.status === "fail") {
+    messages.push(t("valuation.qualityInputFail"));
+  } else if (inputAudit.status === "review") {
+    messages.push(t("valuation.qualityInputReview"));
   }
   if (!messages.length) return null;
   return (
@@ -1664,6 +1674,7 @@ function ValuationTable({ ticker, history }) {
 
 function ValuationMethodPanel({ ticker }) {
   const { t } = useI18n();
+  const inputAudit = ticker.dataQuality?.modelInputAudit;
   return (
     <section className="table-panel valuation-method-panel">
       <div className="panel-head">
@@ -1686,6 +1697,28 @@ function ValuationMethodPanel({ ticker }) {
           </div>
         </div>
         <div>
+          {inputAudit ? (
+            <>
+              <h4>Input audit</h4>
+              <div className="valuation-chip-list">
+                <div className={`valuation-chip compact audit-${inputAudit.status || "review"}`}>
+                  <strong>{String(inputAudit.status || "review").toUpperCase()}</strong>
+                  <span>{inputAudit.fairValueInputPolicy || "financial-guidance-and-scenario-inputs"}</span>
+                  <small>{inputAudit.priceUsage || "price used only for comparison"}</small>
+                </div>
+                <div className="valuation-chip compact">
+                  <strong>Evidence</strong>
+                  <span>{formatNumber(inputAudit.financialOrGuidanceEvidenceRows || 0)} / {formatNumber(inputAudit.valuationRows || 0)}</span>
+                  <small>{inputAudit.sourceGrade || "event-financials-guidance"}</small>
+                </div>
+                <div className="valuation-chip compact">
+                  <strong>Price-anchor signals</strong>
+                  <span>{formatNumber(inputAudit.methodPriceAnchorSignalCount || 0)}</span>
+                  <small>{Number.isFinite(inputAudit.fairValuePriceCorrelation) ? `fair/price corr ${inputAudit.fairValuePriceCorrelation.toFixed(2)}` : "not enough history"}</small>
+                </div>
+              </div>
+            </>
+          ) : null}
           <h4>Assumptions</h4>
           <div className="valuation-chip-list">
             {(ticker.assumptions || []).slice(0, 8).map((item) => (
