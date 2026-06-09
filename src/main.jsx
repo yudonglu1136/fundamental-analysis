@@ -958,6 +958,7 @@ function ValuationCommandDeck({ data, model, loading, onSelectTicker }) {
 
 function ValuationTickerButton({ ticker, active, onClick }) {
   const upside = ticker.latest?.upsideToBase;
+  const historyCount = ticker.dataQuality?.fullHistoryRowsAvailable || ticker.history?.length || 0;
   return (
     <button className={`guru-card valuation-card ${active ? "active" : ""}`} onClick={onClick}>
       <div className="guru-avatar">{ticker.ticker.slice(0, 1)}</div>
@@ -967,7 +968,7 @@ function ValuationTickerButton({ ticker, active, onClick }) {
           <span className={`mini-badge ${(upside || 0) >= 0 ? "simulatable" : "muted"}`}>{formatReturnPct(upside)}</span>
         </div>
         <span>{ticker.name}</span>
-        <small>{valuationCurrency(ticker.latest?.latestPrice, ticker.currency)} 最新 · {formatNumber(ticker.history?.length || 0)} 历史点</small>
+        <small>{valuationCurrency(ticker.latest?.latestPrice, ticker.currency)} 最新 · {formatNumber(historyCount)} 历史点</small>
       </div>
       <div className="score-ring">{ticker.dataQuality?.hasLivePriceSeries ? "P" : "A"}</div>
     </button>
@@ -979,6 +980,9 @@ function ValuationDetail({ ticker, compact, loading, error }) {
   const scenarios = active.scenarios || [];
   const base = scenarios.find((item) => item.scenario === "Base") || scenarios[0] || {};
   const history = active.history || [];
+  const scenarioCards = scenarios.length
+    ? [...scenarios].sort((left, right) => ["Bear", "Base", "Bull"].indexOf(left.scenario) - ["Bear", "Base", "Bull"].indexOf(right.scenario))
+    : [base].filter((item) => item?.scenario);
 
   return (
     <article className="guru-detail valuation-detail">
@@ -1004,14 +1008,17 @@ function ValuationDetail({ ticker, compact, loading, error }) {
       </section>
 
       <section className="insight-deck valuation-scenarios">
-        {["Bear", "Base", "Bull"].map((scenario) => {
-          const item = scenarios.find((row) => row.scenario === scenario) || {};
+        {scenarioCards.map((item) => {
+          const scenarioUpside =
+            Number.isFinite(item.fairValue) && Number.isFinite(active.latest?.latestPrice) && active.latest.latestPrice
+              ? item.fairValue / active.latest.latestPrice - 1
+              : item.upsideDownside;
           return (
-            <div className={`insight-item ${scenario === "Base" ? "primary" : ""}`} key={scenario}>
+            <div className={`insight-item ${item.scenario === "Base" ? "primary" : ""}`} key={item.scenario}>
               <div className="insight-icon"><BadgeDollarSign size={17} /></div>
-              <span>{scenario}</span>
+              <span>{item.scenario}</span>
               <strong>{valuationCurrency(item.fairValue, active.currency)}</strong>
-              <small>{formatReturnPct(item.upsideDownside)} vs latest</small>
+              <small>{formatReturnPct(scenarioUpside)} vs latest</small>
             </div>
           );
         })}
@@ -1042,21 +1049,32 @@ function ValuationHistoryPanel({ ticker, loading }) {
 }
 
 function ValuationHistoryChart({ ticker }) {
+  const [hover, setHover] = useState(null);
   const width = 860;
   const height = 320;
   const padding = { top: 24, right: 22, bottom: 38, left: 58 };
-  const pricePoints = (ticker.priceHistory || []).filter((point) => point.date && Number.isFinite(point.close));
-  const valuationPoints = (ticker.history || [])
+  const pricePoints = useMemo(() => (ticker.priceHistory || [])
+    .filter((point) => point.date && Number.isFinite(point.close))
+    .sort((a, b) => dateValue(a.date) - dateValue(b.date)), [ticker.priceHistory]);
+  const valuationPoints = useMemo(() => (ticker.history || [])
     .filter((point) => point.asOfDate && Number.isFinite(point.fairValue))
     .map((point) => ({
       date: point.asOfDate,
       close: point.fairValue,
       priceAtDate: point.priceAtDate,
-      label: point.label
-    }));
-  const fallbackPricePoints = (ticker.history || [])
+      label: point.label,
+      upsideDownside: point.upsideDownside,
+      method: point.method,
+      fiscalYear: point.fiscalYear,
+      fiscalQuarter: point.fiscalQuarter,
+      dataSnapshot: point.dataSnapshot
+    }))
+    .sort((a, b) => dateValue(a.date) - dateValue(b.date)), [ticker.history]);
+  const fallbackPricePoints = useMemo(() => (ticker.history || [])
     .filter((point) => point.asOfDate && Number.isFinite(point.priceAtDate))
-    .map((point) => ({ date: point.asOfDate, close: point.priceAtDate }));
+    .map((point) => ({ date: point.asOfDate, close: point.priceAtDate }))
+    .sort((a, b) => dateValue(a.date) - dateValue(b.date)), [ticker.history]);
+  const chartPricePoints = pricePoints.length ? pricePoints : fallbackPricePoints;
   const allPoints = [...pricePoints, ...valuationPoints, ...fallbackPricePoints]
     .filter((point) => point.date && Number.isFinite(point.close))
     .sort((a, b) => dateValue(a.date) - dateValue(b.date));
@@ -1066,12 +1084,34 @@ function ValuationHistoryChart({ ticker }) {
     return <div className="chart-empty">暂无历史价格/估值数据</div>;
   }
 
-  const priceLine = linePath(pricePoints.length ? pricePoints : fallbackPricePoints, chart.xScale, chart.yScale);
-  const fairLine = linePath(valuationPoints, chart.xScale, chart.yScale);
+  const priceLine = linePath(chartPricePoints, chart.xScale, chart.yScale);
   const gridValues = chartGridValues(chart.minY, chart.maxY);
+  const innerWidth = width - padding.left - padding.right;
+  const innerHeight = height - padding.top - padding.bottom;
+  const barWidth = Math.max(5, Math.min(18, innerWidth / Math.max(valuationPoints.length * 1.7, 12)));
+  const hoverModel = hover ? makeValuationHoverModel({
+    hoverX: hover.x,
+    chart,
+    pricePoints: chartPricePoints,
+    valuationPoints,
+    ticker,
+    width,
+    height,
+    padding
+  }) : null;
+
+  function handlePointerMove(event) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * width;
+    const y = ((event.clientY - rect.top) / rect.height) * height;
+    setHover({
+      x: Math.max(padding.left, Math.min(width - padding.right, x)),
+      y: Math.max(padding.top, Math.min(height - padding.bottom, y))
+    });
+  }
 
   return (
-    <svg className="price-chart valuation-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${ticker.ticker} valuation chart`}>
+    <svg className="price-chart valuation-chart interactive-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${ticker.ticker} valuation chart`}>
       <rect className="chart-bg" x="0" y="0" width={width} height={height} />
       {gridValues.map((value) => (
         <g key={value}>
@@ -1081,14 +1121,24 @@ function ValuationHistoryChart({ ticker }) {
           </text>
         </g>
       ))}
+      {valuationPoints.map((point) => {
+        const x = chart.xScale(point.date);
+        const y = chart.yScale(point.close);
+        const active = hoverModel?.valuation?.date === point.date;
+        return (
+          <rect
+            className={`valuation-bar ${active ? "active" : ""}`}
+            key={`${point.date}-${point.label}`}
+            x={x - barWidth / 2}
+            y={y}
+            width={barWidth}
+            height={Math.max(2, padding.top + innerHeight - y)}
+            rx="2"
+          />
+        );
+      })}
       {priceLine ? <path className="price-line" d={priceLine} /> : null}
-      {fairLine ? <path className="valuation-fair-line" d={fairLine} /> : null}
-      {valuationPoints.map((point) => (
-        <g className="chart-marker positive" key={`${point.date}-${point.label}`}>
-          <circle cx={chart.xScale(point.date)} cy={chart.yScale(point.close)} r="5" />
-          <title>{`${formatDate(point.date)} · fair ${valuationCurrency(point.close, ticker.currency)} · price ${valuationCurrency(point.priceAtDate, ticker.currency)}`}</title>
-        </g>
-      ))}
+      {hoverModel ? <ValuationChartHover model={hoverModel} chart={chart} ticker={ticker} padding={padding} height={height} /> : null}
       <text className="chart-axis-label" x={padding.left} y={height - 12}>
         {formatDate(allPoints[0]?.date)}
       </text>
@@ -1096,12 +1146,98 @@ function ValuationHistoryChart({ ticker }) {
         {formatDate(allPoints.at(-1)?.date)}
       </text>
       <g className="valuation-legend">
-        <circle cx={width - 196} cy={24} r="4" />
+        <rect x={width - 204} y={17} width="12" height="12" rx="2" />
         <text x={width - 186} y={28}>Fair value</text>
         <line x1={width - 104} x2={width - 76} y1={24} y2={24} />
         <text x={width - 68} y={28}>Price</text>
       </g>
+      <rect
+        className="chart-hover-target"
+        x={padding.left}
+        y={padding.top}
+        width={innerWidth}
+        height={innerHeight}
+        onPointerMove={handlePointerMove}
+        onPointerLeave={() => setHover(null)}
+      />
     </svg>
+  );
+}
+
+function makeValuationHoverModel({ hoverX, chart, pricePoints, valuationPoints, ticker, width, height, padding }) {
+  const innerWidth = width - padding.left - padding.right;
+  const xPct = innerWidth ? (hoverX - padding.left) / innerWidth : 0;
+  const targetTime = chart.minX + Math.max(0, Math.min(1, xPct)) * (chart.maxX - chart.minX);
+  const price = nearestChartPointByTime(pricePoints, targetTime);
+  const valuation = nearestChartPointByTime(valuationPoints, targetTime);
+  const x = price ? chart.xScale(price.date) : hoverX;
+  const rows = [];
+
+  if (price) rows.push({ label: "Price", value: valuationCurrency(price.close, ticker.currency), tone: "benchmark" });
+  if (valuation) {
+    rows.push({ label: `${valuation.label || "Fair value"}`, value: valuationCurrency(valuation.close, ticker.currency), tone: "portfolio" });
+    const comparisonPrice = price?.close || valuation.priceAtDate;
+    if (Number.isFinite(comparisonPrice) && comparisonPrice) {
+      rows.push({ label: "Fair / price", value: formatReturnPct(valuation.close / comparisonPrice - 1) });
+    }
+  }
+
+  const tooltipWidth = 178;
+  const tooltipHeight = 44 + rows.length * 15;
+  const tooltipX = x + tooltipWidth + 12 > width - padding.right ? x - tooltipWidth - 12 : x + 12;
+  const tooltipY = Math.max(padding.top + 8, Math.min(height - padding.bottom - tooltipHeight, 36));
+
+  return {
+    x,
+    price,
+    valuation,
+    rows,
+    tooltip: {
+      x: tooltipX,
+      y: tooltipY,
+      width: tooltipWidth,
+      height: tooltipHeight,
+      title: formatDate(price?.date || valuation?.date)
+    }
+  };
+}
+
+function ValuationChartHover({ model, chart, ticker, padding, height }) {
+  return (
+    <g className="chart-hover-layer valuation-hover-layer">
+      <line className="chart-hover-line" x1={model.x} x2={model.x} y1={padding.top} y2={height - padding.bottom} />
+      {model.valuation ? (
+        <circle
+          className="chart-hover-dot portfolio"
+          cx={chart.xScale(model.valuation.date)}
+          cy={chart.yScale(model.valuation.close)}
+          r="5"
+        />
+      ) : null}
+      {model.price ? (
+        <circle
+          className="chart-hover-dot benchmark"
+          cx={chart.xScale(model.price.date)}
+          cy={chart.yScale(model.price.close)}
+          r="4"
+        />
+      ) : null}
+      <g className="chart-tooltip" transform={`translate(${model.tooltip.x} ${model.tooltip.y})`}>
+        <rect width={model.tooltip.width} height={model.tooltip.height} rx="7" />
+        <text className="chart-tooltip-title" x="10" y="17">{model.tooltip.title}</text>
+        {model.rows.map((row, index) => (
+          <g key={`${row.label}-${index}`} transform={`translate(10 ${34 + index * 15})`}>
+            <text className={`chart-tooltip-row ${row.tone || ""}`} x="0" y="0">{row.label}</text>
+            <text className="chart-tooltip-value" x={model.tooltip.width - 20} y="0" textAnchor="end">{row.value}</text>
+          </g>
+        ))}
+        {model.valuation?.method ? (
+          <text className="chart-tooltip-row" x="10" y={model.tooltip.height - 8}>
+            {model.valuation.method.slice(0, 28)}
+          </text>
+        ) : null}
+      </g>
+    </g>
   );
 }
 
@@ -3251,6 +3387,11 @@ function linePath(points, xScale, yScale) {
 function nearestChartPoint(points, date) {
   if (!points.length || !date) return null;
   const target = dateValue(date);
+  return nearestChartPointByTime(points, target);
+}
+
+function nearestChartPointByTime(points, target) {
+  if (!points.length || !Number.isFinite(target)) return null;
   let best = points[0];
   let bestDistance = Math.abs(dateValue(best.date) - target);
   for (const point of points) {

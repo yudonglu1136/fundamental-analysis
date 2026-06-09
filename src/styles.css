@@ -1474,6 +1474,18 @@ tbody tr:last-child td {
   stroke-width: 2.7;
 }
 
+.valuation-bar {
+  fill: rgba(20, 126, 88, 0.34);
+  stroke: rgba(20, 126, 88, 0.54);
+  stroke-width: 1;
+}
+
+.valuation-bar.active {
+  fill: rgba(20, 126, 88, 0.66);
+  stroke: var(--green);
+  stroke-width: 1.5;
+}
+
 .buy-window {
   fill: var(--green);
   opacity: 0.09;
@@ -1609,7 +1621,7 @@ tbody tr:last-child td {
 }
 
 .valuation-scenarios {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .valuation-scenarios small {
@@ -1632,8 +1644,9 @@ tbody tr:last-child td {
   font-weight: 900;
 }
 
-.valuation-chart .valuation-legend circle {
+.valuation-chart .valuation-legend rect {
   fill: var(--green);
+  opacity: 0.64;
 }
 
 .valuation-chart .valuation-legend line {
