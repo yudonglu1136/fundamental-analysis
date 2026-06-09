@@ -104,10 +104,16 @@ const uiText = {
     "valuation.tableSub": "valuation run vs as-of price",
     "valuation.datePeriod": "日期 / 期间",
     "valuation.anchorPrice": "当时/锚定股价",
-    "valuation.method": "方法",
-    "valuation.methodTitle": "模型方法与假设",
-    "valuation.methodEmpty": "旧模型没有暴露 method card",
-    "valuation.note": "数据来自旧 Fundamental Analysis module 的 valuation output，当前价格优先使用本项目 SQLite/Yahoo price cache；无行情的英股/特殊 ticker 使用旧模型 price anchor。",
+	    "valuation.method": "方法",
+	    "valuation.methodTitle": "模型方法与假设",
+	    "valuation.methodEmpty": "旧模型没有暴露 method card",
+	    "valuation.qualityTitle": "数据质量提示",
+	    "valuation.qualityPartial": "这只股票不是 MA 级别的完整季度序列；图中只展示旧模型已完成的事件估值。",
+	    "valuation.qualityLimited": "这只股票目前只有有限 valuation snapshot，不能按完整历史季度模型解读。",
+	    "valuation.qualityNoDaily": "本地库没有可靠日线价格，图中只显示披露日价格锚点，不连接成价格线。",
+	    "valuation.qualityExcluded": "已过滤异常/重复 valuation 行：",
+	    "valuation.priceAnchors": "价格锚点",
+	    "valuation.note": "数据来自旧 Fundamental Analysis module 的 valuation output，当前价格优先使用本项目 SQLite/Yahoo price cache；无行情的英股/特殊 ticker 使用旧模型 price anchor。",
     "dbmf.dashboard": "DBMF dashboard",
     "dbmf.toolbarTitle": "趋势复制仓位：看当前，也看相对上期怎么变",
     "dbmf.currentDate": "当前日期",
@@ -205,10 +211,16 @@ const uiText = {
     "valuation.tableSub": "valuation run vs as-of price",
     "valuation.datePeriod": "Date / period",
     "valuation.anchorPrice": "As-of / anchor price",
-    "valuation.method": "Method",
-    "valuation.methodTitle": "Model methods and assumptions",
-    "valuation.methodEmpty": "No method card exposed by legacy model",
-    "valuation.note": "Data comes from legacy Fundamental Analysis module valuation output. Latest prices prioritize this project's SQLite/Yahoo price cache; UK or special tickers without market data use the legacy model price anchor.",
+	    "valuation.method": "Method",
+	    "valuation.methodTitle": "Model methods and assumptions",
+	    "valuation.methodEmpty": "No method card exposed by legacy model",
+	    "valuation.qualityTitle": "Data quality",
+	    "valuation.qualityPartial": "This ticker is not a MA-grade full quarterly series; the chart only shows completed legacy model event valuations.",
+	    "valuation.qualityLimited": "This ticker currently has limited valuation snapshots and should not be read as a full quarterly history.",
+	    "valuation.qualityNoDaily": "The local database has no reliable daily price series, so the chart shows as-of price anchors instead of a connected price line.",
+	    "valuation.qualityExcluded": "Filtered abnormal / duplicate valuation rows:",
+	    "valuation.priceAnchors": "Anchors",
+	    "valuation.note": "Data comes from legacy Fundamental Analysis module valuation output. Latest prices prioritize this project's SQLite/Yahoo price cache; UK or special tickers without market data use the legacy model price anchor.",
     "dbmf.dashboard": "DBMF dashboard",
     "dbmf.toolbarTitle": "Trend replication positioning: current exposure and changes vs prior snapshot",
     "dbmf.currentDate": "Current date",
@@ -1267,8 +1279,8 @@ function ValuationDetail({ ticker, compact, loading, error }) {
         </div>
       </section>
 
-      <section className="insight-deck valuation-scenarios">
-        {scenarioCards.map((item) => {
+	      <section className="insight-deck valuation-scenarios">
+	        {scenarioCards.map((item) => {
           const scenarioUpside =
             Number.isFinite(item.fairValue) && Number.isFinite(active.latest?.latestPrice) && active.latest.latestPrice
               ? item.fairValue / active.latest.latestPrice - 1
@@ -1281,20 +1293,48 @@ function ValuationDetail({ ticker, compact, loading, error }) {
               <small>{formatReturnPct(scenarioUpside)} {t("valuation.vsLatest")}</small>
             </div>
           );
-        })}
-      </section>
+	        })}
+	      </section>
+	      <ValuationQualityBanner ticker={active} />
 
-      <div className="dbmf-panel-stack valuation-stack">
-        <ValuationHistoryPanel ticker={active} loading={loading} />
+	      <div className="dbmf-panel-stack valuation-stack">
+	        <ValuationHistoryPanel ticker={active} loading={loading} />
         <ValuationTable ticker={active} history={history} />
         <ValuationMethodPanel ticker={active} />
       </div>
     </article>
+	  );
+	}
+
+function ValuationQualityBanner({ ticker }) {
+  const { t } = useI18n();
+  const quality = ticker.dataQuality || {};
+  const messages = [];
+  if (quality.valuationCoverageKind === "limited" || (!quality.legacyBackendValuationRows && (ticker.history || []).length < 12)) {
+    messages.push(t("valuation.qualityLimited"));
+  } else if (quality.valuationCoverageKind && quality.valuationCoverageKind !== "quarterly") {
+    messages.push(t("valuation.qualityPartial"));
+  }
+  if (quality.priceDisplayMode === "as-of-price-anchors" || (!quality.hasLivePriceSeries && (ticker.history || []).some((row) => Number.isFinite(row.priceAtDate)))) {
+    messages.push(t("valuation.qualityNoDaily"));
+  }
+  if (Number(quality.excludedLegacyBackendRows) > 0) {
+    messages.push(`${t("valuation.qualityExcluded")} ${formatNumber(Number(quality.excludedLegacyBackendRows))}`);
+  }
+  if (!messages.length) return null;
+  return (
+    <section className="quality-banner valuation-quality-banner">
+      <ShieldAlert size={18} />
+      <div>
+        <strong>{t("valuation.qualityTitle")}</strong>
+        {messages.map((message) => <span key={message}>{message}</span>)}
+      </div>
+    </section>
   );
 }
 
-function ValuationHistoryPanel({ ticker, loading }) {
-  const { t } = useI18n();
+	function ValuationHistoryPanel({ ticker, loading }) {
+	  const { t } = useI18n();
   return (
     <section className="chart-panel valuation-chart-panel">
       <div className="chart-head">
@@ -1318,9 +1358,9 @@ function ValuationHistoryChart({ ticker }) {
   const pricePoints = useMemo(() => (ticker.priceHistory || [])
     .filter((point) => point.date && Number.isFinite(point.close))
     .sort((a, b) => dateValue(a.date) - dateValue(b.date)), [ticker.priceHistory]);
-  const valuationPoints = useMemo(() => (ticker.history || [])
-    .filter((point) => point.asOfDate && Number.isFinite(point.fairValue))
-    .map((point) => ({
+	  const valuationPoints = useMemo(() => (ticker.history || [])
+	    .filter((point) => point.asOfDate && Number.isFinite(point.fairValue))
+	    .map((point) => ({
       date: point.asOfDate,
       close: point.fairValue,
       priceAtDate: point.priceAtDate,
@@ -1328,39 +1368,50 @@ function ValuationHistoryChart({ ticker }) {
       upsideDownside: point.upsideDownside,
       method: point.method,
       fiscalYear: point.fiscalYear,
-      fiscalQuarter: point.fiscalQuarter,
-      dataSnapshot: point.dataSnapshot
-    }))
-    .sort((a, b) => dateValue(a.date) - dateValue(b.date)), [ticker.history]);
-  const fallbackPricePoints = useMemo(() => (ticker.history || [])
-    .filter((point) => point.asOfDate && Number.isFinite(point.priceAtDate))
-    .map((point) => ({ date: point.asOfDate, close: point.priceAtDate }))
-    .sort((a, b) => dateValue(a.date) - dateValue(b.date)), [ticker.history]);
-  const chartPricePoints = pricePoints.length ? pricePoints : fallbackPricePoints;
-  const allPoints = [...pricePoints, ...valuationPoints, ...fallbackPricePoints]
-    .filter((point) => point.date && Number.isFinite(point.close))
-    .sort((a, b) => dateValue(a.date) - dateValue(b.date));
-  const chart = makeChartModel(allPoints, width, height, padding);
+	      fiscalQuarter: point.fiscalQuarter,
+	      dataSnapshot: point.dataSnapshot
+	    }))
+	    .reduce((rows, point) => {
+	      const existingIndex = rows.findIndex((row) => row.date === point.date);
+	      if (existingIndex === -1) return [...rows, point];
+	      const existing = rows[existingIndex];
+	      const next = chartValuationPointPriority(point) > chartValuationPointPriority(existing) ? point : existing;
+	      return rows.map((row, index) => index === existingIndex ? next : row);
+	    }, [])
+	    .sort((a, b) => dateValue(a.date) - dateValue(b.date)), [ticker.history]);
+	  const fallbackPricePoints = useMemo(() => (ticker.history || [])
+	    .filter((point) => point.asOfDate && Number.isFinite(point.priceAtDate))
+	    .map((point) => ({ date: point.asOfDate, close: point.priceAtDate, anchor: true }))
+	    .sort((a, b) => dateValue(a.date) - dateValue(b.date)), [ticker.history]);
+	  const hasDailyPriceLine = pricePoints.length >= 120 && ticker.dataQuality?.priceDisplayMode !== "as-of-price-anchors";
+	  const chartPricePoints = hasDailyPriceLine ? pricePoints : [];
+	  const priceAnchorPoints = hasDailyPriceLine ? [] : fallbackPricePoints;
+	  const tooltipPricePoints = hasDailyPriceLine ? pricePoints : fallbackPricePoints;
+	  const allPoints = [...chartPricePoints, ...valuationPoints, ...priceAnchorPoints]
+	    .filter((point) => point.date && Number.isFinite(point.close))
+	    .sort((a, b) => dateValue(a.date) - dateValue(b.date));
+	  const chart = makeChartModel(allPoints, width, height, padding);
 
   if (!chart) {
     return <div className="chart-empty">{t("valuation.emptyChart")}</div>;
   }
 
-  const priceLine = linePath(chartPricePoints, chart.xScale, chart.yScale);
-  const gridValues = chartGridValues(chart.minY, chart.maxY);
-  const innerWidth = width - padding.left - padding.right;
-  const innerHeight = height - padding.top - padding.bottom;
-  const barWidth = Math.max(5, Math.min(18, innerWidth / Math.max(valuationPoints.length * 1.7, 12)));
-  const hoverModel = hover ? makeValuationHoverModel({
-    hoverX: hover.x,
-    chart,
-    pricePoints: chartPricePoints,
-    valuationPoints,
-    ticker,
-    width,
-    height,
-    padding
-  }) : null;
+	  const priceLine = linePath(chartPricePoints, chart.xScale, chart.yScale);
+	  const gridValues = chartGridValues(chart.minY, chart.maxY);
+	  const innerWidth = width - padding.left - padding.right;
+	  const innerHeight = height - padding.top - padding.bottom;
+	  const barWidth = valuationBarWidth(valuationPoints, chart, innerWidth);
+	  const hoverModel = hover ? makeValuationHoverModel({
+	    hoverX: hover.x,
+	    chart,
+	    pricePoints: tooltipPricePoints,
+	    valuationPoints,
+	    ticker,
+	    width,
+	    height,
+	    padding,
+	    hasDailyPriceLine
+	  }) : null;
 
   function handlePointerMove(event) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -1398,21 +1449,30 @@ function ValuationHistoryChart({ ticker }) {
             rx="2"
           />
         );
-      })}
-      {priceLine ? <path className="price-line" d={priceLine} /> : null}
-      {hoverModel ? <ValuationChartHover model={hoverModel} chart={chart} ticker={ticker} padding={padding} height={height} /> : null}
+	      })}
+	      {priceAnchorPoints.map((point) => (
+	        <circle
+	          className="valuation-price-anchor"
+	          key={`price-anchor-${point.date}`}
+	          cx={chart.xScale(point.date)}
+	          cy={chart.yScale(point.close)}
+	          r="3.3"
+	        />
+	      ))}
+	      {priceLine ? <path className="price-line" d={priceLine} /> : null}
+	      {hoverModel ? <ValuationChartHover model={hoverModel} chart={chart} ticker={ticker} padding={padding} height={height} /> : null}
       <text className="chart-axis-label" x={padding.left} y={height - 12}>
         {formatDate(allPoints[0]?.date)}
       </text>
       <text className="chart-axis-label" x={width - padding.right} y={height - 12} textAnchor="end">
         {formatDate(allPoints.at(-1)?.date)}
       </text>
-      <g className="valuation-legend">
-        <rect x={width - 204} y={17} width="12" height="12" rx="2" />
-        <text x={width - 186} y={28}>Fair value</text>
-        <line x1={width - 104} x2={width - 76} y1={24} y2={24} />
-        <text x={width - 68} y={28}>Price</text>
-      </g>
+	      <g className="valuation-legend">
+	        <rect x={width - 204} y={17} width="12" height="12" rx="2" />
+	        <text x={width - 186} y={28}>Fair value</text>
+	        {hasDailyPriceLine ? <line x1={width - 104} x2={width - 76} y1={24} y2={24} /> : <circle className="valuation-price-anchor" cx={width - 90} cy={24} r="3.3" />}
+	        <text x={width - 68} y={28}>{hasDailyPriceLine ? "Price" : t("valuation.priceAnchors")}</text>
+	      </g>
       <rect
         className="chart-hover-target"
         x={padding.left}
@@ -1423,19 +1483,65 @@ function ValuationHistoryChart({ ticker }) {
         onPointerLeave={() => setHover(null)}
       />
     </svg>
-  );
+	  );
+	}
+
+function valuationBarWidth(points, chart, innerWidth) {
+  if (points.length <= 1) return 14;
+  const xs = [...new Set(points.map((point) => Math.round(chart.xScale(point.date) * 10) / 10))]
+    .sort((left, right) => left - right);
+  const gaps = [];
+  for (let index = 1; index < xs.length; index += 1) {
+    const gap = xs[index] - xs[index - 1];
+    if (gap > 0) gaps.push(gap);
+  }
+  const minGap = gaps.length ? Math.min(...gaps) : innerWidth / Math.max(points.length, 1);
+  return Math.max(4, Math.min(18, minGap * 0.54));
 }
 
-function makeValuationHoverModel({ hoverX, chart, pricePoints, valuationPoints, ticker, width, height, padding }) {
-  const innerWidth = width - padding.left - padding.right;
-  const xPct = innerWidth ? (hoverX - padding.left) / innerWidth : 0;
-  const targetTime = chart.minX + Math.max(0, Math.min(1, xPct)) * (chart.maxX - chart.minX);
-  const price = nearestChartPointByTime(pricePoints, targetTime);
-  const valuation = nearestChartPointByTime(valuationPoints, targetTime);
-  const x = price ? chart.xScale(price.date) : hoverX;
-  const rows = [];
+function chartValuationPointPriority(point) {
+  const label = String(point.label || "").toLowerCase();
+  let score = 0;
+  if (/q[1-4]/.test(label) || point.fiscalQuarter) score += 20;
+  if (/fy\d{2,4}/.test(label)) score += 8;
+  if (label.includes("market snapshot")) score -= 8;
+  if (Number.isFinite(point.priceAtDate) && point.priceAtDate > 0) score += 4;
+  return score;
+}
 
-  if (price) rows.push({ label: "Price", value: valuationCurrency(price.close, ticker.currency), tone: "benchmark" });
+function nearestChartPointWithDistance(points, target) {
+  const point = nearestChartPointByTime(points, target);
+  if (!point) return null;
+  return { point, distance: Math.abs(dateValue(point.date) - target) };
+}
+
+	function makeValuationHoverModel({ hoverX, chart, pricePoints, valuationPoints, ticker, width, height, padding, hasDailyPriceLine }) {
+	  const innerWidth = width - padding.left - padding.right;
+	  const xPct = innerWidth ? (hoverX - padding.left) / innerWidth : 0;
+	  const targetTime = chart.minX + Math.max(0, Math.min(1, xPct)) * (chart.maxX - chart.minX);
+	  const dayMs = 24 * 60 * 60 * 1000;
+	  const valuationTolerance = Math.max(10 * dayMs, Math.min(62 * dayMs, (chart.maxX - chart.minX) / Math.max(valuationPoints.length * 2.2, 1)));
+	  const priceTolerance = hasDailyPriceLine ? 8 * dayMs : valuationTolerance;
+	  const valuationCandidate = nearestChartPointWithDistance(valuationPoints, targetTime);
+	  const valuation = valuationCandidate && valuationCandidate.distance <= valuationTolerance ? valuationCandidate.point : null;
+	  const priceTarget = valuation ? dateValue(valuation.date) : targetTime;
+	  const priceCandidate = nearestChartPointWithDistance(pricePoints, priceTarget);
+	  const firstPriceTime = dateValue(pricePoints[0]?.date);
+	  const lastPriceTime = dateValue(pricePoints.at(-1)?.date);
+	  const targetInsidePriceLine = hasDailyPriceLine && targetTime >= firstPriceTime && targetTime <= lastPriceTime;
+	  let price = !valuation && targetInsidePriceLine
+	    ? priceCandidate?.point || null
+	    : priceCandidate && priceCandidate.distance <= priceTolerance ? priceCandidate.point : null;
+	  if (!price && !valuation && priceCandidate) {
+	    price = priceCandidate.point;
+	  }
+	  if (!price && valuation && Number.isFinite(valuation.priceAtDate)) {
+	    price = { date: valuation.date, close: valuation.priceAtDate, anchor: true };
+	  }
+	  const x = valuation ? chart.xScale(valuation.date) : price ? chart.xScale(price.date) : hoverX;
+	  const rows = [];
+
+	  if (price) rows.push({ label: "Price", value: valuationCurrency(price.close, ticker.currency), tone: "benchmark" });
   if (valuation) {
     rows.push({ label: `${valuation.label || "Fair value"}`, value: valuationCurrency(valuation.close, ticker.currency), tone: "portfolio" });
     const comparisonPrice = price?.close || valuation.priceAtDate;
@@ -1458,11 +1564,11 @@ function makeValuationHoverModel({ hoverX, chart, pricePoints, valuationPoints, 
       x: tooltipX,
       y: tooltipY,
       width: tooltipWidth,
-      height: tooltipHeight,
-      title: formatDate(price?.date || valuation?.date)
-    }
-  };
-}
+	      height: tooltipHeight,
+	      title: formatDate(valuation?.date || price?.date)
+	    }
+	  };
+	}
 
 function ValuationChartHover({ model, chart, ticker, padding, height }) {
   return (

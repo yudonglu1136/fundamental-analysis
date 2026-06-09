@@ -1514,6 +1514,13 @@ tbody tr:last-child td {
   stroke-width: 1.5;
 }
 
+.valuation-price-anchor {
+  fill: var(--blue);
+  opacity: 0.86;
+  stroke: var(--paper);
+  stroke-width: 1.2;
+}
+
 .buy-window {
   fill: var(--green);
   opacity: 0.09;
@@ -1656,6 +1663,37 @@ tbody tr:last-child td {
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
+}
+
+.quality-banner {
+  align-items: flex-start;
+  background: #fff8ea;
+  border: 1px solid rgba(159, 104, 24, 0.28);
+  border-radius: 8px;
+  color: #6f4c16;
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.quality-banner strong {
+  color: var(--ink);
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.quality-banner span {
+  display: block;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.valuation-quality-banner {
+  margin-top: 12px;
 }
 
 .valuation-stack {

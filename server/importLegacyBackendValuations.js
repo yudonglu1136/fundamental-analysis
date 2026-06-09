@@ -5,7 +5,10 @@ import { DatabaseSync } from "node:sqlite";
 const CURRENT_DB_PATH = process.env.SQLITE_DB_PATH || path.join(process.cwd(), "server/data/guru-analysis.sqlite");
 const LEGACY_ROOT = process.env.LEGACY_FA_ROOT || "/tmp/fa-old";
 const MIN_BASE_RUNS = Number(process.env.MIN_BASE_RUNS || 8);
+const MIN_CLEAN_RUNS = Number(process.env.MIN_CLEAN_RUNS || 5);
 const MIN_LATEST_AS_OF_DATE = process.env.MIN_LATEST_AS_OF_DATE || "2024-01-01";
+const MIN_FAIR_TO_PRICE_RATIO = Number(process.env.MIN_FAIR_TO_PRICE_RATIO || 0.2);
+const MAX_FAIR_TO_PRICE_RATIO = Number(process.env.MAX_FAIR_TO_PRICE_RATIO || 6);
 
 const tickerMap = {
   ba: "BA.L",
@@ -31,7 +34,12 @@ function finiteNumber(value) {
 }
 
 function latestByDate(rows) {
-  return [...rows].sort((left, right) => String(left.asOfDate || "").localeCompare(String(right.asOfDate || ""))).at(-1) || null;
+  return [...rows]
+    .sort((left, right) =>
+      String(left.asOfDate || "").localeCompare(String(right.asOfDate || "")) ||
+      String(left.createdAt || "").localeCompare(String(right.createdAt || ""))
+    )
+    .at(-1) || null;
 }
 
 function mapLegacyTicker(legacyTicker) {
@@ -41,6 +49,15 @@ function mapLegacyTicker(legacyTicker) {
 function latestPricePoint(points = []) {
   return [...points]
     .filter((point) => point.date && Number.isFinite(Number(point.close)))
+    .sort((left, right) => String(left.date).localeCompare(String(right.date)))
+    .at(-1) || null;
+}
+
+function pricePointAtOrBefore(points = [], date) {
+  const target = date ? new Date(date).getTime() : NaN;
+  if (!Number.isFinite(target)) return null;
+  return [...points]
+    .filter((point) => point.date && Number.isFinite(Number(point.close)) && new Date(point.date).getTime() <= target)
     .sort((left, right) => String(left.date).localeCompare(String(right.date)))
     .at(-1) || null;
 }
@@ -110,6 +127,7 @@ function buildHistoryRow(run, event) {
   const priceAtDate = finiteNumber(run.currentPrice);
   return {
     periodId: run.reportingEventId || event?.id || `${asOfDate}-base`,
+    runCreatedAt: run.createdAt || null,
     label: event?.fiscalPeriod || dataSnapshot?.fiscalPeriod || event?.label || run.reportingEventId || asOfDate,
     asOfDate,
     fiscalYear: finiteNumber(event?.fiscalYear ?? dataSnapshot?.latestFinancialPeriod?.fiscalYear),
@@ -136,6 +154,139 @@ function buildHistoryRow(run, event) {
   };
 }
 
+function fairPriceRatio(row) {
+  if (!Number.isFinite(row.fairValue) || !Number.isFinite(row.priceAtDate) || row.priceAtDate <= 0) return null;
+  return row.fairValue / row.priceAtDate;
+}
+
+function invalidRatioReason(row) {
+  const ratio = fairPriceRatio(row);
+  if (!Number.isFinite(ratio)) return null;
+  if (ratio < MIN_FAIR_TO_PRICE_RATIO) {
+    return `fair/price ${ratio.toFixed(3)} below ${MIN_FAIR_TO_PRICE_RATIO}`;
+  }
+  if (ratio > MAX_FAIR_TO_PRICE_RATIO) {
+    return `fair/price ${ratio.toFixed(3)} above ${MAX_FAIR_TO_PRICE_RATIO}`;
+  }
+  return null;
+}
+
+function periodPriority(row) {
+  const id = String(row.periodId || "").toLowerCase();
+  const label = String(row.label || "").toLowerCase();
+  let score = 0;
+  if (/q[1-4]/.test(id) || /q[1-4]/.test(label)) score += 30;
+  if (/fy\d{2,4}/.test(id) || /fy\d{2,4}/.test(label)) score += 10;
+  if (id.startsWith("period-")) score -= 8;
+  if (label.includes("market snapshot") || id.includes("market-snapshot")) score -= 12;
+  if (row.runCreatedAt) score += Math.min(Date.parse(row.runCreatedAt) || 0, 4102444800000) / 4102444800000;
+  return score;
+}
+
+function chooseRepresentativeRow(rows) {
+  return [...rows].sort((left, right) =>
+    periodPriority(right) - periodPriority(left) ||
+    String(right.runCreatedAt || "").localeCompare(String(left.runCreatedAt || ""))
+  )[0];
+}
+
+function sanitizeHistoryRows(rows) {
+  const exclusions = [];
+  const validRows = [];
+
+  for (const row of rows) {
+    const reason = invalidRatioReason(row);
+    if (reason) {
+      exclusions.push({
+        periodId: row.periodId,
+        asOfDate: row.asOfDate,
+        label: row.label,
+        fairValue: row.fairValue,
+        priceAtDate: row.priceAtDate,
+        reason
+      });
+      continue;
+    }
+    validRows.push(row);
+  }
+
+  const byDate = new Map();
+  for (const row of validRows) {
+    const key = row.asOfDate;
+    byDate.set(key, [...(byDate.get(key) || []), row]);
+  }
+
+  const deduped = [];
+  for (const [asOfDate, dateRows] of byDate) {
+    const chosen = chooseRepresentativeRow(dateRows);
+    deduped.push(chosen);
+    for (const row of dateRows) {
+      if (row !== chosen) {
+        exclusions.push({
+          periodId: row.periodId,
+          asOfDate,
+          label: row.label,
+          fairValue: row.fairValue,
+          priceAtDate: row.priceAtDate,
+          reason: `same-date duplicate; kept ${chosen.periodId || chosen.label || asOfDate}`
+        });
+      }
+    }
+  }
+
+  return {
+    history: deduped.sort((left, right) =>
+      String(left.asOfDate).localeCompare(String(right.asOfDate)) ||
+      String(left.runCreatedAt || "").localeCompare(String(right.runCreatedAt || ""))
+    ),
+    exclusions
+  };
+}
+
+function fillPriceAnchorsFromLocalHistory(rows, snapshot) {
+  return rows.map((row) => {
+    const pricePoint = pricePointAtOrBefore(snapshot.priceHistory, row.asOfDate);
+    if (!pricePoint) return row;
+    const priceAtDate = Number(pricePoint.close);
+    return {
+      ...row,
+      currentPrice: priceAtDate,
+      priceAtDate,
+      priceDate: pricePoint.date,
+      upsideDownside: Number.isFinite(row.fairValue) && priceAtDate > 0 ? row.fairValue / priceAtDate - 1 : row.upsideDownside,
+      dataSnapshot: {
+        ...(row.dataSnapshot || {}),
+        asOfPriceSource: {
+          ...(row.dataSnapshot?.asOfPriceSource || {}),
+          priceDate: pricePoint.date,
+          source: pricePoint.source || "local daily close fallback"
+        }
+      }
+    };
+  });
+}
+
+function coverageKind(history) {
+  if (history.length >= 28 && history.filter((row) => row.fiscalQuarter || /q[1-4]/i.test(String(row.label || ""))).length / history.length >= 0.72) {
+    return "quarterly";
+  }
+  if (history.length >= 12) return "partial";
+  return "limited";
+}
+
+function findRunForHistoryRow(runs, row) {
+  if (!row) return null;
+  return runs.find((run) =>
+    (run.reportingEventId || "") === row.periodId &&
+    (run.asOfDate || "") === row.asOfDate &&
+    finiteNumber(run.fairValue) === row.fairValue &&
+    String(run.createdAt || "") === String(row.runCreatedAt || "")
+  ) || runs.find((run) =>
+    (run.reportingEventId || "") === row.periodId &&
+    (run.asOfDate || "") === row.asOfDate
+  ) || null;
+}
+
 function buildScenarioFromRun(run, scenario = "Base") {
   return {
     scenario,
@@ -150,13 +301,16 @@ function buildScenarioFromRun(run, scenario = "Base") {
 }
 
 function updateTickerSnapshot(snapshot, legacyTicker, runs, eventsById) {
-  const history = runs
+  const rawHistory = runs
     .map((run) => buildHistoryRow(run, eventsById.get(run.reportingEventId)))
     .filter((row) => row.asOfDate && Number.isFinite(row.fairValue))
     .sort((left, right) => String(left.asOfDate).localeCompare(String(right.asOfDate)));
-  if (history.length < MIN_BASE_RUNS) return null;
+  const pricedHistory = fillPriceAnchorsFromLocalHistory(rawHistory, snapshot);
+  const { history, exclusions } = sanitizeHistoryRows(pricedHistory);
+  if (history.length < MIN_CLEAN_RUNS) return null;
 
-  const latestRun = latestByDate(runs);
+  const latestHistoryRow = history.at(-1);
+  const latestRun = findRunForHistoryRow(runs, latestHistoryRow) || latestByDate(runs);
   if (!latestRun) return null;
 
   const latestPrice = latestPricePoint(snapshot.priceHistory);
@@ -171,6 +325,10 @@ function updateTickerSnapshot(snapshot, legacyTicker, runs, eventsById) {
   const methodCards = methodCardsFromRun(latestRun);
   const sourceNote = "Legacy backend valuation runs: each bar is recomputed from the reporting-event-visible financials/guidance and the as-of market price.";
   const coverageNote = partialCoverage[legacyTicker] || null;
+  const historyCoverageKind = coverageKind(history);
+  const pricePoints = snapshot.priceHistory?.length || snapshot.dataQuality?.pricePoints || 0;
+  const hasLivePriceSeries = pricePoints >= 120;
+  const displayMode = hasLivePriceSeries ? "daily-price-line" : "as-of-price-anchors";
 
   return {
     ...snapshot,
@@ -192,18 +350,24 @@ function updateTickerSnapshot(snapshot, legacyTicker, runs, eventsById) {
     methodCards: methodCards.length ? methodCards : snapshot.methodCards,
     warnings: [
       "Imported from legacy backend valuation runs.",
+      ...(exclusions.length ? [`Excluded ${exclusions.length} invalid or duplicate legacy valuation rows before charting.`] : []),
       ...(coverageNote ? [coverageNote] : []),
       ...compactWarnings(latestRun.warningsJson)
     ],
     dataQuality: {
       ...(snapshot.dataQuality || {}),
       legacyBackendValuationRows: history.length,
+      legacyBackendRawValuationRows: rawHistory.length,
+      excludedLegacyBackendRows: exclusions.length,
+      excludedLegacyBackendRowDetails: exclusions.slice(0, 12),
       legacyBackendLatestAsOfDate: latestRun.asOfDate,
       legacyBackendSourcePath: path.join("data/local", legacyTicker, "backend", `${legacyTicker}_research.sqlite`),
       partialLegacyBackendCoverage: Boolean(coverageNote),
-      pricePoints: snapshot.priceHistory?.length || snapshot.dataQuality?.pricePoints || 0,
-      hasLivePriceSeries: Boolean(snapshot.priceHistory?.length),
-      hasQuarterlyValuationRuns: true,
+      pricePoints,
+      hasLivePriceSeries,
+      priceDisplayMode: displayMode,
+      valuationCoverageKind: historyCoverageKind,
+      hasQuarterlyValuationRuns: historyCoverageKind === "quarterly",
       sourceNote,
       coverageNote
     }
@@ -298,7 +462,7 @@ const summary = {
     .filter(Boolean)
     .sort()
     .at(-1) || null,
-  quarterlyBackendValuationTickerCount: imported.length,
+  quarterlyBackendValuationTickerCount: [...currentTickers.values()].filter((ticker) => ticker.dataQuality?.hasQuarterlyValuationRuns).length,
   positiveUpsideCount: tickers.filter((ticker) => Number(ticker.latest?.upsideToBase) > 0).length,
   negativeUpsideCount: tickers.filter((ticker) => Number(ticker.latest?.upsideToBase) < 0).length
 };
@@ -330,6 +494,7 @@ console.log(JSON.stringify({
   currentDbPath: CURRENT_DB_PATH,
   legacyRoot: LEGACY_ROOT,
   minBaseRuns: MIN_BASE_RUNS,
+  minCleanRuns: MIN_CLEAN_RUNS,
   imported,
   skipped,
   summary
