@@ -281,6 +281,21 @@ export const gurus = [
     ]
   },
   {
+    id: "warren-buffett",
+    name: "Warren Buffett",
+    chineseName: "巴菲特",
+    entityName: "Berkshire Hathaway Inc.",
+    cik: "0001067983",
+    type: "manager13f",
+    role: "Berkshire Hathaway chairman / value investor",
+    thesisTag: "Insurance float and concentrated value compounders",
+    notes: [
+      "Berkshire Hathaway files quarterly Form 13F-HR reports. The app treats Berkshire's public long-equity portfolio as Warren Buffett's best public-market proxy.",
+      "The 13F does not show Berkshire's wholly owned operating businesses, cash, Treasury bills, private deals, non-U.S. holdings outside 13F scope, or manager-level attribution between Buffett, Todd Combs, and Ted Weschler.",
+      "Use the disclosed portfolio as a delayed public-equity signal rather than a complete Berkshire balance-sheet view."
+    ]
+  },
+  {
     id: "george-soros",
     name: "George Soros",
     chineseName: "索罗斯",

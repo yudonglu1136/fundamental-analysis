@@ -145,7 +145,7 @@ function buildSignalModel(gurus) {
       }
 
       if (!isHeatmapExcludedGuru(guru)) {
-        for (const holding of guru.holdings?.slice(0, 20) || []) {
+        for (const holding of (guru.holdings || []).filter(isLongTickerExposure).slice(0, 20)) {
           addExposure(exposureMap, holding, guru, holding.value || 0, holding.action);
         }
       }
@@ -228,9 +228,17 @@ function isHeatmapExcludedGuru(guru) {
   return Boolean(guru?.excludeFromHeatmap);
 }
 
+function isMarketTicker(value) {
+  return /^[A-Z][A-Z0-9.-]{0,9}$/.test(String(value || "").trim().toUpperCase());
+}
+
+function isLongTickerExposure(item) {
+  return !item?.putCall && isMarketTicker(item?.ticker);
+}
+
 function addExposure(map, item, guru, value, action) {
-  const ticker = item.ticker || compactName(item.issuer);
-  if (!ticker) return;
+  const ticker = String(item.ticker || "").trim().toUpperCase();
+  if (!isMarketTicker(ticker)) return;
 
   const current = map.get(ticker) || {
     ticker,

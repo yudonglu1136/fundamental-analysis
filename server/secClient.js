@@ -192,7 +192,7 @@ function normalize13fHolding(raw) {
   const sharesNode = raw.shrsOrPrnAmt || {};
   const shares = numberValue(sharesNode.sshPrnamt);
   const shareType = stringValue(sharesNode.sshPrnamtType);
-  const valueThousands = numberValue(raw.value);
+  const reportedValue = numberValue(raw.value);
   const putCall = stringValue(raw.putCall).toUpperCase();
 
   return {
@@ -202,10 +202,73 @@ function normalize13fHolding(raw) {
     title,
     cusip,
     putCall,
-    value: valueThousands,
+    reportedValue,
+    value: reportedValue,
     shares,
     shareType
   };
+}
+
+function isCommonValueScaleCandidate(holding) {
+  if (holding.putCall || holding.shareType !== "SH" || holding.shares <= 0 || holding.value <= 0) return false;
+  return /(^| )(ADS?|ADR|CL|COM|ORD|SHS?|STK|UNIT)( |$)/i.test(holding.title || "");
+}
+
+function median(values) {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function infer13fValueScale(holdings) {
+  const ratios = holdings
+    .filter(isCommonValueScaleCandidate)
+    .map((holding) => holding.value / holding.shares)
+    .filter((ratio) => Number.isFinite(ratio) && ratio > 0)
+    .sort((a, b) => a - b);
+
+  if (ratios.length < 5) return 1;
+  const middleRatio = median(ratios);
+  return middleRatio > 0 && middleRatio < 5 ? 1000 : 1;
+}
+
+function normalize13fValueScale(holdings) {
+  const scale = infer13fValueScale(holdings);
+  return holdings.map((holding) => ({
+    ...holding,
+    value: holding.value * scale,
+    valueScale: scale
+  }));
+}
+
+function aggregate13fHoldings(holdings) {
+  const byId = new Map();
+  for (const holding of holdings) {
+    if (!holding.issuer) continue;
+    const key = holding.id || `${holding.cusip || holding.issuer}-${holding.putCall || "COMMON"}`;
+    const current = byId.get(key);
+    if (!current) {
+      byId.set(key, { ...holding, sourceRows: 1 });
+      continue;
+    }
+
+    byId.set(key, {
+      ...current,
+      issuer: current.issuer || holding.issuer,
+      ticker: current.ticker || holding.ticker,
+      title: current.title || holding.title,
+      cusip: current.cusip || holding.cusip,
+      putCall: current.putCall || holding.putCall,
+      value: (current.value || 0) + (holding.value || 0),
+      reportedValue: (current.reportedValue || 0) + (holding.reportedValue || 0),
+      shares: (current.shares || 0) + (holding.shares || 0),
+      valueScale: Math.max(current.valueScale || 1, holding.valueScale || 1),
+      sourceRows: (current.sourceRows || 1) + 1
+    });
+  }
+
+  return [...byId.values()];
 }
 
 function parse13fInfoTable(xmlText) {
@@ -213,7 +276,7 @@ function parse13fInfoTable(xmlText) {
   const root = parsed.informationTable || parsed.XML?.informationTable || parsed;
   const tables = toArray(root.infoTable);
 
-  return tables.map(normalize13fHolding).filter((holding) => holding.issuer);
+  return aggregate13fHoldings(normalize13fValueScale(tables.map(normalize13fHolding)));
 }
 
 function classifyChange(current, previous) {
