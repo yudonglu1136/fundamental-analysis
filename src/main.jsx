@@ -108,8 +108,10 @@ const uiText = {
 	    "valuation.methodTitle": "模型方法与假设",
 	    "valuation.methodEmpty": "旧模型没有暴露 method card",
 	    "valuation.qualityTitle": "数据质量提示",
+	    "valuation.qualityUnsupported": "这只股票没有可验证的财务/指引/transcript 估值输入；当前只保留价格线和原始薄 snapshot，不能当作模型结论。",
 	    "valuation.qualityPartial": "这只股票不是 MA 级别的完整季度序列；图中只展示旧模型已完成的事件估值。",
 	    "valuation.qualityLimited": "这只股票目前只有有限 valuation snapshot，不能按完整历史季度模型解读。",
+	    "valuation.qualityYoutubeNoMetrics": "已找到 earnings-call transcript，但结构化 metric 不足，尚不能用 transcript 数据重算估值。",
 	    "valuation.qualityNoDaily": "本地库没有可靠日线价格，图中只显示披露日价格标记，不连接成价格线。",
 	    "valuation.qualityExcluded": "已过滤异常/重复 valuation 行：",
 	    "valuation.qualityInputReview": "估值输入需要复核：历史点不足、来源为研究代理，或无法完整验证 fair value 只来自财务/指引。",
@@ -217,8 +219,10 @@ const uiText = {
 	    "valuation.methodTitle": "Model methods and assumptions",
 	    "valuation.methodEmpty": "No method card exposed by legacy model",
 	    "valuation.qualityTitle": "Data quality",
+	    "valuation.qualityUnsupported": "This ticker has no verified financial/guidance/transcript valuation inputs; only price and thin raw snapshots remain, so it should not be read as a model conclusion.",
 	    "valuation.qualityPartial": "This ticker is not a MA-grade full quarterly series; the chart only shows completed legacy model event valuations.",
 	    "valuation.qualityLimited": "This ticker currently has limited valuation snapshots and should not be read as a full quarterly history.",
+	    "valuation.qualityYoutubeNoMetrics": "Earnings-call transcripts exist, but structured metrics are insufficient to recompute valuation from transcript data.",
 	    "valuation.qualityNoDaily": "The local database has no reliable daily price series, so the chart shows as-of price markers instead of a connected price line.",
 	    "valuation.qualityExcluded": "Filtered abnormal / duplicate valuation rows:",
 	    "valuation.qualityInputReview": "Model inputs need review: limited history, research-proxy source, or incomplete proof that fair value is driven only by financials/guidance.",
@@ -1032,7 +1036,7 @@ function buildValuationModel(data, tickers) {
     : 0;
 
   return {
-    rows,
+    rows: sortedUpside,
     topUpside: sortedUpside[0] || null,
     topDownside: sortedUpside.at(-1) || null,
     livePriceCount,
@@ -1315,10 +1319,15 @@ function ValuationQualityBanner({ ticker }) {
   const quality = ticker.dataQuality || {};
   const inputAudit = quality.modelInputAudit || {};
   const messages = [];
-  if (quality.valuationCoverageKind === "limited" || (!quality.legacyBackendValuationRows && (ticker.history || []).length < 12)) {
+  if (quality.valuationCoverageKind === "unsupported") {
+    messages.push(t("valuation.qualityUnsupported"));
+  } else if (quality.valuationCoverageKind === "limited" || (!quality.legacyBackendValuationRows && (ticker.history || []).length < 12)) {
     messages.push(t("valuation.qualityLimited"));
   } else if (quality.valuationCoverageKind && quality.valuationCoverageKind !== "quarterly") {
     messages.push(t("valuation.qualityPartial"));
+  }
+  if (quality.youtubeEarnings?.calls > 0 && !quality.youtubeEarningsMetricValuationRows && quality.youtubeEarnings?.metricPeriods < 5) {
+    messages.push(t("valuation.qualityYoutubeNoMetrics"));
   }
   if (quality.priceDisplayMode === "as-of-price-anchors" || (!quality.hasLivePriceSeries && (ticker.history || []).some((row) => Number.isFinite(row.priceAtDate)))) {
     messages.push(t("valuation.qualityNoDaily"));
@@ -1369,7 +1378,9 @@ function ValuationHistoryChart({ ticker }) {
   const pricePoints = useMemo(() => (ticker.priceHistory || [])
     .filter((point) => point.date && Number.isFinite(point.close))
     .sort((a, b) => dateValue(a.date) - dateValue(b.date)), [ticker.priceHistory]);
+	  const hideUnverifiedValuation = ticker.dataQuality?.valuationCoverageKind === "unsupported";
 	  const valuationPoints = useMemo(() => (ticker.history || [])
+	    .filter(() => !hideUnverifiedValuation)
 	    .filter((point) => point.asOfDate && Number.isFinite(point.fairValue))
 	    .map((point) => ({
       date: point.asOfDate,
@@ -1389,7 +1400,7 @@ function ValuationHistoryChart({ ticker }) {
 	      const next = chartValuationPointPriority(point) > chartValuationPointPriority(existing) ? point : existing;
 	      return rows.map((row, index) => index === existingIndex ? next : row);
 	    }, [])
-	    .sort((a, b) => dateValue(a.date) - dateValue(b.date)), [ticker.history]);
+	    .sort((a, b) => dateValue(a.date) - dateValue(b.date)), [ticker.history, hideUnverifiedValuation]);
 	  const fallbackPricePoints = useMemo(() => (ticker.history || [])
 	    .filter((point) => point.asOfDate && Number.isFinite(point.priceAtDate))
 	    .map((point) => ({ date: point.asOfDate, close: point.priceAtDate, anchor: true }))
@@ -1479,8 +1490,12 @@ function ValuationHistoryChart({ ticker }) {
         {formatDate(allPoints.at(-1)?.date)}
       </text>
 	      <g className="valuation-legend">
-	        <rect x={width - 204} y={17} width="12" height="12" rx="2" />
-	        <text x={width - 186} y={28}>Fair value</text>
+	        {valuationPoints.length ? (
+	          <>
+	            <rect x={width - 204} y={17} width="12" height="12" rx="2" />
+	            <text x={width - 186} y={28}>Fair value</text>
+	          </>
+	        ) : null}
 	        {hasDailyPriceLine ? <line x1={width - 104} x2={width - 76} y1={24} y2={24} /> : <circle className="valuation-price-anchor" cx={width - 90} cy={24} r="3.3" />}
 	        <text x={width - 68} y={28}>{hasDailyPriceLine ? "Price" : t("valuation.priceAnchors")}</text>
 	      </g>
@@ -1631,6 +1646,7 @@ function ValuationChartHover({ model, chart, ticker, padding, height }) {
 
 function ValuationTable({ ticker, history }) {
   const { t } = useI18n();
+  const unsupported = ticker.dataQuality?.valuationCoverageKind === "unsupported";
   return (
     <section className="table-panel">
       <div className="panel-head">
@@ -1658,11 +1674,11 @@ function ValuationTable({ ticker, history }) {
                   <strong>{formatDate(row.asOfDate)}</strong>
                   <span>{row.label || row.periodId}</span>
                 </td>
-                <td className="num">{valuationCurrency(row.fairValue, ticker.currency)}</td>
+                <td className="num">{unsupported ? "-" : valuationCurrency(row.fairValue, ticker.currency)}</td>
                 <td className="num">{valuationCurrency(row.priceAtDate, ticker.currency)}</td>
-                <td className={`num ${(row.upsideDownside || 0) >= 0 ? "positive-text" : "negative-text"}`}>{formatReturnPct(row.upsideDownside)}</td>
-                <td className="num">{valuationCurrency(row.targetPrice3Y, ticker.currency)}</td>
-                <td>{row.method || "-"}</td>
+                <td className={`num ${!unsupported && (row.upsideDownside || 0) >= 0 ? "positive-text" : "negative-text"}`}>{unsupported ? "-" : formatReturnPct(row.upsideDownside)}</td>
+                <td className="num">{unsupported ? "-" : valuationCurrency(row.targetPrice3Y, ticker.currency)}</td>
+                <td>{unsupported ? "unverified raw snapshot" : row.method || "-"}</td>
               </tr>
             ))}
           </tbody>
@@ -1675,6 +1691,9 @@ function ValuationTable({ ticker, history }) {
 function ValuationMethodPanel({ ticker }) {
   const { t } = useI18n();
   const inputAudit = ticker.dataQuality?.modelInputAudit;
+  const unsupported = ticker.dataQuality?.valuationCoverageKind === "unsupported";
+  const methodCards = unsupported ? [] : (ticker.methodCards || []);
+  const assumptions = unsupported ? [] : (ticker.assumptions || []);
   return (
     <section className="table-panel valuation-method-panel">
       <div className="panel-head">
@@ -1687,7 +1706,7 @@ function ValuationMethodPanel({ ticker }) {
         <div>
           <h4>Method cards</h4>
           <div className="valuation-chip-list">
-            {(ticker.methodCards || []).length ? ticker.methodCards.map((card) => (
+            {methodCards.length ? methodCards.map((card) => (
               <div className="valuation-chip" key={card.key || card.label}>
                 <strong>{card.label}</strong>
                 <span>{card.format === "percent" ? formatPct(card.value) : valuationCurrency(card.value, ticker.currency)}</span>
@@ -1721,7 +1740,7 @@ function ValuationMethodPanel({ ticker }) {
           ) : null}
           <h4>Assumptions</h4>
           <div className="valuation-chip-list">
-            {(ticker.assumptions || []).slice(0, 8).map((item) => (
+            {assumptions.slice(0, 8).map((item) => (
               <div className="valuation-chip compact" key={item.key}>
                 <strong>{item.label || item.key}</strong>
                 <span>{item.format === "percent" ? formatPct(item.value) : item.format === "multiple" ? `${formatNumber(item.value)}x` : formatNumber(item.value)}</span>

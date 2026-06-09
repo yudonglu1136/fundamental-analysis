@@ -8,6 +8,7 @@
     "client": "vite --host 127.0.0.1 --port 5174",
     "server": "API_AUTH_DEV_BYPASS=true node server/index.js",
     "hydrate:db": "node server/hydrateDatabase.js",
+    "import:youtube-valuations": "node server/importYoutubeEarningsValuations.js",
     "build": "vite build",
     "start": "NODE_ENV=production node server/index.js"
   },
