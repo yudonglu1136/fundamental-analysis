@@ -56,21 +56,37 @@ const POINT_TAGS = {
   ],
   assets_m: ["Assets"],
   cash_m: [
+    "CashAndCashEquivalents",
     "CashAndCashEquivalentsAtCarryingValue",
     "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
-    "CashAndDueFromBanks"
+    "CashAndDueFromBanks",
+    "Cash"
   ],
-  debt_m: [
-    "LongTermDebtAndFinanceLeaseObligationsCurrent",
-    "LongTermDebtAndFinanceLeaseObligationsNoncurrent",
-    "LongTermDebtCurrent",
-    "LongTermDebtNoncurrent",
-    "ShortTermBorrowings",
-    "ShortTermDebtCurrent",
-    "DebtCurrent",
-    "LongTermDebt"
-  ]
+  debt_m: []
 };
+
+const DEBT_TOTAL_TAGS = [
+  "Debt",
+  "DebtAndFinanceLeaseObligations",
+  "LongTermDebtAndFinanceLeaseObligations",
+  "Borrowings",
+  "FinancialLiabilitiesAtAmortisedCost",
+  "FinancialLiabilities"
+];
+
+const DEBT_COMPONENT_TAGS = [
+  "LongTermDebtAndFinanceLeaseObligationsCurrent",
+  "LongTermDebtAndFinanceLeaseObligationsNoncurrent",
+  "LongTermDebtCurrent",
+  "LongTermDebtNoncurrent",
+  "ShortTermBorrowings",
+  "ShortTermDebtCurrent",
+  "DebtCurrent",
+  "LongTermDebt",
+  "CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings",
+  "CurrentPortionOfLongtermBorrowings",
+  "LongtermBorrowings"
+];
 
 const TRINITY_TO_DASHBOARD_TICKER = {
   GOOG: "GOOGL"
@@ -139,6 +155,7 @@ function parseJson(value, fallback = null) {
 }
 
 function finiteNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
@@ -465,11 +482,28 @@ function sumPointMaps(maps, key) {
   };
 }
 
+function buildDebtMetricMap(facts, fiscalYearEnd) {
+  const totalMap = buildPointMetricMap(facts, "debt_m", fiscalYearEnd, { tags: DEBT_TOTAL_TAGS });
+  const componentMaps = DEBT_COMPONENT_TAGS.map((tag) => buildPointMetricMap(facts, "debt_m", fiscalYearEnd, { tags: [tag] }));
+  const keys = new Set([
+    ...totalMap.keys(),
+    ...componentMaps.flatMap((map) => [...map.keys()])
+  ]);
+  const debt = new Map();
+  for (const key of keys) {
+    const componentRow = sumPointMaps(componentMaps, key);
+    const totalRow = totalMap.get(key);
+    const row = componentRow || totalRow;
+    if (row) debt.set(key, row);
+  }
+  return debt;
+}
+
 function buildQuarterlyFinancials(facts) {
   const fiscalYearEnd = inferFiscalYearEnd(facts);
   const metricMaps = Object.fromEntries(Object.keys(TAGS).map((metric) => [metric, buildMetricQuarterMap(facts, metric, fiscalYearEnd)]));
   const pointMaps = Object.fromEntries(Object.keys(POINT_TAGS).map((metric) => [metric, buildPointMetricMap(facts, metric, fiscalYearEnd)]));
-  const debtComponentMaps = POINT_TAGS.debt_m.map((tag) => buildPointMetricMap(facts, "debt_m", fiscalYearEnd, { tags: [tag] }));
+  const debtMap = buildDebtMetricMap(facts, fiscalYearEnd);
   const sharesFlowMap = buildMetricQuarterMap(facts, "shares_m", fiscalYearEnd, {
     tags: SHARE_TAGS,
     unit: "shares",
@@ -485,6 +519,7 @@ function buildQuarterlyFinancials(facts) {
   const keys = new Set([
     ...Object.values(metricMaps).flatMap((map) => [...map.keys()]),
     ...Object.values(pointMaps).flatMap((map) => [...map.keys()]),
+    ...debtMap.keys(),
     ...sharesFlowMap.keys(),
     ...sharesPointMap.keys()
   ]);
@@ -505,7 +540,7 @@ function buildQuarterlyFinancials(facts) {
         derived: row.derived
       };
     }
-    const debtRow = sumPointMaps(debtComponentMaps, key);
+    const debtRow = debtMap.get(key);
     if (debtRow) {
       metricData.debt_m = debtRow.value;
       sources.debt_m = {
@@ -659,23 +694,33 @@ const PROFILE_SETTINGS = {
   },
   software_growth: {
     label: "Enterprise software growth",
-    method: "Rule-of-40 normalized earnings power",
+    method: "Rule-of-40 EV/sales + FCF yield + normalized earnings",
     peRange: [24, 46],
     peBase: 30,
     fcfYieldRange: [0.03, 0.055],
     fcfYieldBase: 0.038,
+    evSalesRange: [5.0, 20.0],
+    evSalesBase: 7.5,
     targetMargin: 0.28,
-    fcfWeight: 0.35
+    fcfWeight: 0.32,
+    salesWeight: 0.43,
+    earningsWeight: 0.25,
+    defaultGrossMarginPct: 76
   },
   semiconductor_growth: {
     label: "AI semiconductor growth",
-    method: "Cycle-adjusted EPS + FCF yield",
+    method: "AI semiconductor EV/sales + FCF yield + cycle-adjusted EPS",
     peRange: [18, 42],
     peBase: 25,
     fcfYieldRange: [0.032, 0.065],
     fcfYieldBase: 0.045,
+    evSalesRange: [4.5, 16.0],
+    evSalesBase: 6.5,
     targetMargin: 0.34,
-    fcfWeight: 0.35,
+    fcfWeight: 0.32,
+    salesWeight: 0.36,
+    earningsWeight: 0.32,
+    defaultGrossMarginPct: 52,
     cycleHaircut: 0.92
   },
   semiconductor_cyclical: {
@@ -811,13 +856,18 @@ const PROFILE_SETTINGS = {
   },
   defense_growth: {
     label: "Defense growth",
-    method: "Normalized margin earnings power",
+    method: "Backlog proxy EV/sales + normalized margin earnings power",
     peRange: [18, 34],
     peBase: 23,
     fcfYieldRange: [0.04, 0.075],
     fcfYieldBase: 0.055,
+    evSalesRange: [2.5, 7.5],
+    evSalesBase: 3.4,
     targetMargin: 0.13,
-    fcfWeight: 0.25
+    fcfWeight: 0.15,
+    salesWeight: 0.50,
+    earningsWeight: 0.35,
+    defaultGrossMarginPct: 36
   },
   energy_e_and_p: {
     label: "Natural gas E&P",
@@ -883,21 +933,27 @@ const PROFILE_SETTINGS = {
   },
   energy_technology: {
     label: "Energy technology",
-    method: "Normalized margin revenue power",
+    method: "EV/sales + FCF yield + normalized margin revenue power",
     peRange: [16, 30],
     peBase: 21,
     fcfYieldRange: [0.05, 0.085],
     fcfYieldBase: 0.065,
+    evSalesRange: [1.0, 4.0],
+    evSalesBase: 1.8,
     targetMargin: 0.1,
-    fcfWeight: 0.2
+    fcfWeight: 0.30,
+    salesWeight: 0.45,
+    earningsWeight: 0.25,
+    defaultGrossMarginPct: 28
   },
   emerging_biotech: {
     label: "Emerging biotech",
     method: "Revenue-stage biotech EV/sales + net cash",
-    evSalesRange: [1.0, 6.0],
-    evSalesBase: 2.4,
+    evSalesRange: [1.5, 7.0],
+    evSalesBase: 2.8,
     targetMargin: 0,
-    longRunGrowthRange: [0.0, 0.08]
+    longRunGrowthRange: [0.0, 0.08],
+    defaultGrossMarginPct: 68
   },
   emerging_health_ai: {
     label: "Emerging healthcare AI",
@@ -952,9 +1008,137 @@ function adjustedFcfYield(settings, growthPct, fcfMarginPct) {
 
 function adjustedEvSales(settings, growthPct, grossMarginPct) {
   const [minMultiple, maxMultiple] = settings.evSalesRange || [1, 6];
-  const marginLift = finiteNumber(grossMarginPct) != null ? (grossMarginPct - 55) * 0.035 : 0;
+  const normalizedGrossMargin = finiteNumber(grossMarginPct) ?? finiteNumber(settings.defaultGrossMarginPct);
+  const marginLift = normalizedGrossMargin != null ? (normalizedGrossMargin - 55) * 0.035 : 0;
   const multiple = (settings.evSalesBase || 2.5) + growthPct * 0.045 + marginLift;
   return clamp(multiple, minMultiple, maxMultiple);
+}
+
+function netCashM(ttm) {
+  const cashM = finiteNumber(ttm.cash_m) || 0;
+  const debtM = finiteNumber(ttm.debt_m) || 0;
+  return cashM - debtM;
+}
+
+function blendValuationComponents(components) {
+  const valid = components.filter((component) => component && finiteNumber(component.value) != null && component.value > 0 && component.weight > 0);
+  const totalWeight = valid.reduce((sum, component) => sum + component.weight, 0);
+  if (!totalWeight) return { fairValue: null, components: [] };
+  return {
+    fairValue: valid.reduce((sum, component) => sum + component.value * component.weight / totalWeight, 0),
+    components: valid.map((component) => ({
+      ...component,
+      normalizedWeight: component.weight / totalWeight
+    }))
+  };
+}
+
+function growthEvSalesMultiple(settings, growthPct, grossMarginPct, fcfMarginPct) {
+  const [minMultiple, maxMultiple] = settings.evSalesRange || [2, 10];
+  const grossMargin = finiteNumber(grossMarginPct) ?? finiteNumber(settings.defaultGrossMarginPct) ?? 55;
+  const fcfMargin = finiteNumber(fcfMarginPct) ?? 0;
+  const base = settings.evSalesBase || 4;
+  const multiple = base +
+    growthPct * 0.12 +
+    (grossMargin - 55) * 0.055 +
+    Math.max(-10, Math.min(35, fcfMargin)) * 0.045;
+  return clamp(multiple, minMultiple, maxMultiple);
+}
+
+function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
+  const sharesM = finiteNumber(ttm.shares_m);
+  const ttmRevenue = finiteNumber(ttm.revenue_m);
+  if (!(sharesM > 0) || !(ttmRevenue > 0)) return null;
+
+  const growthPct = normalizedGrowthPct(row, youtubeEvidence);
+  const grossMarginPct = finiteNumber(ttm.gross_margin_pct ?? row.gross_margin_pct) ?? finiteNumber(settings.defaultGrossMarginPct);
+  const normalizedMargin = normalizedMarginRatio(ttm, settings);
+  const taxRate = 0.19;
+  const normalizedNetIncome = Math.max(
+    finiteNumber(ttm.net_income_m) ?? -Infinity,
+    ttmRevenue * normalizedMargin * (1 - taxRate)
+  );
+  const pe = adjustedPe(settings, growthPct, ttm.operating_margin_pct);
+  const fcfYield = adjustedFcfYield(settings, growthPct, ttm.fcf_margin_pct);
+  const evSales = growthEvSalesMultiple(settings, growthPct, grossMarginPct, ttm.fcf_margin_pct);
+  const cycleHaircut = settings.cycleHaircut || 1;
+  const optionalityMultiplier = settings.optionalityMultiplier || 1;
+  const netCash = netCashM(ttm);
+  const salesValue = Math.max(0, ttmRevenue * evSales + netCash) / sharesM * cycleHaircut;
+  const earningsValue = normalizedNetIncome > 0 ? normalizedNetIncome / sharesM * pe * cycleHaircut : null;
+  const ttmFcf = finiteNumber(ttm.fcf_after_capex_m);
+  const fcfValue = ttmFcf && ttmFcf > 0 ? (ttmFcf / fcfYield) / sharesM * cycleHaircut : null;
+  const blended = blendValuationComponents([
+    { key: "ev-sales-equity-value", value: salesValue, weight: settings.salesWeight ?? 0.4 },
+    { key: "normalized-earnings-power", value: earningsValue, weight: settings.earningsWeight ?? 0.3 },
+    { key: "ttm-fcf-yield", value: fcfValue, weight: settings.fcfWeight ?? 0.3 }
+  ]);
+  if (!(blended.fairValue > 0)) return null;
+  const fairValue = blended.fairValue * optionalityMultiplier;
+  const longRunGrowth = clamp(0.035 + growthPct / 100 * 0.26 + Math.max(0, normalizedMargin) * 0.08, 0.025, 0.14);
+  const componentWeight = (key) => blended.components.find((component) => component.key === key)?.normalizedWeight || 0;
+  return {
+    fairValue,
+    targetPrice3Y: fairValue * (1 + longRunGrowth) ** 3,
+    method: settings.method,
+    longRunGrowth,
+    methodOutputs: [
+      {
+        key: "ev-sales-equity-value",
+        label: "EV/sales equity value",
+        value: salesValue,
+        format: "currency",
+        description: `TTM revenue x ${evSales.toFixed(1)}x EV/sales plus ${netCash >= 0 ? "net cash" : "net debt"} bridge, divided by shares.`
+      },
+      {
+        key: "normalized-earnings-power",
+        label: "Normalized earnings power",
+        value: earningsValue,
+        format: "currency",
+        description: earningsValue
+          ? `TTM revenue x ${(normalizedMargin * 100).toFixed(1)}% normalized margin x after-tax conversion / shares x ${pe.toFixed(1)}x P/E.`
+          : "Normalized earnings were not usable, so the row relies on sales and/or FCF value."
+      },
+      {
+        key: "ttm-fcf-yield",
+        label: "TTM FCF yield value",
+        value: fcfValue,
+        format: "currency",
+        description: fcfValue
+          ? `TTM FCF per share / ${(fcfYield * 100).toFixed(1)}% target FCF yield.`
+          : "TTM FCF was unavailable or negative."
+      },
+      {
+        key: "method-weighting",
+        label: "Method weighting",
+        value: componentWeight("ev-sales-equity-value") * 100,
+        format: "percent",
+        description: `${Math.round(componentWeight("ev-sales-equity-value") * 100)}% EV/sales / ${Math.round(componentWeight("normalized-earnings-power") * 100)}% earnings / ${Math.round(componentWeight("ttm-fcf-yield") * 100)}% FCF based on usable inputs.`
+      }
+    ],
+    scoreInputs: {
+      profile: settings.profile,
+      ttmRevenue,
+      ttmNetIncome: finiteNumber(ttm.net_income_m),
+      normalizedNetIncome,
+      ttmFreeCashFlow: ttmFcf,
+      revenueGrowth: growthPct,
+      grossMargin: grossMarginPct,
+      operatingMargin: ttm.operating_margin_pct,
+      normalizedMargin: normalizedMargin * 100,
+      evSalesMultiple: evSales,
+      targetPE: pe,
+      targetFCFYield: fcfYield,
+      netCashM: netCash,
+      cashM: finiteNumber(ttm.cash_m),
+      debtM: finiteNumber(ttm.debt_m),
+      cycleHaircut,
+      optionalityMultiplier,
+      methodWeights: Object.fromEntries(blended.components.map((component) => [component.key, component.normalizedWeight])),
+      sharesM
+    },
+    formula: `${Math.round(componentWeight("ev-sales-equity-value") * 100)}% EV/sales + ${Math.round(componentWeight("normalized-earnings-power") * 100)}% normalized earnings + ${Math.round(componentWeight("ttm-fcf-yield") * 100)}% FCF yield${optionalityMultiplier !== 1 ? `, then x${optionalityMultiplier.toFixed(2)} platform optionality` : ""}; no market price input`
+  };
 }
 
 function buildFinancialInstitutionModel({ ticker, row, ttm, settings }) {
@@ -1021,7 +1205,8 @@ function buildRevenueStageModel({ row, ttm, settings, youtubeEvidence }) {
   const ttmRevenue = finiteNumber(ttm.revenue_m);
   if (!(sharesM > 0) || !(ttmRevenue > 0)) return null;
   const growthPct = normalizedGrowthPct(row, youtubeEvidence);
-  const evSales = adjustedEvSales(settings, growthPct, ttm.gross_margin_pct ?? row.gross_margin_pct);
+  const grossMarginPct = finiteNumber(ttm.gross_margin_pct ?? row.gross_margin_pct) ?? finiteNumber(settings.defaultGrossMarginPct);
+  const evSales = adjustedEvSales(settings, growthPct, grossMarginPct);
   const cashM = finiteNumber(ttm.cash_m) || 0;
   const debtM = finiteNumber(ttm.debt_m) || 0;
   const enterpriseValueM = ttmRevenue * evSales;
@@ -1054,7 +1239,7 @@ function buildRevenueStageModel({ row, ttm, settings, youtubeEvidence }) {
       profile: settings.profile,
       ttmRevenue,
       revenueGrowth: growthPct,
-      grossMargin: ttm.gross_margin_pct ?? row.gross_margin_pct,
+      grossMargin: grossMarginPct,
       evSalesMultiple: evSales,
       cashM,
       debtM,
@@ -1071,6 +1256,9 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
   if (!(sharesM > 0) || !(ttmRevenue > 0)) return null;
   if (["emerging_biotech", "emerging_health_ai"].includes(settings.profile)) {
     return buildRevenueStageModel({ row, ttm, settings, youtubeEvidence });
+  }
+  if (["software_growth", "defense_growth", "semiconductor_growth", "energy_technology"].includes(settings.profile)) {
+    return buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence });
   }
 
   const growthPct = normalizedGrowthPct(row, youtubeEvidence);
@@ -1718,6 +1906,13 @@ function auditModelInputs(snapshot) {
     status = "review";
     warnings.push("Fair value history has too few distinct points.");
   }
+  const latestFairValue = finiteNumber(snapshot.latest?.baseFairValue);
+  const latestPrice = finiteNumber(snapshot.latest?.latestPrice);
+  const latestFairToPrice = latestFairValue && latestPrice ? latestFairValue / latestPrice : null;
+  if (latestFairToPrice != null && (latestFairToPrice < 0.3 || latestFairToPrice > 2.5)) {
+    status = "review";
+    warnings.push("Fair value / latest price is extreme; review model assumptions and data basis. Price is used only for this sanity flag.");
+  }
   return {
     status,
     passesNoPriceAnchorAudit: true,
@@ -1733,6 +1928,7 @@ function auditModelInputs(snapshot) {
     methodPriceAnchorSignals: [],
     sourceTypes,
     uniqueFairValues,
+    latestFairToPrice,
     warnings
   };
 }
@@ -1839,26 +2035,73 @@ function updateTickerSnapshot({ ticker, snapshot, valuationRows, coverage }) {
   };
 }
 
+function legacyValuationScoreInputs(snapshot, row) {
+  const assumptions = Array.isArray(snapshot.assumptions) ? snapshot.assumptions : [];
+  const methodCards = Array.isArray(snapshot.methodCards) ? snapshot.methodCards : [];
+  const isMarketAssumption = (assumption) => {
+    const text = `${assumption?.key || ""} ${assumption?.label || ""} ${assumption?.category || ""}`.toLowerCase();
+    return assumption?.category === "Market" || /current\s*price|market\s*price|share\s*price|price|gbp\s*usd|fx/.test(text);
+  };
+  const financialAssumptions = assumptions
+    .filter((assumption) => !isMarketAssumption(assumption))
+    .map((assumption) => ({
+      key: assumption.key,
+      label: assumption.label,
+      value: assumption.value,
+      source: assumption.source,
+      category: assumption.category
+    }));
+  const marketComparisonInputsExcluded = assumptions
+    .filter(isMarketAssumption)
+    .map((assumption) => ({
+      key: assumption.key,
+      label: assumption.label,
+      value: assumption.value,
+      source: assumption.source,
+      category: assumption.category
+    }));
+  const methodOutputs = methodCards
+    .filter((card) => finiteNumber(card?.value) != null)
+    .map((card) => ({
+      key: card.key,
+      label: card.label,
+      value: card.value,
+      format: card.format
+    }));
+  return {
+    legacyModel: true,
+    method: row.method || snapshot.modelType || "legacy financial/guidance model",
+    financialAssumptions,
+    methodOutputs,
+    marketComparisonInputsExcluded,
+    priceExcludedFromFairValue: true
+  };
+}
+
 function normalizeLegacyFinancialSnapshot({ ticker, snapshot }) {
   const history = Array.isArray(snapshot.history) ? snapshot.history : [];
   if (!history.length || finiteNumber(snapshot.latest?.baseFairValue) == null) return null;
   const generatedAt = new Date().toISOString();
-  const normalizedHistory = history.map((row) => ({
-    ...row,
-    dataSnapshot: {
-      ...(row.dataSnapshot || {}),
-      valuationSemantics: {
-        ...(row.dataSnapshot?.valuationSemantics || {}),
-        sourceType: row.sourceType || row.dataSnapshot?.sourceType || "legacy_fundamental_analysis",
-        priceExcludedFromFairValue: true,
-        fairValueFormula: row.dataSnapshot?.valuationSemantics?.fairValueFormula || `${row.method || snapshot.modelType || "Legacy Fundamental Analysis valuation model"}; no market price input`,
-        scoreInputs: row.dataSnapshot?.valuationSemantics?.scoreInputs || {
-          legacyModel: true,
-          method: row.method || snapshot.modelType || "legacy financial/guidance model"
+  const normalizedHistory = history.map((row) => {
+    const sourceType = row.sourceType || row.dataSnapshot?.sourceType || row.dataSnapshot?.valuationSemantics?.sourceType || "legacy_fundamental_analysis";
+    return {
+      ...row,
+      sourceType,
+      dataSnapshot: {
+        ...(row.dataSnapshot || {}),
+        sourceType,
+        valuationSemantics: {
+          ...(row.dataSnapshot?.valuationSemantics || {}),
+          sourceType,
+          priceExcludedFromFairValue: true,
+          fairValueFormula: row.dataSnapshot?.valuationSemantics?.fairValueFormula || `${row.method || snapshot.modelType || "Legacy Fundamental Analysis valuation model"}; no market price input`,
+          scoreInputs: row.dataSnapshot?.valuationSemantics?.scoreInputs?.financialAssumptions
+            ? row.dataSnapshot.valuationSemantics.scoreInputs
+            : legacyValuationScoreInputs(snapshot, row)
         }
       }
-    }
-  }));
+    };
+  });
   const next = {
     ...snapshot,
     ticker,
