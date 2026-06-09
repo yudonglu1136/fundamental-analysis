@@ -126,7 +126,7 @@ const VALUATION_PROFILES = {
   NOC: "defense_prime",
   NOW: "software_growth",
   NVDA: "semiconductor_growth",
-  PLTR: "software_growth",
+  PLTR: "hypergrowth_ai_software",
   QCOM: "semiconductor_value",
   RTX: "defense_prime",
   TEM: "emerging_health_ai",
@@ -695,44 +695,81 @@ const PROFILE_SETTINGS = {
   software_growth: {
     label: "Enterprise software growth",
     method: "Rule-of-40 EV/sales + FCF yield + normalized earnings",
-    peRange: [24, 46],
-    peBase: 30,
-    fcfYieldRange: [0.03, 0.055],
-    fcfYieldBase: 0.038,
-    evSalesRange: [5.0, 20.0],
-    evSalesBase: 7.5,
+    forwardRevenueYears: 1,
+    forwardFcfScaleCap: 1.55,
+    peRange: [28, 56],
+    peBase: 34,
+    fcfYieldRange: [0.026, 0.052],
+    fcfYieldBase: 0.035,
+    evSalesRange: [6.0, 28.0],
+    evSalesBase: 10.0,
+    evSalesGrowthCoefficient: 0.16,
+    evSalesGrossMarginCoefficient: 0.06,
+    evSalesFcfMarginCoefficient: 0.05,
     targetMargin: 0.28,
     fcfWeight: 0.32,
     salesWeight: 0.43,
     earningsWeight: 0.25,
     defaultGrossMarginPct: 76
   },
+  hypergrowth_ai_software: {
+    label: "Hypergrowth AI software",
+    method: "Forward Rule-of-X EV/sales + FCF yield + normalized earnings",
+    forwardRevenueYears: 1,
+    forwardFcfScaleCap: 1.75,
+    forwardGrowthCapPct: 75,
+    forwardScaleCap: 2.1,
+    peRange: [38, 82],
+    peBase: 44,
+    peGrowthCoefficient: 0.34,
+    peMarginCoefficient: 0.18,
+    fcfYieldRange: [0.018, 0.045],
+    fcfYieldBase: 0.03,
+    fcfYieldGrowthCoefficient: 0.00028,
+    fcfYieldMarginCoefficient: 0.0002,
+    evSalesRange: [14.0, 58.0],
+    evSalesBase: 23.0,
+    evSalesGrowthCoefficient: 0.24,
+    evSalesGrossMarginCoefficient: 0.075,
+    evSalesFcfMarginCoefficient: 0.075,
+    targetMargin: 0.36,
+    fcfWeight: 0.24,
+    salesWeight: 0.58,
+    earningsWeight: 0.18,
+    defaultGrossMarginPct: 80,
+    optionalityMultiplier: 1.2
+  },
   semiconductor_growth: {
     label: "AI semiconductor growth",
     method: "AI semiconductor EV/sales + FCF yield + cycle-adjusted EPS",
-    peRange: [18, 42],
-    peBase: 25,
-    fcfYieldRange: [0.032, 0.065],
-    fcfYieldBase: 0.045,
-    evSalesRange: [4.5, 16.0],
-    evSalesBase: 6.5,
+    forwardRevenueYears: 1,
+    forwardFcfScaleCap: 1.6,
+    peRange: [22, 52],
+    peBase: 30,
+    fcfYieldRange: [0.026, 0.06],
+    fcfYieldBase: 0.04,
+    evSalesRange: [5.5, 24.0],
+    evSalesBase: 8.5,
+    evSalesGrowthCoefficient: 0.16,
     targetMargin: 0.34,
     fcfWeight: 0.32,
     salesWeight: 0.36,
     earningsWeight: 0.32,
     defaultGrossMarginPct: 52,
-    cycleHaircut: 0.92
+    cycleHaircut: 0.96
   },
   semiconductor_cyclical: {
     label: "Cyclical semiconductor",
-    method: "Mid-cycle earnings power",
-    peRange: [10, 22],
-    peBase: 14,
-    fcfYieldRange: [0.055, 0.095],
-    fcfYieldBase: 0.07,
+    method: "AI-cycle normalized earnings power",
+    forwardRevenueYears: 0.5,
+    forwardFcfScaleCap: 1.35,
+    peRange: [12, 32],
+    peBase: 18,
+    fcfYieldRange: [0.038, 0.085],
+    fcfYieldBase: 0.058,
     targetMargin: 0.18,
     fcfWeight: 0.25,
-    cycleHaircut: 0.82
+    cycleHaircut: 0.95
   },
   semiconductor_value: {
     label: "Semiconductor value",
@@ -817,12 +854,16 @@ const PROFILE_SETTINGS = {
   medtech_platform: {
     label: "Medtech platform",
     method: "Quality EPS + FCF yield",
-    peRange: [24, 42],
-    peBase: 30,
-    fcfYieldRange: [0.03, 0.052],
-    fcfYieldBase: 0.038,
-    targetMargin: 0.31,
-    fcfWeight: 0.38
+    forwardRevenueYears: 1,
+    forwardFcfScaleCap: 1.4,
+    peRange: [30, 62],
+    peBase: 41,
+    peGrowthCoefficient: 0.30,
+    peMarginCoefficient: 0.18,
+    fcfYieldRange: [0.022, 0.048],
+    fcfYieldBase: 0.032,
+    targetMargin: 0.34,
+    fcfWeight: 0.34
   },
   healthcare_distribution: {
     label: "Healthcare distribution",
@@ -857,16 +898,19 @@ const PROFILE_SETTINGS = {
   defense_growth: {
     label: "Defense growth",
     method: "Backlog proxy EV/sales + normalized margin earnings power",
-    peRange: [18, 34],
-    peBase: 23,
-    fcfYieldRange: [0.04, 0.075],
-    fcfYieldBase: 0.055,
-    evSalesRange: [2.5, 7.5],
-    evSalesBase: 3.4,
-    targetMargin: 0.13,
+    forwardRevenueYears: 1,
+    forwardFcfScaleCap: 1.35,
+    peRange: [20, 42],
+    peBase: 26,
+    fcfYieldRange: [0.035, 0.07],
+    fcfYieldBase: 0.05,
+    evSalesRange: [3.0, 10.5],
+    evSalesBase: 4.4,
+    evSalesGrowthCoefficient: 0.08,
+    targetMargin: 0.16,
     fcfWeight: 0.15,
-    salesWeight: 0.50,
-    earningsWeight: 0.35,
+    salesWeight: 0.55,
+    earningsWeight: 0.30,
     defaultGrossMarginPct: 36
   },
   energy_e_and_p: {
@@ -893,10 +937,12 @@ const PROFILE_SETTINGS = {
   quality_consumer: {
     label: "Quality consumer compounder",
     method: "Quality EPS + FCF yield",
-    peRange: [24, 42],
-    peBase: 30,
-    fcfYieldRange: [0.028, 0.048],
-    fcfYieldBase: 0.036,
+    forwardRevenueYears: 1,
+    forwardFcfScaleCap: 1.25,
+    peRange: [28, 52],
+    peBase: 36,
+    fcfYieldRange: [0.022, 0.044],
+    fcfYieldBase: 0.031,
     targetMargin: 0.04,
     fcfWeight: 0.4
   },
@@ -922,14 +968,23 @@ const PROFILE_SETTINGS = {
   },
   ev_autonomy_platform: {
     label: "EV / energy / autonomy platform",
-    method: "Revenue power + option-adjusted normalized margin",
-    peRange: [28, 58],
-    peBase: 38,
-    fcfYieldRange: [0.03, 0.07],
-    fcfYieldBase: 0.05,
+    method: "Forward revenue power + autonomy/energy option value",
+    forwardRevenueYears: 1,
+    forwardFcfScaleCap: 1.35,
+    peRange: [32, 72],
+    peBase: 44,
+    fcfYieldRange: [0.026, 0.065],
+    fcfYieldBase: 0.045,
+    evSalesRange: [3.5, 16.0],
+    evSalesBase: 7.0,
+    evSalesGrowthCoefficient: 0.12,
+    evSalesGrossMarginCoefficient: 0.025,
+    evSalesFcfMarginCoefficient: 0.035,
     targetMargin: 0.22,
-    fcfWeight: 0.22,
-    optionalityMultiplier: 1.35
+    fcfWeight: 0.18,
+    salesWeight: 0.52,
+    earningsWeight: 0.30,
+    optionalityMultiplier: 1.55
   },
   energy_technology: {
     label: "Energy technology",
@@ -994,24 +1049,37 @@ function normalizedMarginRatio(ttm, settings) {
 
 function adjustedPe(settings, growthPct, marginPct) {
   const [minPe, maxPe] = settings.peRange || [12, 30];
-  const marginLift = finiteNumber(marginPct) != null ? (marginPct - 20) * 0.12 : 0;
-  const pe = (settings.peBase || 18) + growthPct * 0.22 + marginLift;
+  const marginLift = finiteNumber(marginPct) != null ? (marginPct - 20) * (settings.peMarginCoefficient ?? 0.12) : 0;
+  const pe = (settings.peBase || 18) + growthPct * (settings.peGrowthCoefficient ?? 0.22) + marginLift;
   return clamp(pe, minPe, maxPe);
 }
 
 function adjustedFcfYield(settings, growthPct, fcfMarginPct) {
   const [minYield, maxYield] = settings.fcfYieldRange || [0.04, 0.08];
-  const fcfLift = finiteNumber(fcfMarginPct) != null ? (fcfMarginPct - 15) * 0.00015 : 0;
-  const yieldValue = (settings.fcfYieldBase || 0.055) - growthPct * 0.00022 - fcfLift;
+  const fcfLift = finiteNumber(fcfMarginPct) != null ? (fcfMarginPct - 15) * (settings.fcfYieldMarginCoefficient ?? 0.00015) : 0;
+  const yieldValue = (settings.fcfYieldBase || 0.055) - growthPct * (settings.fcfYieldGrowthCoefficient ?? 0.00022) - fcfLift;
   return clamp(yieldValue, minYield, maxYield);
 }
 
 function adjustedEvSales(settings, growthPct, grossMarginPct) {
   const [minMultiple, maxMultiple] = settings.evSalesRange || [1, 6];
   const normalizedGrossMargin = finiteNumber(grossMarginPct) ?? finiteNumber(settings.defaultGrossMarginPct);
-  const marginLift = normalizedGrossMargin != null ? (normalizedGrossMargin - 55) * 0.035 : 0;
-  const multiple = (settings.evSalesBase || 2.5) + growthPct * 0.045 + marginLift;
+  const marginLift = normalizedGrossMargin != null ? (normalizedGrossMargin - 55) * (settings.evSalesGrossMarginCoefficient ?? 0.035) : 0;
+  const multiple = (settings.evSalesBase || 2.5) + growthPct * (settings.evSalesGrowthCoefficient ?? 0.045) + marginLift;
   return clamp(multiple, minMultiple, maxMultiple);
+}
+
+function forwardScaleFromGrowth(growthPct, settings) {
+  const years = clamp(settings.forwardRevenueYears || 0, 0, 2) || 0;
+  if (!years) return 1;
+  const growth = clamp(growthPct, -30, settings.forwardGrowthCapPct ?? 65) / 100;
+  return Math.max(0.55, Math.min(settings.forwardScaleCap || 2.4, (1 + growth) ** years));
+}
+
+function forwardMetric(value, scale) {
+  const number = finiteNumber(value);
+  if (number == null) return null;
+  return number * scale;
 }
 
 function netCashM(ttm) {
@@ -1039,9 +1107,9 @@ function growthEvSalesMultiple(settings, growthPct, grossMarginPct, fcfMarginPct
   const fcfMargin = finiteNumber(fcfMarginPct) ?? 0;
   const base = settings.evSalesBase || 4;
   const multiple = base +
-    growthPct * 0.12 +
-    (grossMargin - 55) * 0.055 +
-    Math.max(-10, Math.min(35, fcfMargin)) * 0.045;
+    growthPct * (settings.evSalesGrowthCoefficient ?? 0.12) +
+    (grossMargin - 55) * (settings.evSalesGrossMarginCoefficient ?? 0.055) +
+    Math.max(-10, Math.min(35, fcfMargin)) * (settings.evSalesFcfMarginCoefficient ?? 0.045);
   return clamp(multiple, minMultiple, maxMultiple);
 }
 
@@ -1051,12 +1119,14 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
   if (!(sharesM > 0) || !(ttmRevenue > 0)) return null;
 
   const growthPct = normalizedGrowthPct(row, youtubeEvidence);
+  const forwardScale = forwardScaleFromGrowth(growthPct, settings);
+  const valuationRevenue = ttmRevenue * forwardScale;
   const grossMarginPct = finiteNumber(ttm.gross_margin_pct ?? row.gross_margin_pct) ?? finiteNumber(settings.defaultGrossMarginPct);
   const normalizedMargin = normalizedMarginRatio(ttm, settings);
   const taxRate = 0.19;
   const normalizedNetIncome = Math.max(
     finiteNumber(ttm.net_income_m) ?? -Infinity,
-    ttmRevenue * normalizedMargin * (1 - taxRate)
+    valuationRevenue * normalizedMargin * (1 - taxRate)
   );
   const pe = adjustedPe(settings, growthPct, ttm.operating_margin_pct);
   const fcfYield = adjustedFcfYield(settings, growthPct, ttm.fcf_margin_pct);
@@ -1064,10 +1134,11 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
   const cycleHaircut = settings.cycleHaircut || 1;
   const optionalityMultiplier = settings.optionalityMultiplier || 1;
   const netCash = netCashM(ttm);
-  const salesValue = Math.max(0, ttmRevenue * evSales + netCash) / sharesM * cycleHaircut;
+  const salesValue = Math.max(0, valuationRevenue * evSales + netCash) / sharesM * cycleHaircut;
   const earningsValue = normalizedNetIncome > 0 ? normalizedNetIncome / sharesM * pe * cycleHaircut : null;
   const ttmFcf = finiteNumber(ttm.fcf_after_capex_m);
-  const fcfValue = ttmFcf && ttmFcf > 0 ? (ttmFcf / fcfYield) / sharesM * cycleHaircut : null;
+  const valuationFcf = ttmFcf && ttmFcf > 0 ? forwardMetric(ttmFcf, Math.min(forwardScale, settings.forwardFcfScaleCap || 1.65)) : null;
+  const fcfValue = valuationFcf && valuationFcf > 0 ? (valuationFcf / fcfYield) / sharesM * cycleHaircut : null;
   const blended = blendValuationComponents([
     { key: "ev-sales-equity-value", value: salesValue, weight: settings.salesWeight ?? 0.4 },
     { key: "normalized-earnings-power", value: earningsValue, weight: settings.earningsWeight ?? 0.3 },
@@ -1088,7 +1159,7 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
         label: "EV/sales equity value",
         value: salesValue,
         format: "currency",
-        description: `TTM revenue x ${evSales.toFixed(1)}x EV/sales plus ${netCash >= 0 ? "net cash" : "net debt"} bridge, divided by shares.`
+        description: `${settings.forwardRevenueYears ? "Forward" : "TTM"} revenue x ${evSales.toFixed(1)}x EV/sales plus ${netCash >= 0 ? "net cash" : "net debt"} bridge, divided by shares.`
       },
       {
         key: "normalized-earnings-power",
@@ -1096,7 +1167,7 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
         value: earningsValue,
         format: "currency",
         description: earningsValue
-          ? `TTM revenue x ${(normalizedMargin * 100).toFixed(1)}% normalized margin x after-tax conversion / shares x ${pe.toFixed(1)}x P/E.`
+          ? `${settings.forwardRevenueYears ? "Forward" : "TTM"} revenue x ${(normalizedMargin * 100).toFixed(1)}% normalized margin x after-tax conversion / shares x ${pe.toFixed(1)}x P/E.`
           : "Normalized earnings were not usable, so the row relies on sales and/or FCF value."
       },
       {
@@ -1105,8 +1176,8 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
         value: fcfValue,
         format: "currency",
         description: fcfValue
-          ? `TTM FCF per share / ${(fcfYield * 100).toFixed(1)}% target FCF yield.`
-          : "TTM FCF was unavailable or negative."
+          ? `${settings.forwardRevenueYears ? "Forward-scaled" : "TTM"} FCF per share / ${(fcfYield * 100).toFixed(1)}% target FCF yield.`
+          : "FCF was unavailable or negative."
       },
       {
         key: "method-weighting",
@@ -1119,9 +1190,13 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
     scoreInputs: {
       profile: settings.profile,
       ttmRevenue,
+      valuationRevenue,
+      forwardScale,
+      forwardRevenueYears: settings.forwardRevenueYears || 0,
       ttmNetIncome: finiteNumber(ttm.net_income_m),
       normalizedNetIncome,
       ttmFreeCashFlow: ttmFcf,
+      valuationFreeCashFlow: valuationFcf,
       revenueGrowth: growthPct,
       grossMargin: grossMarginPct,
       operatingMargin: ttm.operating_margin_pct,
@@ -1205,11 +1280,13 @@ function buildRevenueStageModel({ row, ttm, settings, youtubeEvidence }) {
   const ttmRevenue = finiteNumber(ttm.revenue_m);
   if (!(sharesM > 0) || !(ttmRevenue > 0)) return null;
   const growthPct = normalizedGrowthPct(row, youtubeEvidence);
+  const forwardScale = forwardScaleFromGrowth(growthPct, settings);
+  const valuationRevenue = ttmRevenue * forwardScale;
   const grossMarginPct = finiteNumber(ttm.gross_margin_pct ?? row.gross_margin_pct) ?? finiteNumber(settings.defaultGrossMarginPct);
   const evSales = adjustedEvSales(settings, growthPct, grossMarginPct);
   const cashM = finiteNumber(ttm.cash_m) || 0;
   const debtM = finiteNumber(ttm.debt_m) || 0;
-  const enterpriseValueM = ttmRevenue * evSales;
+  const enterpriseValueM = valuationRevenue * evSales;
   const equityValueM = Math.max(0, enterpriseValueM + cashM - debtM);
   const fairValue = equityValueM / sharesM;
   const [minGrowth, maxGrowth] = settings.longRunGrowthRange || [0.0, 0.1];
@@ -1225,7 +1302,7 @@ function buildRevenueStageModel({ row, ttm, settings, youtubeEvidence }) {
         label: "Revenue-stage enterprise value",
         value: enterpriseValueM,
         format: "number",
-        description: `TTM revenue x ${evSales.toFixed(1)}x EV/sales, based on revenue growth and gross-margin quality.`
+        description: `${settings.forwardRevenueYears ? "Forward" : "TTM"} revenue x ${evSales.toFixed(1)}x EV/sales, based on revenue growth and gross-margin quality.`
       },
       {
         key: "net-cash-bridge",
@@ -1238,6 +1315,9 @@ function buildRevenueStageModel({ row, ttm, settings, youtubeEvidence }) {
     scoreInputs: {
       profile: settings.profile,
       ttmRevenue,
+      valuationRevenue,
+      forwardScale,
+      forwardRevenueYears: settings.forwardRevenueYears || 0,
       revenueGrowth: growthPct,
       grossMargin: grossMarginPct,
       evSalesMultiple: evSales,
@@ -1257,16 +1337,18 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
   if (["emerging_biotech", "emerging_health_ai"].includes(settings.profile)) {
     return buildRevenueStageModel({ row, ttm, settings, youtubeEvidence });
   }
-  if (["software_growth", "defense_growth", "semiconductor_growth", "energy_technology"].includes(settings.profile)) {
+  if (["software_growth", "hypergrowth_ai_software", "defense_growth", "semiconductor_growth", "energy_technology", "ev_autonomy_platform"].includes(settings.profile)) {
     return buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence });
   }
 
   const growthPct = normalizedGrowthPct(row, youtubeEvidence);
+  const forwardScale = forwardScaleFromGrowth(growthPct, settings);
+  const valuationRevenue = ttmRevenue * forwardScale;
   const normalizedMargin = normalizedMarginRatio(ttm, settings);
   const taxRate = 0.19;
   const normalizedNetIncome = Math.max(
     finiteNumber(ttmNetIncome) ?? -Infinity,
-    ttmRevenue * normalizedMargin * (1 - taxRate)
+    valuationRevenue * normalizedMargin * (1 - taxRate)
   );
   if (!(normalizedNetIncome > 0)) return null;
   const pe = adjustedPe(settings, growthPct, ttm.operating_margin_pct);
@@ -1274,7 +1356,8 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
   const cycleHaircut = settings.cycleHaircut || 1;
   const earningsValue = normalizedNetIncome / sharesM * pe * cycleHaircut;
   const ttmFcf = finiteNumber(ttm.fcf_after_capex_m);
-  const fcfValue = ttmFcf && ttmFcf > 0 ? (ttmFcf / fcfYield) / sharesM * cycleHaircut : null;
+  const valuationFcf = ttmFcf && ttmFcf > 0 ? forwardMetric(ttmFcf, Math.min(forwardScale, settings.forwardFcfScaleCap || 1.65)) : null;
+  const fcfValue = valuationFcf && valuationFcf > 0 ? (valuationFcf / fcfYield) / sharesM * cycleHaircut : null;
   const fcfWeight = fcfValue ? (settings.fcfWeight ?? 0.35) : 0;
   const optionalityMultiplier = settings.optionalityMultiplier || 1;
   const fairValue = (earningsValue * (1 - fcfWeight) + (fcfValue || 0) * fcfWeight) * optionalityMultiplier;
@@ -1290,7 +1373,7 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
         label: "Normalized earnings power",
         value: earningsValue,
         format: "currency",
-        description: `TTM revenue x ${(normalizedMargin * 100).toFixed(1)}% normalized margin x after-tax conversion / shares x ${pe.toFixed(1)}x P/E.`
+        description: `${settings.forwardRevenueYears ? "Forward" : "TTM"} revenue x ${(normalizedMargin * 100).toFixed(1)}% normalized margin x after-tax conversion / shares x ${pe.toFixed(1)}x P/E.`
       },
       {
         key: "ttm-fcf-yield",
@@ -1298,8 +1381,8 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
         value: fcfValue,
         format: "currency",
         description: fcfValue
-          ? `TTM FCF per share / ${(fcfYield * 100).toFixed(1)}% target FCF yield.`
-          : "TTM FCF was unavailable or negative, so earnings power carries the row."
+          ? `${settings.forwardRevenueYears ? "Forward-scaled" : "TTM"} FCF per share / ${(fcfYield * 100).toFixed(1)}% target FCF yield.`
+          : "FCF was unavailable or negative, so earnings power carries the row."
       },
       {
         key: "growth-margin-inputs",
@@ -1319,9 +1402,13 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
     scoreInputs: {
       profile: settings.profile,
       ttmRevenue,
+      valuationRevenue,
+      forwardScale,
+      forwardRevenueYears: settings.forwardRevenueYears || 0,
       ttmNetIncome,
       normalizedNetIncome,
       ttmFreeCashFlow: ttmFcf,
+      valuationFreeCashFlow: valuationFcf,
       revenueGrowth: growthPct,
       operatingMargin: ttm.operating_margin_pct,
       normalizedMargin: normalizedMargin * 100,

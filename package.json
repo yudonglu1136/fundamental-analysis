@@ -10,6 +10,8 @@
     "hydrate:db": "node server/hydrateDatabase.js",
     "import:youtube-valuations": "node server/importYoutubeEarningsValuations.js",
     "import:sec-quarterly-valuations": "node server/importSecQuarterlyValuations.js",
+    "audit:valuation": "node server/unifiedValuationAudit.js",
+    "audit:valuation:refresh": "VALUATION_CONSENSUS_REFRESH=1 node server/unifiedValuationAudit.js",
     "build": "vite build",
     "start": "NODE_ENV=production node server/index.js"
   },

@@ -138,9 +138,12 @@ const uiText = {
 	    "valuation.qualityYoutubeNoMetrics": "已找到 earnings-call transcript，但结构化 metric 不足，尚不能用 transcript 数据重算估值。",
 	    "valuation.qualityNoDaily": "本地库没有可靠日线价格，图中只显示披露日价格标记，不连接成价格线。",
 	    "valuation.qualityExcluded": "已过滤异常/重复 valuation 行：",
-	    "valuation.qualityInputReview": "估值输入需要复核：历史点不足、来源为研究代理，或无法完整验证 fair value 只来自财务/指引。",
-	    "valuation.qualityInputFail": "发现疑似价格锚定 valuation method；不要把这只股票当作独立估值模型使用。",
-	    "valuation.priceAnchors": "价格标记",
+    "valuation.qualityInputReview": "估值输入需要复核：历史点不足、来源为研究代理，或无法完整验证 fair value 只来自财务/指引。",
+    "valuation.qualityInputFail": "发现疑似价格锚定 valuation method；不要把这只股票当作独立估值模型使用。",
+    "valuation.qualityUnifiedReview": "统一估值 QA 标记为复核：模型稳定性、外部共识或数据覆盖存在异常。",
+    "valuation.qualityUnifiedFail": "统一估值 QA 标记为失败：当前结果不应作为有效估值结论。",
+    "valuation.qualityConsensusDivergent": "Base fair value 与外部 12-month consensus 明显背离。",
+    "valuation.priceAnchors": "价格标记",
 	    "valuation.note": "估值来自旧 Fundamental Analysis module 的 valuation output；fair value 必须由事件可见财务、管理层指引和场景假设驱动，股价只用于图表对比、upside/downside 和回报计算。",
     "dbmf.dashboard": "DBMF dashboard",
     "dbmf.toolbarTitle": "趋势复制仓位：看当前，也看相对上期怎么变",
@@ -273,9 +276,12 @@ const uiText = {
 	    "valuation.qualityYoutubeNoMetrics": "Earnings-call transcripts exist, but structured metrics are insufficient to recompute valuation from transcript data.",
 	    "valuation.qualityNoDaily": "The local database has no reliable daily price series, so the chart shows as-of price markers instead of a connected price line.",
 	    "valuation.qualityExcluded": "Filtered abnormal / duplicate valuation rows:",
-	    "valuation.qualityInputReview": "Model inputs need review: limited history, research-proxy source, or incomplete proof that fair value is driven only by financials/guidance.",
-	    "valuation.qualityInputFail": "Potential price-anchored valuation method detected; do not treat this ticker as an independent valuation model.",
-	    "valuation.priceAnchors": "Markers",
+    "valuation.qualityInputReview": "Model inputs need review: limited history, research-proxy source, or incomplete proof that fair value is driven only by financials/guidance.",
+    "valuation.qualityInputFail": "Potential price-anchored valuation method detected; do not treat this ticker as an independent valuation model.",
+    "valuation.qualityUnifiedReview": "Unified valuation QA marked this for review: model stability, external consensus, or data coverage looks abnormal.",
+    "valuation.qualityUnifiedFail": "Unified valuation QA marked this as fail; do not treat the current result as a valid valuation conclusion.",
+    "valuation.qualityConsensusDivergent": "Base fair value is materially divergent from external 12-month consensus.",
+    "valuation.priceAnchors": "Markers",
 	    "valuation.note": "Data comes from legacy Fundamental Analysis module valuation output. Fair value must be driven by event-visible financials, management guidance, and scenario assumptions; price is used only for chart comparison, upside/downside, and return math.",
     "dbmf.dashboard": "DBMF dashboard",
     "dbmf.toolbarTitle": "Trend replication positioning: current exposure and changes vs prior snapshot",
@@ -1385,6 +1391,7 @@ function ValuationQualityBanner({ ticker }) {
   const { t } = useI18n();
   const quality = ticker.dataQuality || {};
   const inputAudit = quality.modelInputAudit || {};
+  const unifiedAudit = quality.unifiedValuationAudit || {};
   const messages = [];
   if (quality.valuationCoverageKind === "unsupported") {
     messages.push(t("valuation.qualityUnsupported"));
@@ -1407,6 +1414,18 @@ function ValuationQualityBanner({ ticker }) {
     messages.push(t("valuation.qualityInputFail"));
   } else if (inputAudit.status === "review") {
     messages.push(t("valuation.qualityInputReview"));
+  }
+  if (unifiedAudit.status === "fail") {
+    messages.push(t("valuation.qualityUnifiedFail"));
+  } else if (unifiedAudit.status === "review") {
+    messages.push(t("valuation.qualityUnifiedReview"));
+  }
+  if (unifiedAudit.externalConsensusCheck?.status === "divergent") {
+    const target = valuationCurrency(unifiedAudit.externalConsensus?.averageTarget, ticker.currency);
+    messages.push(`${t("valuation.qualityConsensusDivergent")} Consensus ${target}`);
+  }
+  for (const warning of (unifiedAudit.warnings || []).slice(0, 2)) {
+    if (!messages.includes(warning)) messages.push(warning);
   }
   if (!messages.length) return null;
   return (
@@ -1758,6 +1777,7 @@ function ValuationTable({ ticker, history }) {
 function ValuationMethodPanel({ ticker }) {
   const { t } = useI18n();
   const inputAudit = ticker.dataQuality?.modelInputAudit;
+  const unifiedAudit = ticker.dataQuality?.unifiedValuationAudit;
   const unsupported = ticker.dataQuality?.valuationCoverageKind === "unsupported";
   const methodCards = unsupported ? [] : (ticker.methodCards || []);
   const assumptions = unsupported ? [] : (ticker.assumptions || []);
@@ -1801,6 +1821,28 @@ function ValuationMethodPanel({ ticker }) {
                   <strong>Price-anchor signals</strong>
                   <span>{formatNumber(inputAudit.methodPriceAnchorSignalCount || 0)}</span>
                   <small>{Number.isFinite(inputAudit.fairValuePriceCorrelation) ? `fair/price corr ${inputAudit.fairValuePriceCorrelation.toFixed(2)}` : "not enough history"}</small>
+                </div>
+              </div>
+            </>
+          ) : null}
+          {unifiedAudit ? (
+            <>
+              <h4>Unified QA</h4>
+              <div className="valuation-chip-list">
+                <div className={`valuation-chip compact audit-${unifiedAudit.status || "review"}`}>
+                  <strong>{String(unifiedAudit.status || "review").toUpperCase()}</strong>
+                  <span>{unifiedAudit.externalConsensusCheck?.status || "no consensus"}</span>
+                  <small>{unifiedAudit.framework || "Unified valuation sanity loop"}</small>
+                </div>
+                <div className="valuation-chip compact">
+                  <strong>Consensus target</strong>
+                  <span>{valuationCurrency(unifiedAudit.externalConsensus?.averageTarget, ticker.currency)}</span>
+                  <small>{Number.isFinite(unifiedAudit.externalConsensusCheck?.fairToConsensus) ? `fair / consensus ${formatReturnPct(unifiedAudit.externalConsensusCheck.fairToConsensus - 1)}` : unifiedAudit.externalConsensusCheck?.message || "not available"}</small>
+                </div>
+                <div className="valuation-chip compact">
+                  <strong>Stability</strong>
+                  <span>{Number.isFinite(unifiedAudit.stability?.maxAbsFairValueStep) ? formatReturnPct(unifiedAudit.stability.maxAbsFairValueStep) : "-"}</span>
+                  <small>max fair-value step · {formatNumber(unifiedAudit.stability?.rows || 0)} rows</small>
                 </div>
               </div>
             </>
