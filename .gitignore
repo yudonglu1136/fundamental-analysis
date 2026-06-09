@@ -11,3 +11,4 @@ dist/
 *.sqlite-shm
 .vite/
 coverage/
+.vercel
