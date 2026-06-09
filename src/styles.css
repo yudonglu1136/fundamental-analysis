@@ -1900,6 +1900,104 @@ tbody tr:last-child td {
   white-space: nowrap;
 }
 
+.contribution-shell {
+  min-width: 0;
+}
+
+.quarter-chip-panel {
+  align-items: flex-start;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(120px, 0.16fr) minmax(0, 1fr);
+  padding: 14px;
+}
+
+.quarter-chip-panel > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.quarter-chip-panel span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.quarter-chip-panel strong {
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.quarter-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quarter-chip-row button {
+  background: #f6f8f5;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  min-width: 86px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.quarter-chip-row button.active {
+  background: #e5f2ec;
+  border-color: var(--green);
+  box-shadow: inset 3px 0 0 var(--green);
+}
+
+.quarter-chip-row button strong {
+  font-size: 13px;
+}
+
+.quarter-chip-row button span {
+  font-size: 11px;
+}
+
+.contribution-panel table th:nth-child(2),
+.contribution-panel table td:nth-child(2) {
+  min-width: 220px;
+}
+
+.contribution-meter {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(90px, 1fr) 76px;
+}
+
+.contribution-meter > span {
+  border-radius: 999px;
+  display: block;
+  height: 10px;
+  min-width: 4px;
+}
+
+.contribution-meter > span.positive {
+  background: linear-gradient(90deg, rgba(28, 124, 85, 0.24), var(--green));
+}
+
+.contribution-meter > span.negative {
+  background: linear-gradient(90deg, rgba(177, 57, 57, 0.2), var(--red));
+}
+
+.contribution-meter strong {
+  font-size: 13px;
+  font-weight: 950;
+  text-align: right;
+}
+
 .chart-empty {
   align-items: center;
   color: var(--muted);
@@ -2289,6 +2387,10 @@ tbody tr:last-child td {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .quarter-chip-panel {
+    grid-template-columns: 1fr;
+  }
+
   .chart-grid {
     grid-template-columns: 1fr;
   }
@@ -2358,6 +2460,14 @@ tbody tr:last-child td {
 
   .signal-meta {
     grid-column: 2;
+    text-align: left;
+  }
+
+  .contribution-meter {
+    grid-template-columns: 1fr;
+  }
+
+  .contribution-meter strong {
     text-align: left;
   }
 

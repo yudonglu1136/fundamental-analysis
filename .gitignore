@@ -12,3 +12,5 @@ dist/
 .vite/
 coverage/
 .vercel
+server/cache/
+server/data/sec-companyfacts/*.json

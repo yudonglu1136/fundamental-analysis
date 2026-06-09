@@ -28,6 +28,13 @@ function nextTradingDate(spyPoints, date) {
   return spyPoints.find((point) => point.date >= date)?.date || null;
 }
 
+function previousTradingDate(points, date) {
+  return [...(points || [])]
+    .filter((point) => point.date <= date)
+    .sort((left, right) => String(left.date).localeCompare(String(right.date)))
+    .at(-1)?.date || null;
+}
+
 function priceMap(points) {
   return new Map((points || []).filter((point) => point.date).map((point) => [point.date, point.close]));
 }
@@ -225,6 +232,70 @@ function portfolioReturn(weights, priceMaps, previousDate, date) {
   return { returnPct: value, coveredWeight };
 }
 
+function returnBetween(map, startDate, endDate) {
+  const startPrice = map?.get(startDate);
+  const endPrice = map?.get(endDate);
+  if (!Number.isFinite(startPrice) || !Number.isFinite(endPrice) || startPrice <= 0) return null;
+  return {
+    startPrice,
+    endPrice,
+    returnPct: endPrice / startPrice - 1
+  };
+}
+
+function quarterLabel(reportDate) {
+  const parsed = new Date(reportDate);
+  if (Number.isNaN(parsed.getTime())) return reportDate || "Quarter";
+  return `${parsed.getUTCFullYear()} Q${Math.floor(parsed.getUTCMonth() / 3) + 1}`;
+}
+
+function buildQuarterContributions(rebalances, spyPoints, priceMaps, endDate) {
+  const spyMap = priceMaps.get("SPY");
+  return rebalances.map((rebalance, index) => {
+    const nextExecutionDate = rebalances[index + 1]?.executionDate || endDate;
+    const intervalEnd = previousTradingDate(spyPoints, nextExecutionDate) || rebalance.executionDate;
+    const benchmark = returnBetween(spyMap, rebalance.executionDate, intervalEnd);
+    let coveredWeight = 0;
+    const contributions = (rebalance.weights || []).map((holding) => {
+      const pricedReturn = returnBetween(priceMaps.get(holding.ticker), rebalance.executionDate, intervalEnd);
+      if (!pricedReturn) return null;
+      coveredWeight += holding.weight;
+      return {
+        ticker: holding.ticker,
+        issuer: holding.issuer,
+        value: holding.value,
+        weight: holding.weight,
+        startPrice: pricedReturn.startPrice,
+        endPrice: pricedReturn.endPrice,
+        returnPct: pricedReturn.returnPct,
+        contributionPct: holding.weight * pricedReturn.returnPct
+      };
+    }).filter(Boolean);
+    const portfolioReturnPct = contributions.reduce((sum, row) => sum + row.contributionPct, 0);
+    const ranked = [...contributions].sort((left, right) => right.contributionPct - left.contributionPct);
+
+    return {
+      id: `${rebalance.reportDate || rebalance.filingDate}-${rebalance.executionDate}`,
+      label: quarterLabel(rebalance.reportDate),
+      reportDate: rebalance.reportDate,
+      filingDate: rebalance.filingDate,
+      executionDate: rebalance.executionDate,
+      endDate: intervalEnd,
+      nextExecutionDate: rebalances[index + 1]?.executionDate || null,
+      days: Math.max(0, Math.round((dateMs(intervalEnd) - dateMs(rebalance.executionDate)) / 86400000)),
+      coveragePct: rebalance.coveragePct,
+      pricedPositions: rebalance.pricedPositions,
+      selectedPositions: rebalance.selectedPositions,
+      portfolioReturn: portfolioReturnPct,
+      benchmarkReturn: benchmark?.returnPct ?? null,
+      coveredWeight,
+      contributions: ranked,
+      topContributors: ranked.slice(0, 8),
+      topDetractors: ranked.slice(-8).reverse()
+    };
+  });
+}
+
 function unsupportedBacktest(guru, years) {
   return {
     generatedAt: new Date().toISOString(),
@@ -300,7 +371,8 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
       },
       summary: {},
       equity: [],
-      rebalances: []
+      rebalances: [],
+      quarterContributions: []
     };
     writeGuruBacktest(guruId, normalizedYears, payload);
     return payload;
@@ -375,7 +447,8 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
       },
       summary: {},
       equity: [],
-      rebalances: []
+      rebalances: [],
+      quarterContributions: []
     };
     writeGuruBacktest(guruId, normalizedYears, payload);
     return payload;
@@ -419,6 +492,7 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
   const benchmarkEquity = equity.map((point) => ({ date: point.date, value: point.benchmark }));
   const portfolioMetrics = metrics(portfolioEquity, portfolioReturns);
   const benchmarkMetrics = metrics(benchmarkEquity, benchmarkReturns);
+  const quarterContributions = buildQuarterContributions(rebalances, spyPoints, priceMaps, equity.at(-1)?.date || end);
   const payload = {
     generatedAt: new Date().toISOString(),
     status: "ready",
@@ -451,6 +525,7 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
         "The simulation trades at the first market date on or after the public filing date.",
         "Missing, non-ticker, option, or unpriced rows are excluded before weights are normalized.",
         "Duplicate filings for the same report date keep the more complete quarter snapshot and drop sparse amendments.",
+        "Quarter contribution ranks use the 13F copy portfolio weights at the filing execution date through the next rebalance date.",
         "Transaction costs, taxes, slippage, shorts, private holdings, and fund-level cash are excluded."
       ]
     },
@@ -471,6 +546,7 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
     },
     equity,
     rebalances: rebalances.map(({ weights, ...rebalance }) => rebalance),
+    quarterContributions,
     cache: {
       status: "refreshed",
       source: "SEC EDGAR + Yahoo + SQLite"

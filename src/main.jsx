@@ -71,6 +71,25 @@ const uiText = {
     "guru.noConsensus": "暂无外部共识持仓",
     "guru.transactions": "笔",
     "guru.holdings": "个持仓",
+    "guru.tab.holdings": "总持仓",
+    "guru.tab.activity": "买入卖出",
+    "guru.tab.context": "市场环境",
+    "guru.tab.backtest": "模拟",
+    "guru.tab.contribution": "季度贡献",
+    "guru.tab.notes": "披露说明",
+    "guru.contribution.kicker": "13F copy contribution",
+    "guru.contribution.title": "季度持仓贡献排名",
+    "guru.contribution.subtitle": "选择一个或多个 13F 披露季度，查看各股票对复制组合净值的贡献",
+    "guru.contribution.refresh": "重算",
+    "guru.contribution.refreshing": "重算中",
+    "guru.contribution.empty": "暂无季度贡献数据；点击重算会用已缓存价格和13F持仓重新生成。",
+    "guru.contribution.selected": "已选季度",
+    "guru.contribution.rank": "排名",
+    "guru.contribution.avgWeight": "平均权重",
+    "guru.contribution.return": "区间收益",
+    "guru.contribution.contribution": "净值贡献",
+    "guru.contribution.periods": "季度数",
+    "guru.contribution.note": "贡献基于 13F 披露日复制组合，不等同于真实基金净值；13F 不含空头、现金、私募、海外持仓和披露后的实际交易。",
     "valuation.cockpit": "Valuation cockpit",
     "valuation.deckTitle": "从旧 Fundamental 模型到当前市场价格",
     "valuation.avg": "平均",
@@ -187,6 +206,25 @@ const uiText = {
     "guru.noConsensus": "No external consensus holdings",
     "guru.transactions": "txns",
     "guru.holdings": "holdings",
+    "guru.tab.holdings": "Holdings",
+    "guru.tab.activity": "Buys / sells",
+    "guru.tab.context": "Market context",
+    "guru.tab.backtest": "Simulation",
+    "guru.tab.contribution": "Quarter contribution",
+    "guru.tab.notes": "Disclosure notes",
+    "guru.contribution.kicker": "13F copy contribution",
+    "guru.contribution.title": "Quarterly holding contribution ranking",
+    "guru.contribution.subtitle": "Select one or multiple 13F quarters to rank each stock's contribution to the copy portfolio NAV",
+    "guru.contribution.refresh": "Recompute",
+    "guru.contribution.refreshing": "Recomputing",
+    "guru.contribution.empty": "No quarterly contribution data yet. Recompute to rebuild it from cached prices and 13F holdings.",
+    "guru.contribution.selected": "Selected quarters",
+    "guru.contribution.rank": "Rank",
+    "guru.contribution.avgWeight": "Avg weight",
+    "guru.contribution.return": "Period return",
+    "guru.contribution.contribution": "NAV contribution",
+    "guru.contribution.periods": "Quarters",
+    "guru.contribution.note": "Contribution is based on the 13F copy portfolio, not the actual fund NAV. 13F excludes shorts, cash, private holdings, overseas holdings, and post-disclosure trading.",
     "valuation.cockpit": "Valuation cockpit",
     "valuation.deckTitle": "Legacy Fundamental models vs current market prices",
     "valuation.avg": "Average",
@@ -344,6 +382,11 @@ function formatPct(value) {
 function formatReturnPct(value) {
   if (value === null || value === undefined || !Number.isFinite(value)) return "-";
   return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)}%`;
+}
+
+function mean(values = []) {
+  const clean = values.filter(Number.isFinite);
+  return clean.length ? clean.reduce((sum, value) => sum + value, 0) / clean.length : 0;
 }
 
 function formatPrice(value) {
@@ -2462,6 +2505,7 @@ function GuruButton({ guru, active, onClick }) {
 }
 
 function GuruDetail({ guru }) {
+  const { t } = useI18n();
   const [tab, setTab] = useState(guru.type === "manager13f" ? "holdings" : "transactions");
 
   useEffect(() => {
@@ -2509,19 +2553,22 @@ function GuruDetail({ guru }) {
         {guru.type === "manager13f" ? (
           <>
             <TabButton active={tab === "holdings"} onClick={() => setTab("holdings")}>
-              总持仓
+              {t("guru.tab.holdings")}
             </TabButton>
             <TabButton active={tab === "activity"} onClick={() => setTab("activity")}>
-              买入卖出
+              {t("guru.tab.activity")}
             </TabButton>
             <TabButton active={tab === "context"} onClick={() => setTab("context")}>
-              市场环境
+              {t("guru.tab.context")}
             </TabButton>
             <TabButton active={tab === "backtest"} onClick={() => setTab("backtest")}>
-              模拟
+              {t("guru.tab.backtest")}
+            </TabButton>
+            <TabButton active={tab === "contribution"} onClick={() => setTab("contribution")}>
+              {t("guru.tab.contribution")}
             </TabButton>
             <TabButton active={tab === "notes"} onClick={() => setTab("notes")}>
-              披露说明
+              {t("guru.tab.notes")}
             </TabButton>
           </>
         ) : guru.type === "congress" ? (
@@ -2574,6 +2621,7 @@ function GuruDetail({ guru }) {
       {tab === "holdings" && guru.type === "congress" ? <CongressHoldings guru={guru} /> : null}
       {tab === "context" ? <MarketContextPanel guru={guru} /> : null}
       {tab === "backtest" ? <BacktestPanel guru={guru} /> : null}
+      {tab === "contribution" && guru.type === "manager13f" ? <QuarterContributionPanel guru={guru} /> : null}
       {tab === "notes" ? <NotesPanel guru={guru} /> : null}
     </div>
   );
@@ -3170,6 +3218,178 @@ function BacktestPanel({ guru }) {
       )}
     </section>
   );
+}
+
+function QuarterContributionPanel({ guru }) {
+  const { t } = useI18n();
+  const { data, loading, refreshing, error, refresh } = useGuruBacktest(guru.id);
+  const quarters = useMemo(() => [...(data?.quarterContributions || [])].reverse(), [data?.quarterContributions]);
+  const quarterKey = quarters.map((quarter) => quarter.id).join("|");
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  useEffect(() => {
+    if (!quarters.length) {
+      setSelectedIds([]);
+      return;
+    }
+    setSelectedIds((current) => {
+      const available = new Set(quarters.map((quarter) => quarter.id));
+      const kept = current.filter((id) => available.has(id));
+      return kept.length ? kept : [quarters[0].id];
+    });
+  }, [quarterKey]);
+
+  const selectedQuarters = quarters.filter((quarter) => selectedIds.includes(quarter.id));
+  const rows = useMemo(() => aggregateContributionRows(selectedQuarters), [selectedQuarters]);
+  const maxContribution = Math.max(...rows.map((row) => Math.abs(row.contributionPct || 0)), 0.0001);
+  const selectedReturn = selectedQuarters.reduce((sum, quarter) => sum + (quarter.portfolioReturn || 0), 0);
+  const selectedBenchmark = selectedQuarters.reduce((sum, quarter) => sum + (quarter.benchmarkReturn || 0), 0);
+
+  function toggleQuarter(id) {
+    setSelectedIds((current) => {
+      if (current.includes(id)) {
+        return current.length === 1 ? current : current.filter((item) => item !== id);
+      }
+      return [...current, id];
+    });
+  }
+
+  return (
+    <section className="backtest-shell contribution-shell">
+      <div className="market-head">
+        <div>
+          <span className="market-kicker">
+            <BarChart3 size={15} />
+            {t("guru.contribution.kicker")}
+          </span>
+          <h3>{guru.name} {t("guru.contribution.title")}</h3>
+          <p>{t("guru.contribution.subtitle")}</p>
+        </div>
+        <button className="secondary-action" onClick={refresh} disabled={loading || refreshing}>
+          {refreshing ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
+          <span>{refreshing ? t("guru.contribution.refreshing") : t("guru.contribution.refresh")}</span>
+        </button>
+      </div>
+
+      {error ? <ErrorBanner error={error} /> : null}
+
+      {loading && !data ? (
+        <div className="table-panel loading-table" />
+      ) : data?.status !== "ready" || !quarters.length ? (
+        <div className="rationale-note subdued">
+          <span>{data?.tag?.label || t("guru.contribution.empty")}</span>
+          <p>{data?.method?.reason || t("guru.contribution.empty")}</p>
+        </div>
+      ) : (
+        <>
+          <div className="quarter-chip-panel">
+            <div>
+              <span>{t("guru.contribution.selected")}</span>
+              <strong>{formatNumber(selectedQuarters.length)} / {formatNumber(quarters.length)}</strong>
+            </div>
+            <div className="quarter-chip-row">
+              {quarters.map((quarter) => (
+                <button
+                  type="button"
+                  key={quarter.id}
+                  className={selectedIds.includes(quarter.id) ? "active" : ""}
+                  onClick={() => toggleQuarter(quarter.id)}
+                >
+                  <strong>{quarter.label}</strong>
+                  <span>{formatReturnPct(quarter.portfolioReturn)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="backtest-stats-row">
+            <MarketChip label="Copy return" value={formatReturnPct(selectedReturn)} tone={selectedReturn >= selectedBenchmark ? "positive" : "negative"} />
+            <MarketChip label="SPY return" value={formatReturnPct(selectedBenchmark)} />
+            <MarketChip label={t("guru.contribution.periods")} value={formatNumber(selectedQuarters.length)} />
+            <MarketChip label="Positions" value={formatNumber(rows.length)} />
+            <MarketChip label="Coverage" value={formatPct(mean(selectedQuarters.map((quarter) => quarter.coveragePct || 0)))} />
+          </div>
+
+          <section className="table-panel contribution-panel">
+            <div className="panel-head">
+              <div>
+                <h3>{t("guru.contribution.rank")}</h3>
+                <p>{selectedQuarters.map((quarter) => quarter.label).join(" · ")}</p>
+              </div>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>标的</th>
+                    <th>{t("guru.contribution.contribution")}</th>
+                    <th className="num">{t("guru.contribution.avgWeight")}</th>
+                    <th className="num">{t("guru.contribution.return")}</th>
+                    <th className="num">{t("guru.contribution.periods")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.ticker}>
+                      <td><HoldingName item={{ ticker: row.ticker, issuer: row.issuer }} /></td>
+                      <td>
+                        <div className="contribution-meter">
+                          <span
+                            className={(row.contributionPct || 0) >= 0 ? "positive" : "negative"}
+                            style={{ width: `${Math.max(4, Math.min(100, Math.abs(row.contributionPct || 0) / maxContribution * 100))}%` }}
+                          />
+                          <strong className={(row.contributionPct || 0) >= 0 ? "up" : "down"}>
+                            {formatReturnPct(row.contributionPct)}
+                          </strong>
+                        </div>
+                      </td>
+                      <td className="num">{formatPct(row.avgWeight)}</td>
+                      <td className={`num ${(row.weightedReturn || 0) >= 0 ? "up" : "down"}`}>{formatReturnPct(row.weightedReturn)}</td>
+                      <td className="num">{formatNumber(row.periods)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <div className="rationale-note subdued">
+            <span>{t("guru.contribution.kicker")}</span>
+            <p>{t("guru.contribution.note")}</p>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function aggregateContributionRows(quarters) {
+  const byTicker = new Map();
+  for (const quarter of quarters || []) {
+    for (const row of quarter.contributions || []) {
+      const current = byTicker.get(row.ticker) || {
+        ticker: row.ticker,
+        issuer: row.issuer,
+        contributionPct: 0,
+        weightSum: 0,
+        weightedReturnSum: 0,
+        periods: 0
+      };
+      current.issuer = current.issuer || row.issuer;
+      current.contributionPct += row.contributionPct || 0;
+      current.weightSum += row.weight || 0;
+      current.weightedReturnSum += row.returnPct || 0;
+      current.periods += 1;
+      byTicker.set(row.ticker, current);
+    }
+  }
+  return [...byTicker.values()]
+    .map((row) => ({
+      ...row,
+      avgWeight: row.periods ? row.weightSum / row.periods : 0,
+      weightedReturn: row.periods ? row.weightedReturnSum / row.periods : 0
+    }))
+    .sort((left, right) => right.contributionPct - left.contributionPct);
 }
 
 function BacktestChart({ equity }) {
