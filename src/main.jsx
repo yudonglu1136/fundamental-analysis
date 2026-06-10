@@ -335,7 +335,8 @@ function useI18n() {
 const disclosureLabels = {
   manager13f: "13F 机构",
   insider: "Form 4 个人",
-  congress: "STOCK Act"
+  congress: "STOCK Act",
+  profile: "研究档案"
 };
 
 const actionLabels = {
@@ -563,6 +564,8 @@ function addExposure(map, item, guru, value, action) {
 
 function guruSignalScore(guru) {
   const summary = guru.summary || {};
+  if (guru.type === "profile") return 36;
+
   if (guru.type === "manager13f") {
     const active = (summary.newPositions || 0) + (summary.increasedPositions || 0);
     const defensive = (summary.reducedPositions || 0) + (summary.soldOutPositions || 0);
@@ -577,6 +580,10 @@ function guruSignalScore(guru) {
 }
 
 function latestSignalLabel(guru) {
+  if (guru.type === "profile") {
+    return guru.sourceLabel || guru.disclosureKind || "研究档案";
+  }
+
   if (guru.type === "manager13f") {
     const top = guru.activity?.[0];
     return top ? `${actionLabels[top.action] || top.action} ${top.ticker || compactName(top.issuer)}` : "季度披露";
@@ -2560,10 +2567,14 @@ function GuruButton({ guru, active, onClick }) {
   const { t } = useI18n();
   const metric = guru.type === "manager13f"
     ? formatMoney(guru.summary?.totalValue || 0)
-    : `${formatNumber(guru.summary?.recentTransactions || 0)} ${t("guru.transactions")}`;
+    : guru.type === "profile"
+      ? "Profile"
+      : `${formatNumber(guru.summary?.recentTransactions || 0)} ${t("guru.transactions")}`;
   const subtitle = guru.type === "manager13f"
     ? `${formatNumber(guru.summary?.totalPositions || 0)} ${t("guru.holdings")}`
-    : guru.summary?.latestTicker || guru.focusTicker || guru.disclosureKind;
+    : guru.type === "profile"
+      ? guru.sourceLabel || guru.disclosureKind || guru.thesisTag
+      : guru.summary?.latestTicker || guru.focusTicker || guru.disclosureKind;
   const score = Math.round(guruSignalScore(guru));
 
   return (
@@ -2588,17 +2599,19 @@ function GuruButton({ guru, active, onClick }) {
 
 function GuruDetail({ guru }) {
   const { t } = useI18n();
-  const [tab, setTab] = useState(guru.type === "manager13f" ? "holdings" : "transactions");
+  const [tab, setTab] = useState(guru.type === "manager13f" ? "holdings" : guru.type === "profile" ? "notes" : "transactions");
 
   useEffect(() => {
-    setTab(guru.type === "manager13f" ? "holdings" : "transactions");
+    setTab(guru.type === "manager13f" ? "holdings" : guru.type === "profile" ? "notes" : "transactions");
   }, [guru.id, guru.type]);
 
   const metrics = guru.type === "manager13f"
     ? managerMetrics(guru)
     : guru.type === "congress"
       ? congressMetrics(guru)
-      : insiderMetrics(guru);
+      : guru.type === "profile"
+        ? profileMetrics(guru)
+        : insiderMetrics(guru);
   const profileUrl = guru.secCompanyUrl || guru.profileUrl;
   const profileLabel = guru.secCompanyUrl ? `CIK ${guru.cik}` : guru.sourceLabel || guru.disclosureKind;
 
@@ -2651,6 +2664,12 @@ function GuruDetail({ guru }) {
             </TabButton>
             <TabButton active={tab === "notes"} onClick={() => setTab("notes")}>
               {t("guru.tab.notes")}
+            </TabButton>
+          </>
+        ) : guru.type === "profile" ? (
+          <>
+            <TabButton active={tab === "notes"} onClick={() => setTab("notes")}>
+              披露说明
             </TabButton>
           </>
         ) : guru.type === "congress" ? (
@@ -2774,6 +2793,14 @@ function guruInsights(guru) {
     };
   }
 
+  if (guru.type === "profile") {
+    return {
+      primary: guru.sourceLabel || guru.disclosureKind || "研究档案",
+      flow: guru.simulationTag?.label || "不做13F复制",
+      lag: "非独立13F披露源"
+    };
+  }
+
   return {
     primary: summary.latestTicker
       ? `${summary.latestTicker} 持股后 ${formatNumber(summary.latestSharesOwned || 0)} 股`
@@ -2877,6 +2904,35 @@ function congressMetrics(guru) {
       value: summary.latestTicker || "-",
       sub: summary.latestAmountRange || summary.latestIssuer || "STOCK Act",
       icon: Filter
+    }
+  ];
+}
+
+function profileMetrics(guru) {
+  return [
+    {
+      label: "档案来源",
+      value: guru.sourceLabel || guru.disclosureKind || "Research profile",
+      sub: guru.entityName || guru.role,
+      icon: Layers
+    },
+    {
+      label: "复制状态",
+      value: "不模拟",
+      sub: guru.simulationTag?.description || "没有干净的季度13F组合",
+      icon: Filter
+    },
+    {
+      label: "研究定位",
+      value: guru.thesisTag || "Research notes",
+      sub: guru.role || "",
+      icon: Gauge
+    },
+    {
+      label: "持仓口径",
+      value: "非13F",
+      sub: "避免错误映射到机构全仓",
+      icon: ShieldAlert
     }
   ];
 }

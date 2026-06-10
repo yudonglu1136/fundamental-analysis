@@ -168,6 +168,70 @@ export const gurus = [
     ]
   },
   {
+    id: "dev-kantesaria",
+    name: "Dev Kantesaria",
+    chineseName: "Dev Kantesaria",
+    entityName: "Valley Forge Capital Management, LP",
+    cik: "0001697868",
+    type: "manager13f",
+    role: "Valley Forge Capital founder / concentrated quality investor",
+    thesisTag: "Concentrated quality compounders",
+    notes: [
+      "Valley Forge Capital Management files quarterly Form 13F-HR reports. The app treats the firm-level 13F as Dev Kantesaria's public long-equity proxy.",
+      "The portfolio is typically concentrated, so a small number of positions can drive most of the disclosed exposure.",
+      "The 13F cannot show cash, shorts, private holdings, non-U.S. ordinary shares outside the 13F universe, or exact intra-quarter trading."
+    ]
+  },
+  {
+    id: "chris-bloomstran",
+    name: "Chris Bloomstran",
+    chineseName: "Chris Bloomstran",
+    entityName: "SEMPER AUGUSTUS INVESTMENTS GROUP LLC",
+    cik: "0001115373",
+    type: "manager13f",
+    role: "Semper Augustus president / value investor",
+    thesisTag: "Value discipline and Berkshire-oriented quality",
+    notes: [
+      "Semper Augustus files quarterly Form 13F-HR reports. The app uses the firm-level 13F as Chris Bloomstran's public long-equity proxy.",
+      "Bloomstran's annual letters are important context because the 13F alone does not explain position sizing, cash, valuation discipline, or client account differences.",
+      "The 13F does not include shorts, cash, private holdings, or securities outside the U.S. reportable universe."
+    ]
+  },
+  {
+    id: "samantha-mclemore",
+    name: "Samantha McLemore",
+    chineseName: "Samantha McLemore",
+    entityName: "Patient Capital Management, LLC",
+    cik: "0001854794",
+    type: "manager13f",
+    role: "Patient Capital founder / long-term public-equity investor",
+    thesisTag: "Patient concentrated value and growth",
+    notes: [
+      "Patient Capital Management files quarterly Form 13F-HR reports. The app treats the firm-level 13F as Samantha McLemore's public long-equity proxy.",
+      "Patient Capital was founded after McLemore's long tenure with Bill Miller; the public 13F should be read as the reportable U.S. long sleeve only.",
+      "The 13F misses shorts, cash, private positions, foreign ordinary shares outside 13F scope, and intra-quarter trading."
+    ]
+  },
+  {
+    id: "dennis-lynch",
+    name: "Dennis Lynch",
+    chineseName: "Dennis Lynch",
+    entityName: "Morgan Stanley Counterpoint Global",
+    type: "profile",
+    role: "Counterpoint Global head / public fund manager profile",
+    thesisTag: "Long-duration disruptive growth strategy",
+    sourceLabel: "Morgan Stanley IM / Counterpoint Global",
+    profileUrl: "https://www.morganstanley.com/im/en-us/individual-investor/about-us/people-and-teams/investment-professionals/lynch-dennis.html",
+    excludeFromHeatmap: true,
+    heatmapExclusionReason: "Counterpoint Global is a team/strategy profile; Morgan Stanley firmwide 13F would overstate unrelated positions.",
+    simulationNote: "Counterpoint Global does not publish a clean standalone team-level 13F feed, so the app does not run proportional 13F copy-trading for this profile.",
+    notes: [
+      "Dennis Lynch is tracked here as a research profile because Counterpoint Global is a Morgan Stanley Investment Management team, not a clean standalone 13F filer.",
+      "Using Morgan Stanley's firmwide 13F would mix unrelated desks, strategies, custody positions, and accounts, so the app deliberately avoids presenting that as Lynch's portfolio.",
+      "A future extension should ingest strategy-level fund reports, N-PORT holdings, and official Morgan Stanley product disclosures where the holdings map cleanly to Counterpoint Global."
+    ]
+  },
+  {
     id: "terry-smith",
     name: "Terry Smith",
     chineseName: "Terry Smith",
@@ -323,6 +387,41 @@ export const gurus = [
       "Berkshire Hathaway files quarterly Form 13F-HR reports. The app treats Berkshire's public long-equity portfolio as Warren Buffett's best public-market proxy.",
       "The 13F does not show Berkshire's wholly owned operating businesses, cash, Treasury bills, private deals, non-U.S. holdings outside 13F scope, or manager-level attribution between Buffett, Todd Combs, and Ted Weschler.",
       "Use the disclosed portfolio as a delayed public-equity signal rather than a complete Berkshire balance-sheet view."
+    ]
+  },
+  {
+    id: "tom-gayner",
+    name: "Tom Gayner",
+    chineseName: "Tom Gayner",
+    entityName: "Markel Group Inc.",
+    cik: "0001096343",
+    type: "manager13f",
+    role: "Markel CEO / investment chief",
+    thesisTag: "Insurance float and long-term quality/value equities",
+    notes: [
+      "Markel Group files quarterly Form 13F-HR reports. The app treats Markel's disclosed public long-equity portfolio as Tom Gayner's best public-market proxy.",
+      "The 13F does not show Markel's full insurance balance sheet, cash, fixed-income book, private investments, operating businesses, or manager-level attribution.",
+      "Read major position changes alongside Markel annual letters and filings because the equity portfolio sits inside a broader insurance and capital-allocation framework."
+    ]
+  },
+  {
+    id: "nick-sleep-qais-zakaria",
+    name: "Nick Sleep / Qais Zakaria",
+    chineseName: "Nick Sleep / Qais Zakaria",
+    entityName: "Sleep, Zakaria & CO Ltd. / Nomad Investment Partnership",
+    cik: "0001384801",
+    type: "manager13f",
+    role: "Nomad Investment Partnership founders / archived 13F case study",
+    thesisTag: "Archived long-term compounder case study",
+    preferLatestNonZero13f: true,
+    disableSimulation: true,
+    excludeFromHeatmap: true,
+    heatmapExclusionReason: "Nomad is an archived historical partnership, not a current external-consensus signal.",
+    simulationNote: "Nomad is closed and has no current quarterly 13F feed; historical holdings are useful for case study work but not for live five-year copy-trading.",
+    notes: [
+      "Nomad Investment Partnership is not an active public 13F manager today. This profile uses archived Sleep, Zakaria & CO Ltd. SEC filings where available.",
+      "The app intentionally disables current copy-trading and heatmap contribution for this profile because it would otherwise mix stale historical holdings with today's market.",
+      "Use the Nomad letters and archived filings as a case-study lens on long-duration compounding rather than as a live guru portfolio."
     ]
   },
   {

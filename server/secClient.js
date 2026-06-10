@@ -318,6 +318,43 @@ function compare13fHoldings(currentHoldings, previousHoldings) {
     .sort((a, b) => Math.abs(b.changeShares) - Math.abs(a.changeShares));
 }
 
+async function loadLatest13fHoldings(guru, filings) {
+  if (!guru.preferLatestNonZero13f) {
+    const latest = filings[0];
+    const latestDoc = await getFilingDocument(guru.cik, latest);
+    return {
+      latest,
+      latestDoc,
+      currentHoldings: parse13fInfoTable(latestDoc.text),
+      previous: filings[1] || null
+    };
+  }
+
+  for (let index = 0; index < filings.length; index += 1) {
+    const candidate = filings[index];
+    const doc = await getFilingDocument(guru.cik, candidate);
+    const holdings = parse13fInfoTable(doc.text);
+    const totalValue = holdings.reduce((sum, holding) => sum + holding.value, 0);
+    if (holdings.length && totalValue > 0) {
+      return {
+        latest: candidate,
+        latestDoc: doc,
+        currentHoldings: holdings,
+        previous: filings[index + 1] || null
+      };
+    }
+  }
+
+  const latest = filings[0];
+  const latestDoc = await getFilingDocument(guru.cik, latest);
+  return {
+    latest,
+    latestDoc,
+    currentHoldings: parse13fInfoTable(latestDoc.text),
+    previous: filings[1] || null
+  };
+}
+
 async function load13fGuru(guru) {
   const submission = await getSubmission(guru.cik);
   const filings = recentFilings(submission)
@@ -328,16 +365,14 @@ async function load13fGuru(guru) {
       return dateCompare || String(b.filingDate || "").localeCompare(String(a.filingDate || ""));
     });
 
-  const [latest, previous] = filings;
-  if (!latest) {
+  if (!filings[0]) {
     return withGuruShell(guru, {
       status: "missing",
       summary: { message: "No recent 13F-HR filings found in SEC submissions." }
     });
   }
 
-  const latestDoc = await getFilingDocument(guru.cik, latest);
-  const currentHoldings = parse13fInfoTable(latestDoc.text);
+  const { latest, latestDoc, currentHoldings, previous } = await loadLatest13fHoldings(guru, filings);
   const previousDoc = previous ? await getFilingDocument(guru.cik, previous) : null;
   const previousHoldings = previousDoc ? parse13fInfoTable(previousDoc.text) : [];
   const changes = compare13fHoldings(currentHoldings, previousHoldings);
@@ -1006,8 +1041,15 @@ function withResolvedTicker(item) {
   return ticker ? { ...item, ticker } : item;
 }
 
+function guruDisclosureKind(guru) {
+  if (guru.type === "manager13f") return "13F-HR";
+  if (guru.type === "congress") return "STOCK Act";
+  if (guru.type === "profile") return "Research profile";
+  return "Form 4";
+}
+
 function simulationTagForGuru(guru) {
-  if (guru.type === "manager13f") {
+  if (guru.type === "manager13f" && !guru.disableSimulation) {
     return {
       label: "13F copy 模拟",
       tone: "simulatable",
@@ -1017,7 +1059,7 @@ function simulationTagForGuru(guru) {
   return {
     label: "不做13F复制",
     tone: "muted",
-    description: "该披露不是完整季度13F组合，复制调仓会失真。"
+    description: guru.simulationNote || "该披露不是完整季度13F组合，复制调仓会失真。"
   };
 }
 
@@ -1144,7 +1186,7 @@ export async function loadGuruMarketContext(guruId, { ticker, refresh = false } 
   return {
     generatedAt: new Date().toISOString(),
     guru: withGuruShell(guru, {
-      disclosureKind: guru.type === "manager13f" ? "13F-HR" : guru.type === "congress" ? "STOCK Act" : "Form 4"
+      disclosureKind: guruDisclosureKind(guru)
     }),
     selectedTicker,
     tickers,
@@ -1250,6 +1292,7 @@ function hasUsableGuruData(payload) {
   }
   if (payload.type === "manager13f") return Boolean(payload.holdings?.length || payload.activity?.length);
   if (payload.type === "congress") return Boolean(payload.transactions?.length || payload.holdings?.length);
+  if (payload.type === "profile") return payload.status === "profile";
   return Boolean(payload.transactions?.length || payload.holdings?.length);
 }
 
@@ -1275,8 +1318,7 @@ function cacheCoversConfiguredGurus(payload) {
 function localMissingGuru(guru) {
   return withGuruShell(guru, {
     status: "local_missing",
-    disclosureKind:
-      guru.type === "manager13f" ? "13F-HR" : guru.type === "congress" ? "STOCK Act" : "Form 4",
+    disclosureKind: guruDisclosureKind(guru),
     dataStatus: {
       status: "local_missing",
       reason: "not_in_local_database",
@@ -1287,6 +1329,24 @@ function localMissingGuru(guru) {
       totalValue: 0,
       totalPositions: 0,
       recentTransactions: 0
+    },
+    holdings: [],
+    activity: [],
+    transactions: []
+  });
+}
+
+function loadProfileGuru(guru) {
+  return withGuruShell(guru, {
+    status: "profile",
+    disclosureKind: guruDisclosureKind(guru),
+    summary: {
+      reportDate: null,
+      filingDate: null,
+      totalValue: 0,
+      totalPositions: 0,
+      recentTransactions: 0,
+      message: guru.simulationNote || "No standalone SEC holdings feed is available for this profile."
     },
     holdings: [],
     activity: [],
@@ -1333,6 +1393,7 @@ async function loadGuru(guru) {
     let payload;
     if (guru.type === "manager13f") payload = await load13fGuru(guru);
     else if (guru.type === "congress") payload = await loadCongressGuru(guru);
+    else if (guru.type === "profile") payload = loadProfileGuru(guru);
     else payload = await loadInsiderGuru(guru);
 
     if (hasUsableGuruData(payload)) {
@@ -1354,8 +1415,7 @@ async function loadGuru(guru) {
     if (isRateLimitError(error)) {
       return withGuruShell(guru, {
         status: "rate_limited",
-        disclosureKind:
-          guru.type === "manager13f" ? "13F-HR" : guru.type === "congress" ? "STOCK Act" : "Form 4",
+        disclosureKind: guruDisclosureKind(guru),
         dataStatus: {
           status: "rate_limited",
           reason: "sec_rate_limited",
@@ -1371,8 +1431,7 @@ async function loadGuru(guru) {
 
     return withGuruShell(guru, {
       status: "error",
-      disclosureKind:
-        guru.type === "manager13f" ? "13F-HR" : guru.type === "congress" ? "STOCK Act" : "Form 4",
+      disclosureKind: guruDisclosureKind(guru),
       summary: { message: error.message },
       holdings: [],
       activity: [],

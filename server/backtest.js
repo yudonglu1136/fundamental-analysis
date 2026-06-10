@@ -297,6 +297,7 @@ function buildQuarterContributions(rebalances, spyPoints, priceMaps, endDate) {
 }
 
 function unsupportedBacktest(guru, years) {
+  const disabledByConfig = Boolean(guru.disableSimulation);
   return {
     generatedAt: new Date().toISOString(),
     status: "unsupported",
@@ -307,13 +308,15 @@ function unsupportedBacktest(guru, years) {
       thesisTag: guru.thesisTag
     },
     tag: {
-      label: "非13F，不模拟抄作业",
+      label: disabledByConfig ? "13F copy 模拟关闭" : "非13F，不模拟抄作业",
       tone: "muted"
     },
     method: {
       years,
       benchmark: "SPY",
-      reason: "This guru does not publish a quarterly long-equity 13F portfolio suitable for proportional copy-trading."
+      reason:
+        guru.simulationNote ||
+        "This guru does not publish a quarterly long-equity 13F portfolio suitable for proportional copy-trading."
     }
   };
 }
@@ -323,7 +326,7 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
   const guru = gurus.find((item) => item.id === guruId);
   if (!guru) throw new Error(`Guru not found: ${guruId}`);
 
-  if (guru.type !== "manager13f") {
+  if (guru.type !== "manager13f" || guru.disableSimulation) {
     return unsupportedBacktest(guru, normalizedYears);
   }
 
