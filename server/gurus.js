@@ -109,6 +109,21 @@ export const gurus = [
     ]
   },
   {
+    id: "chase-coleman",
+    name: "Chase Coleman",
+    chineseName: "Chase Coleman",
+    entityName: "TIGER GLOBAL MANAGEMENT LLC",
+    cik: "0001167483",
+    type: "manager13f",
+    role: "Tiger Global founder / public-equity manager proxy",
+    thesisTag: "Tiger Cub technology and global growth equities",
+    notes: [
+      "Tiger Global Management files quarterly Form 13F-HR reports. The app treats the firm-level 13F as Chase Coleman's public long-equity proxy.",
+      "The 13F excludes Tiger Global's private investments, short exposure, derivatives outside the reportable table, and non-U.S. positions outside the 13F universe.",
+      "Because Tiger Global has meaningful private and crossover exposure, use this as a delayed public-market signal rather than a complete fund view."
+    ]
+  },
+  {
     id: "philippe-laffont",
     name: "Philippe Laffont",
     chineseName: "Philippe Laffont",
@@ -135,6 +150,21 @@ export const gurus = [
       "Himalaya Capital files quarterly Form 13F-HR reports. The app tracks the disclosed U.S.-listed long equity portfolio.",
       "Li Lu is often associated with Charlie Munger's value-investing circle, but the 13F only captures reportable U.S. securities.",
       "Non-U.S. ordinary shares, private holdings, and positions outside 13F scope are not shown."
+    ]
+  },
+  {
+    id: "chuck-akre",
+    name: "Chuck Akre",
+    chineseName: "Chuck Akre",
+    entityName: "AKRE CAPITAL MANAGEMENT LLC",
+    cik: "0001112520",
+    type: "manager13f",
+    role: "Akre Capital founder / quality compounder investor",
+    thesisTag: "Three-legged-stool quality compounding",
+    notes: [
+      "Akre Capital Management files quarterly Form 13F-HR reports. The app uses the firm-level 13F as Chuck Akre's public long-equity proxy.",
+      "The Akre portfolio is typically concentrated in quality compounders, but the 13F only covers reportable securities and can miss cash, private holdings, and non-reportable instruments.",
+      "Large quarter-to-quarter changes should be read with manager commentary and fund disclosures where available."
     ]
   },
   {
