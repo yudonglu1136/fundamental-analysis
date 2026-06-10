@@ -1408,8 +1408,8 @@ function ValuationQualityBanner({ ticker }) {
   if ((inputNeedsReview || unifiedNeedsReview) && (quality.priceDisplayMode === "as-of-price-anchors" || (!quality.hasLivePriceSeries && (ticker.history || []).some((row) => Number.isFinite(row.priceAtDate))))) {
     messages.push(t("valuation.qualityNoDaily"));
   }
-  const excludedRows = Number(quality.excludedLegacyBackendRows || 0) + Number(quality.excludedSnapshotRows || 0);
-  if (excludedRows > 0) {
+  const excludedRows = Number(quality.excludedSnapshotRows || 0);
+  if (excludedRows > 0 && (inputNeedsReview || unifiedNeedsReview || isUnsupported)) {
     messages.push(`${t("valuation.qualityExcluded")} ${formatNumber(excludedRows)}`);
   }
   if (inputAudit.status === "fail") {
