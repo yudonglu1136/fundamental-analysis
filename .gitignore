@@ -13,4 +13,9 @@ dist/
 coverage/
 .vercel
 server/cache/
-server/data/sec-companyfacts/*.json
+
+# Backend/runtime data artifacts belong in AWS, not GitHub/Vercel.
+server/data/*
+!server/data/.gitkeep
+server/reports/*.json
+!server/reports/.gitkeep
