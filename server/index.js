@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadGuruDashboard, loadGuruMarketContext } from "./secClient.js";
@@ -9,6 +10,7 @@ import { loadDbmfDashboard } from "./dbmfClient.js";
 import { requireAuth } from "./auth/requireAuth.js";
 import { loadGuruBacktest, loadGuruBacktests } from "./backtest.js";
 import { loadValuationDashboard, loadValuationTicker } from "./valuationClient.js";
+import { databaseInfo } from "./localDatabase.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -39,8 +41,30 @@ app.use(cors({
 }));
 app.use(express.json());
 
+function databaseHealth() {
+  const info = databaseInfo();
+  try {
+    const stats = fs.statSync(info.path);
+    return {
+      exists: stats.isFile(),
+      sizeBytes: stats.size,
+      updatedAt: stats.mtime.toISOString()
+    };
+  } catch {
+    return {
+      exists: false,
+      sizeBytes: 0,
+      updatedAt: null
+    };
+  }
+}
+
 app.get("/api/health", (_request, response) => {
-  response.json({ ok: true, service: "guru-analysis-dashboard" });
+  response.json({
+    ok: true,
+    service: "guru-analysis-dashboard",
+    database: databaseHealth()
+  });
 });
 
 app.use("/api", requireAuth);
