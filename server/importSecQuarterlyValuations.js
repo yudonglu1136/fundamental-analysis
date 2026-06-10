@@ -65,6 +65,15 @@ const POINT_TAGS = {
   debt_m: []
 };
 
+const CORE_DISCLOSURE_METRICS = [
+  "revenue_m",
+  "gross_profit_m",
+  "operating_income_m",
+  "net_income_m",
+  "cfo_m",
+  "capex_m"
+];
+
 const DEBT_TOTAL_TAGS = [
   "Debt",
   "DebtAndFinanceLeaseObligations",
@@ -304,6 +313,13 @@ function fiscalPeriodFromEnd(endDate, fiscalYearEnd) {
   return { fiscalYear, fiscalQuarter: fallbackQuarter };
 }
 
+function matchesReportedFiscalYear(row, derived) {
+  const reportedFy = finiteNumber(row?.fy);
+  const fiscalYear = finiteNumber(derived?.fiscalYear);
+  if (reportedFy == null || fiscalYear == null) return true;
+  return reportedFy === fiscalYear;
+}
+
 function factRowsForMetric(facts, metric, fiscalYearEnd, options = {}) {
   const tags = options.tags || TAGS[metric] || [];
   const unit = options.unit || "USD";
@@ -316,6 +332,7 @@ function factRowsForMetric(facts, metric, fiscalYearEnd, options = {}) {
       if (value == null || rowDays == null) continue;
       const derived = fiscalPeriodFromEnd(row.end, fiscalYearEnd);
       if (!derived) continue;
+      if (!matchesReportedFiscalYear(row, derived)) continue;
       const isAnnual = ["10-K", "20-F", "40-F"].includes(row.form) && rowDays >= 300;
       rows.push({
         ...row,
@@ -429,7 +446,7 @@ function buildMetricQuarterMap(facts, metric, fiscalYearEnd, options = {}) {
 function choosePointRow(rows) {
   return [...rows].sort((left, right) =>
     (left.priority || 0) - (right.priority || 0) ||
-    String(right.filed).localeCompare(String(left.filed)) ||
+    String(left.filed).localeCompare(String(right.filed)) ||
     String(left.tag).localeCompare(String(right.tag))
   )[0] || null;
 }
@@ -446,6 +463,7 @@ function buildPointMetricMap(facts, metric, fiscalYearEnd, options = {}) {
       if (value == null || !row?.filed || !row?.end || !row?.form) continue;
       const derived = fiscalPeriodFromEnd(row.end, fiscalYearEnd);
       if (!derived) continue;
+      if (!matchesReportedFiscalYear(row, derived)) continue;
       rows.push({
         ...row,
         metric,
@@ -576,13 +594,17 @@ function buildQuarterlyFinancials(facts) {
       };
     }
     const filedDates = Object.values(sources).map((source) => source.filed).filter(Boolean).sort();
+    const coreFiledDates = CORE_DISCLOSURE_METRICS
+      .map((metric) => sources[metric]?.filed)
+      .filter(Boolean)
+      .sort();
     const endDates = Object.values(sources).map((source) => source.end).filter(Boolean).sort();
     return {
       key,
       fiscalYear: fy,
       fiscalQuarter: fp,
       label: `FY${fy} ${fp}`,
-      asOfDate: filedDates.at(-1) || null,
+      asOfDate: coreFiledDates.at(-1) || filedDates.at(-1) || null,
       periodEndDate: endDates.at(-1) || null,
       ...metricData,
       sources
@@ -665,6 +687,7 @@ const PROFILE_SETTINGS = {
   mega_cap_platform: {
     label: "Mega-cap platform",
     method: "TTM earnings power + FCF yield",
+    normalizedGrowthWindow: 8,
     peRange: [20, 36],
     peBase: 24,
     fcfYieldRange: [0.032, 0.055],
@@ -855,6 +878,7 @@ const PROFILE_SETTINGS = {
     label: "Medtech platform",
     method: "Quality EPS + FCF yield",
     forwardRevenueYears: 1,
+    normalizedGrowthWindow: 8,
     forwardFcfScaleCap: 1.4,
     peRange: [30, 62],
     peBase: 41,
@@ -863,6 +887,7 @@ const PROFILE_SETTINGS = {
     fcfYieldRange: [0.022, 0.048],
     fcfYieldBase: 0.032,
     targetMargin: 0.34,
+    marginActualWeight: 0.42,
     fcfWeight: 0.34
   },
   healthcare_distribution: {
@@ -1033,18 +1058,34 @@ function profileSettings(ticker) {
 }
 
 function normalizedGrowthPct(row, youtubeEvidence) {
+  const fundamentalGrowth = finiteNumber(row.normalized_revenue_growth_pct) ?? finiteNumber(row.revenue_growth_pct);
   const candidates = [
-    finiteNumber(row.revenue_growth_pct),
+    fundamentalGrowth,
     finiteNumber(youtubeEvidence?.revenueGrowth)
   ].filter((value) => value != null && value > -50 && value < 100);
   return clamp(median(candidates) ?? 5, -20, 45);
+}
+
+function normalizedRevenueGrowthForRows(rows, index, windowSize) {
+  if (!windowSize) return null;
+  const values = rows
+    .slice(Math.max(0, index - windowSize + 1), index + 1)
+    .map((row) => finiteNumber(row.revenue_growth_pct))
+    .filter((value) => value != null && value > -50 && value < 100)
+    .sort((left, right) => left - right);
+  if (!values.length) return null;
+  const floor = Math.floor(values.length * 0.15);
+  const ceiling = Math.ceil(values.length * 0.85);
+  const trimmed = values.slice(floor, Math.max(floor + 1, ceiling));
+  return median(trimmed);
 }
 
 function normalizedMarginRatio(ttm, settings) {
   const opMargin = finiteNumber(ttm.operating_margin_pct);
   const target = finiteNumber(settings.targetMargin) ?? 0.2;
   if (opMargin == null) return target;
-  return clamp(opMargin / 100 * 0.7 + target * 0.3, target * 0.55, Math.max(target * 1.45, target + 0.04));
+  const actualWeight = clamp(settings.marginActualWeight ?? 0.7, 0.25, 0.9);
+  return clamp(opMargin / 100 * actualWeight + target * (1 - actualWeight), target * 0.55, Math.max(target * 1.45, target + 0.04));
 }
 
 function adjustedPe(settings, growthPct, marginPct) {
@@ -1535,12 +1576,16 @@ function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, fac
       fcf_margin_pct: margin(ttmFcf, ttmRevenue),
       capex_intensity_pct: margin(ttmCapex, ttmRevenue)
     };
+    const normalizedRevenueGrowthPct = normalizedRevenueGrowthForRows(quarterlyRows, index, settings.normalizedGrowthWindow);
     const pricePoint = pricePointAtOrBefore(priceHistory, row.asOfDate);
     const priceAtDate = finiteNumber(pricePoint?.close);
     const youtubeEvidence = youtubeByPeriod.get(`${ticker}::Q${row.fiscalQuarter.replace("Q", "")}${row.fiscalYear}`) ||
       youtubeByPeriod.get(`${trinityTicker}::Q${row.fiscalQuarter.replace("Q", "")}${row.fiscalYear}`) ||
       null;
-    const model = buildBuySideValuationModel({ ticker, row, ttm, youtubeEvidence });
+    const modelRow = normalizedRevenueGrowthPct == null
+      ? row
+      : { ...row, normalized_revenue_growth_pct: normalizedRevenueGrowthPct };
+    const model = buildBuySideValuationModel({ ticker, row: modelRow, ttm, youtubeEvidence });
     if (!model || !(model.fairValue > 0)) return;
     const fairValue = model.fairValue;
     const targetPrice3Y = model.targetPrice3Y;
@@ -1586,6 +1631,7 @@ function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, fac
         fiscalFinancials: {
           revenue_m: row.revenue_m,
           revenue_growth_pct: row.revenue_growth_pct,
+          normalized_revenue_growth_pct: normalizedRevenueGrowthPct,
           gross_profit_m: row.gross_profit_m,
           gross_margin_pct: row.gross_margin_pct,
           operating_income_m: row.operating_income_m,
