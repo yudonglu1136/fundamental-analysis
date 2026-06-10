@@ -22,6 +22,7 @@ const OUTPUT_START_DATE = process.env.SEC_VALUATION_START_DATE || "2019-01-01";
 const TAGS = {
   revenue_m: [
     "RevenueFromContractWithCustomerExcludingAssessedTax",
+    "RevenueFromContractWithCustomerIncludingAssessedTax",
     "Revenues",
     "SalesRevenueNet",
     "Revenue"
@@ -355,6 +356,22 @@ function matchesReportedFiscalYear(row, derived) {
   return reportedFy === fiscalYear;
 }
 
+function filingLagDays(row) {
+  const filed = dateUtc(row?.filed);
+  const end = dateUtc(row?.end);
+  if (filed == null || end == null) return null;
+  return (filed - end) / 86_400_000;
+}
+
+function isLikelyCurrentDisclosure(row, derived) {
+  const lag = filingLagDays(row);
+  if (lag == null || lag < -5) return false;
+  const form = String(row?.form || "").toUpperCase();
+  const isAnnualForm = ["10-K", "20-F", "40-F"].includes(form);
+  const threshold = isAnnualForm || derived?.fiscalQuarter === "FY" ? 185 : 140;
+  return lag <= threshold;
+}
+
 function reportedFiscalPeriod(row, derived, fiscalYearEnd) {
   const reportedFy = finiteNumber(row?.fy);
   const reportedFp = String(row?.fp || "").toUpperCase();
@@ -362,6 +379,7 @@ function reportedFiscalPeriod(row, derived, fiscalYearEnd) {
     if (reportedPeriodMatchesEndDate(row, fiscalYearEnd, reportedFy, reportedFp)) {
       return { fiscalYear: reportedFy, fiscalQuarter: reportedFp, source: "reported" };
     }
+    if (derived && isLikelyCurrentDisclosure(row, derived)) return { ...derived, source: "filed-derived" };
     if (derived) return { ...derived, source: "comparative-derived" };
     return null;
   }
@@ -369,6 +387,7 @@ function reportedFiscalPeriod(row, derived, fiscalYearEnd) {
     if (reportedPeriodMatchesEndDate(row, fiscalYearEnd, reportedFy, "FY")) {
       return { fiscalYear: reportedFy, fiscalQuarter: "FY", source: "reported" };
     }
+    if (derived && isLikelyCurrentDisclosure(row, derived)) return { ...derived, source: "filed-derived" };
     if (derived) return { ...derived, source: "comparative-derived" };
     return null;
   }
@@ -814,6 +833,7 @@ const PROFILE_SETTINGS = {
   hypergrowth_ai_software: {
     label: "Hypergrowth AI software",
     method: "Forward Rule-of-X EV/sales + FCF yield + normalized earnings",
+    allowLossMakingStage: true,
     forwardRevenueYears: 1,
     forwardFcfScaleCap: 1.75,
     forwardGrowthCapPct: 75,
@@ -1681,6 +1701,7 @@ function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, fac
     if (String(row.asOfDate).localeCompare(minDate) < 0 || String(row.asOfDate).localeCompare(OUTPUT_START_DATE) < 0) return;
     const settings = profileSettings(ticker);
     const isRevenueStage = ["emerging_biotech", "emerging_health_ai"].includes(settings.profile);
+    const allowsLossMakingStage = isRevenueStage || Boolean(settings.allowLossMakingStage);
     const rowAnnualizationFactor = row.fiscalQuarter === "Q4" && ["10-K", "20-F", "40-F"].includes(row.sources?.revenue_m?.form)
       ? 1
       : 4;
@@ -1699,7 +1720,7 @@ function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, fac
     const ttmAssets = latestKnownValue(quarterlyRows, index, "assets_m");
     const ttmCash = latestKnownValue(quarterlyRows, index, "cash_m");
     const ttmDebt = latestKnownValue(quarterlyRows, index, "debt_m");
-    if (!isRevenueStage && !(ttmNetIncome > 0)) return;
+    if (!allowsLossMakingStage && !(ttmNetIncome > 0)) return;
     const shareOverride = SHARE_COUNT_OVERRIDES[ticker];
     const sharesM = finiteNumber(row.shares_m) ??
       latestKnownValueWithin(quarterlyRows, index, "shares_m", 8) ??
@@ -2336,7 +2357,11 @@ function updateTickerSnapshot({ ticker, snapshot, valuationRows, coverage }) {
     warnings: [
       `Imported ${history.length} ${coverage?.source || "financial"} valuation rows.`,
       ...(coverage.youtubePeriods ? [`Attached YouTube transcript metric evidence to ${coverage.youtubePeriods} matching periods.`] : []),
-      ...(snapshot.warnings || []).filter((warning) => !String(warning).includes("Imported") && !String(warning).includes("Limited valuation history"))
+      ...(snapshot.warnings || []).filter((warning) =>
+        !String(warning).includes("Imported") &&
+        !String(warning).includes("Attached YouTube transcript") &&
+        !String(warning).includes("Limited valuation history")
+      )
     ],
     dataQuality: {
       ...(snapshot.dataQuality || {}),
