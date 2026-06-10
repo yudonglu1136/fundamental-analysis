@@ -320,6 +320,19 @@ function matchesReportedFiscalYear(row, derived) {
   return reportedFy === fiscalYear;
 }
 
+function reportedFiscalPeriod(row, derived) {
+  const reportedFy = finiteNumber(row?.fy);
+  const reportedFp = String(row?.fp || "").toUpperCase();
+  if (reportedFy != null && ["Q1", "Q2", "Q3", "Q4"].includes(reportedFp)) {
+    return { fiscalYear: reportedFy, fiscalQuarter: reportedFp, source: "reported" };
+  }
+  if (reportedFy != null && reportedFp === "FY") {
+    return { fiscalYear: reportedFy, fiscalQuarter: "FY", source: "reported" };
+  }
+  if (!derived) return null;
+  return { ...derived, source: "derived" };
+}
+
 function factRowsForMetric(facts, metric, fiscalYearEnd, options = {}) {
   const tags = options.tags || TAGS[metric] || [];
   const unit = options.unit || "USD";
@@ -331,17 +344,19 @@ function factRowsForMetric(facts, metric, fiscalYearEnd, options = {}) {
       const value = options.valueTransform ? options.valueTransform(row) : rowValueM(row);
       if (value == null || rowDays == null) continue;
       const derived = fiscalPeriodFromEnd(row.end, fiscalYearEnd);
-      if (!derived) continue;
-      if (!matchesReportedFiscalYear(row, derived)) continue;
+      const period = reportedFiscalPeriod(row, derived);
+      if (!period) continue;
+      if (period.source !== "reported" && !matchesReportedFiscalYear(row, derived)) continue;
       const isAnnual = ["10-K", "20-F", "40-F"].includes(row.form) && rowDays >= 300;
       rows.push({
         ...row,
         metric,
         tag,
-        fy: derived.fiscalYear,
-        fp: isAnnual ? "FY" : derived.fiscalQuarter,
+        fy: period.fiscalYear,
+        fp: isAnnual ? "FY" : period.fiscalQuarter,
         originalFy: row.fy,
         originalFp: row.fp,
+        fiscalPeriodSource: period.source,
         filed: row.filed,
         end: row.end,
         rowDays,
@@ -462,15 +477,19 @@ function buildPointMetricMap(facts, metric, fiscalYearEnd, options = {}) {
       const value = options.valueTransform ? options.valueTransform(row) : rawValue;
       if (value == null || !row?.filed || !row?.end || !row?.form) continue;
       const derived = fiscalPeriodFromEnd(row.end, fiscalYearEnd);
-      if (!derived) continue;
-      if (!matchesReportedFiscalYear(row, derived)) continue;
+      const period = reportedFiscalPeriod(row, derived);
+      if (!period || period.fiscalQuarter === "FY") continue;
+      if (period.source !== "reported" && !matchesReportedFiscalYear(row, derived)) continue;
       rows.push({
         ...row,
         metric,
         tag,
         priority: tags.indexOf(tag),
-        fy: derived.fiscalYear,
-        fp: derived.fiscalQuarter,
+        fy: period.fiscalYear,
+        fp: period.fiscalQuarter,
+        originalFy: row.fy,
+        originalFp: row.fp,
+        fiscalPeriodSource: period.source,
         filed: row.filed,
         end: row.end,
         value: options.valueTransform ? value : value / scale

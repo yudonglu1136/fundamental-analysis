@@ -283,6 +283,7 @@ const HIGH_VARIANCE_PROFILES = new Set([
   "defense_growth",
   "emerging_biotech",
   "emerging_health_ai",
+  "energy_e_and_p",
   "energy_technology",
   "ev_autonomy_platform",
   "hypergrowth_ai_software",
