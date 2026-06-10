@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Filter,
   Gauge,
+  Eye,
   Layers,
   LineChart,
   Loader2,
@@ -41,6 +42,8 @@ const uiText = {
     "app.refresh": "刷新",
     "app.refreshing": "刷新中",
     "lang.label": "语言",
+    "colorMode.label": "红绿色盲友好模式",
+    "colorMode.short": "色盲",
     "mode.aria": "dashboard mode",
     "mode.guru": "Guru",
     "mode.dbmf": "DBMF",
@@ -179,6 +182,8 @@ const uiText = {
     "app.refresh": "Refresh",
     "app.refreshing": "Refreshing",
     "lang.label": "Language",
+    "colorMode.label": "Red-green color-blind safe mode",
+    "colorMode.short": "CVD",
     "mode.aria": "dashboard mode",
     "mode.guru": "Guru",
     "mode.dbmf": "DBMF",
@@ -316,6 +321,11 @@ const uiText = {
 function currentLanguage() {
   const stored = window.localStorage.getItem("guru-analysis-language");
   return stored === "en" ? "en" : "zh";
+}
+
+function currentColorMode() {
+  const stored = window.localStorage.getItem("guru-analysis-color-mode");
+  return stored === "colorblind" ? "colorblind" : "default";
 }
 
 function useI18n() {
@@ -801,6 +811,7 @@ function App() {
   const valuationState = useValuationData();
   const [mode, setModeState] = useState(() => currentDashboardMode());
   const [language, setLanguageState] = useState(() => currentLanguage());
+  const [colorMode, setColorModeState] = useState(() => currentColorMode());
   const { user, logout } = useAuth();
 
   useEffect(() => {
@@ -816,8 +827,21 @@ function App() {
     document.documentElement.lang = language === "en" ? "en" : "zh-CN";
   }, [language]);
 
+  useEffect(() => {
+    window.localStorage.setItem("guru-analysis-color-mode", colorMode);
+    if (colorMode === "colorblind") {
+      document.documentElement.dataset.colorMode = "colorblind";
+    } else {
+      delete document.documentElement.dataset.colorMode;
+    }
+  }, [colorMode]);
+
   function setLanguage(nextLanguage) {
     setLanguageState(nextLanguage === "en" ? "en" : "zh");
+  }
+
+  function toggleColorMode() {
+    setColorModeState((current) => current === "colorblind" ? "default" : "colorblind");
   }
 
   const i18n = useMemo(() => {
@@ -874,6 +898,17 @@ function App() {
           <div className="top-actions">
             <ModeSwitch mode={mode} onChange={setMode} />
             <LanguageSwitch language={language} onChange={setLanguage} />
+            <button
+              className={`icon-button color-mode-button ${colorMode === "colorblind" ? "active" : ""}`}
+              type="button"
+              title={t("colorMode.label")}
+              aria-label={t("colorMode.label")}
+              aria-pressed={colorMode === "colorblind"}
+              onClick={toggleColorMode}
+            >
+              <Eye size={18} />
+              <span>{t("colorMode.short")}</span>
+            </button>
             <div className="source-pill">
               <CheckCircle2 size={16} />
               <span>{sourceLabel}</span>
