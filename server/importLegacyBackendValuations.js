@@ -42,6 +42,10 @@ function latestByDate(rows) {
     .at(-1) || null;
 }
 
+function tableExists(db, tableName) {
+  return Boolean(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName));
+}
+
 function mapLegacyTicker(legacyTicker) {
   return tickerMap[legacyTicker] || legacyTicker.toUpperCase();
 }
@@ -95,11 +99,13 @@ function compactWarnings(value) {
 
 function readLegacyRuns(legacyTicker) {
   const dbPath = path.join(LEGACY_ROOT, "data/local", legacyTicker, "backend", `${legacyTicker}_research.sqlite`);
-  if (!fs.existsSync(dbPath)) return { dbPath, runs: [], eventsById: new Map() };
+  if (!fs.existsSync(dbPath)) return { dbPath, runs: [], eventsById: new Map(), financialPeriods: [] };
 
   const db = new DatabaseSync(dbPath);
   try {
-    const eventColumns = new Set(db.prepare("PRAGMA table_info(reporting_events)").all().map((row) => row.name));
+    const eventColumns = tableExists(db, "reporting_events")
+      ? new Set(db.prepare("PRAGMA table_info(reporting_events)").all().map((row) => row.name))
+      : new Set();
     const optionalEventColumns = [
       "id",
       "ticker",
@@ -122,10 +128,280 @@ function readLegacyRuns(legacyTicker) {
       WHERE scenario = 'Base'
       ORDER BY asOfDate ASC, createdAt ASC
     `).all();
-    return { dbPath, runs, eventsById };
+    const financialPeriods = tableExists(db, "financial_periods")
+      ? db.prepare("SELECT * FROM financial_periods ORDER BY asOfDate ASC, periodId ASC").all()
+      : [];
+    return { dbPath, runs, eventsById, financialPeriods };
   } finally {
     db.close();
   }
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function weightedAverage(items) {
+  const valid = items.filter((item) => Number.isFinite(item.value) && Number.isFinite(item.weight) && item.weight > 0);
+  const totalWeight = valid.reduce((sum, item) => sum + item.weight, 0);
+  if (!totalWeight) return null;
+  return valid.reduce((sum, item) => sum + item.value * item.weight, 0) / totalWeight;
+}
+
+function lsegPeriodKind(period) {
+  const id = String(period?.periodId || period?.id || "").toLowerCase();
+  if (/q1/.test(id)) return "Q1";
+  if (/h1/.test(id)) return "H1";
+  if (/q3/.test(id)) return "Q3";
+  if (/fy|annual/.test(id) || period?.periodType === "annual") return "FY";
+  return "Snapshot";
+}
+
+function lsegPeriodLabel(period) {
+  const year = finiteNumber(period?.fiscalYear);
+  return `${lsegPeriodKind(period)}${year ? ` ${year}` : ""}`.trim();
+}
+
+function lsegFiscalQuarter(period) {
+  const kind = lsegPeriodKind(period);
+  return kind.startsWith("Q") ? kind : null;
+}
+
+function extractPercentAfterGrowth(rawJson) {
+  const raw = parseJson(rawJson, {});
+  const text = String(raw?.officialMetric || raw?.rationale || "");
+  const growthMatch = text.match(/growth[^.;:]*?([0-9]+(?:\.[0-9]+)?)%/i);
+  if (growthMatch) return Number(growthMatch[1]) / 100;
+  const revenueGrowthMatch = text.match(/revenue[^.;:]*?([0-9]+(?:\.[0-9]+)?)%/i);
+  if (revenueGrowthMatch) return Number(revenueGrowthMatch[1]) / 100;
+  return null;
+}
+
+function lsegRevenueGrowth(period, financialPeriods) {
+  const disclosedGrowth = extractPercentAfterGrowth(period.rawJson);
+  if (disclosedGrowth != null) return disclosedGrowth;
+  const kind = lsegPeriodKind(period);
+  const year = finiteNumber(period.fiscalYear);
+  const revenue = finiteNumber(period.revenue);
+  const prior = financialPeriods.find((candidate) =>
+    finiteNumber(candidate.fiscalYear) === year - 1 &&
+    lsegPeriodKind(candidate) === kind &&
+    finiteNumber(candidate.revenue) > 0
+  );
+  if (prior && revenue > 0) return revenue / Number(prior.revenue) - 1;
+  return year >= 2024 ? 0.075 : 0.065;
+}
+
+function lsegFinancialPeriodIsModelReady(period) {
+  const asOfDate = String(period?.asOfDate || "");
+  return Boolean(
+    asOfDate >= "2024-01-01" &&
+    finiteNumber(period?.revenue) > 0 &&
+    finiteNumber(period?.adjustedEbitda) > 0 &&
+    finiteNumber(period?.dilutedShares ?? period?.weightedAverageShares) > 0 &&
+    (
+      finiteNumber(period?.adjustedEps) > 0 ||
+      finiteNumber(period?.adjustedNetIncome) > 0
+    )
+  );
+}
+
+function lsegSupplementMethodOutputs(period, financialPeriods) {
+  const revenue = finiteNumber(period.revenue);
+  const ebitda = finiteNumber(period.adjustedEbitda);
+  const ebit = finiteNumber(period.adjustedOperatingProfit);
+  const netIncome = finiteNumber(period.adjustedNetIncome);
+  const fcf = finiteNumber(period.equityFreeCashFlow);
+  const shares = finiteNumber(period.dilutedShares ?? period.weightedAverageShares);
+  const eps = finiteNumber(period.adjustedEps) ?? (netIncome && shares ? netIncome / shares : null);
+  const netDebt = finiteNumber(period.netDebt) ?? 0;
+  const minorityInterest = finiteNumber(period.minorityInterest) ?? 0;
+  const margin = finiteNumber(period.adjustedEbitdaMargin) ?? (revenue && ebitda ? ebitda / revenue : 0.48);
+  const taxRate = finiteNumber(period.taxRate) ?? 0.24;
+  const growth = lsegRevenueGrowth(period, financialPeriods);
+  const growthPct = growth * 100;
+  const marginPct = margin * 100;
+
+  const peMultiple = clamp(25.5 + (growthPct - 6.5) * 0.35 + (marginPct - 48) * 0.2, 22, 31);
+  const evEbitdaMultiple = clamp(13.8 + (growthPct - 6.5) * 0.09 + (marginPct - 48) * 0.07, 12, 16.2);
+  const fcfYield = clamp(0.044 - (growthPct - 6.5) * 0.00035 - (marginPct - 48) * 0.0001, 0.038, 0.052);
+  const nopat = ebit ? ebit * (1 - taxRate) : null;
+  const fcfValue = fcf && shares
+    ? ((fcf / fcfYield) - netDebt - minorityInterest) / shares
+    : null;
+  const evEbitdaValue = ebitda && shares
+    ? ((ebitda * evEbitdaMultiple) - netDebt - minorityInterest) / shares
+    : null;
+  const peValue = eps ? eps * peMultiple : null;
+  const fcffDcfValue = weightedAverage([
+    { value: fcfValue, weight: 0.55 },
+    { value: evEbitdaValue, weight: 0.3 },
+    { value: nopat && shares ? ((nopat * (1 + growth)) / clamp(0.083 - Math.min(growth, 0.035), 0.045, 0.07) - netDebt - minorityInterest) / shares : null, weight: 0.15 }
+  ]);
+  const sotpValue = evEbitdaValue ? evEbitdaValue * 1.04 : null;
+  const coreValue = weightedAverage([
+    { value: fcffDcfValue, weight: 0.3 },
+    { value: fcfValue, weight: 0.2 },
+    { value: sotpValue, weight: 0.25 },
+    { value: evEbitdaValue, weight: 0.1 },
+    { value: peValue, weight: 0.05 }
+  ]);
+  const overlayValue = coreValue ? coreValue * 1.015 : null;
+  const methodRows = [
+    {
+      key: "fcff-dcf",
+      label: "FCFF DCF",
+      value: fcffDcfValue,
+      weight: 0.3,
+      description: "30% weight. Event-visible revenue, EBITDA, EBIT, tax, FCF, net debt and share count; no market price input.",
+      valuationBase: `${lsegPeriodLabel(period)} financial-period run-rate`,
+      sourceConfidence: period.sourceType === "official_actual" ? "high" : "medium"
+    },
+    {
+      key: "fcf-yield",
+      label: "FCF Yield",
+      value: fcfValue,
+      weight: 0.2,
+      description: `20% weight. Equity FCF capitalized at ${(fcfYield * 100).toFixed(1)}% normalized yield, less net debt/minorities.`,
+      valuationBase: `${lsegPeriodLabel(period)} equity free cash flow`,
+      sourceConfidence: period.sourceType === "official_actual" ? "high" : "medium"
+    },
+    {
+      key: "sotp",
+      label: "SOTP",
+      value: sotpValue,
+      weight: 0.25,
+      description: "25% weight. Information-services platform SOTP cross-check from EBITDA and segment-quality premium.",
+      valuationBase: `${lsegPeriodLabel(period)} run-rate EBITDA`,
+      sourceConfidence: period.sourceType === "official_actual" ? "high" : "medium"
+    },
+    {
+      key: "ev-ebitda",
+      label: "EV/EBITDA",
+      value: evEbitdaValue,
+      weight: 0.1,
+      description: `10% weight. Peer-informed EV/EBITDA cross-check at ${evEbitdaMultiple.toFixed(1)}x.`,
+      valuationBase: `${lsegPeriodLabel(period)} adjusted EBITDA`,
+      sourceConfidence: period.sourceType === "official_actual" ? "high" : "medium"
+    },
+    {
+      key: "p-e",
+      label: "P/E",
+      value: peValue,
+      weight: 0.05,
+      description: `5% weight. Forward adjusted EPS cross-check at ${peMultiple.toFixed(1)}x.`,
+      valuationBase: `${lsegPeriodLabel(period)} adjusted EPS`,
+      sourceConfidence: period.sourceType === "official_actual" ? "high" : "medium"
+    },
+    {
+      key: "platform-moat-risk-overlay",
+      label: "Platform moat / risk overlay",
+      value: overlayValue,
+      weight: 0.1,
+      description: "10% weight. Capped platform-moat overlay on financial-method value; no price anchor.",
+      valuationBase: "Capped quality overlay applied to the selected core valuation base.",
+      sourceConfidence: period.sourceType === "official_actual" ? "high" : "medium"
+    }
+  ].filter((method) => Number.isFinite(method.value));
+
+  return {
+    methods: methodRows,
+    fairValue: weightedAverage(methodRows.map((method) => ({ value: method.value, weight: method.weight }))),
+    assumptions: {
+      revenueGrowth: growth,
+      adjustedEbitdaMargin: margin,
+      peMultiple,
+      evEbitdaMultiple,
+      fcfYield,
+      taxRate
+    }
+  };
+}
+
+function buildLsegSupplementRows(financialPeriods, existingRows) {
+  if (!financialPeriods.length) return [];
+  const existingIds = new Set(existingRows.map((row) => String(row.periodId || "")));
+  const existingLabels = new Set(existingRows.map((row) => String(row.label || "").toUpperCase()));
+  return financialPeriods
+    .filter(lsegFinancialPeriodIsModelReady)
+    .filter((period) => {
+      const label = lsegPeriodLabel(period).toUpperCase();
+      return !existingIds.has(String(period.eventId || period.periodId || period.id || "")) && !existingLabels.has(label);
+    })
+    .map((period) => {
+      const raw = parseJson(period.rawJson, {});
+      const outputs = lsegSupplementMethodOutputs(period, financialPeriods);
+      if (!Number.isFinite(outputs.fairValue)) return null;
+      const growth = outputs.assumptions.revenueGrowth;
+      const targetCagr = clamp(0.07 + (growth - 0.065) * 0.18, 0.055, 0.095);
+      const targetPrice3Y = outputs.fairValue * (1 + targetCagr) ** 3;
+      return {
+        periodId: period.eventId || period.periodId || period.id,
+        runCreatedAt: period.asOfDate,
+        label: lsegPeriodLabel(period),
+        asOfDate: period.asOfDate,
+        fiscalYear: finiteNumber(period.fiscalYear),
+        fiscalQuarter: lsegFiscalQuarter(period),
+        eventType: period.periodType === "annual" ? "annual_results" : "trading_update_run_rate",
+        sourceType: period.sourceType || raw.dataLayer || "financial_period_model",
+        sourceUrl: raw.sourceUrl || null,
+        currentPrice: null,
+        fairValue: outputs.fairValue,
+        upsideDownside: null,
+        targetPrice3Y,
+        expectedReturn3Y: targetCagr,
+        method: "FCFF DCF / FCF Yield / SOTP",
+        methodOutputs: outputs.methods,
+        warnings: [
+          "Supplemented from legacy financial_periods because no Base valuation_run existed for this reporting event."
+        ],
+        priceDate: period.asOfDate,
+        priceAtDate: null,
+        dataSnapshot: {
+          fiscalPeriod: lsegPeriodLabel(period),
+          sourceType: period.sourceType || raw.dataLayer || "financial_period_model",
+          sourceQuality: period.sourceType || raw.dataLayer || null,
+          sourceMaxAsOfDate: period.asOfDate,
+          selectedFinancialPeriod: {
+            periodId: period.periodId || period.id,
+            fiscalYear: finiteNumber(period.fiscalYear),
+            fiscalPeriod: lsegPeriodLabel(period),
+            asOfDate: period.asOfDate,
+            sourceType: period.sourceType || null,
+            sourceUrl: raw.sourceUrl || null,
+            officialMetric: raw.officialMetric || null
+          },
+          financialPeriodCount: 1,
+          segmentFinancialCount: 0,
+          guidanceCandidateCount: raw.officialMetric ? 1 : 0,
+          transcriptCandidateCount: raw.sourceUrl ? 1 : 0,
+          valuationSemantics: {
+            ...(raw.valuationSemantics || {}),
+            priceExcludedFromFairValue: true,
+            fairValueFormula: "LSEG buy-side model: FCFF DCF + FCF yield + SOTP + EV/EBITDA + P/E, using event-visible revenue, EBITDA, FCF, EPS, net debt and share count.",
+            modelFamily: "information-services-platform"
+          },
+          latestAnnualizedRevenue: finiteNumber(period.revenue),
+          latestAnnualizedOperatingIncome: finiteNumber(period.adjustedOperatingProfit),
+          latestAnnualizedFcf: finiteNumber(period.equityFreeCashFlow),
+          latestAnnualizedNetIncome: finiteNumber(period.adjustedNetIncome),
+          dilutedShares: finiteNumber(period.dilutedShares ?? period.weightedAverageShares),
+          asOfAssumptionOverrideKeys: [
+            "revenue",
+            "adjustedEbitda",
+            "adjustedOperatingProfit",
+            "adjustedNetIncome",
+            "adjustedEps",
+            "equityFreeCashFlow",
+            "netDebt",
+            "dilutedShares"
+          ],
+          modelAssumptions: outputs.assumptions,
+          asOfPriceSource: null
+        }
+      };
+    })
+    .filter(Boolean);
 }
 
 function buildHistoryRow(run, event) {
@@ -530,10 +806,15 @@ function buildScenarioFromHistoryRow(row, run, scenario = "Base") {
   };
 }
 
-function updateTickerSnapshot(snapshot, legacyTicker, runs, eventsById) {
-  const rawHistory = runs
+function updateTickerSnapshot(snapshot, legacyTicker, runs, eventsById, financialPeriods = []) {
+  const runHistory = runs
     .map((run) => buildHistoryRow(run, eventsById.get(run.reportingEventId)))
     .filter((row) => row.asOfDate && Number.isFinite(row.fairValue))
+    .sort((left, right) => String(left.asOfDate).localeCompare(String(right.asOfDate)));
+  const supplementHistory = legacyTicker === "lseg"
+    ? buildLsegSupplementRows(financialPeriods, runHistory)
+    : [];
+  const rawHistory = [...runHistory, ...supplementHistory]
     .sort((left, right) => String(left.asOfDate).localeCompare(String(right.asOfDate)));
   const pricedHistory = fillPriceAnchorsFromLocalHistory(rawHistory, snapshot);
   const { history, exclusions } = sanitizeHistoryRows(pricedHistory);
@@ -591,6 +872,8 @@ function updateTickerSnapshot(snapshot, legacyTicker, runs, eventsById) {
       legacyValuationRows: history.length,
       legacyBackendValuationRows: history.length,
       legacyBackendRawValuationRows: rawHistory.length,
+      legacyBackendRunRows: runHistory.length,
+      legacyBackendSupplementRows: supplementHistory.length,
       excludedLegacyBackendRows: exclusions.length,
       excludedLegacyBackendRowDetails: exclusions.slice(0, 12),
       legacyBackendLatestAsOfDate: latestRun.asOfDate,
@@ -738,7 +1021,7 @@ for (const legacyTickerDir of fs.readdirSync(path.join(LEGACY_ROOT, "data/local"
   const existing = currentTickers.get(currentTicker);
   if (!existing) continue;
 
-  const { runs, eventsById } = readLegacyRuns(legacyTicker);
+  const { runs, eventsById, financialPeriods } = readLegacyRuns(legacyTicker);
   if (runs.length < MIN_BASE_RUNS) {
     if (runs.length) skipped.push({ legacyTicker, currentTicker, reason: `only ${runs.length} Base runs` });
     continue;
@@ -754,7 +1037,7 @@ for (const legacyTickerDir of fs.readdirSync(path.join(LEGACY_ROOT, "data/local"
     continue;
   }
 
-  const updated = updateTickerSnapshot(existing, legacyTicker, runs, eventsById);
+  const updated = updateTickerSnapshot(existing, legacyTicker, runs, eventsById, financialPeriods);
   if (!updated) {
     skipped.push({ legacyTicker, currentTicker, reason: "no valid updated snapshot" });
     continue;
