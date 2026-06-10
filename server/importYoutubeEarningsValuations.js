@@ -128,8 +128,24 @@ function amountValues(metrics, names) {
   const wanted = new Set(names);
   return metrics
     .filter((metric) => wanted.has(metric.metric_name))
-    .map((metric) => metric.amount)
+    .map(metricAmountM)
     .filter((value) => finiteNumber(value) != null);
+}
+
+function metricText(metric) {
+  return `${metric?.metric_name || ""} ${metric?.value_text || ""} ${metric?.excerpt || ""}`.toLowerCase();
+}
+
+function metricAmountM(metric) {
+  const amount = finiteNumber(metric?.amount);
+  if (amount == null) return null;
+  const unit = String(metric?.unit || "").toLowerCase();
+  const text = metricText(metric);
+  if (unit.includes("billion") || /\bbillions?\b/.test(text)) return amount * 1_000;
+  if (unit.includes("million") || /\bmillions?\b/.test(text)) return amount;
+  if (unit.includes("thousand") || /\bthousands?\b/.test(text)) return amount / 1_000;
+  if (String(metric?.currency || "").toUpperCase() === "USD" && amount > 0 && amount < 100) return amount * 1_000;
+  return amount;
 }
 
 function metricDigest(metrics) {
@@ -389,9 +405,31 @@ function mergeHistory(existingHistory, youtubeRows, preserveExistingHistory) {
 function sourceGradeFromRows(history) {
   const sourceTypes = new Set(history.map((row) => row.sourceType || row.dataSnapshot?.sourceType).filter(Boolean));
   if (sourceTypes.has("earnings_call_metric_model")) return "youtube-earnings-call-financials-guidance";
+  if (sourceTypes.has("trinity_official_financial_model")) return "ai-trinity-official-financial-model";
+  if (sourceTypes.has("sec_companyfacts_quarterly_model")) return "sec-companyfacts-financials-guidance";
   if (sourceTypes.has("official_actual")) return "event-financials-guidance";
   if (sourceTypes.has("research_only")) return "mixed-official-research";
   return "limited-snapshot";
+}
+
+const ABSOLUTE_FINANCIAL_MODEL_SOURCE_TYPES = new Set([
+  "sec_companyfacts_quarterly_model",
+  "trinity_official_financial_model"
+]);
+
+function rowSourceType(row) {
+  return row?.sourceType || row?.dataSnapshot?.sourceType || row?.dataSnapshot?.valuationSemantics?.sourceType || null;
+}
+
+function absoluteFinancialModelRows(snapshot) {
+  return (snapshot.history || []).filter((row) => ABSOLUTE_FINANCIAL_MODEL_SOURCE_TYPES.has(rowSourceType(row)));
+}
+
+function shouldKeepAbsoluteFinancialModel(snapshot) {
+  const absoluteRows = absoluteFinancialModelRows(snapshot);
+  const secRows = Number(snapshot.dataQuality?.secCompanyFactsQuarterlyRows ?? snapshot.dataQuality?.secCompanyFacts?.secRows ?? 0);
+  const trinityRows = Number(snapshot.dataQuality?.trinityOfficialFinancialValuationRows || 0);
+  return absoluteRows.length >= 4 || secRows >= 4 || trinityRows >= 4;
 }
 
 function countBy(values) {
@@ -555,6 +593,30 @@ function updateTickerSnapshot(snapshot, youtubeRows, coverage) {
     dataQuality: {
       ...next.dataQuality,
       modelInputAudit: auditModelInputs(next, coverage)
+    }
+  };
+}
+
+function attachYoutubeCoverage(snapshot, coverage, youtubeRows = []) {
+  const pricePoints = snapshot.priceHistory?.length || snapshot.dataQuality?.pricePoints || 0;
+  const history = snapshot.history || [];
+  return {
+    ...snapshot,
+    generatedAt: new Date().toISOString(),
+    dataQuality: {
+      ...(snapshot.dataQuality || {}),
+      pricePoints,
+      hasLivePriceSeries: pricePoints >= 120,
+      priceDisplayMode: pricePoints >= 120 ? "daily-price-line" : "as-of-price-anchors",
+      youtubeEarnings: {
+        ...(coverage || {}),
+        metricValuationRowsAvailable: youtubeRows.length,
+        usedAsPrimaryValuationRows: false
+      },
+      youtubeEarningsMetricValuationRows: 0,
+      valuationCoverageKind: snapshot.dataQuality?.valuationCoverageKind || (history.length >= 12 ? "quarterly" : history.length >= 4 ? "partial" : "limited"),
+      hasQuarterlyValuationRuns: snapshot.dataQuality?.hasQuarterlyValuationRuns ?? history.length >= 12,
+      modelInputAudit: snapshot.dataQuality?.modelInputAudit || auditModelInputs(snapshot, coverage)
     }
   };
 }
@@ -743,8 +805,11 @@ try {
     const calls = (callsByTicker.get(ticker) || []).sort((left, right) => String(left.upload_date || "").localeCompare(String(right.upload_date || "")));
     const coverage = buildCoverage(ticker, calls, metricsByPeriod);
     const youtubeRows = buildYoutubeRows({ ...snapshot, ticker }, calls, metricsByPeriod);
+    const keepAbsoluteFinancialModel = youtubeRows.length && shouldKeepAbsoluteFinancialModel(snapshot);
     const next = youtubeRows.length
-      ? updateTickerSnapshot({ ...snapshot, ticker }, youtubeRows, coverage)
+      ? keepAbsoluteFinancialModel
+        ? attachYoutubeCoverage({ ...snapshot, ticker }, coverage, youtubeRows)
+        : updateTickerSnapshot({ ...snapshot, ticker }, youtubeRows, coverage)
       : markUnsupported({ ...snapshot, ticker }, coverage);
 
     currentTickers.set(ticker, next);
@@ -756,8 +821,10 @@ try {
         payload_json = excluded.payload_json
     `).run(ticker, next.generatedAt || new Date().toISOString(), JSON.stringify(next));
 
-    if (youtubeRows.length) {
+    if (youtubeRows.length && !keepAbsoluteFinancialModel) {
       updated.push({ ticker, rows: youtubeRows.length, calls: coverage.calls, metricRows: coverage.metricRows });
+    } else if (youtubeRows.length && keepAbsoluteFinancialModel) {
+      unchanged.push({ ticker, mode: "absolute-financial-model-primary", calls: coverage.calls, metricRows: coverage.metricRows, availableMetricRows: youtubeRows.length });
     } else if (next.dataQuality?.valuationCoverageKind === "unsupported") {
       unsupported.push({ ticker, calls: coverage.calls, metricRows: coverage.metricRows, historyRows: next.history?.length || 0 });
     } else {

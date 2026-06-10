@@ -313,6 +313,41 @@ function fiscalPeriodFromEnd(endDate, fiscalYearEnd) {
   return { fiscalYear, fiscalQuarter: fallbackQuarter };
 }
 
+function dateUtc(dateText) {
+  const [year, month, day] = String(dateText || "").split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return Date.UTC(year, month - 1, day);
+}
+
+function monthEndCandidate(year, month, day) {
+  const monthIndex = month - 1;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return Date.UTC(year, monthIndex, Math.min(day, lastDay));
+}
+
+function expectedFiscalPeriodEndDate(fiscalYear, fiscalQuarter, fiscalYearEnd) {
+  const year = finiteNumber(fiscalYear);
+  const fp = String(fiscalQuarter || "").toUpperCase();
+  if (!year || !fiscalYearEnd?.month || !fiscalYearEnd?.day) return null;
+  const quartersBeforeYearEnd = { Q1: 3, Q2: 2, Q3: 1, Q4: 0, FY: 0 }[fp];
+  if (quartersBeforeYearEnd == null) return null;
+  let month = fiscalYearEnd.month - quartersBeforeYearEnd * 3;
+  let calendarYear = year;
+  while (month <= 0) {
+    month += 12;
+    calendarYear -= 1;
+  }
+  return monthEndCandidate(calendarYear, month, fiscalYearEnd.day);
+}
+
+function reportedPeriodMatchesEndDate(row, fiscalYearEnd, reportedFy, reportedFp) {
+  const rowEnd = dateUtc(row?.end);
+  const expectedEnd = expectedFiscalPeriodEndDate(reportedFy, reportedFp, fiscalYearEnd);
+  if (rowEnd == null || expectedEnd == null) return false;
+  const toleranceDays = reportedFp === "FY" ? 65 : 45;
+  return Math.abs(rowEnd - expectedEnd) / 86_400_000 <= toleranceDays;
+}
+
 function matchesReportedFiscalYear(row, derived) {
   const reportedFy = finiteNumber(row?.fy);
   const fiscalYear = finiteNumber(derived?.fiscalYear);
@@ -320,14 +355,22 @@ function matchesReportedFiscalYear(row, derived) {
   return reportedFy === fiscalYear;
 }
 
-function reportedFiscalPeriod(row, derived) {
+function reportedFiscalPeriod(row, derived, fiscalYearEnd) {
   const reportedFy = finiteNumber(row?.fy);
   const reportedFp = String(row?.fp || "").toUpperCase();
   if (reportedFy != null && ["Q1", "Q2", "Q3", "Q4"].includes(reportedFp)) {
-    return { fiscalYear: reportedFy, fiscalQuarter: reportedFp, source: "reported" };
+    if (reportedPeriodMatchesEndDate(row, fiscalYearEnd, reportedFy, reportedFp)) {
+      return { fiscalYear: reportedFy, fiscalQuarter: reportedFp, source: "reported" };
+    }
+    if (derived) return { ...derived, source: "comparative-derived" };
+    return null;
   }
   if (reportedFy != null && reportedFp === "FY") {
-    return { fiscalYear: reportedFy, fiscalQuarter: "FY", source: "reported" };
+    if (reportedPeriodMatchesEndDate(row, fiscalYearEnd, reportedFy, "FY")) {
+      return { fiscalYear: reportedFy, fiscalQuarter: "FY", source: "reported" };
+    }
+    if (derived) return { ...derived, source: "comparative-derived" };
+    return null;
   }
   if (!derived) return null;
   return { ...derived, source: "derived" };
@@ -344,9 +387,10 @@ function factRowsForMetric(facts, metric, fiscalYearEnd, options = {}) {
       const value = options.valueTransform ? options.valueTransform(row) : rowValueM(row);
       if (value == null || rowDays == null) continue;
       const derived = fiscalPeriodFromEnd(row.end, fiscalYearEnd);
-      const period = reportedFiscalPeriod(row, derived);
+      const period = reportedFiscalPeriod(row, derived, fiscalYearEnd);
       if (!period) continue;
-      if (period.source !== "reported" && !matchesReportedFiscalYear(row, derived)) continue;
+      if (period.source === "comparative-derived") continue;
+      if (period.source === "derived" && !matchesReportedFiscalYear(row, derived)) continue;
       const isAnnual = ["10-K", "20-F", "40-F"].includes(row.form) && rowDays >= 300;
       rows.push({
         ...row,
@@ -477,9 +521,10 @@ function buildPointMetricMap(facts, metric, fiscalYearEnd, options = {}) {
       const value = options.valueTransform ? options.valueTransform(row) : rawValue;
       if (value == null || !row?.filed || !row?.end || !row?.form) continue;
       const derived = fiscalPeriodFromEnd(row.end, fiscalYearEnd);
-      const period = reportedFiscalPeriod(row, derived);
+      const period = reportedFiscalPeriod(row, derived, fiscalYearEnd);
       if (!period || period.fiscalQuarter === "FY") continue;
-      if (period.source !== "reported" && !matchesReportedFiscalYear(row, derived)) continue;
+      if (period.source === "comparative-derived") continue;
+      if (period.source === "derived" && !matchesReportedFiscalYear(row, derived)) continue;
       rows.push({
         ...row,
         metric,
@@ -773,25 +818,28 @@ const PROFILE_SETTINGS = {
     forwardFcfScaleCap: 1.75,
     forwardGrowthCapPct: 75,
     forwardScaleCap: 2.1,
-    peRange: [38, 82],
-    peBase: 44,
-    peGrowthCoefficient: 0.34,
-    peMarginCoefficient: 0.18,
+    normalizedGrowthCapPct: 75,
+    guidanceRevenueMaxScale: 2.2,
+    guidanceOperatingMarginHaircut: 0.86,
+    peRange: [42, 96],
+    peBase: 48,
+    peGrowthCoefficient: 0.42,
+    peMarginCoefficient: 0.22,
     fcfYieldRange: [0.018, 0.045],
-    fcfYieldBase: 0.03,
-    fcfYieldGrowthCoefficient: 0.00028,
-    fcfYieldMarginCoefficient: 0.0002,
-    evSalesRange: [14.0, 58.0],
-    evSalesBase: 23.0,
-    evSalesGrowthCoefficient: 0.24,
-    evSalesGrossMarginCoefficient: 0.075,
-    evSalesFcfMarginCoefficient: 0.075,
-    targetMargin: 0.36,
-    fcfWeight: 0.24,
-    salesWeight: 0.58,
-    earningsWeight: 0.18,
+    fcfYieldBase: 0.028,
+    fcfYieldGrowthCoefficient: 0.0003,
+    fcfYieldMarginCoefficient: 0.00022,
+    evSalesRange: [18.0, 70.0],
+    evSalesBase: 27.0,
+    evSalesGrowthCoefficient: 0.30,
+    evSalesGrossMarginCoefficient: 0.09,
+    evSalesFcfMarginCoefficient: 0.08,
+    targetMargin: 0.42,
+    fcfWeight: 0.22,
+    salesWeight: 0.56,
+    earningsWeight: 0.22,
     defaultGrossMarginPct: 80,
-    optionalityMultiplier: 1.2
+    optionalityMultiplier: 1.15
   },
   semiconductor_growth: {
     label: "AI semiconductor growth",
@@ -1088,13 +1136,13 @@ function profileSettings(ticker) {
   };
 }
 
-function normalizedGrowthPct(row, youtubeEvidence) {
+function normalizedGrowthPct(row, youtubeEvidence, settings = {}) {
   const fundamentalGrowth = finiteNumber(row.normalized_revenue_growth_pct) ?? finiteNumber(row.revenue_growth_pct);
   const candidates = [
     fundamentalGrowth,
     finiteNumber(youtubeEvidence?.revenueGrowth)
   ].filter((value) => value != null && value > -50 && value < 100);
-  return clamp(median(candidates) ?? 5, -20, 45);
+  return clamp(median(candidates) ?? 5, -20, settings.normalizedGrowthCapPct ?? 45);
 }
 
 function normalizedRevenueGrowthForRows(rows, index, windowSize) {
@@ -1160,6 +1208,16 @@ function netCashM(ttm) {
   return cashM - debtM;
 }
 
+function plausibleGuidanceAmount(value, base, minScale, maxScale) {
+  const amount = finiteNumber(value);
+  const baseValue = finiteNumber(base);
+  if (!(amount > 0) || !(baseValue > 0)) return null;
+  const minValue = baseValue * minScale;
+  const maxValue = baseValue * maxScale;
+  if (amount < minValue || amount > maxValue) return null;
+  return amount;
+}
+
 function valuationFreeCashFlow(ttm, settings) {
   const ttmFcf = finiteNumber(ttm.fcf_after_capex_m);
   const ttmCfo = finiteNumber(ttm.cfo_m);
@@ -1218,11 +1276,25 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
   const ttmRevenue = finiteNumber(ttm.revenue_m);
   if (!(sharesM > 0) || !(ttmRevenue > 0)) return null;
 
-  const growthPct = normalizedGrowthPct(row, youtubeEvidence);
-  const forwardScale = forwardScaleFromGrowth(growthPct, settings);
-  const valuationRevenue = ttmRevenue * forwardScale;
+  const growthPct = normalizedGrowthPct(row, youtubeEvidence, settings);
+  const formulaForwardScale = forwardScaleFromGrowth(growthPct, settings);
+  const revenueGuidanceM = plausibleGuidanceAmount(
+    youtubeEvidence?.revenueGuidanceM,
+    ttmRevenue,
+    0.65,
+    settings.guidanceRevenueMaxScale || Math.max(1.5, settings.forwardScaleCap || 2.1)
+  );
+  const valuationRevenue = revenueGuidanceM || ttmRevenue * formulaForwardScale;
+  const forwardScale = valuationRevenue / ttmRevenue;
   const grossMarginPct = finiteNumber(ttm.gross_margin_pct ?? row.gross_margin_pct) ?? finiteNumber(settings.defaultGrossMarginPct);
-  const normalizedMargin = normalizedMarginRatio(ttm, settings);
+  const baseNormalizedMargin = normalizedMarginRatio(ttm, settings);
+  const guidanceOperatingIncomeM = plausibleGuidanceAmount(youtubeEvidence?.operatingIncomeGuidanceM, valuationRevenue, 0.05, 0.85);
+  const guidanceOperatingMargin = guidanceOperatingIncomeM && valuationRevenue
+    ? guidanceOperatingIncomeM / valuationRevenue * (settings.guidanceOperatingMarginHaircut || 0.85)
+    : null;
+  const normalizedMargin = guidanceOperatingMargin
+    ? clamp(Math.max(baseNormalizedMargin, guidanceOperatingMargin), baseNormalizedMargin * 0.85, Math.max(baseNormalizedMargin * 1.55, baseNormalizedMargin + 0.08))
+    : baseNormalizedMargin;
   const taxRate = 0.19;
   const normalizedNetIncome = Math.max(
     finiteNumber(ttm.net_income_m) ?? -Infinity,
@@ -1237,7 +1309,8 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
   const salesValue = Math.max(0, valuationRevenue * evSales + netCash) / sharesM * cycleHaircut;
   const earningsValue = normalizedNetIncome > 0 ? normalizedNetIncome / sharesM * pe * cycleHaircut : null;
   const ttmFcf = finiteNumber(ttm.fcf_after_capex_m);
-  const valuationFcf = ttmFcf && ttmFcf > 0 ? forwardMetric(ttmFcf, Math.min(forwardScale, settings.forwardFcfScaleCap || 1.65)) : null;
+  const fcfGuidanceM = plausibleGuidanceAmount(youtubeEvidence?.fcfGuidanceM, valuationRevenue, 0.03, 0.85);
+  const valuationFcf = fcfGuidanceM || (ttmFcf && ttmFcf > 0 ? forwardMetric(ttmFcf, Math.min(forwardScale, settings.forwardFcfScaleCap || 1.65)) : null);
   const fcfValue = valuationFcf && valuationFcf > 0 ? (valuationFcf / fcfYield) / sharesM * cycleHaircut : null;
   const blended = blendValuationComponents([
     { key: "ev-sales-equity-value", value: salesValue, weight: settings.salesWeight ?? 0.4 },
@@ -1259,7 +1332,7 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
         label: "EV/sales equity value",
         value: salesValue,
         format: "currency",
-        description: `${settings.forwardRevenueYears ? "Forward" : "TTM"} revenue x ${evSales.toFixed(1)}x EV/sales plus ${netCash >= 0 ? "net cash" : "net debt"} bridge, divided by shares.`
+        description: `${revenueGuidanceM ? "FY guidance" : settings.forwardRevenueYears ? "Forward" : "TTM"} revenue x ${evSales.toFixed(1)}x EV/sales plus ${netCash >= 0 ? "net cash" : "net debt"} bridge, divided by shares.`
       },
       {
         key: "normalized-earnings-power",
@@ -1267,7 +1340,7 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
         value: earningsValue,
         format: "currency",
         description: earningsValue
-          ? `${settings.forwardRevenueYears ? "Forward" : "TTM"} revenue x ${(normalizedMargin * 100).toFixed(1)}% normalized margin x after-tax conversion / shares x ${pe.toFixed(1)}x P/E.`
+          ? `${revenueGuidanceM ? "FY guidance" : settings.forwardRevenueYears ? "Forward" : "TTM"} revenue x ${(normalizedMargin * 100).toFixed(1)}% normalized margin x after-tax conversion / shares x ${pe.toFixed(1)}x P/E.`
           : "Normalized earnings were not usable, so the row relies on sales and/or FCF value."
       },
       {
@@ -1276,7 +1349,7 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
         value: fcfValue,
         format: "currency",
         description: fcfValue
-          ? `${settings.forwardRevenueYears ? "Forward-scaled" : "TTM"} FCF per share / ${(fcfYield * 100).toFixed(1)}% target FCF yield.`
+          ? `${fcfGuidanceM ? "FY guidance" : settings.forwardRevenueYears ? "Forward-scaled" : "TTM"} FCF per share / ${(fcfYield * 100).toFixed(1)}% target FCF yield.`
           : "FCF was unavailable or negative."
       },
       {
@@ -1292,11 +1365,16 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
       ttmRevenue,
       valuationRevenue,
       forwardScale,
+      formulaForwardScale,
       forwardRevenueYears: settings.forwardRevenueYears || 0,
+      revenueGuidanceM,
       ttmNetIncome: finiteNumber(ttm.net_income_m),
       normalizedNetIncome,
       ttmFreeCashFlow: ttmFcf,
       valuationFreeCashFlow: valuationFcf,
+      fcfGuidanceM,
+      guidanceOperatingIncomeM,
+      guidanceOperatingMargin: guidanceOperatingMargin != null ? guidanceOperatingMargin * 100 : null,
       revenueGrowth: growthPct,
       grossMargin: grossMarginPct,
       operatingMargin: ttm.operating_margin_pct,
@@ -1379,7 +1457,7 @@ function buildRevenueStageModel({ row, ttm, settings, youtubeEvidence }) {
   const sharesM = finiteNumber(ttm.shares_m);
   const ttmRevenue = finiteNumber(ttm.revenue_m);
   if (!(sharesM > 0) || !(ttmRevenue > 0)) return null;
-  const growthPct = normalizedGrowthPct(row, youtubeEvidence);
+  const growthPct = normalizedGrowthPct(row, youtubeEvidence, settings);
   const forwardScale = forwardScaleFromGrowth(growthPct, settings);
   const valuationRevenue = ttmRevenue * forwardScale;
   const grossMarginPct = finiteNumber(ttm.gross_margin_pct ?? row.gross_margin_pct) ?? finiteNumber(settings.defaultGrossMarginPct);
@@ -1441,7 +1519,7 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
     return buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence });
   }
 
-  const growthPct = normalizedGrowthPct(row, youtubeEvidence);
+  const growthPct = normalizedGrowthPct(row, youtubeEvidence, settings);
   const forwardScale = forwardScaleFromGrowth(growthPct, settings);
   const valuationRevenue = ttmRevenue * forwardScale;
   const normalizedMargin = normalizedMarginRatio(ttm, settings);
@@ -1996,6 +2074,36 @@ function metricValues(metrics, names, field = "growth_yoy") {
     .filter((value) => finiteNumber(value) != null);
 }
 
+function metricText(metric) {
+  return `${metric?.metric_name || ""} ${metric?.value_text || ""} ${metric?.excerpt || ""}`.toLowerCase();
+}
+
+function metricAmountM(metric) {
+  const amount = finiteNumber(metric?.amount);
+  if (amount == null) return null;
+  const unit = String(metric?.unit || "").toLowerCase();
+  const text = metricText(metric);
+  if (unit.includes("billion") || /\bbillions?\b/.test(text)) return amount * 1_000;
+  if (unit.includes("million") || /\bmillions?\b/.test(text)) return amount;
+  if (unit.includes("thousand") || /\bthousands?\b/.test(text)) return amount / 1_000;
+  if (String(metric?.currency || "").toUpperCase() === "USD" && amount > 0 && amount < 100) return amount * 1_000;
+  return amount;
+}
+
+function guidanceAmountM(metrics, includePatterns, excludePatterns = []) {
+  const includes = includePatterns.map((pattern) => pattern instanceof RegExp ? pattern : new RegExp(pattern, "i"));
+  const excludes = excludePatterns.map((pattern) => pattern instanceof RegExp ? pattern : new RegExp(pattern, "i"));
+  const values = metrics
+    .filter((metric) => metric.actual_or_guidance === "guidance")
+    .filter((metric) => {
+      const text = metricText(metric);
+      return includes.some((pattern) => pattern.test(text)) && !excludes.some((pattern) => pattern.test(text));
+    })
+    .map(metricAmountM)
+    .filter((value) => value != null && value > 0);
+  return median(values);
+}
+
 function metricDigest(metrics) {
   const clearMetrics = metrics.filter((metric) => metric.quality_status === "clear");
   const guidanceMetrics = metrics.filter((metric) => metric.actual_or_guidance === "guidance");
@@ -2005,6 +2113,10 @@ function metricDigest(metrics) {
   ]);
   const operatingMargin = median(metricValues(clearMetrics, ["operating_margin", "margin"], "margin_pct"));
   const grossMargin = median(metricValues(clearMetrics, ["gross_margin"], "margin_pct"));
+  const guidanceSourceMetrics = metrics.filter((metric) => ["clear", "ambiguous"].includes(metric.quality_status));
+  const revenueGuidanceM = guidanceAmountM(guidanceSourceMetrics, [/full year.*revenue|revenue guidance|revenue.*guidance/]);
+  const operatingIncomeGuidanceM = guidanceAmountM(guidanceSourceMetrics, [/income from operations|operating income/], [/net income/]);
+  const fcfGuidanceM = guidanceAmountM(guidanceSourceMetrics, [/free cash flow|fcf/]);
   return {
     sourceDatabase: YOUTUBE_DB_PATH,
     metricCount: metrics.length,
@@ -2015,6 +2127,9 @@ function metricDigest(metrics) {
     revenueGrowth,
     operatingMargin,
     grossMargin,
+    revenueGuidanceM,
+    operatingIncomeGuidanceM,
+    fcfGuidanceM,
     evidence: buildEvidence(metrics)
   };
 }
@@ -2052,10 +2167,14 @@ function readYoutubeEvidence(tickers) {
         me.fiscal_period,
         me.actual_or_guidance,
         me.amount,
+        me.unit,
+        me.currency,
         me.growth_yoy,
         me.growth_qoq,
         me.margin_pct,
+        me.value_text,
         me.quality_status,
+        me.extraction_confidence,
         me.evidence_id,
         ev.excerpt,
         ev.url AS evidence_url,
@@ -2229,7 +2348,7 @@ function updateTickerSnapshot({ ticker, snapshot, valuationRows, coverage }) {
       secCompanyFacts: coverage,
       secCompanyFactsQuarterlyRows: coverage?.secRows ?? history.filter((row) => row.sourceType === "sec_companyfacts_quarterly_model").length,
       trinityOfficialFinancialValuationRows: coverage?.trinityFinancialRows || 0,
-      youtubeEarningsMetricValuationRows: snapshot.dataQuality?.youtubeEarningsMetricValuationRows || 0,
+      youtubeEarningsMetricValuationRows: 0,
       valuationCoverageKind: history.length >= 12 ? "quarterly" : history.length >= 4 ? "partial" : history.length ? "limited" : "unsupported",
       hasQuarterlyValuationRuns: history.length >= 12,
       excludedLegacyBackendRows: 0,
