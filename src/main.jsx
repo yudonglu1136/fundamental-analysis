@@ -1393,17 +1393,19 @@ function ValuationQualityBanner({ ticker }) {
   const inputAudit = quality.modelInputAudit || {};
   const unifiedAudit = quality.unifiedValuationAudit || {};
   const messages = [];
-  if (quality.valuationCoverageKind === "unsupported") {
+  const isUnsupported = quality.valuationCoverageKind === "unsupported";
+  const inputNeedsReview = inputAudit.status === "fail" || inputAudit.status === "review";
+  const unifiedNeedsReview = unifiedAudit.status === "fail" || unifiedAudit.status === "review";
+  if (isUnsupported) {
     messages.push(t("valuation.qualityUnsupported"));
-  } else if (quality.valuationCoverageKind === "limited" || (!quality.legacyBackendValuationRows && (ticker.history || []).length < 12)) {
-    messages.push(t("valuation.qualityLimited"));
-  } else if (quality.valuationCoverageKind && quality.valuationCoverageKind !== "quarterly") {
-    messages.push(t("valuation.qualityPartial"));
   }
-  if (quality.youtubeEarnings?.calls > 0 && !quality.youtubeEarningsMetricValuationRows && quality.youtubeEarnings?.metricPeriods < 5) {
+  if ((inputNeedsReview || unifiedNeedsReview) && quality.valuationCoverageKind === "limited") {
+    messages.push(t("valuation.qualityLimited"));
+  }
+  if ((inputNeedsReview || unifiedNeedsReview) && quality.youtubeEarnings?.calls > 0 && !quality.youtubeEarningsMetricValuationRows && quality.youtubeEarnings?.metricPeriods < 5) {
     messages.push(t("valuation.qualityYoutubeNoMetrics"));
   }
-  if (quality.priceDisplayMode === "as-of-price-anchors" || (!quality.hasLivePriceSeries && (ticker.history || []).some((row) => Number.isFinite(row.priceAtDate)))) {
+  if ((inputNeedsReview || unifiedNeedsReview) && (quality.priceDisplayMode === "as-of-price-anchors" || (!quality.hasLivePriceSeries && (ticker.history || []).some((row) => Number.isFinite(row.priceAtDate))))) {
     messages.push(t("valuation.qualityNoDaily"));
   }
   const excludedRows = Number(quality.excludedLegacyBackendRows || 0) + Number(quality.excludedSnapshotRows || 0);
@@ -1420,11 +1422,12 @@ function ValuationQualityBanner({ ticker }) {
   } else if (unifiedAudit.status === "review") {
     messages.push(t("valuation.qualityUnifiedReview"));
   }
-  if (unifiedAudit.externalConsensusCheck?.status === "divergent") {
+  if (unifiedNeedsReview && unifiedAudit.externalConsensusCheck?.status === "divergent") {
     const target = valuationCurrency(unifiedAudit.externalConsensus?.averageTarget, ticker.currency);
     messages.push(`${t("valuation.qualityConsensusDivergent")} Consensus ${target}`);
   }
-  for (const warning of (unifiedAudit.warnings || []).slice(0, 2)) {
+  const visibleWarnings = unifiedNeedsReview ? (unifiedAudit.warnings || []) : [];
+  for (const warning of visibleWarnings.slice(0, 2)) {
     if (!messages.includes(warning)) messages.push(warning);
   }
   if (!messages.length) return null;

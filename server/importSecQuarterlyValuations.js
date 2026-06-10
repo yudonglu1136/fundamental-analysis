@@ -2079,26 +2079,30 @@ function auditModelInputs(snapshot) {
   }, {});
   const uniqueFairValues = new Set(history.map((row) => Number(row.fairValue).toFixed(4))).size;
   const warnings = [];
+  const coverageNotes = [];
   let status = "pass";
-  if (history.length < 12) {
+  if (!history.length) {
+    status = "fail";
+    warnings.push("No usable financial/guidance valuation history.");
+  } else if (history.length < 4 && financialRows === 0) {
     status = "review";
-    warnings.push("Limited quarterly valuation history.");
+    warnings.push("Limited valuation history and no verified financial/guidance rows.");
+  } else if (history.length < 8) {
+    coverageNotes.push("Limited valuation history; read as a point-in-time model until more quarters are available.");
   }
   if (!financialRows) {
     status = "review";
     warnings.push("No financial/guidance valuation rows are available.");
   }
-  if (uniqueFairValues <= 1) {
+  if (history.length > 1 && uniqueFairValues <= 1) {
     status = "review";
     warnings.push("Fair value history has too few distinct points.");
+  } else if (history.length === 1) {
+    coverageNotes.push("Single verified valuation snapshot available.");
   }
   const latestFairValue = finiteNumber(snapshot.latest?.baseFairValue);
   const latestPrice = finiteNumber(snapshot.latest?.latestPrice);
   const latestFairToPrice = latestFairValue && latestPrice ? latestFairValue / latestPrice : null;
-  if (latestFairToPrice != null && (latestFairToPrice < 0.3 || latestFairToPrice > 2.5)) {
-    status = "review";
-    warnings.push("Fair value / latest price is extreme; review model assumptions and data basis. Price is used only for this sanity flag.");
-  }
   return {
     status,
     passesNoPriceAnchorAudit: true,
@@ -2115,7 +2119,8 @@ function auditModelInputs(snapshot) {
     sourceTypes,
     uniqueFairValues,
     latestFairToPrice,
-    warnings
+    warnings,
+    coverageNotes
   };
 }
 

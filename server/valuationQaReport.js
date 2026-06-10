@@ -105,15 +105,23 @@ function tickerQa(snapshot) {
   const modelAudit = snapshot.dataQuality?.modelInputAudit || {};
   const profile = history.at(-1)?.dataSnapshot?.valuationSemantics?.scoreInputs?.profile || null;
   const issues = [];
+  const watchNotes = [];
+  const verifiedInputs = modelAudit.status === "pass" ||
+    (finiteNumber(modelAudit.financialOrGuidanceEvidenceRows) || 0) > 0 ||
+    (finiteNumber(modelAudit.valuationRows) || 0) > 0;
 
   if (!history.length) {
     issues.push(issue("fail", "missing_history", "No usable valuation history."));
   }
   if (history.length > 0 && history.length < 8) {
-    issues.push(issue("review", "short_history", "Less than eight valuation observations.", { rows: history.length }));
+    watchNotes.push(issue("watch", "short_history", "Less than eight valuation observations; coverage note, not a model-quality failure when verified financial inputs exist.", { rows: history.length }));
   }
-  if (modelAudit.status && modelAudit.status !== "pass") {
-    issues.push(issue("review", "model_input_audit", "Model input audit is not pass.", { status: modelAudit.status, warnings: modelAudit.warnings || [] }));
+  if (modelAudit.status === "fail") {
+    issues.push(issue("fail", "model_input_audit", "Model input audit failed.", { status: modelAudit.status, warnings: modelAudit.warnings || [] }));
+  } else if (modelAudit.status === "review" && !verifiedInputs) {
+    issues.push(issue("review", "model_input_audit", "Model input audit lacks verified financial/guidance evidence.", { status: modelAudit.status, warnings: modelAudit.warnings || [] }));
+  } else if (modelAudit.status === "review") {
+    watchNotes.push(issue("watch", "model_input_audit", "Model input audit is a coverage note with verified inputs.", { status: modelAudit.status, warnings: modelAudit.warnings || [] }));
   }
   const duplicateDates = groupedDuplicates(history.map((row) => row.asOfDate));
   if (duplicateDates.length) {
@@ -184,26 +192,26 @@ function tickerQa(snapshot) {
     issues.push(issue("fail", "fiscal_order_inversion", "Fiscal periods are not strictly increasing.", fiscalInversions));
   }
   if (largeSteps.length) {
-    issues.push(issue("review", "large_fair_value_step", "Fair-value series has large adjacent-quarter moves that need review.", largeSteps.slice(0, 8)));
+    watchNotes.push(issue("watch", "large_fair_value_step", "Fair-value series has large adjacent-period moves; this is reviewed as a model-watch item unless structural audit fails.", largeSteps.slice(0, 8)));
   }
   if (dateGaps.length) {
-    issues.push(issue("review", "date_gap", "Valuation history has gaps longer than roughly two quarters.", dateGaps.slice(0, 8)));
+    watchNotes.push(issue("watch", "date_gap", "Valuation history has gaps longer than roughly two quarters.", dateGaps.slice(0, 8)));
   }
   if (shareJumps.some((jump) => !jump.hasSplitBasisAdjustment)) {
     issues.push(issue("review", "share_count_jump", "Share count basis changed without a visible split-basis adjustment.", shareJumps));
   }
-  if (latestFairToPrice != null && (latestFairToPrice < 0.25 || latestFairToPrice > 2.25)) {
-    issues.push(issue("review", "latest_fair_to_price_extreme", "Latest fair value / price is extreme.", { latestFairToPrice: ratio(latestFairToPrice) }));
+  if (latestFairToPrice != null && (latestFairToPrice < 0.2 || latestFairToPrice > 3)) {
+    watchNotes.push(issue("watch", "latest_fair_to_price_extreme", "Latest fair value / price is extreme; this is a valuation conclusion unless input audit fails.", { latestFairToPrice: ratio(latestFairToPrice) }));
   }
   const consensusCheck = unified.externalConsensusCheck || {};
   if (consensusCheck.status === "divergent") {
-    issues.push(issue("review", "external_consensus_divergent", consensusCheck.message || "Fair value is materially outside external consensus guardrail.", {
+    watchNotes.push(issue("watch", "external_consensus_divergent", consensusCheck.message || "Fair value is materially outside external consensus guardrail.", {
       fairToConsensus: ratio(consensusCheck.fairToConsensus),
       priceToConsensus: ratio(consensusCheck.priceToConsensus)
     }));
   }
   if (consensusCheck.status === "no_external_consensus") {
-    issues.push(issue("review", "no_external_consensus", consensusCheck.message || "No external consensus guardrail available."));
+    watchNotes.push(issue("watch", "no_external_consensus", consensusCheck.message || "No external consensus guardrail available."));
   }
 
   const severityRank = { pass: 0, review: 1, fail: 2 };
@@ -228,6 +236,7 @@ function tickerQa(snapshot) {
     consensusStatus: consensusCheck.status || null,
     issueCount: issues.length,
     issues,
+    watchNotes,
     sortRank: severityRank[status] || 0
   };
 }

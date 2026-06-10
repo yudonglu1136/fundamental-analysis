@@ -204,6 +204,28 @@ function buildEvidence(metrics) {
     .slice(0, MAX_EVIDENCE_EXCERPTS);
 }
 
+function periodEvidenceScore(item) {
+  return (item?.digest?.clearMetricCount || 0) * 1000 +
+    (item?.digest?.guidanceMetricCount || 0) * 100 +
+    (item?.digest?.metricCount || 0) +
+    (item?.call?.segment_count || 0) / 1000;
+}
+
+function dedupeUsablePeriods(usablePeriods) {
+  const byPeriod = new Map();
+  for (const item of usablePeriods) {
+    const key = item.period;
+    const previous = byPeriod.get(key);
+    if (!previous || periodEvidenceScore(item) > periodEvidenceScore(previous)) {
+      byPeriod.set(key, item);
+    }
+  }
+  return [...byPeriod.values()].sort((left, right) =>
+    String(left.call.upload_date || "").localeCompare(String(right.call.upload_date || "")) ||
+    String(left.period || "").localeCompare(String(right.period || ""))
+  );
+}
+
 function buildYoutubeRows(snapshot, calls, metricsByPeriod) {
   const latestModelFairValue = finiteNumber(snapshot.latest?.baseFairValue ?? snapshot.scenarios?.find((item) => item.scenario === "Base")?.fairValue);
   if (!(latestModelFairValue > 0)) return [];
@@ -225,13 +247,14 @@ function buildYoutubeRows(snapshot, calls, metricsByPeriod) {
   }
 
   usablePeriods.sort((left, right) => String(left.call.upload_date || "").localeCompare(String(right.call.upload_date || "")));
-  if (usablePeriods.length < MIN_METRIC_PERIODS) return [];
+  const dedupedPeriods = dedupeUsablePeriods(usablePeriods);
+  if (dedupedPeriods.length < MIN_METRIC_PERIODS) return [];
 
-  const latestScore = usablePeriods.at(-1)?.score || median(usablePeriods.map((item) => item.score)) || 1;
+  const latestScore = dedupedPeriods.at(-1)?.score || median(dedupedPeriods.map((item) => item.score)) || 1;
   const latestTarget = finiteNumber(snapshot.latest?.targetPrice3Y);
   const priceHistory = Array.isArray(snapshot.priceHistory) ? snapshot.priceHistory : [];
 
-  return usablePeriods.map((item) => {
+  return dedupedPeriods.map((item) => {
     const asOfDate = item.call.upload_date;
     const pricePoint = pricePointAtOrBefore(priceHistory, asOfDate);
     const priceAtDate = finiteNumber(pricePoint?.close);
@@ -403,23 +426,30 @@ function auditModelInputs(snapshot, youtubeCoverage) {
   const hasYoutubeModel = history.some((row) => row.sourceType === "earnings_call_metric_model");
   const priceAnchorSignals = [];
   const warnings = [];
+  const coverageNotes = [];
   let status = "pass";
 
-  if (history.length < MIN_METRIC_PERIODS && !snapshot.dataQuality?.legacyBackendValuationRows) {
+  if (!history.length) {
+    status = "fail";
+    warnings.push("No usable valuation history after YouTube earnings migration.");
+  } else if (history.length < Math.min(4, MIN_METRIC_PERIODS) && !snapshot.dataQuality?.legacyBackendValuationRows && !financialOrGuidanceEvidenceRows) {
     status = "review";
-    warnings.push("Limited valuation history after YouTube earnings migration.");
+    warnings.push("Limited valuation history and no verified transcript financial/guidance evidence.");
+  } else if (history.length < MIN_METRIC_PERIODS && !snapshot.dataQuality?.legacyBackendValuationRows) {
+    coverageNotes.push("Limited transcript metric history; read as a point-in-time model until more calls are available.");
   }
   if (!financialOrGuidanceEvidenceRows) {
     status = "review";
     warnings.push("No financial/guidance/transcript evidence is available for this ticker.");
   }
-  if (uniqueFairValues <= 1) {
+  if (history.length > 1 && uniqueFairValues <= 1) {
     status = "review";
     warnings.push("Fair value history has too few distinct points.");
+  } else if (history.length === 1) {
+    coverageNotes.push("Single verified valuation snapshot available.");
   }
   if (!hasYoutubeModel && youtubeCoverage?.calls > 0 && !youtubeCoverage?.metricPeriods) {
-    status = status === "fail" ? status : "review";
-    warnings.push("Earnings-call transcripts exist, but no structured metric events were extracted.");
+    coverageNotes.push("Earnings-call transcripts exist, but structured metric events were insufficient for additional valuation rows.");
   }
 
   return {
@@ -435,7 +465,8 @@ function auditModelInputs(snapshot, youtubeCoverage) {
     methodPriceAnchorSignals: priceAnchorSignals,
     sourceTypes,
     uniqueFairValues,
-    warnings
+    warnings,
+    coverageNotes
   };
 }
 

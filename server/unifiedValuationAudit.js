@@ -279,6 +279,44 @@ function consensusStatus({ latestFairValue, latestPrice, consensus }) {
   };
 }
 
+const HIGH_VARIANCE_PROFILES = new Set([
+  "defense_growth",
+  "emerging_biotech",
+  "emerging_health_ai",
+  "energy_technology",
+  "ev_autonomy_platform",
+  "hypergrowth_ai_software",
+  "semiconductor_cyclical",
+  "semiconductor_growth",
+  "software_growth"
+]);
+
+function latestModelProfile(history) {
+  return history
+    .filter((row) => row?.dataSnapshot?.valuationSemantics?.scoreInputs?.profile)
+    .at(-1)?.dataSnapshot?.valuationSemantics?.scoreInputs?.profile || null;
+}
+
+function inputEvidenceRows(inputAudit) {
+  return finiteNumber(inputAudit?.financialOrGuidanceEvidenceRows) ??
+    finiteNumber(inputAudit?.valuationRows) ??
+    0;
+}
+
+function hasVerifiedFinancialInputs(inputAudit, history) {
+  if ((inputAudit?.methodPriceAnchorSignalCount || 0) > 0) return false;
+  if (inputAudit?.status === "fail") return false;
+  if (inputAudit?.status === "pass") return true;
+  return inputEvidenceRows(inputAudit) > 0 && history.length > 0;
+}
+
+function hasCoverageForHardModelRead(snapshot, history, inputAudit) {
+  if (history.length >= 8) return true;
+  if (inputEvidenceRows(inputAudit) >= 4) return true;
+  if (finiteNumber(snapshot.dataQuality?.legacyBackendValuationRows) >= 8) return true;
+  return history.length === 1 && hasVerifiedFinancialInputs(inputAudit, history);
+}
+
 function unifiedAuditForTicker(snapshot, consensus) {
   const history = Array.isArray(snapshot.history) ? snapshot.history : [];
   const latestFairValue = finiteNumber(snapshot.latest?.baseFairValue);
@@ -287,6 +325,12 @@ function unifiedAuditForTicker(snapshot, consensus) {
   const stability = valuationChangeStats(history);
   const external = consensusStatus({ latestFairValue, latestPrice, consensus });
   const warnings = [];
+  const watchNotes = [];
+  const coverageNotes = [];
+  const profile = latestModelProfile(history);
+  const verifiedInputs = hasVerifiedFinancialInputs(inputAudit, history);
+  const adequateCoverage = hasCoverageForHardModelRead(snapshot, history, inputAudit);
+  const highVarianceProfile = HIGH_VARIANCE_PROFILES.has(profile);
   let status = "pass";
 
   const mark = (nextStatus, message) => {
@@ -294,27 +338,57 @@ function unifiedAuditForTicker(snapshot, consensus) {
     if (nextStatus === "fail" || status !== "fail" && nextStatus === "review") status = nextStatus;
   };
 
+  const note = (message) => {
+    if (message) watchNotes.push(message);
+  };
+
+  const coverageNote = (message) => {
+    if (message) coverageNotes.push(message);
+  };
+
   if (!history.length || latestFairValue == null) mark("fail", "Missing usable valuation history or latest fair value.");
   if (inputAudit.status === "fail" || (inputAudit.methodPriceAnchorSignalCount || 0) > 0) mark("fail", "Input audit detected price-anchor risk.");
-  if (history.length < 8) mark("review", "Less than eight valuation observations; do not read as a full model history.");
-  if (stability.uniqueFairValues <= 2) mark("review", "Fair-value history has too few distinct observations.");
-  if (stability.maxAbsFairValueStep != null && stability.maxAbsFairValueStep > 0.85) mark("review", "Fair-value series has a very large step change; check split basis, share count, or one-off financials.");
-  if (stability.fairToPriceStdDev != null && stability.fairToPriceStdDev > 0.75) mark("review", "Fair/price ratio is unusually unstable through time.");
+  if (inputAudit.status === "review" && !verifiedInputs) mark("review", "Model input audit lacks verified financial/guidance evidence.");
+  if (!adequateCoverage) coverageNote("Limited valuation history; read the latest fair value as a point-in-time model, not a full quarterly history.");
+  if (history.length > 1 && stability.uniqueFairValues <= 2 && !verifiedInputs) mark("review", "Fair-value history has too few distinct observations.");
+  if (stability.maxAbsFairValueStep != null && stability.maxAbsFairValueStep > 0.85) {
+    const message = "Fair-value series has a very large step change; check split basis, share count, or one-off financials.";
+    if (!verifiedInputs || (!highVarianceProfile && stability.medianAbsFairValueStep != null && stability.medianAbsFairValueStep > 0.35)) {
+      mark("review", message);
+    } else {
+      note(message);
+    }
+  }
+  if (stability.fairToPriceStdDev != null && stability.fairToPriceStdDev > 0.75) {
+    const message = "Fair/price ratio is unusually unstable through time.";
+    if (!verifiedInputs && !highVarianceProfile) mark("review", message);
+    else note(message);
+  }
   const fairToPrice = safeRatio(latestFairValue, latestPrice);
-  if (fairToPrice != null && (fairToPrice < 0.25 || fairToPrice > 2.25)) mark("review", "Latest fair value / price is extreme; this should be manually reviewed.");
-  if (external.status === "divergent") mark("review", external.message);
-  if (external.status === "no_external_consensus") mark("review", external.message);
+  if (fairToPrice != null && (fairToPrice < 0.2 || fairToPrice > 3)) {
+    const message = "Latest fair value / price is extreme; this is a valuation conclusion unless input coverage or price-anchor audit also fails.";
+    if (!verifiedInputs) mark("review", message);
+    else note(message);
+  }
+  if (external.status === "divergent" || external.status === "watch" || external.status === "no_external_consensus") {
+    note(external.message);
+  }
 
   return {
     status,
     generatedAt: new Date().toISOString(),
-    framework: "Unified valuation sanity loop v1",
-    policy: "Fair value remains generated from company financials/guidance/scenario assumptions. External analyst consensus is used only as a guardrail and never as a direct model input.",
+    framework: "Unified valuation sanity loop v2",
+    policy: "Fair value remains generated from company financials/guidance/scenario assumptions. Market price and external analyst consensus are comparison guardrails only; they are not model inputs and do not create data-quality failures by themselves.",
     latestFairToPrice: fairToPrice,
+    profile,
+    verifiedInputs,
+    adequateCoverage,
     stability,
     externalConsensus: consensus || null,
     externalConsensusCheck: external,
-    warnings
+    warnings,
+    watchNotes,
+    coverageNotes
   };
 }
 
