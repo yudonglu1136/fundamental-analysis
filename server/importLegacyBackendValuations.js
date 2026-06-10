@@ -202,6 +202,8 @@ function periodPriority(row) {
   let score = 0;
   if (/q[1-4]/.test(id) || /q[1-4]/.test(label)) score += 30;
   if (/fy\d{2,4}/.test(id) || /fy\d{2,4}/.test(label)) score += 10;
+  if (id.includes("annual-report") || label.includes("annual report")) score += 4;
+  if (id.includes("preliminary") || label.includes("preliminary")) score -= 3;
   if (id.startsWith("period-")) score -= 8;
   if (label.includes("market snapshot") || id.includes("market-snapshot")) score -= 20;
   if (/(q[1-4]|fy\d{2,4})e\b/.test(text) || /estimate|estimated|consensus|forecast/.test(text)) score -= 8;
@@ -221,6 +223,12 @@ function chooseRepresentativeRow(rows) {
     periodPriority(right) - periodPriority(left) ||
     String(right.runCreatedAt || "").localeCompare(String(left.runCreatedAt || ""))
   )[0];
+}
+
+function periodIdentity(row) {
+  const label = String(row.label || "").trim().toUpperCase().replace(/\s+/g, " ");
+  if (!label) return null;
+  return label;
 }
 
 function sanitizeHistoryRows(rows) {
@@ -249,10 +257,10 @@ function sanitizeHistoryRows(rows) {
     byDate.set(key, [...(byDate.get(key) || []), row]);
   }
 
-  const deduped = [];
+  const dateDeduped = [];
   for (const [asOfDate, dateRows] of byDate) {
     const chosen = chooseRepresentativeRow(dateRows);
-    deduped.push(chosen);
+    dateDeduped.push(chosen);
     for (const row of dateRows) {
       if (row !== chosen) {
         exclusions.push({
@@ -262,6 +270,34 @@ function sanitizeHistoryRows(rows) {
           fairValue: row.fairValue,
           priceAtDate: row.priceAtDate,
           reason: `same-date duplicate; kept ${chosen.periodId || chosen.label || asOfDate}`
+        });
+      }
+    }
+  }
+
+  const byPeriod = new Map();
+  for (const row of dateDeduped) {
+    const key = periodIdentity(row);
+    if (!key) {
+      byPeriod.set(`date:${row.asOfDate}:${row.periodId}`, [row]);
+      continue;
+    }
+    byPeriod.set(key, [...(byPeriod.get(key) || []), row]);
+  }
+
+  const deduped = [];
+  for (const [period, periodRows] of byPeriod) {
+    const chosen = chooseRepresentativeRow(periodRows);
+    deduped.push(chosen);
+    for (const row of periodRows) {
+      if (row !== chosen) {
+        exclusions.push({
+          periodId: row.periodId,
+          asOfDate: row.asOfDate,
+          label: row.label,
+          fairValue: row.fairValue,
+          priceAtDate: row.priceAtDate,
+          reason: `same-period duplicate ${period}; kept ${chosen.periodId || chosen.label || chosen.asOfDate}`
         });
       }
     }

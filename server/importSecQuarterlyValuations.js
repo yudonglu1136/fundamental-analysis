@@ -118,7 +118,7 @@ const VALUATION_PROFILES = {
   DDOG: "software_growth",
   EQT: "energy_e_and_p",
   GILD: "biopharma",
-  GOOGL: "mega_cap_platform",
+  GOOGL: "ads_ai_platform",
   ISRG: "medtech_platform",
   JPM: "bank",
   KTOS: "defense_growth",
@@ -695,6 +695,18 @@ const PROFILE_SETTINGS = {
     targetMargin: 0.29,
     fcfWeight: 0.42
   },
+  ads_ai_platform: {
+    label: "Search / ads AI platform",
+    method: "Owner earnings + normalized platform EPS",
+    normalizedGrowthWindow: 8,
+    peRange: [22, 38],
+    peBase: 25,
+    fcfYieldRange: [0.032, 0.055],
+    fcfYieldBase: 0.041,
+    targetMargin: 0.31,
+    fcfWeight: 0.26,
+    maintenanceCapexIntensityPct: 0.14
+  },
   platform_reinvestment: {
     label: "Platform reinvestment",
     method: "Normalized earnings power + FCF yield",
@@ -1129,6 +1141,34 @@ function netCashM(ttm) {
   return cashM - debtM;
 }
 
+function valuationFreeCashFlow(ttm, settings) {
+  const ttmFcf = finiteNumber(ttm.fcf_after_capex_m);
+  const ttmCfo = finiteNumber(ttm.cfo_m);
+  const ttmRevenue = finiteNumber(ttm.revenue_m);
+  const ttmCapex = finiteNumber(ttm.capex_m);
+  const maintenanceIntensity = finiteNumber(settings.maintenanceCapexIntensityPct);
+  if (!(maintenanceIntensity > 0) || !(ttmCfo > 0) || !(ttmRevenue > 0) || !(ttmCapex > 0)) {
+    return {
+      reportedFcf: ttmFcf,
+      normalizedFcf: ttmFcf,
+      maintenanceCapexM: null,
+      growthCapexM: null,
+      capexIntensityPct: margin(ttmCapex, ttmRevenue),
+      usesOwnerEarnings: false
+    };
+  }
+  const maintenanceCapexM = ttmRevenue * maintenanceIntensity;
+  const normalizedFcf = ttmCfo - Math.min(ttmCapex, maintenanceCapexM);
+  return {
+    reportedFcf: ttmFcf,
+    normalizedFcf,
+    maintenanceCapexM,
+    growthCapexM: Math.max(0, ttmCapex - maintenanceCapexM),
+    capexIntensityPct: margin(ttmCapex, ttmRevenue),
+    usesOwnerEarnings: ttmCapex > maintenanceCapexM * 1.15 && normalizedFcf > (ttmFcf || 0)
+  };
+}
+
 function blendValuationComponents(components) {
   const valid = components.filter((component) => component && finiteNumber(component.value) != null && component.value > 0 && component.weight > 0);
   const totalWeight = valid.reduce((sum, component) => sum + component.weight, 0);
@@ -1396,8 +1436,10 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
   const fcfYield = adjustedFcfYield(settings, growthPct, ttm.fcf_margin_pct);
   const cycleHaircut = settings.cycleHaircut || 1;
   const earningsValue = normalizedNetIncome / sharesM * pe * cycleHaircut;
-  const ttmFcf = finiteNumber(ttm.fcf_after_capex_m);
-  const valuationFcf = ttmFcf && ttmFcf > 0 ? forwardMetric(ttmFcf, Math.min(forwardScale, settings.forwardFcfScaleCap || 1.65)) : null;
+  const fcf = valuationFreeCashFlow(ttm, settings);
+  const ttmFcf = fcf.reportedFcf;
+  const fcfBase = fcf.usesOwnerEarnings ? fcf.normalizedFcf : ttmFcf;
+  const valuationFcf = fcfBase && fcfBase > 0 ? forwardMetric(fcfBase, Math.min(forwardScale, settings.forwardFcfScaleCap || 1.65)) : null;
   const fcfValue = valuationFcf && valuationFcf > 0 ? (valuationFcf / fcfYield) / sharesM * cycleHaircut : null;
   const fcfWeight = fcfValue ? (settings.fcfWeight ?? 0.35) : 0;
   const optionalityMultiplier = settings.optionalityMultiplier || 1;
@@ -1418,13 +1460,20 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
       },
       {
         key: "ttm-fcf-yield",
-        label: "TTM FCF yield value",
+        label: fcf.usesOwnerEarnings ? "Owner earnings FCF value" : "TTM FCF yield value",
         value: fcfValue,
         format: "currency",
         description: fcfValue
-          ? `${settings.forwardRevenueYears ? "Forward-scaled" : "TTM"} FCF per share / ${(fcfYield * 100).toFixed(1)}% target FCF yield.`
+          ? `${settings.forwardRevenueYears ? "Forward-scaled" : "TTM"} ${fcf.usesOwnerEarnings ? "owner earnings FCF" : "FCF"} per share / ${(fcfYield * 100).toFixed(1)}% target FCF yield.`
           : "FCF was unavailable or negative, so earnings power carries the row."
       },
+      ...(fcf.usesOwnerEarnings ? [{
+        key: "growth-capex-normalization",
+        label: "Growth capex normalization",
+        value: fcf.growthCapexM,
+        format: "number",
+        description: `Reported capex intensity ${formatPct(fcf.capexIntensityPct)}; model treats ${(settings.maintenanceCapexIntensityPct * 100).toFixed(1)}% of revenue as maintenance capex and the excess as AI/growth reinvestment.`
+      }] : []),
       {
         key: "growth-margin-inputs",
         label: "Growth / margin input",
@@ -1450,6 +1499,10 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
       normalizedNetIncome,
       ttmFreeCashFlow: ttmFcf,
       valuationFreeCashFlow: valuationFcf,
+      normalizedFreeCashFlow: fcf.normalizedFcf,
+      maintenanceCapexM: fcf.maintenanceCapexM,
+      growthCapexM: fcf.growthCapexM,
+      capexIntensity: fcf.capexIntensityPct,
       revenueGrowth: growthPct,
       operatingMargin: ttm.operating_margin_pct,
       normalizedMargin: normalizedMargin * 100,

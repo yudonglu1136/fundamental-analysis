@@ -1,0 +1,1917 @@
+{
+  "generatedAt": "2026-06-10T05:42:07.057Z",
+  "dbPath": "/Users/yudonglu/Documents/fundamental-analysis/server/data/guru-analysis.sqlite",
+  "summary": {
+    "tickerCount": 45,
+    "passCount": 15,
+    "reviewCount": 30,
+    "failCount": 0
+  },
+  "tickers": [
+    {
+      "ticker": "AAPL",
+      "name": "Apple Inc.",
+      "profile": "mega_cap_platform",
+      "status": "review",
+      "rowCount": 27,
+      "first": "FY2019 Q2",
+      "last": "FY2026 Q2",
+      "latestFairValue": 216.97,
+      "latestPrice": 301.54,
+      "latestFairToPrice": 0.72,
+      "unifiedStatus": "pass",
+      "consensusStatus": "watch",
+      "issueCount": 2,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2019 Q3",
+              "to": "FY2019 Q4",
+              "fromDate": "2019-07-31",
+              "toDate": "2019-10-31",
+              "stepPct": 36.1,
+              "previousFairValue": 62.02,
+              "currentFairValue": 84.42
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "date_gap",
+          "message": "Valuation history has gaps longer than roughly two quarters.",
+          "evidence": [
+            {
+              "from": "FY2023 Q3",
+              "to": "FY2024 Q1",
+              "days": 273
+            }
+          ]
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "ASML",
+      "name": "ASML Holding N.V.",
+      "profile": "semiconductor_equipment",
+      "status": "review",
+      "rowCount": 1,
+      "first": "FY2026 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 717.09,
+      "latestPrice": 1749.04,
+      "latestFairToPrice": 0.41,
+      "unifiedStatus": "review",
+      "consensusStatus": "divergent",
+      "issueCount": 3,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "short_history",
+          "message": "Less than eight valuation observations.",
+          "evidence": {
+            "rows": 1
+          }
+        },
+        {
+          "severity": "review",
+          "code": "model_input_audit",
+          "message": "Model input audit is not pass.",
+          "evidence": {
+            "status": "review",
+            "warnings": [
+              "Limited quarterly valuation history.",
+              "Fair value history has too few distinct points."
+            ]
+          }
+        },
+        {
+          "severity": "review",
+          "code": "external_consensus_divergent",
+          "message": "Base fair value is materially outside current Wall Street 12-month target guardrails.",
+          "evidence": {
+            "fairToConsensus": 0.387,
+            "priceToConsensus": 0.943
+          }
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "AUTL",
+      "name": "Autolus Therapeutics",
+      "profile": "emerging_biotech",
+      "status": "review",
+      "rowCount": 10,
+      "first": "FY2019 Q2",
+      "last": "FY2026 Q1",
+      "latestFairValue": 1.7,
+      "latestPrice": 1.46,
+      "latestFairToPrice": 1.166,
+      "unifiedStatus": "review",
+      "consensusStatus": "divergent",
+      "issueCount": 4,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "model_input_audit",
+          "message": "Model input audit is not pass.",
+          "evidence": {
+            "status": "review",
+            "warnings": [
+              "Limited quarterly valuation history."
+            ]
+          }
+        },
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2025 Q1",
+              "to": "FY2025 Q2",
+              "fromDate": "2025-05-08",
+              "toDate": "2025-08-12",
+              "stepPct": 88,
+              "previousFairValue": 0.83,
+              "currentFairValue": 1.56
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "date_gap",
+          "message": "Valuation history has gaps longer than roughly two quarters.",
+          "evidence": [
+            {
+              "from": "FY2020 Q2",
+              "to": "FY2021 Q1",
+              "days": 273
+            },
+            {
+              "from": "FY2021 Q1",
+              "to": "FY2025 Q1",
+              "days": 1463
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "external_consensus_divergent",
+          "message": "Base fair value is materially outside current Wall Street 12-month target guardrails.",
+          "evidence": {
+            "fairToConsensus": 0.211,
+            "priceToConsensus": 0.181
+          }
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "AVAV",
+      "name": "AeroVironment, Inc.",
+      "profile": "defense_growth",
+      "status": "review",
+      "rowCount": 5,
+      "first": "FY2020 Q1",
+      "last": "FY2021 Q3",
+      "latestFairValue": 98.88,
+      "latestPrice": 184.68,
+      "latestFairToPrice": 0.535,
+      "unifiedStatus": "review",
+      "consensusStatus": "divergent",
+      "issueCount": 4,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "short_history",
+          "message": "Less than eight valuation observations.",
+          "evidence": {
+            "rows": 5
+          }
+        },
+        {
+          "severity": "review",
+          "code": "model_input_audit",
+          "message": "Model input audit is not pass.",
+          "evidence": {
+            "status": "review",
+            "warnings": [
+              "Limited quarterly valuation history."
+            ]
+          }
+        },
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2020 Q2",
+              "to": "FY2020 Q3",
+              "fromDate": "2019-12-04",
+              "toDate": "2020-03-04",
+              "stepPct": -58.2,
+              "previousFairValue": 70.14,
+              "currentFairValue": 29.34
+            },
+            {
+              "from": "FY2020 Q3",
+              "to": "FY2021 Q2",
+              "fromDate": "2020-03-04",
+              "toDate": "2020-09-10",
+              "stepPct": 156.7,
+              "previousFairValue": 29.34,
+              "currentFairValue": 75.32
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "external_consensus_divergent",
+          "message": "Base fair value is materially outside current Wall Street 12-month target guardrails.",
+          "evidence": {
+            "fairToConsensus": 0.327,
+            "priceToConsensus": 0.611
+          }
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "AZN",
+      "name": "AstraZeneca",
+      "profile": null,
+      "status": "review",
+      "rowCount": 32,
+      "first": "Q2 2018",
+      "last": "Q1 2026",
+      "latestFairValue": 92.49,
+      "latestPrice": 181.55,
+      "latestFairToPrice": 0.509,
+      "unifiedStatus": "review",
+      "consensusStatus": "no_external_consensus",
+      "issueCount": 1,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "no_external_consensus",
+          "message": "No 12-month forecast block found",
+          "evidence": null
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "BA.L",
+      "name": "BAE Systems plc",
+      "profile": null,
+      "status": "review",
+      "rowCount": 19,
+      "first": "FY2018",
+      "last": "Q1 2026 trading update",
+      "latestFairValue": 17.19,
+      "latestPrice": 19.62,
+      "latestFairToPrice": 0.876,
+      "unifiedStatus": "review",
+      "consensusStatus": "no_external_consensus",
+      "issueCount": 1,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "no_external_consensus",
+          "message": "No 12-month forecast block found",
+          "evidence": null
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "BE",
+      "name": "Bloom Energy Corporation",
+      "profile": "energy_technology",
+      "status": "review",
+      "rowCount": 4,
+      "first": "FY2025 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 6.86,
+      "latestPrice": 253.57,
+      "latestFairToPrice": 0.027,
+      "unifiedStatus": "review",
+      "consensusStatus": "divergent",
+      "issueCount": 5,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "short_history",
+          "message": "Less than eight valuation observations.",
+          "evidence": {
+            "rows": 4
+          }
+        },
+        {
+          "severity": "review",
+          "code": "model_input_audit",
+          "message": "Model input audit is not pass.",
+          "evidence": {
+            "status": "review",
+            "warnings": [
+              "Limited quarterly valuation history.",
+              "Fair value / latest price is extreme; review model assumptions and data basis. Price is used only for this sanity flag."
+            ]
+          }
+        },
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2025 Q3",
+              "to": "FY2026 Q1",
+              "fromDate": "2025-10-28",
+              "toDate": "2026-04-29",
+              "stepPct": -58.5,
+              "previousFairValue": 16.56,
+              "currentFairValue": 6.86
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "latest_fair_to_price_extreme",
+          "message": "Latest fair value / price is extreme.",
+          "evidence": {
+            "latestFairToPrice": 0.027
+          }
+        },
+        {
+          "severity": "review",
+          "code": "external_consensus_divergent",
+          "message": "Base fair value is materially outside current Wall Street 12-month target guardrails.",
+          "evidence": {
+            "fairToConsensus": 0.026,
+            "priceToConsensus": 0.951
+          }
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "BMY",
+      "name": "Bristol Myers Squibb",
+      "profile": "biopharma",
+      "status": "review",
+      "rowCount": 19,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 82.8,
+      "latestPrice": 55.57,
+      "latestFairToPrice": 1.49,
+      "unifiedStatus": "pass",
+      "consensusStatus": "aligned",
+      "issueCount": 2,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2019 Q4",
+              "to": "FY2020 Q1",
+              "fromDate": "2020-02-24",
+              "toDate": "2020-05-07",
+              "stepPct": 68.7,
+              "previousFairValue": 43.34,
+              "currentFairValue": 73.1
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "date_gap",
+          "message": "Valuation history has gaps longer than roughly two quarters.",
+          "evidence": [
+            {
+              "from": "FY2020 Q1",
+              "to": "FY2021 Q4",
+              "days": 643
+            },
+            {
+              "from": "FY2023 Q4",
+              "to": "FY2025 Q1",
+              "days": 436
+            }
+          ]
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "CB",
+      "name": "Chubb Limited",
+      "profile": "insurance",
+      "status": "review",
+      "rowCount": 29,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 349.81,
+      "latestPrice": 321.88,
+      "latestFairToPrice": 1.087,
+      "unifiedStatus": "pass",
+      "consensusStatus": "aligned",
+      "issueCount": 1,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2021 Q1",
+              "to": "FY2021 Q2",
+              "fromDate": "2021-04-30",
+              "toDate": "2021-07-29",
+              "stepPct": 61.4,
+              "previousFairValue": 134.79,
+              "currentFairValue": 217.61
+            }
+          ]
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "CEG",
+      "name": "Constellation Energy Corporation",
+      "profile": "power_utility",
+      "status": "review",
+      "rowCount": 13,
+      "first": "FY2022 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 194.87,
+      "latestPrice": 250.67,
+      "latestFairToPrice": 0.777,
+      "unifiedStatus": "review",
+      "consensusStatus": "divergent",
+      "issueCount": 3,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2024 Q3",
+              "to": "FY2024 Q4",
+              "fromDate": "2024-11-04",
+              "toDate": "2025-02-18",
+              "stepPct": 73.5,
+              "previousFairValue": 127.52,
+              "currentFairValue": 221.2
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "date_gap",
+          "message": "Valuation history has gaps longer than roughly two quarters.",
+          "evidence": [
+            {
+              "from": "FY2022 Q1",
+              "to": "FY2023 Q2",
+              "days": 448
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "external_consensus_divergent",
+          "message": "Base fair value is materially outside current Wall Street 12-month target guardrails.",
+          "evidence": {
+            "fairToConsensus": 0.515,
+            "priceToConsensus": 0.663
+          }
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "COST",
+      "name": "Costco Wholesale Corporation",
+      "profile": "quality_consumer",
+      "status": "review",
+      "rowCount": 28,
+      "first": "FY2019 Q3",
+      "last": "FY2026 Q3",
+      "latestFairValue": 714.69,
+      "latestPrice": 974.75,
+      "latestFairToPrice": 0.733,
+      "unifiedStatus": "pass",
+      "consensusStatus": "watch",
+      "issueCount": 2,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2021 Q3",
+              "to": "FY2021 Q4",
+              "fromDate": "2021-06-03",
+              "toDate": "2021-10-06",
+              "stepPct": 59.7,
+              "previousFairValue": 474.8,
+              "currentFairValue": 758.46
+            },
+            {
+              "from": "FY2021 Q4",
+              "to": "FY2022 Q1",
+              "fromDate": "2021-10-06",
+              "toDate": "2021-12-22",
+              "stepPct": -26.1,
+              "previousFairValue": 758.46,
+              "currentFairValue": 560.17
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "date_gap",
+          "message": "Valuation history has gaps longer than roughly two quarters.",
+          "evidence": [
+            {
+              "from": "FY2023 Q3",
+              "to": "FY2024 Q1",
+              "days": 202
+            }
+          ]
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "DDOG",
+      "name": "Datadog, Inc.",
+      "profile": "software_growth",
+      "status": "review",
+      "rowCount": 14,
+      "first": "FY2020 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 167.29,
+      "latestPrice": 231.68,
+      "latestFairToPrice": 0.722,
+      "unifiedStatus": "review",
+      "consensusStatus": "aligned",
+      "issueCount": 2,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2020 Q2",
+              "to": "FY2022 Q1",
+              "fromDate": "2020-08-07",
+              "toDate": "2022-05-06",
+              "stepPct": 362,
+              "previousFairValue": 14.91,
+              "currentFairValue": 68.88
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "date_gap",
+          "message": "Valuation history has gaps longer than roughly two quarters.",
+          "evidence": [
+            {
+              "from": "FY2020 Q2",
+              "to": "FY2022 Q1",
+              "days": 637
+            },
+            {
+              "from": "FY2022 Q2",
+              "to": "FY2023 Q4",
+              "days": 564
+            }
+          ]
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "DGE.L",
+      "name": "Diageo plc",
+      "profile": null,
+      "status": "review",
+      "rowCount": 18,
+      "first": "FY 2018",
+      "last": "Q3 FY 2026",
+      "latestFairValue": 13.37,
+      "latestPrice": 15.16,
+      "latestFairToPrice": 0.881,
+      "unifiedStatus": "review",
+      "consensusStatus": "no_external_consensus",
+      "issueCount": 1,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "no_external_consensus",
+          "message": "No 12-month forecast block found",
+          "evidence": null
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "EQT",
+      "name": "EQT Corporation",
+      "profile": "energy_e_and_p",
+      "status": "review",
+      "rowCount": 15,
+      "first": "FY2022 Q3",
+      "last": "FY2026 Q1",
+      "latestFairValue": 59.58,
+      "latestPrice": 52.98,
+      "latestFairToPrice": 1.125,
+      "unifiedStatus": "pass",
+      "consensusStatus": "aligned",
+      "issueCount": 1,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2022 Q4",
+              "to": "FY2023 Q1",
+              "fromDate": "2023-02-16",
+              "toDate": "2023-04-27",
+              "stepPct": 56.6,
+              "previousFairValue": 40.04,
+              "currentFairValue": 62.7
+            },
+            {
+              "from": "FY2023 Q3",
+              "to": "FY2023 Q4",
+              "fromDate": "2023-10-26",
+              "toDate": "2024-02-14",
+              "stepPct": -56.7,
+              "previousFairValue": 54.74,
+              "currentFairValue": 23.73
+            },
+            {
+              "from": "FY2023 Q4",
+              "to": "FY2024 Q1",
+              "fromDate": "2024-02-14",
+              "toDate": "2024-04-24",
+              "stepPct": -58.2,
+              "previousFairValue": 23.73,
+              "currentFairValue": 9.92
+            },
+            {
+              "from": "FY2024 Q4",
+              "to": "FY2025 Q1",
+              "fromDate": "2025-02-19",
+              "toDate": "2025-04-23",
+              "stepPct": 67.4,
+              "previousFairValue": 9.96,
+              "currentFairValue": 16.67
+            },
+            {
+              "from": "FY2025 Q1",
+              "to": "FY2025 Q2",
+              "fromDate": "2025-04-23",
+              "toDate": "2025-07-23",
+              "stepPct": 59.7,
+              "previousFairValue": 16.67,
+              "currentFairValue": 26.62
+            }
+          ]
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "KTOS",
+      "name": "Kratos Defense & Security Solutions, Inc.",
+      "profile": "defense_growth",
+      "status": "review",
+      "rowCount": 8,
+      "first": "FY2019 Q3",
+      "last": "FY2026 Q1",
+      "latestFairValue": 34.96,
+      "latestPrice": 57.73,
+      "latestFairToPrice": 0.606,
+      "unifiedStatus": "review",
+      "consensusStatus": "divergent",
+      "issueCount": 4,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "model_input_audit",
+          "message": "Model input audit is not pass.",
+          "evidence": {
+            "status": "review",
+            "warnings": [
+              "Limited quarterly valuation history."
+            ]
+          }
+        },
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2019 Q3",
+              "to": "FY2020 Q4",
+              "fromDate": "2019-11-05",
+              "toDate": "2021-02-25",
+              "stepPct": -43,
+              "previousFairValue": 25.51,
+              "currentFairValue": 14.54
+            },
+            {
+              "from": "FY2021 Q2",
+              "to": "FY2021 Q3",
+              "fromDate": "2021-08-03",
+              "toDate": "2021-11-03",
+              "stepPct": -42,
+              "previousFairValue": 25.1,
+              "currentFairValue": 14.55
+            },
+            {
+              "from": "FY2025 Q4",
+              "to": "FY2026 Q1",
+              "fromDate": "2026-02-23",
+              "toDate": "2026-05-06",
+              "stepPct": 154.2,
+              "previousFairValue": 13.75,
+              "currentFairValue": 34.96
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "date_gap",
+          "message": "Valuation history has gaps longer than roughly two quarters.",
+          "evidence": [
+            {
+              "from": "FY2019 Q3",
+              "to": "FY2020 Q4",
+              "days": 478
+            },
+            {
+              "from": "FY2021 Q3",
+              "to": "FY2024 Q3",
+              "days": 1100
+            },
+            {
+              "from": "FY2024 Q3",
+              "to": "FY2025 Q4",
+              "days": 473
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "external_consensus_divergent",
+          "message": "Base fair value is materially outside current Wall Street 12-month target guardrails.",
+          "evidence": {
+            "fairToConsensus": 0.357,
+            "priceToConsensus": 0.59
+          }
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "LEGN",
+      "name": "Legend Biotech",
+      "profile": "emerging_biotech",
+      "status": "review",
+      "rowCount": 4,
+      "first": "FY2024 Q4",
+      "last": "FY2025 Q3",
+      "latestFairValue": 12.97,
+      "latestPrice": 31.52,
+      "latestFairToPrice": 0.411,
+      "unifiedStatus": "review",
+      "consensusStatus": "divergent",
+      "issueCount": 3,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "short_history",
+          "message": "Less than eight valuation observations.",
+          "evidence": {
+            "rows": 4
+          }
+        },
+        {
+          "severity": "review",
+          "code": "model_input_audit",
+          "message": "Model input audit is not pass.",
+          "evidence": {
+            "status": "review",
+            "warnings": [
+              "Limited quarterly valuation history."
+            ]
+          }
+        },
+        {
+          "severity": "review",
+          "code": "external_consensus_divergent",
+          "message": "Base fair value is materially outside current Wall Street 12-month target guardrails.",
+          "evidence": {
+            "fairToConsensus": 0.221,
+            "priceToConsensus": 0.536
+          }
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "LSEG",
+      "name": "London Stock Exchange Group",
+      "profile": null,
+      "status": "review",
+      "rowCount": 17,
+      "first": "FY2018",
+      "last": "Market snapshot",
+      "latestFairValue": 114.92,
+      "latestPrice": 92.66,
+      "latestFairToPrice": 1.24,
+      "unifiedStatus": "review",
+      "consensusStatus": "no_external_consensus",
+      "issueCount": 3,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2020",
+              "to": "Q1 2021",
+              "fromDate": "2021-03-16",
+              "toDate": "2021-04-28",
+              "stepPct": 101.9,
+              "previousFairValue": 52.87,
+              "currentFairValue": 106.71
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "date_gap",
+          "message": "Valuation history has gaps longer than roughly two quarters.",
+          "evidence": [
+            {
+              "from": "FY2023",
+              "to": "FY2025",
+              "days": 740
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "no_external_consensus",
+          "message": "No 12-month forecast block found",
+          "evidence": null
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "MCK",
+      "name": "McKesson",
+      "profile": "healthcare_distribution",
+      "status": "review",
+      "rowCount": 23,
+      "first": "FY2019 Q4",
+      "last": "FY2026 Q4",
+      "latestFairValue": 630.58,
+      "latestPrice": 766.64,
+      "latestFairToPrice": 0.823,
+      "unifiedStatus": "pass",
+      "consensusStatus": "watch",
+      "issueCount": 2,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2019 Q4",
+              "to": "FY2020 Q1",
+              "fromDate": "2019-05-15",
+              "toDate": "2019-08-01",
+              "stepPct": 76,
+              "previousFairValue": 254.28,
+              "currentFairValue": 447.64
+            },
+            {
+              "from": "FY2020 Q1",
+              "to": "FY2020 Q4",
+              "fromDate": "2019-08-01",
+              "toDate": "2020-05-22",
+              "stepPct": -29,
+              "previousFairValue": 447.64,
+              "currentFairValue": 317.78
+            },
+            {
+              "from": "FY2025 Q3",
+              "to": "FY2025 Q4",
+              "fromDate": "2025-02-06",
+              "toDate": "2025-05-09",
+              "stepPct": 59.2,
+              "previousFairValue": 382.83,
+              "currentFairValue": 609.44
+            },
+            {
+              "from": "FY2026 Q3",
+              "to": "FY2026 Q4",
+              "fromDate": "2026-02-04",
+              "toDate": "2026-05-08",
+              "stepPct": -27.6,
+              "previousFairValue": 871.34,
+              "currentFairValue": 630.58
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "date_gap",
+          "message": "Valuation history has gaps longer than roughly two quarters.",
+          "evidence": [
+            {
+              "from": "FY2020 Q1",
+              "to": "FY2020 Q4",
+              "days": 295
+            },
+            {
+              "from": "FY2021 Q2",
+              "to": "FY2022 Q3",
+              "days": 457
+            }
+          ]
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "META",
+      "name": "Meta Platforms, Inc.",
+      "profile": "mega_cap_platform",
+      "status": "review",
+      "rowCount": 29,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 672.37,
+      "latestPrice": 585.39,
+      "latestFairToPrice": 1.149,
+      "unifiedStatus": "pass",
+      "consensusStatus": "aligned",
+      "issueCount": 1,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2022 Q3",
+              "to": "FY2022 Q4",
+              "fromDate": "2022-10-27",
+              "toDate": "2023-02-02",
+              "stepPct": -28.2,
+              "previousFairValue": 310.27,
+              "currentFairValue": 222.78
+            },
+            {
+              "from": "FY2023 Q2",
+              "to": "FY2023 Q3",
+              "fromDate": "2023-07-27",
+              "toDate": "2023-10-26",
+              "stepPct": 37.6,
+              "previousFairValue": 236.08,
+              "currentFairValue": 324.79
+            }
+          ]
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "MRVL",
+      "name": "Marvell Technology, Inc.",
+      "profile": "semiconductor_growth",
+      "status": "review",
+      "rowCount": 1,
+      "first": "FY2027 Q2",
+      "last": "FY2027 Q2",
+      "latestFairValue": 93.14,
+      "latestPrice": 288.85,
+      "latestFairToPrice": 0.322,
+      "unifiedStatus": "review",
+      "consensusStatus": "divergent",
+      "issueCount": 3,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "short_history",
+          "message": "Less than eight valuation observations.",
+          "evidence": {
+            "rows": 1
+          }
+        },
+        {
+          "severity": "review",
+          "code": "model_input_audit",
+          "message": "Model input audit is not pass.",
+          "evidence": {
+            "status": "review",
+            "warnings": [
+              "Limited quarterly valuation history.",
+              "Fair value history has too few distinct points."
+            ]
+          }
+        },
+        {
+          "severity": "review",
+          "code": "external_consensus_divergent",
+          "message": "Base fair value is materially outside current Wall Street 12-month target guardrails.",
+          "evidence": {
+            "fairToConsensus": 0.376,
+            "priceToConsensus": 1.165
+          }
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "MU",
+      "name": "Micron Technology, Inc.",
+      "profile": "semiconductor_cyclical",
+      "status": "review",
+      "rowCount": 15,
+      "first": "FY2019 Q3",
+      "last": "FY2026 Q2",
+      "latestFairValue": 255.82,
+      "latestPrice": 949.28,
+      "latestFairToPrice": 0.269,
+      "unifiedStatus": "review",
+      "consensusStatus": "divergent",
+      "issueCount": 4,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "model_input_audit",
+          "message": "Model input audit is not pass.",
+          "evidence": {
+            "status": "review",
+            "warnings": [
+              "Fair value / latest price is extreme; review model assumptions and data basis. Price is used only for this sanity flag."
+            ]
+          }
+        },
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2019 Q3",
+              "to": "FY2019 Q4",
+              "fromDate": "2019-06-26",
+              "toDate": "2019-10-17",
+              "stepPct": 153.4,
+              "previousFairValue": 94.95,
+              "currentFairValue": 240.58
+            },
+            {
+              "from": "FY2020 Q3",
+              "to": "FY2020 Q4",
+              "fromDate": "2020-06-29",
+              "toDate": "2020-10-19",
+              "stepPct": -57.9,
+              "previousFairValue": 168.95,
+              "currentFairValue": 71.09
+            },
+            {
+              "from": "FY2025 Q4",
+              "to": "FY2026 Q1",
+              "fromDate": "2025-10-03",
+              "toDate": "2025-12-18",
+              "stepPct": 391.2,
+              "previousFairValue": 21.47,
+              "currentFairValue": 105.48
+            },
+            {
+              "from": "FY2026 Q1",
+              "to": "FY2026 Q2",
+              "fromDate": "2025-12-18",
+              "toDate": "2026-03-19",
+              "stepPct": 142.5,
+              "previousFairValue": 105.48,
+              "currentFairValue": 255.82
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "date_gap",
+          "message": "Valuation history has gaps longer than roughly two quarters.",
+          "evidence": [
+            {
+              "from": "FY2021 Q3",
+              "to": "FY2022 Q2",
+              "days": 280
+            },
+            {
+              "from": "FY2022 Q3",
+              "to": "FY2023 Q2",
+              "days": 267
+            },
+            {
+              "from": "FY2023 Q3",
+              "to": "FY2025 Q4",
+              "days": 919
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "external_consensus_divergent",
+          "message": "Base fair value is materially outside current Wall Street 12-month target guardrails.",
+          "evidence": {
+            "fairToConsensus": 0.272,
+            "priceToConsensus": 1.011
+          }
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "NVDA",
+      "name": "NVIDIA Corporation",
+      "profile": "semiconductor_growth",
+      "status": "review",
+      "rowCount": 22,
+      "first": "FY2020 Q1",
+      "last": "FY2027 Q1",
+      "latestFairValue": 181.19,
+      "latestPrice": 208.64,
+      "latestFairToPrice": 0.868,
+      "unifiedStatus": "review",
+      "consensusStatus": "watch",
+      "issueCount": 2,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2020 Q4",
+              "to": "FY2021 Q3",
+              "fromDate": "2020-02-20",
+              "toDate": "2020-11-18",
+              "stepPct": 117,
+              "previousFairValue": 4.93,
+              "currentFairValue": 10.7
+            },
+            {
+              "from": "FY2022 Q2",
+              "to": "FY2022 Q3",
+              "fromDate": "2021-05-26",
+              "toDate": "2021-08-20",
+              "stepPct": 102.2,
+              "previousFairValue": 7.08,
+              "currentFairValue": 14.32
+            },
+            {
+              "from": "FY2023 Q2",
+              "to": "FY2023 Q3",
+              "fromDate": "2022-05-27",
+              "toDate": "2022-11-18",
+              "stepPct": -63.5,
+              "previousFairValue": 18.31,
+              "currentFairValue": 6.69
+            },
+            {
+              "from": "FY2024 Q1",
+              "to": "FY2024 Q2",
+              "fromDate": "2023-05-26",
+              "toDate": "2023-08-28",
+              "stepPct": 185.6,
+              "previousFairValue": 9.33,
+              "currentFairValue": 26.63
+            },
+            {
+              "from": "FY2025 Q2",
+              "to": "FY2025 Q3",
+              "fromDate": "2024-08-28",
+              "toDate": "2024-11-20",
+              "stepPct": 141.5,
+              "previousFairValue": 30.85,
+              "currentFairValue": 74.51
+            },
+            {
+              "from": "FY2025 Q3",
+              "to": "FY2025 Q4",
+              "fromDate": "2024-11-20",
+              "toDate": "2025-02-26",
+              "stepPct": -56.1,
+              "previousFairValue": 74.51,
+              "currentFairValue": 32.68
+            },
+            {
+              "from": "FY2025 Q4",
+              "to": "FY2026 Q1",
+              "fromDate": "2025-02-26",
+              "toDate": "2025-05-28",
+              "stepPct": 115.3,
+              "previousFairValue": 32.68,
+              "currentFairValue": 70.35
+            },
+            {
+              "from": "FY2026 Q4",
+              "to": "FY2027 Q1",
+              "fromDate": "2026-02-25",
+              "toDate": "2026-05-20",
+              "stepPct": 105.3,
+              "previousFairValue": 88.24,
+              "currentFairValue": 181.19
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "date_gap",
+          "message": "Valuation history has gaps longer than roughly two quarters.",
+          "evidence": [
+            {
+              "from": "FY2020 Q4",
+              "to": "FY2021 Q3",
+              "days": 272
+            },
+            {
+              "from": "FY2022 Q3",
+              "to": "FY2023 Q2",
+              "days": 280
+            }
+          ]
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "PLTR",
+      "name": "Palantir Technologies",
+      "profile": "hypergrowth_ai_software",
+      "status": "review",
+      "rowCount": 11,
+      "first": "FY2023 Q3",
+      "last": "FY2026 Q1",
+      "latestFairValue": 116.14,
+      "latestPrice": 136.47,
+      "latestFairToPrice": 0.851,
+      "unifiedStatus": "pass",
+      "consensusStatus": "aligned",
+      "issueCount": 1,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "model_input_audit",
+          "message": "Model input audit is not pass.",
+          "evidence": {
+            "status": "review",
+            "warnings": [
+              "Limited quarterly valuation history."
+            ]
+          }
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "QCOM",
+      "name": "QUALCOMM Incorporated",
+      "profile": "semiconductor_value",
+      "status": "review",
+      "rowCount": 24,
+      "first": "FY2019 Q2",
+      "last": "FY2026 Q2",
+      "latestFairValue": 147.19,
+      "latestPrice": 217.77,
+      "latestFairToPrice": 0.676,
+      "unifiedStatus": "review",
+      "consensusStatus": "aligned",
+      "issueCount": 2,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2019 Q2",
+              "to": "FY2019 Q3",
+              "fromDate": "2019-05-01",
+              "toDate": "2019-07-31",
+              "stepPct": 202.8,
+              "previousFairValue": 38.61,
+              "currentFairValue": 116.92
+            },
+            {
+              "from": "FY2022 Q4",
+              "to": "FY2023 Q1",
+              "fromDate": "2022-11-02",
+              "toDate": "2023-02-02",
+              "stepPct": -40.1,
+              "previousFairValue": 262.15,
+              "currentFairValue": 157.03
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "date_gap",
+          "message": "Valuation history has gaps longer than roughly two quarters.",
+          "evidence": [
+            {
+              "from": "FY2019 Q3",
+              "to": "FY2020 Q4",
+              "days": 462
+            }
+          ]
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "RTX",
+      "name": "RTX Corporation",
+      "profile": "defense_prime",
+      "status": "review",
+      "rowCount": 25,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 104.06,
+      "latestPrice": 178.66,
+      "latestFairToPrice": 0.582,
+      "unifiedStatus": "review",
+      "consensusStatus": "divergent",
+      "issueCount": 3,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2020 Q1",
+              "to": "FY2021 Q2",
+              "fromDate": "2020-05-07",
+              "toDate": "2021-07-27",
+              "stepPct": -52.7,
+              "previousFairValue": 70.58,
+              "currentFairValue": 33.39
+            },
+            {
+              "from": "FY2021 Q3",
+              "to": "FY2021 Q4",
+              "fromDate": "2021-10-26",
+              "toDate": "2022-02-11",
+              "stepPct": 78.2,
+              "previousFairValue": 38.64,
+              "currentFairValue": 68.86
+            },
+            {
+              "from": "FY2023 Q3",
+              "to": "FY2023 Q4",
+              "fromDate": "2023-10-24",
+              "toDate": "2024-02-05",
+              "stepPct": -42.7,
+              "previousFairValue": 67.48,
+              "currentFairValue": 38.7
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "date_gap",
+          "message": "Valuation history has gaps longer than roughly two quarters.",
+          "evidence": [
+            {
+              "from": "FY2020 Q1",
+              "to": "FY2021 Q2",
+              "days": 446
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "external_consensus_divergent",
+          "message": "Base fair value is materially outside current Wall Street 12-month target guardrails.",
+          "evidence": {
+            "fairToConsensus": 0.471,
+            "priceToConsensus": 0.809
+          }
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "TEM",
+      "name": "Tempus AI, Inc.",
+      "profile": "emerging_health_ai",
+      "status": "review",
+      "rowCount": 7,
+      "first": "FY2024 Q2",
+      "last": "FY2026 Q1",
+      "latestFairValue": 45.79,
+      "latestPrice": 48.59,
+      "latestFairToPrice": 0.942,
+      "unifiedStatus": "review",
+      "consensusStatus": "aligned",
+      "issueCount": 2,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "short_history",
+          "message": "Less than eight valuation observations.",
+          "evidence": {
+            "rows": 7
+          }
+        },
+        {
+          "severity": "review",
+          "code": "model_input_audit",
+          "message": "Model input audit is not pass.",
+          "evidence": {
+            "status": "review",
+            "warnings": [
+              "Limited quarterly valuation history."
+            ]
+          }
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "TRI",
+      "name": "Thomson Reuters Corporation",
+      "profile": null,
+      "status": "review",
+      "rowCount": 33,
+      "first": "Q1 2018",
+      "last": "Q1 2026",
+      "latestFairValue": 108.15,
+      "latestPrice": 83.18,
+      "latestFairToPrice": 1.3,
+      "unifiedStatus": "review",
+      "consensusStatus": "no_external_consensus",
+      "issueCount": 1,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "no_external_consensus",
+          "message": "No 12-month forecast block found",
+          "evidence": null
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "TSLA",
+      "name": "Tesla, Inc.",
+      "profile": "ev_autonomy_platform",
+      "status": "review",
+      "rowCount": 24,
+      "first": "FY2020 Q2",
+      "last": "FY2026 Q1",
+      "latestFairValue": 296.27,
+      "latestPrice": 408.95,
+      "latestFairToPrice": 0.724,
+      "unifiedStatus": "review",
+      "consensusStatus": "aligned",
+      "issueCount": 1,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2020 Q2",
+              "to": "FY2020 Q3",
+              "fromDate": "2020-07-28",
+              "toDate": "2020-10-26",
+              "stepPct": 191.3,
+              "previousFairValue": 47.89,
+              "currentFairValue": 139.5
+            },
+            {
+              "from": "FY2025 Q2",
+              "to": "FY2025 Q3",
+              "fromDate": "2025-07-24",
+              "toDate": "2025-10-23",
+              "stepPct": 85.5,
+              "previousFairValue": 143.09,
+              "currentFairValue": 265.47
+            }
+          ]
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "TSM",
+      "name": "Taiwan Semiconductor Manufacturing Company",
+      "profile": "semiconductor_foundry",
+      "status": "review",
+      "rowCount": 4,
+      "first": "FY2022",
+      "last": "FY2026 Q1",
+      "latestFairValue": 308.31,
+      "latestPrice": 426.8,
+      "latestFairToPrice": 0.722,
+      "unifiedStatus": "review",
+      "consensusStatus": "watch",
+      "issueCount": 4,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "short_history",
+          "message": "Less than eight valuation observations.",
+          "evidence": {
+            "rows": 4
+          }
+        },
+        {
+          "severity": "review",
+          "code": "model_input_audit",
+          "message": "Model input audit is not pass.",
+          "evidence": {
+            "status": "review",
+            "warnings": [
+              "Limited quarterly valuation history."
+            ]
+          }
+        },
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2023",
+              "to": "FY2024",
+              "fromDate": "2024-03-01",
+              "toDate": "2025-03-01",
+              "stepPct": 82.7,
+              "previousFairValue": 92.08,
+              "currentFairValue": 168.2
+            },
+            {
+              "from": "FY2024",
+              "to": "FY2026 Q1",
+              "fromDate": "2025-03-01",
+              "toDate": "2026-04-30",
+              "stepPct": 83.3,
+              "previousFairValue": 168.2,
+              "currentFairValue": 308.31
+            }
+          ]
+        },
+        {
+          "severity": "review",
+          "code": "date_gap",
+          "message": "Valuation history has gaps longer than roughly two quarters.",
+          "evidence": [
+            {
+              "from": "FY2022",
+              "to": "FY2023",
+              "days": 366
+            },
+            {
+              "from": "FY2023",
+              "to": "FY2024",
+              "days": 365
+            },
+            {
+              "from": "FY2024",
+              "to": "FY2026 Q1",
+              "days": 425
+            }
+          ]
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "UNH",
+      "name": "UnitedHealth Group Incorporated",
+      "profile": "managed_care",
+      "status": "review",
+      "rowCount": 29,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 328.26,
+      "latestPrice": 406.57,
+      "latestFairToPrice": 0.807,
+      "unifiedStatus": "pass",
+      "consensusStatus": "aligned",
+      "issueCount": 1,
+      "issues": [
+        {
+          "severity": "review",
+          "code": "large_fair_value_step",
+          "message": "Fair-value series has large adjacent-quarter moves that need review.",
+          "evidence": [
+            {
+              "from": "FY2023 Q4",
+              "to": "FY2024 Q1",
+              "fromDate": "2024-02-28",
+              "toDate": "2024-05-09",
+              "stepPct": -29.4,
+              "previousFairValue": 487.22,
+              "currentFairValue": 343.98
+            }
+          ]
+        }
+      ],
+      "sortRank": 1
+    },
+    {
+      "ticker": "AMZN",
+      "name": "Amazon.com, Inc.",
+      "profile": "platform_reinvestment",
+      "status": "pass",
+      "rowCount": 28,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 231.1,
+      "latestPrice": 245.22,
+      "latestFairToPrice": 0.942,
+      "unifiedStatus": "pass",
+      "consensusStatus": "aligned",
+      "issueCount": 0,
+      "issues": [],
+      "sortRank": 0
+    },
+    {
+      "ticker": "ANET",
+      "name": "Arista Networks Inc.",
+      "profile": "networking_hardware",
+      "status": "pass",
+      "rowCount": 29,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 108.32,
+      "latestPrice": 156.4,
+      "latestFairToPrice": 0.693,
+      "unifiedStatus": "pass",
+      "consensusStatus": "watch",
+      "issueCount": 0,
+      "issues": [],
+      "sortRank": 0
+    },
+    {
+      "ticker": "BAC",
+      "name": "Bank of America Corporation",
+      "profile": "bank",
+      "status": "pass",
+      "rowCount": 29,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 41.95,
+      "latestPrice": 53.63,
+      "latestFairToPrice": 0.782,
+      "unifiedStatus": "pass",
+      "consensusStatus": "watch",
+      "issueCount": 0,
+      "issues": [],
+      "sortRank": 0
+    },
+    {
+      "ticker": "GILD",
+      "name": "Gilead Sciences",
+      "profile": "biopharma",
+      "status": "pass",
+      "rowCount": 28,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 128.14,
+      "latestPrice": 128.1,
+      "latestFairToPrice": 1,
+      "unifiedStatus": "pass",
+      "consensusStatus": "aligned",
+      "issueCount": 0,
+      "issues": [],
+      "sortRank": 0
+    },
+    {
+      "ticker": "GOOGL",
+      "name": "Alphabet Inc.",
+      "profile": "ads_ai_platform",
+      "status": "pass",
+      "rowCount": 29,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 352.49,
+      "latestPrice": 363.31,
+      "latestFairToPrice": 0.97,
+      "unifiedStatus": "pass",
+      "consensusStatus": "aligned",
+      "issueCount": 0,
+      "issues": [],
+      "sortRank": 0
+    },
+    {
+      "ticker": "ISRG",
+      "name": "Intuitive Surgical",
+      "profile": "medtech_platform",
+      "status": "pass",
+      "rowCount": 29,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 438.97,
+      "latestPrice": 418.61,
+      "latestFairToPrice": 1.049,
+      "unifiedStatus": "pass",
+      "consensusStatus": "aligned",
+      "issueCount": 0,
+      "issues": [],
+      "sortRank": 0
+    },
+    {
+      "ticker": "JPM",
+      "name": "JPMorgan Chase & Co.",
+      "profile": "bank",
+      "status": "pass",
+      "rowCount": 29,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 234.82,
+      "latestPrice": 311.11,
+      "latestFairToPrice": 0.755,
+      "unifiedStatus": "pass",
+      "consensusStatus": "aligned",
+      "issueCount": 0,
+      "issues": [],
+      "sortRank": 0
+    },
+    {
+      "ticker": "LLY",
+      "name": "Eli Lilly and Company",
+      "profile": "biopharma_growth",
+      "status": "pass",
+      "rowCount": 29,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 928.23,
+      "latestPrice": 1149.15,
+      "latestFairToPrice": 0.808,
+      "unifiedStatus": "pass",
+      "consensusStatus": "aligned",
+      "issueCount": 0,
+      "issues": [],
+      "sortRank": 0
+    },
+    {
+      "ticker": "LMT",
+      "name": "Lockheed Martin Corporation",
+      "profile": "defense_prime",
+      "status": "pass",
+      "rowCount": 29,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 411.34,
+      "latestPrice": 520.07,
+      "latestFairToPrice": 0.791,
+      "unifiedStatus": "pass",
+      "consensusStatus": "watch",
+      "issueCount": 0,
+      "issues": [],
+      "sortRank": 0
+    },
+    {
+      "ticker": "MA",
+      "name": "Mastercard Inc.",
+      "profile": "payments_network",
+      "status": "pass",
+      "rowCount": 29,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 675.18,
+      "latestPrice": 485.67,
+      "latestFairToPrice": 1.39,
+      "unifiedStatus": "pass",
+      "consensusStatus": "aligned",
+      "issueCount": 0,
+      "issues": [],
+      "sortRank": 0
+    },
+    {
+      "ticker": "MSFT",
+      "name": "Microsoft Corporation",
+      "profile": "mega_cap_platform",
+      "status": "pass",
+      "rowCount": 29,
+      "first": "FY2019 Q3",
+      "last": "FY2026 Q3",
+      "latestFairValue": 416.98,
+      "latestPrice": 411.74,
+      "latestFairToPrice": 1.013,
+      "unifiedStatus": "pass",
+      "consensusStatus": "aligned",
+      "issueCount": 0,
+      "issues": [],
+      "sortRank": 0
+    },
+    {
+      "ticker": "NOC",
+      "name": "Northrop Grumman Corporation",
+      "profile": "defense_prime",
+      "status": "pass",
+      "rowCount": 29,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 469.3,
+      "latestPrice": 540.81,
+      "latestFairToPrice": 0.868,
+      "unifiedStatus": "pass",
+      "consensusStatus": "watch",
+      "issueCount": 0,
+      "issues": [],
+      "sortRank": 0
+    },
+    {
+      "ticker": "NOW",
+      "name": "ServiceNow Inc.",
+      "profile": "software_growth",
+      "status": "pass",
+      "rowCount": 28,
+      "first": "FY2019 Q2",
+      "last": "FY2026 Q1",
+      "latestFairValue": 203.3,
+      "latestPrice": 114.19,
+      "latestFairToPrice": 1.78,
+      "unifiedStatus": "pass",
+      "consensusStatus": "watch",
+      "issueCount": 0,
+      "issues": [],
+      "sortRank": 0
+    },
+    {
+      "ticker": "TRV",
+      "name": "The Travelers Companies, Inc.",
+      "profile": "insurance",
+      "status": "pass",
+      "rowCount": 29,
+      "first": "FY2019 Q1",
+      "last": "FY2026 Q1",
+      "latestFairValue": 438.16,
+      "latestPrice": 296.73,
+      "latestFairToPrice": 1.477,
+      "unifiedStatus": "pass",
+      "consensusStatus": "watch",
+      "issueCount": 0,
+      "issues": [],
+      "sortRank": 0
+    },
+    {
+      "ticker": "V",
+      "name": "Visa Inc.",
+      "profile": "payments_network",
+      "status": "pass",
+      "rowCount": 29,
+      "first": "FY2019 Q2",
+      "last": "FY2026 Q2",
+      "latestFairValue": 430.72,
+      "latestPrice": 319.67,
+      "latestFairToPrice": 1.347,
+      "unifiedStatus": "pass",
+      "consensusStatus": "aligned",
+      "issueCount": 0,
+      "issues": [],
+      "sortRank": 0
+    }
+  ]
+}
