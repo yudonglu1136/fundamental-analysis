@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm install --omit=dev",
-  "buildCommand": "echo 'Vercel proxies the AWS-hosted Flutter app'",
+  "buildCommand": "mkdir -p public && touch public/.keep && echo 'Vercel proxies the AWS-hosted Flutter app'",
   "outputDirectory": "public",
   "rewrites": [
     {
