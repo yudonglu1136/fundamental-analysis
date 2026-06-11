@@ -1,13 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm install --omit=dev",
+  "buildCommand": "echo 'Vercel proxies the AWS-hosted Flutter app'",
+  "outputDirectory": "public",
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "http://guru-analysis-api-prod-378477120101.us-east-1.elasticbeanstalk.com/api/:path*"
-    },
-    {
-      "source": "/:path((?!api(?:/|$)).*)",
-      "destination": "/index.html"
+      "source": "/:path*",
+      "destination": "http://guru-analysis-api-prod-378477120101.us-east-1.elasticbeanstalk.com/:path*"
     }
   ]
 }
