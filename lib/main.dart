@@ -8857,11 +8857,12 @@ class _PortfolioDividendCalendarSectionState
             orElse: () => selectedBucket,
           );
     final calendarStart = calendarBucket.monthStart;
-    final monthEvents = [...calendarBucket.events]..sort((left, right) {
-      final dateOrder = left.date.compareTo(right.date);
-      if (dateOrder != 0) return dateOrder;
-      return right.payout.abs().compareTo(left.payout.abs());
-    });
+    final monthEvents = [...calendarBucket.events]
+      ..sort((left, right) {
+        final dateOrder = left.date.compareTo(right.date);
+        if (dateOrder != 0) return dateOrder;
+        return right.payout.abs().compareTo(left.payout.abs());
+      });
     final monthTotal = calendarBucket.total;
     final annualIncome = filtered.fold<double>(
       0,
@@ -12823,54 +12824,9 @@ class ValuationTickerDetailPanel extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
-            if (history.length < 2 && priceHistory.length < 2)
-              EmptyState(
-                text: 'No historical valuation or price series available.',
-                palette: palette,
-              )
-            else
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final chartHeight = constraints.maxWidth < 560
-                      ? 250.0
-                      : 320.0;
-                  return SizedBox(
-                    height: chartHeight,
-                    child: ValuationTrendChart(
-                      history: history,
-                      priceHistory: priceHistory,
-                      currency: currency,
-                      palette: palette,
-                    ),
-                  );
-                },
-              ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              children: [
-                _ChartLegend(
-                  color: palette.accent,
-                  label: 'Fair value',
-                  palette: palette,
-                ),
-                _ChartLegend(
-                  color: palette.secondary,
-                  label: 'Quarter price',
-                  palette: palette,
-                ),
-                _ChartLegend(
-                  color: palette.faint,
-                  label: 'Daily price',
-                  palette: palette,
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            ValuationQuarterResearchPanel(
+            ValuationTickerHistorySection(
               rows: history,
+              priceHistory: priceHistory,
               fallbackMethodCards: methodCards,
               currency: currency,
               palette: palette,
@@ -12878,6 +12834,113 @@ class ValuationTickerDetailPanel extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class ValuationTickerHistorySection extends StatefulWidget {
+  const ValuationTickerHistorySection({
+    super.key,
+    required this.rows,
+    required this.priceHistory,
+    required this.fallbackMethodCards,
+    required this.currency,
+    required this.palette,
+  });
+
+  final List<Map<String, dynamic>> rows;
+  final List<Map<String, dynamic>> priceHistory;
+  final List<Map<String, dynamic>> fallbackMethodCards;
+  final String currency;
+  final Palette palette;
+
+  @override
+  State<ValuationTickerHistorySection> createState() =>
+      _ValuationTickerHistorySectionState();
+}
+
+class _ValuationTickerHistorySectionState
+    extends State<ValuationTickerHistorySection> {
+  String _selectedQuarterKey = '';
+
+  @override
+  void didUpdateWidget(covariant ValuationTickerHistorySection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.rows == widget.rows) return;
+    if (_selectedQuarterKey.isEmpty) return;
+    final hasSelected = widget.rows.any(
+      (row) => valuationQuarterKey(row) == _selectedQuarterKey,
+    );
+    if (!hasSelected) _selectedQuarterKey = '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sortedRows = widget.rows.toList()
+      ..sort((a, b) => text(b['asOfDate']).compareTo(text(a['asOfDate'])));
+    final effectiveSelectedKey = _selectedQuarterKey.isNotEmpty
+        ? _selectedQuarterKey
+        : (sortedRows.isEmpty ? '' : valuationQuarterKey(sortedRows.first));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 18),
+        if (widget.rows.length < 2 && widget.priceHistory.length < 2)
+          EmptyState(
+            text: 'No historical valuation or price series available.',
+            palette: widget.palette,
+          )
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final chartHeight = constraints.maxWidth < 560 ? 250.0 : 320.0;
+              return SizedBox(
+                height: chartHeight,
+                child: ValuationTrendChart(
+                  history: widget.rows,
+                  priceHistory: widget.priceHistory,
+                  currency: widget.currency,
+                  palette: widget.palette,
+                  selectedQuarterKey: effectiveSelectedKey,
+                ),
+              );
+            },
+          ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            _ChartLegend(
+              color: widget.palette.accent,
+              label: 'Fair value',
+              palette: widget.palette,
+            ),
+            _ChartLegend(
+              color: widget.palette.secondary,
+              label: 'Quarter price',
+              palette: widget.palette,
+            ),
+            _ChartLegend(
+              color: widget.palette.faint,
+              label: 'Daily price',
+              palette: widget.palette,
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        ValuationQuarterResearchPanel(
+          rows: widget.rows,
+          fallbackMethodCards: widget.fallbackMethodCards,
+          currency: widget.currency,
+          palette: widget.palette,
+          selectedQuarterKey: effectiveSelectedKey,
+          onSelectQuarter: (value) {
+            setState(() => _selectedQuarterKey = value);
+          },
+        ),
+      ],
     );
   }
 }
@@ -12927,12 +12990,14 @@ class ValuationTrendChart extends StatelessWidget {
     required this.priceHistory,
     required this.currency,
     required this.palette,
+    required this.selectedQuarterKey,
   });
 
   final List<Map<String, dynamic>> history;
   final List<Map<String, dynamic>> priceHistory;
   final String currency;
   final Palette palette;
+  final String selectedQuarterKey;
 
   @override
   Widget build(BuildContext context) {
@@ -12942,6 +13007,7 @@ class ValuationTrendChart extends StatelessWidget {
         priceHistory: priceHistory,
         currency: currency,
         palette: palette,
+        selectedQuarterKey: selectedQuarterKey,
       ),
       size: Size.infinite,
     );
@@ -12954,12 +13020,14 @@ class ValuationTrendPainter extends CustomPainter {
     required this.priceHistory,
     required this.currency,
     required this.palette,
+    required this.selectedQuarterKey,
   });
 
   final List<Map<String, dynamic>> history;
   final List<Map<String, dynamic>> priceHistory;
   final String currency;
   final Palette palette;
+  final String selectedQuarterKey;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -13078,17 +13146,52 @@ class ValuationTrendPainter extends CustomPainter {
       final x = xForDate(text(row['asOfDate']));
       final fairValue = firstNumber([row['fairValue']]);
       final price = firstNumber([row['priceAtDate'], row['currentPrice']]);
+      final isSelected =
+          selectedQuarterKey.isNotEmpty &&
+          valuationQuarterKey(row) == selectedQuarterKey;
       if (price != null && price > 0) {
+        final point = Offset(x, yForValue(price));
+        if (isSelected) {
+          canvas.drawCircle(
+            point,
+            8,
+            Paint()..color = palette.secondary.withValues(alpha: .22),
+          );
+          canvas.drawCircle(
+            point,
+            5.4,
+            Paint()
+              ..color = palette.text.withValues(alpha: .70)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.7,
+          );
+        }
         canvas.drawCircle(
-          Offset(x, yForValue(price)),
-          3.5,
+          point,
+          isSelected ? 4.8 : 3.5,
           Paint()..color = palette.secondary,
         );
       }
       if (fairValue != null && fairValue > 0) {
+        final point = Offset(x, yForValue(fairValue));
+        if (isSelected) {
+          canvas.drawCircle(
+            point,
+            10,
+            Paint()..color = palette.accent.withValues(alpha: .24),
+          );
+          canvas.drawCircle(
+            point,
+            6.4,
+            Paint()
+              ..color = palette.text.withValues(alpha: .76)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.8,
+          );
+        }
         canvas.drawCircle(
-          Offset(x, yForValue(fairValue)),
-          4.5,
+          point,
+          isSelected ? 5.8 : 4.5,
           Paint()..color = palette.accent,
         );
       }
@@ -13126,6 +13229,7 @@ class ValuationTrendPainter extends CustomPainter {
   bool shouldRepaint(covariant ValuationTrendPainter oldDelegate) =>
       oldDelegate.history != history ||
       oldDelegate.priceHistory != priceHistory ||
+      oldDelegate.selectedQuarterKey != selectedQuarterKey ||
       oldDelegate.palette.colorBlind != palette.colorBlind;
 }
 
@@ -13326,12 +13430,16 @@ class ValuationQuarterResearchPanel extends StatefulWidget {
     required this.fallbackMethodCards,
     required this.currency,
     required this.palette,
+    required this.selectedQuarterKey,
+    required this.onSelectQuarter,
   });
 
   final List<Map<String, dynamic>> rows;
   final List<Map<String, dynamic>> fallbackMethodCards;
   final String currency;
   final Palette palette;
+  final String selectedQuarterKey;
+  final ValueChanged<String> onSelectQuarter;
 
   @override
   State<ValuationQuarterResearchPanel> createState() =>
@@ -13436,6 +13544,7 @@ class _ValuationQuarterResearchPanelState
                           _selectedKey = _rowKey(rows[index], index);
                           _expandedQaIndex = null;
                         });
+                        widget.onSelectQuarter(_selectedKey);
                       },
                     ),
                   ),
@@ -13491,6 +13600,13 @@ class _ValuationQuarterResearchPanelState
   }
 
   Map<String, dynamic> _selectedRow(List<Map<String, dynamic>> rows) {
+    if (widget.selectedQuarterKey.isNotEmpty) {
+      for (var index = 0; index < rows.length; index += 1) {
+        if (_rowKey(rows[index], index) == widget.selectedQuarterKey) {
+          return rows[index];
+        }
+      }
+    }
     if (_selectedKey.isNotEmpty) {
       for (var index = 0; index < rows.length; index += 1) {
         if (_rowKey(rows[index], index) == _selectedKey) return rows[index];
@@ -13500,10 +13616,24 @@ class _ValuationQuarterResearchPanelState
   }
 
   String _rowKey(Map<String, dynamic> row, int index) {
-    final periodId = text(row['periodId']);
-    if (periodId.isNotEmpty) return periodId;
-    return '${text(row['label'])}-${text(row['asOfDate'])}-$index';
+    final key = valuationQuarterKey(row);
+    if (key.isNotEmpty) return key;
+    return 'quarter-$index';
   }
+}
+
+String valuationQuarterKey(Map<String, dynamic> row) {
+  final periodId = text(row['periodId']);
+  if (periodId.isNotEmpty) return periodId;
+  final asOfDate = text(row['asOfDate']);
+  final label = text(row['label']);
+  if (asOfDate.isNotEmpty || label.isNotEmpty) return '$label-$asOfDate';
+  final fiscalYear = text(row['fiscalYear']);
+  final fiscalQuarter = text(row['fiscalQuarter']);
+  if (fiscalYear.isNotEmpty || fiscalQuarter.isNotEmpty) {
+    return '$fiscalYear-$fiscalQuarter';
+  }
+  return '';
 }
 
 class ValuationQuarterChip extends StatelessWidget {
@@ -14172,15 +14302,15 @@ class ValuationQuarterQaList extends StatelessWidget {
               palette: palette,
             )
           else
-          for (var index = 0; index < items.length; index += 1)
-            ValuationQaAccordionItem(
-              index: index,
-              question: items[index].question,
-              answer: items[index].answer,
-              expanded: expandedIndex == index,
-              palette: palette,
-              onTap: () => onToggle(index),
-            ),
+            for (var index = 0; index < items.length; index += 1)
+              ValuationQaAccordionItem(
+                index: index,
+                question: items[index].question,
+                answer: items[index].answer,
+                expanded: expandedIndex == index,
+                palette: palette,
+                onTap: () => onToggle(index),
+              ),
         ],
       ),
     );
