@@ -8,10 +8,12 @@ db_path="${SQLITE_DB_PATH:-server/data/guru-analysis.sqlite}"
 rm -f "$zip_path"
 git archive --format=zip --output="$zip_path" HEAD
 
-if [ -d dist ]; then
-  zip -qr "$zip_path" dist
-else
-  echo "warning: dist/ is missing; run npm run build before packaging if AWS should serve frontend assets" >&2
+if [ "${INCLUDE_FRONTEND_DIST:-0}" = "1" ]; then
+  if [ -d dist ]; then
+    zip -qr "$zip_path" dist
+  else
+    echo "warning: dist/ is missing; AWS package requested frontend fallback but no dist/ exists" >&2
+  fi
 fi
 
 if [ -f "$db_path" ]; then

@@ -1,4 +1,5 @@
 const AWS_ORIGIN =
+  process.env.AWS_API_ORIGIN ||
   "http://guru-analysis-api-prod-378477120101.us-east-1.elasticbeanstalk.com";
 
 const HOP_BY_HOP_HEADERS = new Set([

@@ -1,12 +1,19 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm install --omit=dev",
-  "buildCommand": "mkdir -p dist && printf '%s\\n' '<!doctype html><meta charset=\"utf-8\"><title>Guru Intelligence Proxy</title>' > dist/index.html",
+  "installCommand": "bash scripts/vercel-install.sh",
+  "buildCommand": "bash scripts/vercel-build.sh",
   "outputDirectory": "dist",
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "/api/proxy.js?path=/api/$1"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/api/proxy.js?path=$1"
+      "dest": "/index.html"
     }
   ]
 }
