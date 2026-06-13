@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { readTranscriptQaByTickerPeriod } from "./transcriptQaClient.js";
 
 const CURRENT_DB_PATH = process.env.SQLITE_DB_PATH || path.join(process.cwd(), "server/data/guru-analysis.sqlite");
 const YOUTUBE_DB_PATH = process.env.YOUTUBE_TRANSCRIPT_DB_PATH || "/Users/yudonglu/Documents/youtube_transcript_db/transcripts.sqlite";
@@ -242,7 +243,7 @@ function dedupeUsablePeriods(usablePeriods) {
   );
 }
 
-function buildYoutubeRows(snapshot, calls, metricsByPeriod) {
+function buildYoutubeRows(snapshot, calls, metricsByPeriod, transcriptQaByPeriod = new Map()) {
   const latestModelFairValue = finiteNumber(snapshot.latest?.baseFairValue ?? snapshot.scenarios?.find((item) => item.scenario === "Base")?.fairValue);
   if (!(latestModelFairValue > 0)) return [];
 
@@ -280,6 +281,7 @@ function buildYoutubeRows(snapshot, calls, metricsByPeriod) {
     const upsideDownside = priceAtDate && priceAtDate > 0 ? fairValue / priceAtDate - 1 : null;
     const expectedReturn3Y = priceAtDate && targetPrice3Y > 0 ? (targetPrice3Y / priceAtDate) ** (1 / 3) - 1 : null;
     const digest = item.digest;
+    const qa = transcriptQaByPeriod.get(`${snapshot.ticker}::${item.period}`) || [];
 
     return {
       periodId: `youtube-earnings-${snapshot.ticker.toLowerCase()}-${item.period.toLowerCase()}`,
@@ -382,7 +384,8 @@ function buildYoutubeRows(snapshot, calls, metricsByPeriod) {
           guidanceMetricCount: digest.guidanceMetricCount,
           actualMetricCount: digest.actualMetricCount,
           metricNames: digest.metricNames,
-          evidence: buildEvidence(item.metrics)
+          evidence: buildEvidence(item.metrics),
+          qa
         }
       }
     };
@@ -796,6 +799,7 @@ try {
   const callsByTicker = groupByTicker(readCalls(youtubeDb, tickerSet));
   const metrics = readMetrics(youtubeDb, tickers);
   const metricsByPeriod = byTickerAndPeriod(metrics);
+  const transcriptQaByPeriod = readTranscriptQaByTickerPeriod(youtubeDb, tickerSet);
 
   const updated = [];
   const unsupported = [];
@@ -804,7 +808,7 @@ try {
   for (const [ticker, snapshot] of currentTickers) {
     const calls = (callsByTicker.get(ticker) || []).sort((left, right) => String(left.upload_date || "").localeCompare(String(right.upload_date || "")));
     const coverage = buildCoverage(ticker, calls, metricsByPeriod);
-    const youtubeRows = buildYoutubeRows({ ...snapshot, ticker }, calls, metricsByPeriod);
+    const youtubeRows = buildYoutubeRows({ ...snapshot, ticker }, calls, metricsByPeriod, transcriptQaByPeriod);
     const keepAbsoluteFinancialModel = youtubeRows.length && shouldKeepAbsoluteFinancialModel(snapshot);
     const next = youtubeRows.length
       ? keepAbsoluteFinancialModel

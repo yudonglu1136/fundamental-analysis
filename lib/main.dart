@@ -14162,10 +14162,16 @@ class ValuationQuarterQaList extends StatelessWidget {
     return ValuationResearchCard(
       palette: palette,
       icon: Icons.question_answer_rounded,
-      kicker: 'EARNINGS Q&A',
-      title: '财报 Q&A',
+      kicker: 'CALL TRANSCRIPT Q&A',
+      title: '电话会 Q&A',
       child: Column(
         children: [
+          if (items.isEmpty)
+            EmptyState(
+              text: 'No structured analyst Q&A was found for this quarter.',
+              palette: palette,
+            )
+          else
           for (var index = 0; index < items.length; index += 1)
             ValuationQaAccordionItem(
               index: index,
@@ -15786,71 +15792,32 @@ List<ValuationQaDatum> valuationQaItems(
   String currency,
 ) {
   final snapshot = asMap(row['dataSnapshot']);
-  final fiscal = asMap(snapshot['fiscalFinancials']);
-  final ttm = asMap(snapshot['trailingTwelveMonths']);
-  final semantics = asMap(snapshot['valuationSemantics']);
-  final scoreInputs = asMap(semantics['scoreInputs']);
   final youtube = asMap(snapshot['youtubeEarnings']);
-  final evidence = asList(youtube['evidence']);
-  final label = text(row['label'], 'selected quarter');
-  final price = firstNumber([row['priceAtDate'], row['currentPrice']]) ?? 0;
-  final fairValue = firstNumber([row['fairValue']]) ?? 0;
-  final upside =
-      firstNumber([row['upsideDownside']]) ??
-      (price > 0 && fairValue > 0 ? fairValue / price - 1 : 0);
-  final method = text(row['method'], 'reported-financials valuation model');
-  final formula = text(semantics['fairValueFormula']);
-  final revenue = firstNumber([
-    fiscal['revenue_m'],
-    ttm['revenue_m'],
-    scoreInputs['ttmRevenue'],
-  ]);
-  final revenueGrowth = firstNumber([
-    fiscal['revenue_growth_pct'],
-    scoreInputs['revenueGrowth'],
-  ]);
-  final fcf = firstNumber([
-    fiscal['fcf_after_capex_m'],
-    ttm['fcf_after_capex_m'],
-    scoreInputs['ttmFreeCashFlow'],
-  ]);
-  final normalizedMargin = firstNumber([scoreInputs['normalizedMargin']]);
-  final sourceQuality = text(
-    snapshot['sourceQuality'],
-    text(row['sourceType']),
-  );
-  final evidenceLine = evidence.isEmpty
-      ? ''
-      : ' 财报电话会证据：${text(evidence.first['excerpt'])}';
-  final weightSummary = valuationWeightSummary(row);
-
-  var comparisonAnswer = '这是本地历史里能取到的第一个季度，所以暂时没有上一季可比。';
-  if (previous != null) {
-    final previousFairValue = firstNumber([previous['fairValue']]) ?? 0;
-    final previousPrice =
-        firstNumber([previous['priceAtDate'], previous['currentPrice']]) ?? 0;
-    final fairValueChange = previousFairValue > 0
-        ? fairValue / previousFairValue - 1
-        : 0.0;
-    final priceChange = previousPrice > 0 ? price / previousPrice - 1 : 0.0;
-    comparisonAnswer =
-        '相对 ${text(previous['label'], '上一季度')}，fair value 从 ${formatCurrencyValue(previousFairValue, currency)} 变到 ${formatCurrencyValue(fairValue, currency)}，变化 ${formatReturn(fairValueChange)}。同期季度价格从 ${formatCurrencyValue(previousPrice, currency)} 到 ${formatCurrencyValue(price, currency)}，变化 ${formatReturn(priceChange)}。当季权重：$weightSummary';
-  }
-
-  return [
-    ValuationQaDatum(
-      question:
-          '$label 的 fair value 为什么是 ${formatCurrencyValue(fairValue, currency)}？',
-      answer:
-          '当季用的是 $method。季度价格是 ${formatCurrencyValue(price, currency)}，模型 fair value 是 ${formatCurrencyValue(fairValue, currency)}，隐含 upside/downside 为 ${formatReturn(upside)}。${formula.isEmpty ? '' : '公式说明：$formula'}',
-    ),
-    ValuationQaDatum(
-      question: '这一季喂给模型的核心财务和指引是什么？',
-      answer:
-          '数据源：$sourceQuality。核心输入包括 revenue ${formatMillions(revenue)}、revenue growth ${formatPercentInput(revenueGrowth)}、FCF after capex ${formatMillions(fcf)}、normalized margin ${formatPercentInput(normalizedMargin)}。模型还读入 ${formatNumber(number(snapshot['guidanceCandidateCount']))} 条指引信号和 ${formatNumber(number(snapshot['transcriptCandidateCount']))} 条 transcript 指标。$evidenceLine',
-    ),
-    ValuationQaDatum(question: '和上一季度相比，估值变化来自哪里？', answer: comparisonAnswer),
-  ];
+  final qaRows = asList(youtube['qa']);
+  return qaRows
+      .map((item) {
+        final question = text(item['question']);
+        final answer = text(item['answer']);
+        if (question.isEmpty) return null;
+        final askedBy = text(item['askedBy'], text(item['speaker']));
+        final callDate = text(item['callDate']);
+        final title = text(item['title']);
+        final metadata = [
+          if (askedBy.isNotEmpty) 'Asked by $askedBy',
+          if (callDate.isNotEmpty) formatDate(callDate),
+          if (title.isNotEmpty) title,
+        ].join(' · ');
+        final body = answer.isNotEmpty
+            ? answer
+            : 'Management response context is not available in the structured transcript extract.';
+        return ValuationQaDatum(
+          question: question,
+          answer: metadata.isEmpty ? body : '$metadata\n\n$body',
+        );
+      })
+      .whereType<ValuationQaDatum>()
+      .take(6)
+      .toList();
 }
 
 String valuationWeightSummary(Map<String, dynamic> row) {

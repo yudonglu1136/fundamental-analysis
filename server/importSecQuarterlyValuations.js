@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { readTranscriptQaByTickerPeriod } from "./transcriptQaClient.js";
 
 const CURRENT_DB_PATH = process.env.SQLITE_DB_PATH || path.join(process.cwd(), "server/data/guru-analysis.sqlite");
 const YOUTUBE_DB_PATH = process.env.YOUTUBE_TRANSCRIPT_DB_PATH || "/Users/yudonglu/Documents/youtube_transcript_db/transcripts.sqlite";
@@ -2414,6 +2415,7 @@ function readYoutubeEvidence(tickers) {
   try {
     const placeholders = tickers.map(() => "?").join(", ");
     if (!placeholders) return new Map();
+    const transcriptQaByPeriod = readTranscriptQaByTickerPeriod(db, new Set(tickers));
     const rows = db.prepare(`
       SELECT
         me.id,
@@ -2452,7 +2454,23 @@ function readYoutubeEvidence(tickers) {
     }
     const digests = new Map();
     for (const [key, metrics] of grouped) {
-      digests.set(key, metricDigest(metrics));
+      digests.set(key, {
+        ...metricDigest(metrics),
+        qa: transcriptQaByPeriod.get(key) || []
+      });
+    }
+    for (const [key, qa] of transcriptQaByPeriod.entries()) {
+      if (digests.has(key)) continue;
+      digests.set(key, {
+        sourceDatabase: YOUTUBE_DB_PATH,
+        metricCount: 0,
+        clearMetricCount: 0,
+        guidanceMetricCount: 0,
+        actualMetricCount: 0,
+        metricNames: [],
+        evidence: [],
+        qa
+      });
     }
     return digests;
   } finally {

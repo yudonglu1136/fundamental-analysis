@@ -11,6 +11,7 @@
     "install:avatars": "node server/installGuruAvatars.js",
     "import:youtube-valuations": "node server/importYoutubeEarningsValuations.js",
     "import:sec-quarterly-valuations": "node server/importSecQuarterlyValuations.js",
+    "enrich:valuation-transcript-qa": "node server/enrichValuationTranscriptQa.js",
     "refresh:dividends": "node server/refreshDividendCalendar.js",
     "audit:valuation": "node server/unifiedValuationAudit.js",
     "audit:valuation:qa": "node server/valuationQaReport.js",
