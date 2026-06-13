@@ -1,11 +1,13 @@
 import { gurus } from "./gurus.js";
-import { load13fHoldingHistory } from "./secClient.js";
+import { load13fHoldingHistory, loadGuruDashboard } from "./secClient.js";
 import { loadPriceSeries } from "./marketData.js";
 import { readGuruBacktest, writeGuruBacktest } from "./localDatabase.js";
 
-const defaultYears = 5;
+const defaultYears = "all";
+const allYearsCacheKey = 0;
 const maxHoldingsPerFiling = Number(process.env.BACKTEST_MAX_HOLDINGS || 60);
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const priceConcurrency = Math.max(1, Math.min(12, Number(process.env.BACKTEST_PRICE_CONCURRENCY || 6)));
+const responseMaxEquityPoints = Math.max(120, Number(process.env.BACKTEST_RESPONSE_MAX_POINTS || 520));
 
 function isoDate(value) {
   return new Date(value).toISOString().slice(0, 10);
@@ -13,6 +15,51 @@ function isoDate(value) {
 
 function today() {
   return isoDate(new Date());
+}
+
+function yearsAgoDate(end, years) {
+  const date = new Date(end);
+  date.setFullYear(date.getFullYear() - years);
+  return isoDate(date);
+}
+
+function normalizeBacktestWindow(years = defaultYears) {
+  const raw = String(years ?? defaultYears).trim().toLowerCase();
+  if (!raw || ["all", "max", "full", "history"].includes(raw)) {
+    return {
+      all: true,
+      years: null,
+      methodYears: "all",
+      cacheKey: allYearsCacheKey,
+      limit: null
+    };
+  }
+
+  const parsed = Number(raw);
+  const normalizedYears = Number.isFinite(parsed)
+    ? Math.max(1, Math.min(40, Math.round(parsed)))
+    : 5;
+  return {
+    all: false,
+    years: normalizedYears,
+    methodYears: normalizedYears,
+    cacheKey: normalizedYears,
+    limit: normalizedYears * 4 + 4
+  };
+}
+
+async function mapWithConcurrency(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  const runners = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await worker(items[index], index);
+    }
+  });
+  await Promise.all(runners);
+  return results;
 }
 
 function dateMs(value) {
@@ -50,6 +97,11 @@ function mean(values) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
 }
 
+function finiteNumber(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function stdev(values) {
   if (values.length < 2) return 0;
   const avg = mean(values);
@@ -83,6 +135,135 @@ function metrics(equity, returns) {
     volatility,
     sharpe: volatility ? (avg / stdev(returns)) * Math.sqrt(252) : 0,
     maxDrawdown: maxDrawdown(equity)
+  };
+}
+
+function lttbIndices(points, threshold, key) {
+  if (threshold >= points.length || threshold < 3) {
+    return points.map((_point, index) => index);
+  }
+
+  const sampled = [0];
+  const bucketSize = (points.length - 2) / (threshold - 2);
+  let anchor = 0;
+
+  for (let bucket = 0; bucket < threshold - 2; bucket += 1) {
+    const avgStart = Math.floor((bucket + 1) * bucketSize) + 1;
+    const avgEnd = Math.min(Math.floor((bucket + 2) * bucketSize) + 1, points.length);
+    const avgLength = Math.max(1, avgEnd - avgStart);
+    let avgX = 0;
+    let avgY = 0;
+    for (let index = avgStart; index < avgEnd; index += 1) {
+      avgX += index;
+      avgY += finiteNumber(points[index]?.[key]);
+    }
+    avgX /= avgLength;
+    avgY /= avgLength;
+
+    const rangeStart = Math.floor(bucket * bucketSize) + 1;
+    const rangeEnd = Math.min(Math.floor((bucket + 1) * bucketSize) + 1, points.length - 1);
+    const anchorX = anchor;
+    const anchorY = finiteNumber(points[anchor]?.[key]);
+    let bestIndex = rangeStart;
+    let bestArea = -1;
+
+    for (let index = rangeStart; index < rangeEnd; index += 1) {
+      const pointY = finiteNumber(points[index]?.[key]);
+      const area = Math.abs((anchorX - avgX) * (pointY - anchorY) - (anchorX - index) * (avgY - anchorY));
+      if (area > bestArea) {
+        bestArea = area;
+        bestIndex = index;
+      }
+    }
+
+    sampled.push(bestIndex);
+    anchor = bestIndex;
+  }
+
+  sampled.push(points.length - 1);
+  return [...new Set(sampled)].sort((left, right) => left - right);
+}
+
+function sampleEquity(points, maxPoints = responseMaxEquityPoints) {
+  if (!Array.isArray(points) || points.length <= maxPoints) return points || [];
+  const indices = lttbIndices(points, maxPoints, "value");
+  return indices.map((index) => points[index]);
+}
+
+function compactContribution(row) {
+  return {
+    ticker: row.ticker,
+    issuer: row.issuer,
+    value: row.value,
+    weight: row.weight,
+    returnPct: row.returnPct,
+    contributionPct: row.contributionPct
+  };
+}
+
+function compactQuarterContribution(quarter, includeAttribution) {
+  const contributions = Array.isArray(quarter.contributions) ? quarter.contributions : [];
+
+  return {
+    id: quarter.id,
+    label: quarter.label,
+    reportDate: quarter.reportDate,
+    filingDate: quarter.filingDate,
+    executionDate: quarter.executionDate,
+    endDate: quarter.endDate,
+    nextExecutionDate: quarter.nextExecutionDate,
+    days: quarter.days,
+    coveragePct: quarter.coveragePct,
+    pricedPositions: quarter.pricedPositions,
+    selectedPositions: quarter.selectedPositions,
+    portfolioReturn: quarter.portfolioReturn,
+    benchmarkReturn: quarter.benchmarkReturn,
+    coveredWeight: quarter.coveredWeight,
+    contributionCount: contributions.length,
+    contributions: includeAttribution ? contributions.map(compactContribution) : []
+  };
+}
+
+function compactRebalance(rebalance) {
+  return {
+    reportDate: rebalance.reportDate,
+    filingDate: rebalance.filingDate,
+    executionDate: rebalance.executionDate,
+    totalValue: rebalance.totalValue,
+    selectedValue: rebalance.selectedValue,
+    pricedValue: rebalance.pricedValue,
+    coveragePct: rebalance.coveragePct,
+    positions: rebalance.positions,
+    selectedPositions: rebalance.selectedPositions,
+    pricedPositions: rebalance.pricedPositions,
+    topHoldings: (rebalance.topHoldings || []).slice(0, 8)
+  };
+}
+
+function compactBacktestPayload(
+  payload,
+  { maxPoints = responseMaxEquityPoints, includeAttribution = false } = {}
+) {
+  if (!payload || !Array.isArray(payload.equity)) return payload;
+  const sourcePoints = payload.equity.length;
+  const equity = sampleEquity(payload.equity, maxPoints);
+  return {
+    ...payload,
+    equity,
+    detail: {
+      attribution: includeAttribution ? "full" : "compact"
+    },
+    rebalances: includeAttribution ? (payload.rebalances || []).map(compactRebalance) : [],
+    quarterContributions: (payload.quarterContributions || []).map((quarter) =>
+      compactQuarterContribution(quarter, includeAttribution)
+    ),
+    equitySampling: {
+      sampled: equity.length < sourcePoints,
+      method: equity.length < sourcePoints ? "lttb-value" : "none",
+      sourcePoints,
+      returnedPoints: equity.length,
+      maxPoints
+    }
   };
 }
 
@@ -296,7 +477,365 @@ function buildQuarterContributions(rebalances, spyPoints, priceMaps, endDate) {
   });
 }
 
-function unsupportedBacktest(guru, years) {
+function compactTransaction(row) {
+  return {
+    ticker: row.ticker,
+    issuer: row.issuer,
+    action: row.action,
+    value: row.value,
+    transactionDate: row.transactionDate || row.date || row.reportDate || "",
+    filingDate: row.filingDate || "",
+    amountRange: row.amountRange || ""
+  };
+}
+
+function transactionPublicDate(row) {
+  return row?.filingDate || row?.reportDate || row?.transactionDate || row?.date || "";
+}
+
+function transactionReportDate(row) {
+  return row?.transactionDate || row?.date || row?.reportDate || row?.filingDate || "";
+}
+
+function transactionDirection(row) {
+  const action = String(row?.action || row?.type || "").toLowerCase();
+  if (["sell", "sold", "sale", "reduce", "reduced", "sold_out", "exit", "disposed"].some((key) => action.includes(key))) {
+    return -1;
+  }
+  if (["buy", "purchase", "purchased", "new", "add", "added", "increase", "increased", "acquired"].some((key) => action.includes(key))) {
+    return 1;
+  }
+  return 0;
+}
+
+function parseCurrencyValue(value) {
+  const normalized = String(value || "").replace(/[$£€,]/g, " ");
+  const numbers = [...normalized.matchAll(/\d+(?:\.\d+)?/g)]
+    .map((match) => Number(match[0]))
+    .filter((item) => Number.isFinite(item));
+  if (!numbers.length) return 0;
+  if (numbers.length === 1) return numbers[0];
+  return (numbers[0] + numbers[1]) / 2;
+}
+
+function transactionValue(row) {
+  const direct = finiteNumber(row?.value, NaN);
+  if (Number.isFinite(direct) && direct > 0) return direct;
+  const estimated = finiteNumber(row?.estimatedValue, NaN);
+  if (Number.isFinite(estimated) && estimated > 0) return estimated;
+  return parseCurrencyValue(row?.amountRange || row?.amount || row?.transactionAmount);
+}
+
+function normalizeDisclosureTransactions(rows) {
+  return (rows || [])
+    .map((row) => {
+      const ticker = String(row?.ticker || "").trim().toUpperCase();
+      const value = transactionValue(row);
+      return {
+        ...row,
+        ticker,
+        issuer: row?.issuer || row?.company || row?.companyName || ticker,
+        action: row?.action || row?.type || "",
+        value,
+        direction: transactionDirection(row),
+        publicDate: transactionPublicDate(row),
+        transactionDate: transactionReportDate(row)
+      };
+    })
+    .filter((row) =>
+      isTicker(row.ticker) &&
+      row.direction !== 0 &&
+      row.value > 0 &&
+      row.publicDate
+    )
+    .sort((left, right) =>
+      dateMs(left.publicDate) - dateMs(right.publicDate) ||
+      String(left.ticker).localeCompare(String(right.ticker))
+    );
+}
+
+function buildDisclosureRebalances(transactions, priceMaps, spyPoints) {
+  const groups = new Map();
+  for (const transaction of transactions) {
+    const executionDate = nextTradingDate(spyPoints, transaction.publicDate);
+    if (!executionDate) continue;
+    const current = groups.get(executionDate) || {
+      executionDate,
+      filingDate: transaction.publicDate,
+      reportDate: transaction.transactionDate || transaction.publicDate,
+      transactions: []
+    };
+    current.filingDate = current.filingDate && current.filingDate > transaction.publicDate
+      ? current.filingDate
+      : transaction.publicDate;
+    current.reportDate = current.reportDate && current.reportDate > transaction.transactionDate
+      ? current.reportDate
+      : (transaction.transactionDate || transaction.publicDate);
+    current.transactions.push(transaction);
+    groups.set(executionDate, current);
+  }
+
+  const positionValues = new Map();
+  const issuers = new Map();
+  const rebalances = [];
+
+  for (const group of [...groups.values()].sort((left, right) => String(left.executionDate).localeCompare(String(right.executionDate)))) {
+    for (const transaction of group.transactions) {
+      const current = positionValues.get(transaction.ticker) || 0;
+      const nextValue = Math.max(0, current + transaction.direction * transaction.value);
+      if (nextValue > 0) {
+        positionValues.set(transaction.ticker, nextValue);
+        issuers.set(transaction.ticker, transaction.issuer);
+      } else {
+        positionValues.delete(transaction.ticker);
+      }
+    }
+
+    const selected = [...positionValues.entries()]
+      .map(([ticker, value]) => ({
+        ticker,
+        issuer: issuers.get(ticker) || ticker,
+        value,
+        shares: 1
+      }))
+      .filter((holding) => holding.value > 0)
+      .sort((left, right) => right.value - left.value)
+      .slice(0, maxHoldingsPerFiling);
+
+    const selectedValue = selected.reduce((sum, holding) => sum + holding.value, 0);
+    const priced = selected.filter((holding) => Number.isFinite(priceMaps.get(holding.ticker)?.get(group.executionDate)));
+    const pricedValue = priced.reduce((sum, holding) => sum + holding.value, 0);
+    const weights = pricedValue
+      ? priced.map((holding) => ({
+        ticker: holding.ticker,
+        issuer: holding.issuer,
+        value: holding.value,
+        weight: holding.value / pricedValue
+      }))
+      : [];
+
+    if (!weights.length) continue;
+
+    rebalances.push({
+      reportDate: group.reportDate,
+      filingDate: group.filingDate,
+      executionDate: group.executionDate,
+      totalValue: selectedValue,
+      selectedValue,
+      pricedValue,
+      coveragePct: selectedValue ? pricedValue / selectedValue : 0,
+      positions: positionValues.size,
+      selectedPositions: selected.length,
+      pricedPositions: weights.length,
+      weights,
+      topHoldings: weights.slice(0, 8),
+      filing: {
+        form: "STOCK Act",
+        transactions: group.transactions.map(compactTransaction)
+      }
+    });
+  }
+
+  return rebalances;
+}
+
+async function loadDisclosureBacktest(guru, window, { refresh, includeAttribution }) {
+  if (guru.disableSimulation) return unsupportedBacktest(guru, window);
+
+  const cached = readGuruBacktest(guru.id, window.cacheKey);
+  if (cached && !refresh) {
+    return compactBacktestPayload({
+      ...cached,
+      cache: { status: "sqlite-hit", source: "sqlite" }
+    }, { includeAttribution });
+  }
+
+  const dashboard = await loadGuruDashboard({ forceRefresh: false });
+  const guruPayload = (dashboard.gurus || []).find((item) => item.id === guru.id) || {};
+  const allTransactions = normalizeDisclosureTransactions(guruPayload.transactions || []);
+  const end = today();
+  const firstDisclosureDate = allTransactions[0]?.publicDate;
+  const start = window.all
+    ? firstDisclosureDate || yearsAgoDate(end, 5)
+    : yearsAgoDate(end, window.years);
+  const transactions = allTransactions.filter((row) => row.publicDate >= start && row.publicDate <= end);
+  const spySeries = await loadPriceSeries("SPY", { start, end });
+  const spyPoints = (spySeries.points || []).filter((point) => point.date >= start && point.date <= end);
+
+  if (transactions.length < 2 || spyPoints.length < 30) {
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      status: "insufficient_data",
+      guru: {
+        id: guru.id,
+        name: guru.name,
+        type: guru.type,
+        thesisTag: guru.thesisTag
+      },
+      tag: {
+        label: "STOCK Act 模拟待补数据",
+        tone: "muted"
+      },
+      window: { start, end },
+      method: {
+        years: window.methodYears,
+        benchmark: "SPY",
+        rawTransactions: allTransactions.length,
+        reason: "Not enough usable disclosed transactions or SPY price points are available."
+      },
+      summary: {},
+      equity: [],
+      rebalances: [],
+      quarterContributions: []
+    };
+    writeGuruBacktest(guru.id, window.cacheKey, payload);
+    return compactBacktestPayload(payload, { includeAttribution });
+  }
+
+  const universe = [...new Set(transactions.map((row) => row.ticker))]
+    .filter(isTicker)
+    .slice(0, maxHoldingsPerFiling * 2);
+  const priceMaps = new Map([["SPY", priceMap(spyPoints)]]);
+
+  await mapWithConcurrency(universe, priceConcurrency, async (ticker) => {
+    try {
+      const series = await loadPriceSeries(ticker, { start, end });
+      priceMaps.set(ticker, priceMap(series.points || []));
+    } catch {
+      priceMaps.set(ticker, new Map());
+    }
+  });
+
+  const rebalances = buildDisclosureRebalances(transactions, priceMaps, spyPoints);
+
+  if (rebalances.length < 1) {
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      status: "insufficient_data",
+      guru: {
+        id: guru.id,
+        name: guru.name,
+        type: guru.type,
+        thesisTag: guru.thesisTag
+      },
+      tag: {
+        label: "STOCK Act 模拟待补价格",
+        tone: "muted"
+      },
+      window: { start, end },
+      method: {
+        years: window.methodYears,
+        benchmark: "SPY",
+        rawTransactions: allTransactions.length,
+        reason: "Disclosed transactions were found, but no tickers had usable price coverage at disclosure execution dates."
+      },
+      summary: {},
+      equity: [],
+      rebalances: [],
+      quarterContributions: []
+    };
+    writeGuruBacktest(guru.id, window.cacheKey, payload);
+    return compactBacktestPayload(payload, { includeAttribution });
+  }
+
+  const firstDate = rebalances[0]?.executionDate;
+  const dates = spyPoints.map((point) => point.date).filter((date) => date >= firstDate);
+  let activeWeights = rebalances[0]?.weights || [];
+  let rebalanceIndex = 0;
+  let portfolioValue = 1;
+  let benchmarkValue = 1;
+  const equity = dates.length ? [{ date: dates[0], value: portfolioValue, benchmark: benchmarkValue }] : [];
+  const portfolioReturns = [];
+  const benchmarkReturns = [];
+  const coverage = [];
+
+  for (let index = 1; index < dates.length; index += 1) {
+    const previousDate = dates[index - 1];
+    const date = dates[index];
+    const portfolio = portfolioReturn(activeWeights, priceMaps, previousDate, date);
+    const spyReturn = dailyReturn(priceMaps.get("SPY"), previousDate, date) ?? 0;
+    portfolioValue *= 1 + portfolio.returnPct;
+    benchmarkValue *= 1 + spyReturn;
+    portfolioReturns.push(portfolio.returnPct);
+    benchmarkReturns.push(spyReturn);
+    coverage.push(portfolio.coveredWeight);
+    equity.push({ date, value: portfolioValue, benchmark: benchmarkValue });
+
+    while (rebalanceIndex + 1 < rebalances.length && rebalances[rebalanceIndex + 1].executionDate <= date) {
+      rebalanceIndex += 1;
+      activeWeights = rebalances[rebalanceIndex].weights;
+    }
+  }
+
+  const portfolioEquity = equity.map((point) => ({ date: point.date, value: point.value }));
+  const benchmarkEquity = equity.map((point) => ({ date: point.date, value: point.benchmark }));
+  const portfolioMetrics = metrics(portfolioEquity, portfolioReturns);
+  const benchmarkMetrics = metrics(benchmarkEquity, benchmarkReturns);
+  const quarterContributions = buildQuarterContributions(rebalances, spyPoints, priceMaps, equity.at(-1)?.date || end);
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    status: "ready",
+    guru: {
+      id: guru.id,
+      name: guru.name,
+      chineseName: guru.chineseName,
+      entityName: guru.entityName,
+      type: guru.type,
+      thesisTag: guru.thesisTag
+    },
+    tag: {
+      label: "STOCK Act 披露日复制模拟",
+      tone: portfolioMetrics.cagr >= benchmarkMetrics.cagr ? "positive" : "negative"
+    },
+    window: {
+      start: equity[0]?.date || firstDate || start,
+      end: equity.at(-1)?.date || end
+    },
+    method: {
+      years: window.methodYears,
+      benchmark: "SPY",
+      execution: "Use the first tradable SPY date on or after each public STOCK Act filing date; disclosed trades update the model portfolio after that close.",
+      weighting: "Aggregate disclosed transaction midpoint values by ticker; buys add exposure, sells reduce estimated exposure, then priced positive exposures are normalized to 100%.",
+      maxHoldingsPerFiling,
+      rawTransactions: allTransactions.length,
+      includedTransactions: transactions.length,
+      assumptions: [
+        "STOCK Act disclosures are transaction reports, not complete quarterly portfolios.",
+        "Amount ranges are converted to midpoint values; sales cannot reveal the undisclosed starting position.",
+        "Options and derivative disclosures are simplified into ticker-level notional exposure when a usable ticker and amount are present.",
+        "The simulation trades only after public filing dates, so disclosure lag is reflected.",
+        "Missing, non-ticker, or unpriced rows are excluded before weights are normalized.",
+        "Transaction costs, taxes, slippage, private assets, cash, and household holdings outside disclosed trades are excluded."
+      ]
+    },
+    summary: {
+      ...portfolioMetrics,
+      benchmark: benchmarkMetrics,
+      excessCagr: portfolioMetrics.cagr - benchmarkMetrics.cagr,
+      excessTotalReturn: portfolioMetrics.totalReturn - benchmarkMetrics.totalReturn,
+      rebalances: rebalances.length,
+      averagePositions: rebalances.length
+        ? rebalances.reduce((sum, item) => sum + item.pricedPositions, 0) / rebalances.length
+        : 0,
+      averageCoverage: coverage.length ? mean(coverage) : 0,
+      transactions: transactions.length,
+      rawTransactions: allTransactions.length,
+      universe: universe.length
+    },
+    equity,
+    rebalances: rebalances.map(({ weights, ...rebalance }) => rebalance),
+    quarterContributions,
+    cache: {
+      status: "refreshed",
+      source: "STOCK Act + Yahoo + SQLite"
+    }
+  };
+
+  writeGuruBacktest(guru.id, window.cacheKey, payload);
+  return compactBacktestPayload(payload, { includeAttribution });
+}
+
+function unsupportedBacktest(guru, window) {
   const disabledByConfig = Boolean(guru.disableSimulation);
   return {
     generatedAt: new Date().toISOString(),
@@ -312,7 +851,7 @@ function unsupportedBacktest(guru, years) {
       tone: "muted"
     },
     method: {
-      years,
+      years: window.methodYears,
       benchmark: "SPY",
       reason:
         guru.simulationNote ||
@@ -321,33 +860,49 @@ function unsupportedBacktest(guru, years) {
   };
 }
 
-export async function loadGuruBacktest(guruId, { refresh = false, years = defaultYears } = {}) {
-  const normalizedYears = Number.isFinite(Number(years)) ? Math.max(1, Math.min(10, Number(years))) : defaultYears;
+export async function loadGuruBacktest(
+  guruId,
+  { refresh = false, years = defaultYears, detail = "compact" } = {}
+) {
+  const window = normalizeBacktestWindow(years);
+  const includeAttribution = detail === "full" || detail === "attribution";
   const guru = gurus.find((item) => item.id === guruId);
   if (!guru) throw new Error(`Guru not found: ${guruId}`);
 
-  if (guru.type !== "manager13f" || guru.disableSimulation) {
-    return unsupportedBacktest(guru, normalizedYears);
+  if (guru.type === "congress") {
+    return loadDisclosureBacktest(guru, window, { refresh, includeAttribution });
   }
 
-  const cached = readGuruBacktest(guruId, normalizedYears);
+  if (guru.type !== "manager13f" || guru.disableSimulation) {
+    return unsupportedBacktest(guru, window);
+  }
+
+  const cached = readGuruBacktest(guruId, window.cacheKey);
   if (cached && !refresh) {
-    return {
+    return compactBacktestPayload({
       ...cached,
       cache: { status: "sqlite-hit", source: "sqlite" }
-    };
+    }, { includeAttribution });
   }
 
   const end = today();
-  const start = isoDate(new Date(new Date(end).setFullYear(new Date(end).getFullYear() - normalizedYears)));
-  const [history, spySeries] = await Promise.all([
-    load13fHoldingHistory(guru, { years: normalizedYears, limit: normalizedYears * 4 + 4 }),
-    loadPriceSeries("SPY", { start, end })
-  ]);
-  const spyPoints = (spySeries.points || []).filter((point) => point.date >= start && point.date <= end);
+  const history = await load13fHoldingHistory(guru, {
+    years: window.years,
+    limit: window.limit
+  });
   const normalizedHistory = normalizeBacktestHistory(history);
   const backtestHistory = normalizedHistory.history;
   const excludedFilings = normalizedHistory.excludedFilings;
+  const firstFilingDate =
+    backtestHistory[0]?.filingDate ||
+    backtestHistory[0]?.reportDate ||
+    history[0]?.filingDate ||
+    history[0]?.reportDate;
+  const start = window.all
+    ? firstFilingDate || yearsAgoDate(end, 5)
+    : yearsAgoDate(end, window.years);
+  const spySeries = await loadPriceSeries("SPY", { start, end });
+  const spyPoints = (spySeries.points || []).filter((point) => point.date >= start && point.date <= end);
 
   if (backtestHistory.length < 2 || spyPoints.length < 30) {
     const payload = {
@@ -365,7 +920,7 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
       },
       window: { start, end },
       method: {
-        years: normalizedYears,
+        years: window.methodYears,
         benchmark: "SPY",
         maxHoldingsPerFiling,
         rawFilings: history.length,
@@ -377,8 +932,8 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
       rebalances: [],
       quarterContributions: []
     };
-    writeGuruBacktest(guruId, normalizedYears, payload);
-    return payload;
+    writeGuruBacktest(guruId, window.cacheKey, payload);
+    return compactBacktestPayload(payload, { includeAttribution });
   }
 
   const universe = [...new Set(backtestHistory
@@ -389,15 +944,14 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
       .map((holding) => holding.ticker)))];
   const priceMaps = new Map([["SPY", priceMap(spyPoints)]]);
 
-  for (const ticker of universe) {
+  await mapWithConcurrency(universe, priceConcurrency, async (ticker) => {
     try {
       const series = await loadPriceSeries(ticker, { start, end });
       priceMaps.set(ticker, priceMap(series.points || []));
     } catch {
       priceMaps.set(ticker, new Map());
     }
-    await wait(80);
-  }
+  });
 
   const rebalances = backtestHistory
     .map((snapshot) => ({
@@ -441,7 +995,7 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
       },
       window: { start, end },
       method: {
-        years: normalizedYears,
+        years: window.methodYears,
         benchmark: "SPY",
         maxHoldingsPerFiling,
         rawFilings: history.length,
@@ -453,8 +1007,8 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
       rebalances: [],
       quarterContributions: []
     };
-    writeGuruBacktest(guruId, normalizedYears, payload);
-    return payload;
+    writeGuruBacktest(guruId, window.cacheKey, payload);
+    return compactBacktestPayload(payload, { includeAttribution });
   }
 
   const firstDate = rebalances[0]?.executionDate;
@@ -516,7 +1070,7 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
       end: equity.at(-1)?.date || end
     },
     method: {
-      years: normalizedYears,
+      years: window.methodYears,
       benchmark: "SPY",
       execution: "Use the first tradable SPY date on or after each 13F filing date; new weights apply after that close.",
       weighting: "Use disclosed 13F market values, cap to top holdings, then normalize priced holdings to 100%.",
@@ -556,18 +1110,19 @@ export async function loadGuruBacktest(guruId, { refresh = false, years = defaul
     }
   };
 
-  writeGuruBacktest(guruId, normalizedYears, payload);
-  return payload;
+  writeGuruBacktest(guruId, window.cacheKey, payload);
+  return compactBacktestPayload(payload, { includeAttribution });
 }
 
-export async function loadGuruBacktests({ refresh = false, years = defaultYears } = {}) {
+export async function loadGuruBacktests({ refresh = false, years = defaultYears, detail = "compact" } = {}) {
+  const window = normalizeBacktestWindow(years);
   const results = [];
-  for (const guru of gurus.filter((item) => item.type === "manager13f")) {
-    results.push(await loadGuruBacktest(guru.id, { refresh, years }));
+  for (const guru of gurus.filter((item) => item.type === "manager13f" || item.type === "congress")) {
+    results.push(await loadGuruBacktest(guru.id, { refresh, years, detail }));
   }
   return {
     generatedAt: new Date().toISOString(),
-    years,
+    years: window.methodYears,
     benchmark: "SPY",
     backtests: results
   };

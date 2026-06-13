@@ -180,9 +180,9 @@ async function hydrateBacktests() {
     return;
   }
 
-  for (const guru of gurus.filter((item) => item.type === "manager13f")) {
+  for (const guru of gurus.filter((item) => item.type === "manager13f" || item.type === "congress")) {
     try {
-      const payload = await loadGuruBacktest(guru.id, { refresh: false, years: 5 });
+      const payload = await loadGuruBacktest(guru.id, { refresh: false });
       log("[hydrate] backtest", {
         guru: guru.id,
         status: payload.status,

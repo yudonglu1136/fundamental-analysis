@@ -17,4 +17,4 @@ add_define "API_BASE_URL" "${API_BASE_URL:-${VITE_API_BASE_URL:-}}"
 add_define "AUTH_DEV_BYPASS" "${AUTH_DEV_BYPASS:-${VITE_AUTH_DEV_BYPASS:-false}}"
 
 rm -rf dist
-flutter build web --release --base-href / --output dist "${defines[@]}"
+flutter build web --release --base-href / --output dist --no-wasm-dry-run "${defines[@]}"

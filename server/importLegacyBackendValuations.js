@@ -806,6 +806,192 @@ function buildScenarioFromHistoryRow(row, run, scenario = "Base") {
   };
 }
 
+function aznUsdOrdinaryFairValue(row) {
+  const outputs = Array.isArray(row?.methodOutputs) ? row.methodOutputs : [];
+  const card = outputs.find((output) => String(output?.key || "").toLowerCase() === "azn-us-ordinary");
+  return finiteNumber(card?.value);
+}
+
+function aznUsdConversionFactor(row) {
+  const fairValue = finiteNumber(row?.fairValue);
+  const usdOrdinary = aznUsdOrdinaryFairValue(row);
+  if (!(fairValue > 0) || !(usdOrdinary > 0)) return null;
+  return usdOrdinary / fairValue;
+}
+
+function aznFxFactorForRows(history) {
+  return history
+    .map((row) => ({
+      date: row?.asOfDate || row?.date || row?.priceDate,
+      factor: aznUsdConversionFactor(row)
+    }))
+    .filter((row) => row.date && row.factor && row.factor > 0)
+    .sort((left, right) => String(left.date).localeCompare(String(right.date)));
+}
+
+function aznFactorAt(factors, date) {
+  if (!factors.length) return null;
+  const target = date ? String(date) : "";
+  let chosen = factors[0];
+  for (const factor of factors) {
+    if (!target || String(factor.date) <= target) chosen = factor;
+    if (target && String(factor.date) > target) break;
+  }
+  return chosen.factor;
+}
+
+function dividePricePoint(point, factor) {
+  if (!factor || factor <= 0) return point;
+  const divide = (value) => {
+    const number = finiteNumber(value);
+    return number == null ? value : number / factor;
+  };
+  return {
+    ...point,
+    open: divide(point.open),
+    high: divide(point.high),
+    low: divide(point.low),
+    close: divide(point.close),
+    source: point.source || "USD ordinary price converted to GBP"
+  };
+}
+
+function markAznMethodOutputCurrency(output) {
+  if (output?.format !== "currency") return output;
+  const key = String(output?.key || "").toLowerCase();
+  if (key === "azn-us-ordinary") {
+    return {
+      ...output,
+      currency: "USD",
+      label: "USD Ordinary Share FV",
+      description: "US ordinary-share fair value in USD, shown only as a reference; the main AZN valuation is shown in GBP."
+    };
+  }
+  if (key === "azn-former-adr") {
+    return {
+      ...output,
+      currency: "USD",
+      description: `${output.description || "Former ADR equivalent."} Not used for current Nasdaq ordinary-share upside.`
+    };
+  }
+  return {
+    ...output,
+    currency: "GBP",
+    description: String(output.description || "")
+      .replace(/\s*Converted to USD ordinary-share basis for Nasdaq AZN comparison\./g, "")
+      .trim()
+  };
+}
+
+function normalizeAznGbpBasisSnapshot(snapshot) {
+  if (String(snapshot?.ticker || "").toUpperCase() !== "AZN") return snapshot;
+  const history = Array.isArray(snapshot.history) ? snapshot.history : [];
+  if (!history.length) return snapshot;
+  const factors = aznFxFactorForRows(history);
+  if (!factors.length) return snapshot;
+  const alreadyGbp =
+    String(snapshot.currency || "").toUpperCase() === "GBP" &&
+    /GBP/i.test(String(snapshot.dataQuality?.aznValuationBasisCorrection?.comparisonPriceBasis || snapshot.latest?.fairValueCurrency || ""));
+
+  const normalizedPriceHistory = alreadyGbp
+    ? snapshot.priceHistory
+    : Array.isArray(snapshot.priceHistory)
+    ? snapshot.priceHistory.map((point) => dividePricePoint(point, aznFactorAt(factors, point.date)))
+    : snapshot.priceHistory;
+
+  const normalizedHistory = history.map((row) => {
+    const factor = aznUsdConversionFactor(row) || aznFactorAt(factors, row.asOfDate);
+    const priceAtDateUsd = finiteNumber(row.priceAtDate ?? row.currentPrice);
+    const priceAtDate = alreadyGbp || !factor ? priceAtDateUsd : priceAtDateUsd / factor;
+    const fairValue = finiteNumber(row.fairValue);
+    const targetPrice3Y = finiteNumber(row.targetPrice3Y);
+    return {
+      ...row,
+      currency: "GBP",
+      currentPrice: priceAtDate,
+      priceAtDate,
+      fairValue,
+      upsideDownside: priceAtDate && priceAtDate > 0 ? fairValue / priceAtDate - 1 : row.upsideDownside,
+      targetPrice3Y,
+      expectedReturn3Y: priceAtDate && targetPrice3Y ? (targetPrice3Y / priceAtDate) ** (1 / 3) - 1 : row.expectedReturn3Y,
+      methodOutputs: (row.methodOutputs || []).map(markAznMethodOutputCurrency),
+      dataSnapshot: {
+        ...(row.dataSnapshot || {}),
+        valuationSemantics: {
+          ...(row.dataSnapshot?.valuationSemantics || {}),
+          priceBasis: "London AZN ordinary share in GBP",
+          fairValueCurrency: "GBP",
+          fxFactorFromUsdOrdinary: factor,
+          fairValueFormula: `${row.dataSnapshot?.valuationSemantics?.fairValueFormula || row.method || "AZN valuation model"}; AZN price comparison shown on GBP ordinary-share basis`
+        }
+      },
+      warnings: [
+        ...(row.warnings || []).filter((warning) => !String(warning).includes("Normalized AZN fair value")),
+        "AZN price and fair value shown on London ordinary-share GBP basis."
+      ]
+    };
+  });
+
+  const latestHistoryRow = normalizedHistory.at(-1);
+  const latestPrice = latestPricePoint(normalizedPriceHistory);
+  const latestMarketPrice = finiteNumber(latestPrice?.close ?? snapshot.latest?.latestPrice);
+  const latestFairValue = finiteNumber(latestHistoryRow?.fairValue);
+  const latestAnchorPrice = finiteNumber(latestHistoryRow?.priceAtDate ?? latestHistoryRow?.currentPrice);
+  const targetPrice3Y = finiteNumber(latestHistoryRow?.targetPrice3Y);
+  const scenario = snapshot.scenarios?.[0] || {};
+
+  return {
+    ...snapshot,
+    currency: "GBP",
+    priceHistory: normalizedPriceHistory,
+    legacyPriceMetadata: {
+      ...(snapshot.legacyPriceMetadata || {}),
+      comparisonPriceBasis: "London AZN ordinary share in GBP",
+      usdOrdinaryPriceSource: "Converted from local AZN USD ordinary price history"
+    },
+    latest: {
+      ...(snapshot.latest || {}),
+      latestPrice: latestMarketPrice ?? snapshot.latest?.latestPrice ?? null,
+      latestPriceDate: latestPrice?.date || snapshot.latest?.latestPriceDate || null,
+      latestPriceSource: latestPrice?.source || snapshot.latest?.latestPriceSource || snapshot.priceSource || null,
+      valuationAnchorPrice: latestAnchorPrice,
+      valuationAnchorDate: latestHistoryRow?.asOfDate || snapshot.latest?.valuationAnchorDate || null,
+      baseFairValue: latestFairValue,
+      upsideToBase: latestMarketPrice && latestFairValue ? latestFairValue / latestMarketPrice - 1 : finiteNumber(latestHistoryRow?.upsideDownside ?? snapshot.latest?.upsideToBase),
+      targetPrice3Y,
+      expectedReturn3Y: latestMarketPrice && targetPrice3Y ? (targetPrice3Y / latestMarketPrice) ** (1 / 3) - 1 : finiteNumber(latestHistoryRow?.expectedReturn3Y ?? snapshot.latest?.expectedReturn3Y),
+      fairValueCurrency: "GBP",
+      fairValueBasis: "London AZN ordinary share"
+    },
+    scenarios: latestHistoryRow ? [{
+      ...scenario,
+      scenario: scenario.scenario || "Base",
+      currentPrice: latestAnchorPrice,
+      fairValue: latestFairValue,
+      upsideDownside: latestAnchorPrice && latestFairValue ? latestFairValue / latestAnchorPrice - 1 : finiteNumber(latestHistoryRow.upsideDownside),
+      targetPrice3Y,
+      expectedReturn3Y: latestAnchorPrice && targetPrice3Y ? (targetPrice3Y / latestAnchorPrice) ** (1 / 3) - 1 : finiteNumber(latestHistoryRow.expectedReturn3Y),
+      modelSummary: "Legacy backend valuation run shown on London AZN GBP ordinary-share basis"
+    }] : snapshot.scenarios,
+    history: normalizedHistory,
+    methodCards: (snapshot.methodCards || []).map(markAznMethodOutputCurrency),
+    warnings: [
+      "AZN valuation shown in GBP ordinary-share terms; local USD price history is converted to GBP for comparison.",
+      ...(snapshot.warnings || []).filter((warning) => !String(warning).includes("AZN valuation normalized"))
+    ],
+    dataQuality: {
+      ...(snapshot.dataQuality || {}),
+      aznValuationBasisCorrection: {
+        status: "applied",
+        comparisonPriceBasis: "London AZN ordinary share in GBP",
+        fairValueBasis: "GBP ordinary-share fair value",
+        latestFxFactorFromUsdOrdinary: aznFactorAt(factors, latestPrice?.date || latestHistoryRow?.asOfDate),
+        note: "AZN price, fair value, and target are aligned to GBP ordinary-share terms."
+      }
+    }
+  };
+}
+
 function updateTickerSnapshot(snapshot, legacyTicker, runs, eventsById, financialPeriods = []) {
   const runHistory = runs
     .map((run) => buildHistoryRow(run, eventsById.get(run.reportingEventId)))
@@ -843,7 +1029,7 @@ function updateTickerSnapshot(snapshot, legacyTicker, runs, eventsById, financia
   const hasLivePriceSeries = pricePoints >= 120;
   const displayMode = hasLivePriceSeries ? "daily-price-line" : "as-of-price-anchors";
 
-  return {
+  const next = {
     ...snapshot,
     generatedAt: new Date().toISOString(),
     latest: {
@@ -889,6 +1075,7 @@ function updateTickerSnapshot(snapshot, legacyTicker, runs, eventsById, financia
       coverageNote
     }
   };
+  return normalizeAznGbpBasisSnapshot(next);
 }
 
 function compactTicker(snapshot) {
@@ -983,12 +1170,13 @@ function sanitizeTickerSnapshot(snapshot) {
     }],
     history
   };
-  const modelInputAudit = auditModelInputs(nextSnapshot);
+  const basisAdjustedSnapshot = normalizeAznGbpBasisSnapshot(nextSnapshot);
+  const modelInputAudit = auditModelInputs(basisAdjustedSnapshot);
 
   return {
-    ...nextSnapshot,
+    ...basisAdjustedSnapshot,
     dataQuality: {
-      ...(snapshot.dataQuality || {}),
+      ...(basisAdjustedSnapshot.dataQuality || {}),
       pricePoints,
       hasLivePriceSeries,
       priceDisplayMode: hasLivePriceSeries ? "daily-price-line" : "as-of-price-anchors",
@@ -1015,7 +1203,8 @@ const currentTickers = new Map(
 const imported = [];
 const skipped = [];
 
-for (const legacyTickerDir of fs.readdirSync(path.join(LEGACY_ROOT, "data/local"))) {
+const legacyLocalPath = path.join(LEGACY_ROOT, "data/local");
+for (const legacyTickerDir of fs.existsSync(legacyLocalPath) ? fs.readdirSync(legacyLocalPath) : []) {
   const legacyTicker = legacyTickerDir.toLowerCase();
   const currentTicker = mapLegacyTicker(legacyTicker);
   const existing = currentTickers.get(currentTicker);
@@ -1113,10 +1302,14 @@ const updatedDashboard = {
   generatedAt: new Date().toISOString(),
   source: {
     ...(dashboard.source || {}),
-    upstreamLabel: "Legacy fundamental-analysis backend valuation runs",
-    extraction: "backend valuation_runs import from reporting-event financials/guidance",
-    priceSource: "Current local price history for comparison and return math only",
-    modelInputPolicy: "Fair value must be driven by event-visible financials, guidance, and scenario assumptions; price is not accepted as a fair-value input."
+    upstreamLabel: imported.length
+      ? "Legacy fundamental-analysis backend valuation runs"
+      : dashboard.source?.upstreamLabel || "SEC CompanyFacts + legacy Fundamental Analysis valuation runs",
+    extraction: imported.length
+      ? "backend valuation_runs import from reporting-event financials/guidance"
+      : dashboard.source?.extraction || "snapshot sanitation and valuation basis normalization",
+    priceSource: dashboard.source?.priceSource || "Current local price history for comparison and return math only",
+    modelInputPolicy: dashboard.source?.modelInputPolicy || "Fair value must be driven by event-visible financials, guidance, and scenario assumptions; price is not accepted as a fair-value input."
   },
   summary,
   tickers

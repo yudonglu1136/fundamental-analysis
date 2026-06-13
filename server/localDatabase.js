@@ -25,13 +25,24 @@ db.exec(`
     payload_json TEXT NOT NULL
   );
 
-  CREATE TABLE IF NOT EXISTS guru_snapshots (
-    guru_id TEXT PRIMARY KEY,
-    cik TEXT,
-    type TEXT,
-    generated_at TEXT NOT NULL,
-    payload_json TEXT NOT NULL
-  );
+	  CREATE TABLE IF NOT EXISTS guru_snapshots (
+	    guru_id TEXT PRIMARY KEY,
+	    cik TEXT,
+	    type TEXT,
+	    generated_at TEXT NOT NULL,
+	    payload_json TEXT NOT NULL
+	  );
+
+	  CREATE TABLE IF NOT EXISTS guru_assets (
+	    guru_id TEXT NOT NULL,
+	    asset_type TEXT NOT NULL,
+	    url TEXT NOT NULL,
+	    local_path TEXT,
+	    style TEXT,
+	    prompt TEXT,
+	    generated_at TEXT NOT NULL,
+	    PRIMARY KEY (guru_id, asset_type)
+	  );
 
   CREATE TABLE IF NOT EXISTS price_points (
     symbol TEXT NOT NULL,
@@ -77,6 +88,60 @@ db.exec(`
     generated_at TEXT NOT NULL,
     payload_json TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS portfolio_nav_points (
+    account_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    nav REAL NOT NULL,
+    cash REAL,
+    source TEXT,
+    source_date TEXT,
+    payload_json TEXT,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (account_id, date)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_portfolio_nav_points_account_date
+    ON portfolio_nav_points (account_id, date);
+
+  CREATE TABLE IF NOT EXISTS ticker_assets (
+    ticker TEXT PRIMARY KEY,
+    company_name TEXT,
+    logo_url TEXT,
+    logo_domain TEXT,
+    logo_source TEXT,
+    payload_json TEXT,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS dividend_events (
+    ticker TEXT NOT NULL,
+    company_name TEXT,
+    ex_date TEXT NOT NULL,
+    pay_date TEXT,
+    record_date TEXT,
+    declaration_date TEXT,
+    amount REAL,
+    currency TEXT,
+    status TEXT,
+    source TEXT NOT NULL,
+    source_label TEXT,
+    logo_url TEXT,
+    payload_json TEXT,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (ticker, ex_date, source)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_dividend_events_ticker_ex_date
+    ON dividend_events (ticker, ex_date);
+
+  CREATE TABLE IF NOT EXISTS background_job_runs (
+    job_id TEXT PRIMARY KEY,
+    started_at TEXT,
+    finished_at TEXT,
+    status TEXT,
+    payload_json TEXT
+  );
 `);
 
 function parsePayload(value) {
@@ -85,6 +150,10 @@ function parsePayload(value) {
   } catch {
     return null;
   }
+}
+
+function normalizeTickerKey(value) {
+  return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.-]/g, "");
 }
 
 export function databaseInfo() {
@@ -126,6 +195,72 @@ export function writeGuruSnapshot(guruId, payload) {
     payload.type || "",
     payload.generatedAt || new Date().toISOString(),
     JSON.stringify(payload)
+  );
+}
+
+export function readGuruAssets() {
+  return db.prepare(`
+    SELECT guru_id, asset_type, url, local_path, style, prompt, generated_at
+    FROM guru_assets
+  `).all().map((row) => ({
+    guruId: row.guru_id,
+    assetType: row.asset_type,
+    url: row.url,
+    localPath: row.local_path || "",
+    style: row.style || "",
+    prompt: row.prompt || "",
+    generatedAt: row.generated_at
+  }));
+}
+
+export function readGuruAsset(guruId, assetType = "avatar") {
+  const row = db.prepare(`
+    SELECT guru_id, asset_type, url, local_path, style, prompt, generated_at
+    FROM guru_assets
+    WHERE guru_id = ? AND asset_type = ?
+  `).get(guruId, assetType);
+  if (!row) return null;
+  return {
+    guruId: row.guru_id,
+    assetType: row.asset_type,
+    url: row.url,
+    localPath: row.local_path || "",
+    style: row.style || "",
+    prompt: row.prompt || "",
+    generatedAt: row.generated_at
+  };
+}
+
+export function writeGuruAsset(guruId, asset) {
+  const normalizedGuruId = String(guruId || asset?.guruId || "").trim();
+  const assetType = String(asset?.assetType || "avatar").trim() || "avatar";
+  const url = String(asset?.url || "").trim();
+  if (!normalizedGuruId || !url) return;
+  db.prepare(`
+    INSERT INTO guru_assets (
+      guru_id,
+      asset_type,
+      url,
+      local_path,
+      style,
+      prompt,
+      generated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(guru_id, asset_type) DO UPDATE SET
+      url = excluded.url,
+      local_path = excluded.local_path,
+      style = excluded.style,
+      prompt = excluded.prompt,
+      generated_at = excluded.generated_at
+  `).run(
+    normalizedGuruId,
+    assetType,
+    url,
+    asset.localPath || "",
+    asset.style || "",
+    asset.prompt || "",
+    asset.generatedAt || new Date().toISOString()
   );
 }
 
@@ -272,4 +407,284 @@ export function writePriceSeriesToDb(symbol, points, source = "unknown") {
     db.exec("ROLLBACK");
     throw error;
   }
+}
+
+export function writePortfolioNavPoint(point) {
+  const accountId = String(point?.accountId || "portfolio").trim() || "portfolio";
+  const date = String(point?.date || "").trim();
+  const nav = Number(point?.nav);
+  if (!date || !Number.isFinite(nav) || nav <= 0) return;
+
+  db.prepare(`
+    INSERT INTO portfolio_nav_points (
+      account_id,
+      date,
+      nav,
+      cash,
+      source,
+      source_date,
+      payload_json,
+      updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(account_id, date) DO UPDATE SET
+      nav = excluded.nav,
+      cash = excluded.cash,
+      source = excluded.source,
+      source_date = excluded.source_date,
+      payload_json = excluded.payload_json,
+      updated_at = excluded.updated_at
+  `).run(
+    accountId,
+    date,
+    nav,
+    Number.isFinite(Number(point.cash)) ? Number(point.cash) : null,
+    String(point.source || ""),
+    String(point.sourceDate || ""),
+    JSON.stringify(point.payload || {}),
+    new Date().toISOString()
+  );
+}
+
+export function readPortfolioNavPoints(accountId = "portfolio", limit = 5000) {
+  const normalizedAccountId = String(accountId || "portfolio").trim() || "portfolio";
+  const rowLimit = Math.max(1, Math.min(10000, Number(limit) || 5000));
+  return db.prepare(`
+    SELECT account_id, date, nav, cash, source, source_date, updated_at, payload_json
+    FROM (
+      SELECT account_id, date, nav, cash, source, source_date, updated_at, payload_json
+      FROM portfolio_nav_points
+      WHERE account_id = ?
+      ORDER BY date DESC
+      LIMIT ?
+    )
+    ORDER BY date ASC
+  `).all(normalizedAccountId, rowLimit).map((row) => ({
+    accountId: row.account_id,
+    date: row.date,
+    value: row.nav,
+    nav: row.nav,
+    cash: row.cash,
+    source: row.source || "",
+    sourceDate: row.source_date || "",
+    updatedAt: row.updated_at,
+    payload: parsePayload(row.payload_json) || {}
+  }));
+}
+
+export function writeTickerAsset(ticker, asset = {}) {
+  const normalized = normalizeTickerKey(ticker || asset.ticker);
+  if (!normalized) return;
+  db.prepare(`
+    INSERT INTO ticker_assets (
+      ticker,
+      company_name,
+      logo_url,
+      logo_domain,
+      logo_source,
+      payload_json,
+      updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(ticker) DO UPDATE SET
+      company_name = excluded.company_name,
+      logo_url = excluded.logo_url,
+      logo_domain = excluded.logo_domain,
+      logo_source = excluded.logo_source,
+      payload_json = excluded.payload_json,
+      updated_at = excluded.updated_at
+  `).run(
+    normalized,
+    String(asset.companyName || asset.name || "").trim(),
+    String(asset.logoUrl || "").trim(),
+    String(asset.logoDomain || "").trim(),
+    String(asset.logoSource || "").trim(),
+    JSON.stringify(asset.payload || {}),
+    asset.updatedAt || new Date().toISOString()
+  );
+}
+
+export function readTickerAssets(tickers = []) {
+  const normalizedTickers = [...new Set(tickers.map(normalizeTickerKey).filter(Boolean))];
+  if (!normalizedTickers.length) return [];
+  const placeholders = normalizedTickers.map(() => "?").join(", ");
+  return db.prepare(`
+    SELECT ticker, company_name, logo_url, logo_domain, logo_source, payload_json, updated_at
+    FROM ticker_assets
+    WHERE ticker IN (${placeholders})
+    ORDER BY ticker ASC
+  `).all(...normalizedTickers).map((row) => ({
+    ticker: row.ticker,
+    companyName: row.company_name || "",
+    logoUrl: row.logo_url || "",
+    logoDomain: row.logo_domain || "",
+    logoSource: row.logo_source || "",
+    updatedAt: row.updated_at,
+    payload: parsePayload(row.payload_json) || {}
+  }));
+}
+
+export function deleteDividendEventsForTickers(tickers = [], startDate, endDate) {
+  const normalizedTickers = [...new Set(tickers.map(normalizeTickerKey).filter(Boolean))];
+  if (!normalizedTickers.length || !startDate || !endDate) return 0;
+  const placeholders = normalizedTickers.map(() => "?").join(", ");
+  const result = db.prepare(`
+    DELETE FROM dividend_events
+    WHERE ticker IN (${placeholders})
+      AND ex_date >= ?
+      AND ex_date <= ?
+  `).run(...normalizedTickers, startDate, endDate);
+  return result.changes || 0;
+}
+
+export function writeDividendEvents(events = []) {
+  if (!events.length) return 0;
+  const statement = db.prepare(`
+    INSERT INTO dividend_events (
+      ticker,
+      company_name,
+      ex_date,
+      pay_date,
+      record_date,
+      declaration_date,
+      amount,
+      currency,
+      status,
+      source,
+      source_label,
+      logo_url,
+      payload_json,
+      updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(ticker, ex_date, source) DO UPDATE SET
+      company_name = excluded.company_name,
+      pay_date = excluded.pay_date,
+      record_date = excluded.record_date,
+      declaration_date = excluded.declaration_date,
+      amount = excluded.amount,
+      currency = excluded.currency,
+      status = excluded.status,
+      source_label = excluded.source_label,
+      logo_url = excluded.logo_url,
+      payload_json = excluded.payload_json,
+      updated_at = excluded.updated_at
+  `);
+  const updatedAt = new Date().toISOString();
+  let count = 0;
+  db.exec("BEGIN");
+  try {
+    for (const event of events) {
+      const ticker = normalizeTickerKey(event.ticker);
+      const exDate = String(event.exDate || event.date || "").trim();
+      const source = String(event.source || "unknown").trim();
+      if (!ticker || !exDate || !source) continue;
+      statement.run(
+        ticker,
+        String(event.companyName || event.name || "").trim(),
+        exDate,
+        String(event.payDate || "").trim(),
+        String(event.recordDate || "").trim(),
+        String(event.declarationDate || "").trim(),
+        Number.isFinite(Number(event.amount)) ? Number(event.amount) : null,
+        String(event.currency || "USD").trim() || "USD",
+        String(event.status || "estimated").trim(),
+        source,
+        String(event.sourceLabel || "").trim(),
+        String(event.logoUrl || "").trim(),
+        JSON.stringify(event.payload || {}),
+        event.updatedAt || updatedAt
+      );
+      count += 1;
+    }
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+  return count;
+}
+
+export function readDividendEvents(tickers = [], startDate, endDate) {
+  const normalizedTickers = [...new Set(tickers.map(normalizeTickerKey).filter(Boolean))];
+  if (!normalizedTickers.length || !startDate || !endDate) return [];
+  const placeholders = normalizedTickers.map(() => "?").join(", ");
+  return db.prepare(`
+    SELECT
+      ticker,
+      company_name,
+      ex_date,
+      pay_date,
+      record_date,
+      declaration_date,
+      amount,
+      currency,
+      status,
+      source,
+      source_label,
+      logo_url,
+      payload_json,
+      updated_at
+    FROM dividend_events
+    WHERE ticker IN (${placeholders})
+      AND ex_date >= ?
+      AND ex_date <= ?
+    ORDER BY ex_date ASC, pay_date ASC, ticker ASC
+  `).all(...normalizedTickers, startDate, endDate).map((row) => ({
+    ticker: row.ticker,
+    companyName: row.company_name || row.ticker,
+    name: row.company_name || row.ticker,
+    exDate: row.ex_date,
+    payDate: row.pay_date || "",
+    recordDate: row.record_date || "",
+    declarationDate: row.declaration_date || "",
+    date: row.ex_date,
+    amount: row.amount,
+    currency: row.currency || "USD",
+    status: row.status || "",
+    type: row.status === "declared" ? "Declared dividend" : "Estimated dividend",
+    source: row.source || "",
+    sourceLabel: row.source_label || "",
+    logoUrl: row.logo_url || "",
+    updatedAt: row.updated_at,
+    payload: parsePayload(row.payload_json) || {}
+  }));
+}
+
+export function readBackgroundJobRun(jobId) {
+  const normalized = String(jobId || "").trim();
+  if (!normalized) return null;
+  const row = db.prepare(`
+    SELECT job_id, started_at, finished_at, status, payload_json
+    FROM background_job_runs
+    WHERE job_id = ?
+  `).get(normalized);
+  if (!row) return null;
+  return {
+    jobId: row.job_id,
+    startedAt: row.started_at || "",
+    finishedAt: row.finished_at || "",
+    status: row.status || "",
+    payload: parsePayload(row.payload_json) || {}
+  };
+}
+
+export function writeBackgroundJobRun(jobId, run = {}) {
+  const normalized = String(jobId || "").trim();
+  if (!normalized) return;
+  db.prepare(`
+    INSERT INTO background_job_runs (job_id, started_at, finished_at, status, payload_json)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(job_id) DO UPDATE SET
+      started_at = excluded.started_at,
+      finished_at = excluded.finished_at,
+      status = excluded.status,
+      payload_json = excluded.payload_json
+  `).run(
+    normalized,
+    String(run.startedAt || "").trim(),
+    String(run.finishedAt || "").trim(),
+    String(run.status || "").trim(),
+    JSON.stringify(run.payload || {})
+  );
 }

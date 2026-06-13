@@ -16,7 +16,6 @@ const GOOGLE_FINANCE_LISTINGS = {
   ASML: ["ASML", "NASDAQ"],
   AUTL: ["AUTL", "NASDAQ"],
   AVAV: ["AVAV", "NASDAQ"],
-  AZN: ["AZN", "NASDAQ"],
   BAC: ["BAC", "NYSE"],
   "BA.L": ["BA", "LON"],
   BE: ["BE", "NYSE"],
@@ -111,7 +110,15 @@ function htmlToTokens(html) {
 }
 
 function parseMoney(token) {
-  const match = String(token || "").replace(/,/g, "").match(/([$£])\s*(-?\d+(?:\.\d+)?)/);
+  const normalized = String(token || "").replace(/,/g, "");
+  const gbxMatch = normalized.match(/\bGBX\s*(-?\d+(?:\.\d+)?)/i) || normalized.match(/(-?\d+(?:\.\d+)?)\s*GBX\b/i);
+  if (gbxMatch) {
+    return {
+      currency: "GBP",
+      value: Number(gbxMatch[1]) / 100
+    };
+  }
+  const match = normalized.match(/([$£])\s*(-?\d+(?:\.\d+)?)/);
   if (!match) return null;
   return {
     currency: match[1] === "£" ? "GBP" : "USD",

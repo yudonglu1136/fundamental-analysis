@@ -7,10 +7,22 @@ import { loadGuruDashboard, loadGuruMarketContext } from "./secClient.js";
 import { loadOperationCommentary } from "./commentarySearch.js";
 import { gurus } from "./gurus.js";
 import { loadDbmfDashboard } from "./dbmfClient.js";
+import { clearPortfolioCache, loadPortfolioDashboard, startPortfolioNavRecorder } from "./portfolioClient.js";
 import { requireAuth } from "./auth/requireAuth.js";
 import { loadGuruBacktest, loadGuruBacktests } from "./backtest.js";
 import { loadValuationDashboard, loadValuationTicker } from "./valuationClient.js";
 import { databaseInfo } from "./localDatabase.js";
+import { loadTickerLogo } from "./logoClient.js";
+import {
+  refreshDividendCalendarForTickers,
+  startDividendCalendarRefresher
+} from "./dividendClient.js";
+import {
+  addPortfolioAccount,
+  deletePortfolioConnection,
+  readPortfolioConnectionStatus,
+  savePortfolioConnection
+} from "./userPortfolioStore.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -30,7 +42,10 @@ const allowedOrigins = String(process.env.API_ALLOWED_ORIGINS || defaultAllowedO
 
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    const isLocalDevOrigin =
+      process.env.NODE_ENV !== "production" &&
+      /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin || "");
+    if (!origin || allowedOrigins.includes(origin) || isLocalDevOrigin) {
       callback(null, true);
       return;
     }
@@ -40,6 +55,16 @@ app.use(cors({
   allowedHeaders: ["authorization", "content-type"]
 }));
 app.use(express.json());
+
+const avatarAssetDir = fs.existsSync(path.join(rootDir, "dist", "guru-avatars"))
+  ? path.join(rootDir, "dist", "guru-avatars")
+  : path.join(rootDir, "web", "guru-avatars");
+if (fs.existsSync(avatarAssetDir)) {
+  app.use("/guru-avatars", express.static(avatarAssetDir, {
+    immutable: true,
+    maxAge: "30d"
+  }));
+}
 
 function databaseHealth() {
   const info = databaseInfo();
@@ -65,6 +90,18 @@ app.get("/api/health", (_request, response) => {
     service: "guru-analysis-dashboard",
     database: databaseHealth()
   });
+});
+
+app.get("/api/logo/:ticker", async (request, response) => {
+  try {
+    const asset = await loadTickerLogo(request.params.ticker);
+    response.setHeader("Content-Type", asset.contentType);
+    response.setHeader("Cache-Control", "public, max-age=604800, immutable");
+    response.setHeader("X-Logo-Source", asset.source || "unknown");
+    response.send(asset.body);
+  } catch {
+    response.status(404).json({ error: "logo_not_found" });
+  }
 });
 
 app.use("/api", requireAuth);
@@ -93,9 +130,94 @@ app.get("/api/dbmf", async (request, response) => {
   }
 });
 
+app.get("/api/portfolio", async (request, response) => {
+  try {
+    const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
+    const payload = await loadPortfolioDashboard({ forceRefresh, user: request.user });
+    response.json(payload);
+  } catch (error) {
+    response.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/portfolio/connection", async (request, response) => {
+  try {
+    response.json(readPortfolioConnectionStatus(request.user));
+  } catch (error) {
+    response.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/portfolio/connection", async (request, response) => {
+  try {
+    const status = savePortfolioConnection(request.user, request.body || {});
+    clearPortfolioCache(request.user);
+    const payload = await loadPortfolioDashboard({ forceRefresh: true, user: request.user });
+    response.json({
+      ok: true,
+      connection: status,
+      portfolio: payload
+    });
+  } catch (error) {
+    response.status(400).json({ error: "portfolio_connection_invalid", message: error.message });
+  }
+});
+
+app.post("/api/portfolio/accounts", async (request, response) => {
+  try {
+    const status = addPortfolioAccount(request.user, request.body || {});
+    clearPortfolioCache(request.user);
+    const payload = await loadPortfolioDashboard({ forceRefresh: true, user: request.user });
+    response.json({
+      ok: true,
+      connection: status,
+      portfolio: payload
+    });
+  } catch (error) {
+    response.status(400).json({ error: "portfolio_account_invalid", message: error.message });
+  }
+});
+
+app.post("/api/portfolio/sync", async (request, response) => {
+  try {
+    clearPortfolioCache(request.user);
+    const payload = await loadPortfolioDashboard({ forceRefresh: true, user: request.user });
+    response.json({
+      ok: true,
+      syncedAt: new Date().toISOString(),
+      connection: payload.connection,
+      summary: payload.summary,
+      portfolio: payload
+    });
+  } catch (error) {
+    response.status(500).json({ error: "portfolio_sync_failed", message: error.message });
+  }
+});
+
+app.delete("/api/portfolio/connection", async (request, response) => {
+  try {
+    deletePortfolioConnection(request.user);
+    clearPortfolioCache(request.user);
+    response.json({ ok: true, connection: readPortfolioConnectionStatus(request.user) });
+  } catch (error) {
+    response.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/portfolio/dividends/refresh", async (_request, response) => {
+  try {
+    const payload = await loadPortfolioDashboard({ forceRefresh: true, user: _request.user });
+    const result = await refreshDividendCalendarForTickers(payload.holdings || [], { force: true });
+    response.json(result);
+  } catch (error) {
+    response.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/api/valuation", async (_request, response) => {
   try {
     const payload = await loadValuationDashboard();
+    response.setHeader("Cache-Control", "private, max-age=120");
     response.json(payload);
   } catch (error) {
     response.status(500).json({ error: error.message });
@@ -104,7 +226,10 @@ app.get("/api/valuation", async (_request, response) => {
 
 app.get("/api/valuation/:ticker", async (request, response) => {
   try {
-    const payload = await loadValuationTicker(request.params.ticker);
+    const payload = await loadValuationTicker(request.params.ticker, {
+      pricePoints: request.query.pricePoints
+    });
+    response.setHeader("Cache-Control", "private, max-age=120");
     response.json(payload);
   } catch (error) {
     response.status(404).json({ error: error.message });
@@ -143,7 +268,8 @@ app.get("/api/gurus/:id/backtest", async (request, response) => {
   try {
     const payload = await loadGuruBacktest(request.params.id, {
       refresh: request.query.refresh === "1" || request.query.refresh === "true",
-      years: request.query.years || 5
+      years: request.query.years,
+      detail: request.query.detail
     });
     response.json(payload);
   } catch (error) {
@@ -155,7 +281,8 @@ app.get("/api/backtests", async (request, response) => {
   try {
     const payload = await loadGuruBacktests({
       refresh: request.query.refresh === "1" || request.query.refresh === "true",
-      years: request.query.years || 5
+      years: request.query.years,
+      detail: request.query.detail
     });
     response.json(payload);
   } catch (error) {
@@ -182,3 +309,14 @@ if (process.env.NODE_ENV === "production") {
 app.listen(port, () => {
   console.log(`Guru Analysis backend listening on http://127.0.0.1:${port}`);
 });
+
+if (process.env.PORTFOLIO_NAV_AUTO_CAPTURE !== "false") {
+  startPortfolioNavRecorder();
+}
+
+if (process.env.DIVIDEND_CALENDAR_AUTO_REFRESH !== "false") {
+  startDividendCalendarRefresher(async () => {
+    const payload = await loadPortfolioDashboard({ forceRefresh: false });
+    return payload.holdings || [];
+  });
+}

@@ -8,6 +8,8 @@ import { loadPriceSeries, nearestPoint } from "./marketData.js";
 import {
   databaseInfo,
   readDashboardSnapshot,
+  readGuruAsset,
+  readGuruAssets,
   readGuruSnapshot,
   writeDashboardSnapshot,
   writeGuruSnapshot
@@ -18,6 +20,7 @@ const cacheDir = path.join(__dirname, "cache");
 const cacheFile = path.join(cacheDir, "gurus.json");
 const guruCacheDir = path.join(cacheDir, "gurus");
 const cacheTtlMs = 1000 * 60 * 30;
+const insiderForm4FilingLimit = Math.max(10, Math.min(80, Number(process.env.INSIDER_FORM4_FILINGS || 30)));
 const secUserAgent =
   process.env.SEC_USER_AGENT || "guru-analysis-dashboard/0.1 contact@example.com";
 
@@ -119,8 +122,7 @@ async function getPublicText(url) {
   return response.text();
 }
 
-function recentFilings(submission) {
-  const recent = submission?.filings?.recent || {};
+function filingsFromRecentShape(recent = {}) {
   const forms = recent.form || [];
 
   return forms.map((form, index) => ({
@@ -131,6 +133,32 @@ function recentFilings(submission) {
     primaryDocument: recent.primaryDocument?.[index],
     primaryDocDescription: recent.primaryDocDescription?.[index]
   }));
+}
+
+function recentFilings(submission) {
+  return filingsFromRecentShape(submission?.filings?.recent || {});
+}
+
+async function allSubmissionFilings(submission) {
+  const filings = recentFilings(submission);
+  for (const file of toArray(submission?.filings?.files)) {
+    const name = stringValue(file?.name);
+    if (!name) continue;
+    try {
+      const archived = await getJson(`https://data.sec.gov/submissions/${name}`);
+      filings.push(...filingsFromRecentShape(archived?.filings?.recent || archived?.recent || archived));
+      await wait(80);
+    } catch {
+      // Archived submissions are additive. Keep the recent feed if an older shard is temporarily unavailable.
+    }
+  }
+
+  const byAccession = new Map();
+  for (const filing of filings) {
+    const key = filing.accessionNumber || `${filing.form}-${filing.filingDate}-${filing.reportDate}`;
+    if (key) byAccession.set(key, filing);
+  }
+  return [...byAccession.values()];
 }
 
 async function getSubmission(cik) {
@@ -436,6 +464,12 @@ function transactionCodeLabel(code) {
   return labels[code] || "other";
 }
 
+function hasForm4Value(value) {
+  if (value === undefined || value === null || value === "") return false;
+  if (typeof value === "object" && "value" in value) return hasForm4Value(value.value);
+  return true;
+}
+
 function parseForm4(xmlText, filing) {
   const parsed = xmlParser.parse(xmlText);
   const doc = parsed.ownershipDocument || parsed;
@@ -477,8 +511,9 @@ function form4Transaction(transaction, securityType) {
   const code = stringValue(transaction.transactionCoding?.transactionCode);
   const shares = numberValue(transaction.transactionAmounts?.transactionShares);
   const price = numberValue(transaction.transactionAmounts?.transactionPricePerShare);
+  const postSharesRaw = transaction.postTransactionAmounts?.sharesOwnedFollowingTransaction;
   const sharesOwned = numberValue(
-    transaction.postTransactionAmounts?.sharesOwnedFollowingTransaction
+    postSharesRaw
   );
   const acquiredDisposed = stringValue(
     transaction.transactionAmounts?.transactionAcquiredDisposedCode
@@ -496,9 +531,95 @@ function form4Transaction(transaction, securityType) {
     notional: shares * price,
     acquiredDisposed,
     sharesOwned,
+    hasSharesOwned: hasForm4Value(postSharesRaw),
     ownership: stringValue(transaction.ownershipNature?.directOrIndirectOwnership),
     footnoteIds: toArray(transaction.footnoteId).map((footnote) => footnote.id).filter(Boolean)
   };
+}
+
+function buildInsiderPositionSummary(transactions, holdings) {
+  const byTicker = new Map();
+
+  const bucketFor = (ticker, issuer = "") => {
+    const key = String(ticker || "").trim().toUpperCase();
+    if (!key) return null;
+    if (!byTicker.has(key)) {
+      byTicker.set(key, {
+        ticker: key,
+        issuer: issuer || key,
+        latestSharesOwned: 0,
+        latestSharesDate: "",
+        latestFilingDate: "",
+        latestOwnership: "",
+        cumulativeBoughtShares: 0,
+        cumulativeBoughtValue: 0,
+        cumulativeSoldShares: 0,
+        cumulativeSoldValue: 0,
+        cumulativeTaxWithheldShares: 0,
+        cumulativeTaxWithheldValue: 0,
+        transactionCount: 0,
+        buyCount: 0,
+        sellCount: 0,
+        lastAction: "",
+        lastTransactionDate: ""
+      });
+    }
+    const bucket = byTicker.get(key);
+    if (issuer && (!bucket.issuer || bucket.issuer === key)) bucket.issuer = issuer;
+    return bucket;
+  };
+
+  for (const holding of holdings || []) {
+    const bucket = bucketFor(holding.ticker, holding.issuer);
+    if (!bucket) continue;
+    if (holding.sharesOwned > 0 && (!bucket.latestSharesDate || !bucket.latestSharesOwned)) {
+      bucket.latestSharesOwned = holding.sharesOwned;
+      bucket.latestOwnership = holding.ownership || bucket.latestOwnership;
+    }
+  }
+
+  for (const tx of transactions || []) {
+    const bucket = bucketFor(tx.ticker, tx.issuer);
+    if (!bucket) continue;
+    const date = tx.transactionDate || tx.filingDate || "";
+    bucket.transactionCount += 1;
+    if (!bucket.lastTransactionDate || date > bucket.lastTransactionDate) {
+      bucket.lastAction = tx.action || "";
+      bucket.lastTransactionDate = date;
+    }
+    if (tx.hasSharesOwned && (!bucket.latestSharesDate || date >= bucket.latestSharesDate)) {
+      bucket.latestSharesOwned = tx.sharesOwned;
+      bucket.latestSharesDate = date;
+      bucket.latestFilingDate = tx.filingDate || "";
+      bucket.latestOwnership = tx.ownership || bucket.latestOwnership;
+    }
+
+    if (tx.action === "buy") {
+      bucket.buyCount += 1;
+      bucket.cumulativeBoughtShares += tx.shares || 0;
+      bucket.cumulativeBoughtValue += tx.notional || 0;
+    } else if (tx.action === "sell") {
+      bucket.sellCount += 1;
+      bucket.cumulativeSoldShares += tx.shares || 0;
+      bucket.cumulativeSoldValue += tx.notional || 0;
+    } else if (tx.action === "tax_withholding") {
+      bucket.cumulativeTaxWithheldShares += tx.shares || 0;
+      bucket.cumulativeTaxWithheldValue += tx.notional || 0;
+    }
+  }
+
+  return [...byTicker.values()]
+    .map((item) => ({
+      ...item,
+      estimatedNetShares:
+        item.latestSharesOwned ||
+        Math.max(0, item.cumulativeBoughtShares - item.cumulativeSoldShares - item.cumulativeTaxWithheldShares)
+    }))
+    .sort((left, right) =>
+      right.latestSharesOwned - left.latestSharesOwned ||
+      right.cumulativeSoldValue - left.cumulativeSoldValue ||
+      String(left.ticker).localeCompare(String(right.ticker))
+    );
 }
 
 async function loadInsiderGuru(guru) {
@@ -507,11 +628,11 @@ async function loadInsiderGuru(guru) {
     .filter((filing) => /^4/.test(filing.form))
     .filter((filing) => filing.accessionNumber)
     .sort((a, b) => String(b.filingDate || "").localeCompare(String(a.filingDate || "")))
-    .slice(0, 14);
+    .slice(0, insiderForm4FilingLimit);
 
   const parsedFilings = [];
 
-  for (const filing of filings.slice(0, 10)) {
+  for (const filing of filings) {
     try {
       const doc = await getFilingDocument(guru.cik, filing, filing.primaryDocument);
       const parsed = parseForm4(doc.text, filing);
@@ -534,6 +655,7 @@ async function loadInsiderGuru(guru) {
     .flatMap((item) => item.transactions)
     .sort((a, b) => String(b.transactionDate || "").localeCompare(String(a.transactionDate || "")));
   const holdings = parsedFilings.flatMap((item) => item.holdings);
+  const insiderPositions = buildInsiderPositionSummary(transactions, holdings);
   const latestTransactionWithShares = transactions.find((tx) => tx.sharesOwned > 0);
   const actionCounts = transactions.reduce((acc, tx) => {
     acc[tx.action] = (acc[tx.action] || 0) + 1;
@@ -556,8 +678,18 @@ async function loadInsiderGuru(guru) {
       taxWithholding: actionCounts.tax_withholding || 0,
       latestSharesOwned: latestTransactionWithShares?.sharesOwned || 0,
       latestIssuer: latestTransactionWithShares?.issuer || parsedFilings[0]?.issuer || guru.focusIssuer,
-      latestTicker: latestTransactionWithShares?.ticker || guru.focusTicker || ""
+      latestTicker: latestTransactionWithShares?.ticker || guru.focusTicker || "",
+      trackedTickers: insiderPositions.length,
+      totalLatestSharesOwned: insiderPositions.reduce((sum, item) => sum + (item.latestSharesOwned || 0), 0),
+      cumulativeSoldShares: insiderPositions.reduce((sum, item) => sum + (item.cumulativeSoldShares || 0), 0),
+      cumulativeSoldValue: insiderPositions.reduce((sum, item) => sum + (item.cumulativeSoldValue || 0), 0),
+      cumulativeBoughtShares: insiderPositions.reduce((sum, item) => sum + (item.cumulativeBoughtShares || 0), 0),
+      cumulativeBoughtValue: insiderPositions.reduce((sum, item) => sum + (item.cumulativeBoughtValue || 0), 0),
+      form4FilingsLoaded: parsedFilings.length,
+      form4WindowStart: parsedFilings.at(-1)?.filing?.filingDate || null,
+      form4WindowEnd: parsedFilings[0]?.filing?.filingDate || null
     },
+    insiderPositions: insiderPositions.slice(0, 30),
     holdings: holdings.slice(0, 25),
     transactions: transactions.slice(0, 80),
     filings: parsedFilings.map((item) => item.filing).slice(0, 10)
@@ -843,19 +975,24 @@ export async function load13fHoldingHistory(guru, { years = 5, limit = 24 } = {}
     return [];
   }
 
+  const parsedYears = Number(years);
+  const hasYearWindow = Number.isFinite(parsedYears) && parsedYears > 0;
   const cutoff = new Date();
-  cutoff.setFullYear(cutoff.getFullYear() - years);
-  const cutoffDate = cutoff.toISOString().slice(0, 10);
+  if (hasYearWindow) cutoff.setFullYear(cutoff.getFullYear() - parsedYears);
+  const cutoffDate = hasYearWindow ? cutoff.toISOString().slice(0, 10) : "";
+  const parsedLimit = Number(limit);
+  const hasLimit = Number.isFinite(parsedLimit) && parsedLimit > 0;
   const submission = await getSubmission(guru.cik);
-  const filings = recentFilings(submission)
+  const sourceFilings = hasYearWindow ? recentFilings(submission) : await allSubmissionFilings(submission);
+  const filings = sourceFilings
     .filter((filing) => /^13F-HR/.test(filing.form))
     .filter((filing) => filing.accessionNumber)
-    .filter((filing) => String(filing.filingDate || filing.reportDate || "") >= cutoffDate)
+    .filter((filing) => !cutoffDate || String(filing.filingDate || filing.reportDate || "") >= cutoffDate)
     .sort((a, b) => {
       const dateCompare = String(a.reportDate || "").localeCompare(String(b.reportDate || ""));
       return dateCompare || String(a.filingDate || "").localeCompare(String(b.filingDate || ""));
     })
-    .slice(-limit);
+    .slice(hasLimit ? -parsedLimit : 0);
 
   const history = [];
   for (const filing of filings) {
@@ -1053,7 +1190,14 @@ function simulationTagForGuru(guru) {
     return {
       label: "13F copy 模拟",
       tone: "simulatable",
-      description: "按披露发布日复制公开13F长仓权重，并和SPY做五年回测。"
+      description: "按披露发布日复制公开13F长仓权重，并和SPY做全历史回测。"
+    };
+  }
+  if (guru.type === "congress" && !guru.disableSimulation) {
+    return {
+      label: "STOCK Act copy 模拟",
+      tone: "simulatable",
+      description: "按公开披露日和交易金额区间做近似复制，并和SPY对比。"
     };
   }
   return {
@@ -1063,12 +1207,29 @@ function simulationTagForGuru(guru) {
   };
 }
 
+function avatarPayloadForGuru(guruId) {
+  const asset = readGuruAsset(guruId, "avatar");
+  if (!asset?.url) return {};
+  return {
+    avatarUrl: asset.url,
+    avatarStyle: asset.style || "",
+    avatarGeneratedAt: asset.generatedAt || ""
+  };
+}
+
 function withConfiguredGuruMetadata(guruPayload) {
   if (!guruPayload || typeof guruPayload !== "object") return guruPayload;
   const configured = gurus.find((guru) => guru.id === guruPayload.id);
-  if (!configured) return guruPayload;
+  const avatar = avatarPayloadForGuru(guruPayload.id);
+  if (!configured) {
+    return {
+      ...guruPayload,
+      ...avatar
+    };
+  }
   return {
     ...guruPayload,
+    ...avatar,
     excludeFromHeatmap: Boolean(configured.excludeFromHeatmap),
     heatmapExclusionReason: configured.heatmapExclusionReason || "",
     simulationTag: simulationTagForGuru(configured)
@@ -1087,9 +1248,24 @@ function withResolvedGuruTickers(guruPayload) {
 
 function withResolvedDashboardTickers(payload) {
   if (!payload?.gurus) return payload;
+  const avatarByGuruId = new Map(
+    readGuruAssets()
+      .filter((asset) => asset.assetType === "avatar" && asset.url)
+      .map((asset) => [
+        asset.guruId,
+        {
+          avatarUrl: asset.url,
+          avatarStyle: asset.style || "",
+          avatarGeneratedAt: asset.generatedAt || ""
+        }
+      ])
+  );
   return {
     ...payload,
-    gurus: payload.gurus.map(withResolvedGuruTickers)
+    gurus: payload.gurus.map((guru) => ({
+      ...withResolvedGuruTickers(guru),
+      ...(avatarByGuruId.get(guru.id) || {})
+    }))
   };
 }
 
@@ -1235,6 +1411,7 @@ function withGuruShell(guru, data) {
     sourceLabel: guru.sourceLabel || (guru.cik ? "SEC EDGAR" : ""),
     profileUrl: guru.profileUrl || secCompanyUrl,
     secCompanyUrl,
+    ...avatarPayloadForGuru(guru.id),
     generatedAt: data.generatedAt || new Date().toISOString(),
     ...data
   };

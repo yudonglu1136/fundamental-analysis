@@ -21,6 +21,7 @@ const OUTPUT_START_DATE = process.env.SEC_VALUATION_START_DATE || "2019-01-01";
 
 const TAGS = {
   revenue_m: [
+    "RevenuesNetOfInterestExpense",
     "RevenueFromContractWithCustomerExcludingAssessedTax",
     "RevenueFromContractWithCustomerIncludingAssessedTax",
     "Revenues",
@@ -109,6 +110,7 @@ const VALUATION_PROFILES = {
   ASML: "semiconductor_equipment",
   AUTL: "emerging_biotech",
   AVAV: "defense_growth",
+  AXP: "card_network_lender",
   AZN: "biopharma",
   BAC: "bank",
   BE: "energy_technology",
@@ -125,6 +127,7 @@ const VALUATION_PROFILES = {
   KTOS: "defense_growth",
   LEGN: "emerging_biotech",
   LLY: "biopharma_growth",
+  LIN: "industrial_gases_compounder",
   LMT: "defense_prime",
   LSEG: "information_services",
   MA: "payments_network",
@@ -139,6 +142,7 @@ const VALUATION_PROFILES = {
   PLTR: "hypergrowth_ai_software",
   QCOM: "semiconductor_value",
   RTX: "defense_prime",
+  SE: "platform_marketplace_reinvestment",
   TEM: "emerging_health_ai",
   TRI: "information_services",
   TRV: "insurance",
@@ -516,6 +520,16 @@ function buildMetricQuarterMap(facts, metric, fiscalYearEnd, options = {}) {
         form: annual.form,
         derived: true
       });
+    } else if ((options.deriveAnnualQ4 !== false || options.annualOnlyAsQ4) && annual && !q1 && !q2 && !q3) {
+      quarters.set(`${fy}::Q4`, {
+        value: annual.value,
+        filed: annual.filed,
+        end: annual.end,
+        tag: annual.tag,
+        form: annual.form,
+        derived: false,
+        annualOnly: true
+      });
     }
   }
   return quarters;
@@ -609,6 +623,7 @@ function buildQuarterlyFinancials(facts) {
     tags: SHARE_TAGS,
     unit: "shares",
     deriveAnnualQ4: false,
+    annualOnlyAsQ4: true,
     valueTransform: shareValueM
   });
   const sharesPointMap = buildPointMetricMap(facts, "shares_m", fiscalYearEnd, {
@@ -638,7 +653,8 @@ function buildQuarterlyFinancials(facts) {
         filed: row.filed,
         form: row.form,
         end: row.end,
-        derived: row.derived
+        derived: row.derived,
+        annualOnly: Boolean(row.annualOnly)
       };
     }
     const debtRow = debtMap.get(key);
@@ -673,7 +689,8 @@ function buildQuarterlyFinancials(facts) {
         filed: shareRow.filed,
         form: shareRow.form,
         end: shareRow.end,
-        derived: shareRow.derived
+        derived: shareRow.derived,
+        annualOnly: Boolean(shareRow.annualOnly)
       };
     }
     const filedDates = Object.values(sources).map((source) => source.filed).filter(Boolean).sort();
@@ -732,10 +749,105 @@ function latestPricePoint(points = []) {
     .at(-1) || null;
 }
 
+function readPriceHistoryFromDb(db, ticker, limit = 1800) {
+  try {
+    const rows = db.prepare(`
+      SELECT date, open, high, low, close, volume, source
+      FROM price_points
+      WHERE symbol = ?
+      ORDER BY date DESC
+      LIMIT ?
+    `).all(ticker, limit);
+    return rows
+      .reverse()
+      .map((row) => ({
+        date: row.date,
+        open: finiteNumber(row.open),
+        high: finiteNumber(row.high),
+        low: finiteNumber(row.low),
+        close: finiteNumber(row.close),
+        volume: finiteNumber(row.volume),
+        source: row.source || "local price_points"
+      }))
+      .filter((row) => row.date && row.close != null);
+  } catch {
+    return [];
+  }
+}
+
+function baseValuationSnapshot({ ticker, companyModel, secInfo, priceHistory }) {
+  const latestPrice = latestPricePoint(priceHistory);
+  const generatedAt = new Date().toISOString();
+  const name = companyModel?.company || secInfo?.title || ticker;
+  return {
+    generatedAt,
+    ticker,
+    key: ticker.toLowerCase(),
+    name,
+    sector: companyModel?.sector || profileSettings(ticker).label || "Public equity",
+    currency: "USD",
+    description: `${name} valuation snapshot generated from SEC CompanyFacts and local price history.`,
+    modelType: "SEC quarterly Fundamental Analysis model",
+    latest: {
+      latestPrice: finiteNumber(latestPrice?.close),
+      latestPriceDate: latestPrice?.date || null,
+      latestPriceSource: latestPrice?.source || null,
+      valuationAnchorPrice: null,
+      valuationAnchorDate: null,
+      baseFairValue: null,
+      upsideToBase: null,
+      targetPrice3Y: null,
+      expectedReturn3Y: null,
+      fairValueSource: "SEC CompanyFacts financials + transcript guidance model",
+      fairValueInputPolicy: "reported financials / guidance only; price excluded"
+    },
+    scenarios: [],
+    history: [],
+    methodCards: [],
+    assumptions: [],
+    warnings: ["Initialized valuation snapshot from local price history so SEC import can add the ticker."],
+    priceHistory,
+    priceSource: latestPrice?.source || "local price_points",
+    dataQuality: {
+      pricePoints: priceHistory.length,
+      hasLivePriceSeries: priceHistory.length >= 120,
+      priceDisplayMode: priceHistory.length >= 120 ? "daily-price-line" : "as-of-price-anchors",
+      valuationCoverageKind: "unsupported",
+      hasQuarterlyValuationRuns: false,
+      sourceNote: "Initialized from local price_points; fair values are added by the SEC quarterly importer.",
+      fairValueSource: "pending SEC CompanyFacts import",
+      secCompanyFacts: {
+        cik: secInfo?.cik_str || companyModel?.cik || null,
+        company: name,
+        pendingImport: true
+      }
+    }
+  };
+}
+
 function trailingSum(rows, index, key) {
   const window = rows.slice(Math.max(0, index - 3), index + 1);
   if (window.length < 4 || window.some((row) => finiteNumber(row[key]) == null)) return null;
   return window.reduce((sum, row) => sum + Number(row[key]), 0);
+}
+
+function isAnnualOnlyFinancialRow(row) {
+  return row?.fiscalQuarter === "Q4" && CORE_DISCLOSURE_METRICS.some((metric) =>
+    Boolean(row?.sources?.[metric]?.annualOnly)
+  );
+}
+
+function isSecCompanyFactsModelSource(sourceType) {
+  return String(sourceType || "").startsWith("sec_companyfacts_");
+}
+
+function trailingOrAnnualValue(rows, index, key, annualizationFactor) {
+  const row = rows[index];
+  if (isAnnualOnlyFinancialRow(row)) return finiteNumber(row?.[key]);
+  const ttmValue = trailingSum(rows, index, key);
+  if (ttmValue != null) return ttmValue;
+  const currentValue = finiteNumber(row?.[key]);
+  return currentValue == null ? null : currentValue * annualizationFactor;
 }
 
 function latestKnownValue(rows, index, key) {
@@ -800,6 +912,33 @@ const PROFILE_SETTINGS = {
     targetMargin: 0.16,
     fcfWeight: 0.36
   },
+  platform_marketplace_reinvestment: {
+    label: "Platform reinvestment",
+    method: "Marketplace EV/sales + normalized earnings + FCF yield",
+    allowLossMakingStage: true,
+    normalizedGrowthWindow: 4,
+    normalizedGrowthCapPct: 65,
+    forwardRevenueYears: 0,
+    peRange: [20, 44],
+    peBase: 25,
+    peGrowthCoefficient: 0.26,
+    peMarginCoefficient: 0.18,
+    fcfYieldRange: [0.032, 0.075],
+    fcfYieldBase: 0.052,
+    fcfYieldGrowthCoefficient: 0.00025,
+    fcfYieldMarginCoefficient: 0.00018,
+    evSalesRange: [1.2, 8.0],
+    evSalesBase: 2.5,
+    evSalesGrowthCoefficient: 0.07,
+    evSalesGrossMarginCoefficient: 0.035,
+    evSalesFcfMarginCoefficient: 0.035,
+    targetMargin: 0.14,
+    marginActualWeight: 0.55,
+    salesWeight: 0.48,
+    earningsWeight: 0.30,
+    fcfWeight: 0.22,
+    defaultGrossMarginPct: 42
+  },
   payments_network: {
     label: "Payments network",
     method: "High-ROIC EPS + FCF yield",
@@ -809,6 +948,17 @@ const PROFILE_SETTINGS = {
     fcfYieldBase: 0.035,
     targetMargin: 0.52,
     fcfWeight: 0.45
+  },
+  card_network_lender: {
+    label: "Closed-loop card network / lender",
+    method: "Premium ROE-implied P/B + EPS power",
+    costOfEquity: 0.105,
+    terminalGrowth: 0.035,
+    pbRange: [2.0, 6.5],
+    peRange: [12, 22],
+    peBase: 15.5,
+    bookWeight: 0.35,
+    epsWeight: 0.65
   },
   software_growth: {
     label: "Enterprise software growth",
@@ -1090,6 +1240,31 @@ const PROFILE_SETTINGS = {
     targetMargin: 0.12,
     fcfWeight: 0.25
   },
+  industrial_gases_compounder: {
+    label: "Industrial gases compounder",
+    method: "Adjusted EPS guidance + owner-earnings yield",
+    historicalMethod: "Normalized industrial gas earnings + owner-earnings yield",
+    peRange: [26, 34],
+    peBase: 27.5,
+    peGrowthCoefficient: 0.22,
+    peMarginCoefficient: 0.12,
+    fcfYieldRange: [0.035, 0.055],
+    fcfYieldBase: 0.044,
+    fcfYieldGrowthCoefficient: 0.0002,
+    fcfYieldMarginCoefficient: 0.00015,
+    targetMargin: 0.23,
+    marginActualWeight: 0.75,
+    maintenanceCapexIntensityPct: 0.08,
+    fcfWeight: 0.10,
+    adjustedEpsGuidance: 17.75,
+    adjustedEpsGuidanceRange: [17.60, 17.90],
+    adjustedEpsGuidanceYear: 2026,
+    adjustedEpsGuidanceVisibleFrom: "2026-02-06",
+    adjustedOperatingMarginPct: 30.0,
+    adjustedAfterTaxRocPct: 23.8,
+    projectBacklogM: 10000,
+    saleOfGasBacklogM: 7100
+  },
   ev_autonomy_platform: {
     label: "EV / energy / autonomy platform",
     method: "Forward revenue power + autonomy/energy option value",
@@ -1236,6 +1411,16 @@ function plausibleGuidanceAmount(value, base, minScale, maxScale) {
   const maxValue = baseValue * maxScale;
   if (amount < minValue || amount > maxValue) return null;
   return amount;
+}
+
+function forwardGuidanceVisibleForRow(row, settings) {
+  const visibleFrom = settings.adjustedEpsGuidanceVisibleFrom;
+  if (visibleFrom && row?.asOfDate) {
+    return String(row.asOfDate).localeCompare(String(visibleFrom)) >= 0;
+  }
+  const guidanceYear = finiteNumber(settings.adjustedEpsGuidanceYear);
+  const fiscalYear = finiteNumber(row?.fiscalYear);
+  return guidanceYear != null && fiscalYear != null && fiscalYear >= guidanceYear;
 }
 
 function valuationFreeCashFlow(ttm, settings) {
@@ -1428,7 +1613,12 @@ function buildFinancialInstitutionModel({ ticker, row, ttm, settings }) {
   const pe = clamp(settings.peBase + (roe - 0.11) * 18, settings.peRange[0], settings.peRange[1]);
   const epsValue = netIncomeM / sharesM * pe;
   const bookValue = bvps * pb;
-  const fairValue = bookValue * 0.68 + epsValue * 0.32;
+  const bookWeight = clamp(settings.bookWeight ?? 0.68, 0, 1);
+  const epsWeight = settings.epsWeight != null
+    ? clamp(settings.epsWeight, 0, 1)
+    : 1 - bookWeight;
+  const totalWeight = bookWeight + epsWeight || 1;
+  const fairValue = (bookValue * bookWeight + epsValue * epsWeight) / totalWeight;
   const longRunGrowth = clamp(terminalGrowth + Math.max(-0.03, Math.min(0.08, roe - costOfEquity)) * 0.35, 0.015, 0.07);
   return {
     fairValue,
@@ -1451,6 +1641,13 @@ function buildFinancialInstitutionModel({ ticker, row, ttm, settings }) {
         description: `TTM EPS x ${pe.toFixed(1)}x normalized P/E.`
       },
       {
+        key: "financial-method-weighting",
+        label: "Method weighting",
+        value: bookWeight / totalWeight * 100,
+        format: "percent",
+        description: `${Math.round(bookWeight / totalWeight * 100)}% ROE-implied book value / ${Math.round(epsWeight / totalWeight * 100)}% EPS power.`
+      },
+      {
         key: "reported-equity",
         label: "Reported equity",
         value: equityM,
@@ -1469,7 +1666,7 @@ function buildFinancialInstitutionModel({ ticker, row, ttm, settings }) {
       costOfEquity,
       terminalGrowth
     },
-    formula: "68% ROE-implied book value + 32% EPS cross-check; no market price input"
+    formula: `${Math.round(bookWeight / totalWeight * 100)}% ROE-implied book value + ${Math.round(epsWeight / totalWeight * 100)}% EPS cross-check; no market price input`
   };
 }
 
@@ -1535,7 +1732,15 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
   if (["emerging_biotech", "emerging_health_ai"].includes(settings.profile)) {
     return buildRevenueStageModel({ row, ttm, settings, youtubeEvidence });
   }
-  if (["software_growth", "hypergrowth_ai_software", "defense_growth", "semiconductor_growth", "energy_technology", "ev_autonomy_platform"].includes(settings.profile)) {
+  if ([
+    "software_growth",
+    "hypergrowth_ai_software",
+    "defense_growth",
+    "semiconductor_growth",
+    "energy_technology",
+    "ev_autonomy_platform",
+    "platform_marketplace_reinvestment"
+  ].includes(settings.profile)) {
     return buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence });
   }
 
@@ -1544,10 +1749,18 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
   const valuationRevenue = ttmRevenue * forwardScale;
   const normalizedMargin = normalizedMarginRatio(ttm, settings);
   const taxRate = 0.19;
+  const guidanceVisible = forwardGuidanceVisibleForRow(row, settings);
+  const adjustedEpsGuidance = guidanceVisible ? finiteNumber(settings.adjustedEpsGuidance) : null;
+  const guidedAdjustedNetIncome = adjustedEpsGuidance && sharesM > 0
+    ? adjustedEpsGuidance * sharesM
+    : null;
+  const marginBasedNetIncome = valuationRevenue * normalizedMargin * (1 - taxRate);
   const normalizedNetIncome = Math.max(
     finiteNumber(ttmNetIncome) ?? -Infinity,
-    valuationRevenue * normalizedMargin * (1 - taxRate)
+    marginBasedNetIncome,
+    finiteNumber(guidedAdjustedNetIncome) ?? -Infinity
   );
+  const usesAdjustedEpsGuidance = guidedAdjustedNetIncome != null && Math.abs(normalizedNetIncome - guidedAdjustedNetIncome) < 0.01;
   if (!(normalizedNetIncome > 0)) return null;
   const pe = adjustedPe(settings, growthPct, ttm.operating_margin_pct);
   const fcfYield = adjustedFcfYield(settings, growthPct, ttm.fcf_margin_pct);
@@ -1565,15 +1778,17 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
   return {
     fairValue,
     targetPrice3Y: fairValue * (1 + longRunGrowth) ** 3,
-    method: settings.method,
+    method: usesAdjustedEpsGuidance ? settings.method : (settings.historicalMethod || settings.method),
     longRunGrowth,
     methodOutputs: [
       {
         key: "normalized-earnings-power",
-        label: "Normalized earnings power",
+        label: usesAdjustedEpsGuidance ? "Adjusted EPS power" : "Normalized earnings power",
         value: earningsValue,
         format: "currency",
-        description: `${settings.forwardRevenueYears ? "Forward" : "TTM"} revenue x ${(normalizedMargin * 100).toFixed(1)}% normalized margin x after-tax conversion / shares x ${pe.toFixed(1)}x P/E.`
+        description: usesAdjustedEpsGuidance
+          ? `${settings.adjustedEpsGuidanceYear || "Forward"} adjusted EPS guidance midpoint $${adjustedEpsGuidance.toFixed(2)} x ${pe.toFixed(1)}x P/E.`
+          : `${settings.forwardRevenueYears ? "Forward" : "TTM"} revenue x ${(normalizedMargin * 100).toFixed(1)}% normalized margin x after-tax conversion / shares x ${pe.toFixed(1)}x P/E.`
       },
       {
         key: "ttm-fcf-yield",
@@ -1598,6 +1813,15 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
         format: "percent",
         description: `Revenue growth input ${growthPct.toFixed(1)}%, TTM operating margin ${formatPct(ttm.operating_margin_pct)}.`
       },
+      ...(guidanceVisible && settings.projectBacklogM ? [{
+        key: "contracted-project-backlog",
+        label: "Contracted project backlog",
+        value: settings.projectBacklogM,
+        format: "number",
+        description: settings.saleOfGasBacklogM
+          ? `$${(settings.projectBacklogM / 1000).toFixed(1)}B project backlog, including $${(settings.saleOfGasBacklogM / 1000).toFixed(1)}B sale-of-gas backlog. Growth capex is not treated like ordinary maintenance capex.`
+          : `$${(settings.projectBacklogM / 1000).toFixed(1)}B project backlog. Growth capex is not treated like ordinary maintenance capex.`
+      }] : []),
       ...(optionalityMultiplier !== 1 ? [{
         key: "platform-optionality",
         label: "Platform optionality",
@@ -1613,6 +1837,13 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
       forwardScale,
       forwardRevenueYears: settings.forwardRevenueYears || 0,
       ttmNetIncome,
+      forwardGuidanceVisible: guidanceVisible,
+      adjustedEpsGuidance,
+      adjustedEpsGuidanceRange: settings.adjustedEpsGuidanceRange || null,
+      adjustedEpsGuidanceYear: settings.adjustedEpsGuidanceYear || null,
+      adjustedEpsGuidanceVisibleFrom: settings.adjustedEpsGuidanceVisibleFrom || null,
+      guidedAdjustedNetIncome,
+      marginBasedNetIncome,
       normalizedNetIncome,
       ttmFreeCashFlow: ttmFcf,
       valuationFreeCashFlow: valuationFcf,
@@ -1625,17 +1856,21 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
       normalizedMargin: normalizedMargin * 100,
       targetPE: pe,
       targetFCFYield: fcfYield,
+      adjustedOperatingMargin: guidanceVisible ? settings.adjustedOperatingMarginPct : null,
+      adjustedAfterTaxRoc: guidanceVisible ? settings.adjustedAfterTaxRocPct : null,
+      projectBacklogM: guidanceVisible ? settings.projectBacklogM : null,
+      saleOfGasBacklogM: guidanceVisible ? settings.saleOfGasBacklogM : null,
       cycleHaircut,
       optionalityMultiplier,
       sharesM
     },
-    formula: `${Math.round((1 - fcfWeight) * 100)}% normalized earnings power + ${Math.round(fcfWeight * 100)}% FCF yield value${optionalityMultiplier !== 1 ? `, then x${optionalityMultiplier.toFixed(2)} platform optionality` : ""}; no market price input`
+    formula: `${Math.round((1 - fcfWeight) * 100)}% ${usesAdjustedEpsGuidance ? "adjusted EPS guidance power" : "normalized earnings power"} + ${Math.round(fcfWeight * 100)}% FCF yield value${optionalityMultiplier !== 1 ? `, then x${optionalityMultiplier.toFixed(2)} platform optionality` : ""}; no market price input`
   };
 }
 
 function buildBuySideValuationModel({ ticker, row, ttm, youtubeEvidence }) {
   const settings = profileSettings(ticker);
-  if (["bank", "insurance"].includes(settings.profile)) {
+  if (["bank", "insurance", "card_network_lender"].includes(settings.profile)) {
     return buildFinancialInstitutionModel({ ticker, row, ttm, settings });
   }
   return buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidence });
@@ -1705,16 +1940,13 @@ function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, fac
     const rowAnnualizationFactor = row.fiscalQuarter === "Q4" && ["10-K", "20-F", "40-F"].includes(row.sources?.revenue_m?.form)
       ? 1
       : 4;
-    const annualizeFallback = (key) => {
-      const value = finiteNumber(row[key]);
-      return value == null ? null : value * rowAnnualizationFactor;
-    };
-    const ttmRevenue = trailingSum(quarterlyRows, index, "revenue_m") ?? annualizeFallback("revenue_m");
-    const ttmGrossProfit = trailingSum(quarterlyRows, index, "gross_profit_m") ?? annualizeFallback("gross_profit_m");
-    const ttmOperatingIncome = trailingSum(quarterlyRows, index, "operating_income_m") ?? annualizeFallback("operating_income_m");
-    const ttmNetIncome = trailingSum(quarterlyRows, index, "net_income_m") ?? annualizeFallback("net_income_m");
-    const ttmCfo = trailingSum(quarterlyRows, index, "cfo_m") ?? annualizeFallback("cfo_m");
-    const ttmCapex = trailingSum(quarterlyRows, index, "capex_m") ?? annualizeFallback("capex_m");
+    const annualOnlyFinancialRow = isAnnualOnlyFinancialRow(row);
+    const ttmRevenue = trailingOrAnnualValue(quarterlyRows, index, "revenue_m", rowAnnualizationFactor);
+    const ttmGrossProfit = trailingOrAnnualValue(quarterlyRows, index, "gross_profit_m", rowAnnualizationFactor);
+    const ttmOperatingIncome = trailingOrAnnualValue(quarterlyRows, index, "operating_income_m", rowAnnualizationFactor);
+    const ttmNetIncome = trailingOrAnnualValue(quarterlyRows, index, "net_income_m", rowAnnualizationFactor);
+    const ttmCfo = trailingOrAnnualValue(quarterlyRows, index, "cfo_m", rowAnnualizationFactor);
+    const ttmCapex = trailingOrAnnualValue(quarterlyRows, index, "capex_m", rowAnnualizationFactor);
     const ttmFcf = ttmCfo != null && ttmCapex != null ? ttmCfo - ttmCapex : null;
     const ttmEquity = latestKnownValue(quarterlyRows, index, "equity_m");
     const ttmAssets = latestKnownValue(quarterlyRows, index, "assets_m");
@@ -1769,7 +2001,7 @@ function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, fac
       fiscalYear: row.fiscalYear,
       fiscalQuarter: row.fiscalQuarter,
       eventType: "sec_quarterly_fundamental_model",
-      sourceType: "sec_companyfacts_quarterly_model",
+      sourceType: annualOnlyFinancialRow ? "sec_companyfacts_annual_model" : "sec_companyfacts_quarterly_model",
       sourceUrl: factsUrl,
       currentPrice: priceAtDate,
       fairValue,
@@ -1782,8 +2014,8 @@ function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, fac
       priceDate: pricePoint?.date || row.asOfDate,
       priceAtDate,
       dataSnapshot: {
-        sourceType: "sec_companyfacts_quarterly_model",
-        sourceQuality: "sec-companyfacts-quarterly-financials",
+        sourceType: annualOnlyFinancialRow ? "sec_companyfacts_annual_model" : "sec_companyfacts_quarterly_model",
+        sourceQuality: annualOnlyFinancialRow ? "sec-companyfacts-annual-financials" : "sec-companyfacts-quarterly-financials",
         sourceMaxAsOfDate: row.asOfDate,
         selectedFinancialPeriod: {
           id: `${ticker}-${row.fiscalYear}-${row.fiscalQuarter}`,
@@ -1797,8 +2029,8 @@ function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, fac
         segmentFinancialCount: 0,
         guidanceCandidateCount: youtubeEvidence?.guidanceMetricCount || 0,
         transcriptCandidateCount: youtubeEvidence?.metricCount || 0,
-        latestAnnualizedRevenue: row.revenue_m * 4,
-        latestAnnualizedOperatingIncome: row.operating_income_m != null ? row.operating_income_m * 4 : null,
+        latestAnnualizedRevenue: row.revenue_m != null ? row.revenue_m * rowAnnualizationFactor : null,
+        latestAnnualizedOperatingIncome: row.operating_income_m != null ? row.operating_income_m * rowAnnualizationFactor : null,
         fiscalFinancials: {
           revenue_m: row.revenue_m,
           revenue_growth_pct: row.revenue_growth_pct,
@@ -1818,7 +2050,9 @@ function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, fac
           fcf_after_capex_m: row.fcf_after_capex_m
         },
         trailingTwelveMonths: ttm,
-        annualizedFromSinglePeriod: trailingSum(quarterlyRows, index, "revenue_m") == null ? rowAnnualizationFactor : null,
+        annualizedFromSinglePeriod: annualOnlyFinancialRow
+          ? 1
+          : trailingSum(quarterlyRows, index, "revenue_m") == null ? rowAnnualizationFactor : null,
         asOfAssumptionOverrideKeys: [
           ...Object.keys(model.scoreInputs || {})
         ],
@@ -1827,7 +2061,7 @@ function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, fac
           source: pricePoint.source || "local daily close fallback"
         } : null,
         valuationSemantics: {
-          sourceType: "sec_companyfacts_quarterly_model",
+          sourceType: annualOnlyFinancialRow ? "sec_companyfacts_annual_model" : "sec_companyfacts_quarterly_model",
           priceExcludedFromFairValue: true,
           fairValueFormula: model.formula,
           scoreInputs: model.scoreInputs
@@ -2228,7 +2462,11 @@ function readYoutubeEvidence(tickers) {
 
 function auditModelInputs(snapshot) {
   const history = Array.isArray(snapshot.history) ? snapshot.history : [];
-  const secRows = history.filter((row) => row.sourceType === "sec_companyfacts_quarterly_model" || row.dataSnapshot?.sourceType === "sec_companyfacts_quarterly_model").length;
+  const secRows = history.filter((row) =>
+    isSecCompanyFactsModelSource(row.sourceType) ||
+    isSecCompanyFactsModelSource(row.dataSnapshot?.sourceType) ||
+    isSecCompanyFactsModelSource(row.dataSnapshot?.valuationSemantics?.sourceType)
+  ).length;
   const trinityRows = history.filter((row) => row.sourceType === "trinity_official_financial_model" || row.dataSnapshot?.sourceType === "trinity_official_financial_model").length;
   const financialRows = secRows + trinityRows;
   const sourceTypes = history.reduce((counts, row) => {
@@ -2267,7 +2505,7 @@ function auditModelInputs(snapshot) {
     passesNoPriceAnchorAudit: true,
     fairValueInputPolicy: "reported-financials-guidance-and-scenario-assumptions",
     priceUsage: "comparison-price-series-only",
-    sourceGrade: secRows ? "sec-companyfacts-quarterly-financials" : "ai-trinity-official-ir-financials",
+    sourceGrade: secRows ? "sec-companyfacts-financials" : "ai-trinity-official-ir-financials",
     valuationRows: history.length,
     financialOrGuidanceEvidenceRows: financialRows,
     secCompanyFactsRows: secRows,
@@ -2314,11 +2552,13 @@ function updateTickerSnapshot({ ticker, snapshot, valuationRows, coverage }) {
   const sourceLabel = coverage?.sourceLabel || "SEC CompanyFacts financials + transcript guidance model";
   const sourceNote = coverage?.sourceNote || "SEC CompanyFacts quarterly financials + YouTube earnings-call transcript evidence; fair value excludes market price.";
   const modelType = coverage?.modelType || "SEC quarterly Fundamental Analysis model";
+  const profileLabel = profileSettings(ticker).label;
   const next = {
     ...snapshot,
     ticker,
     generatedAt,
     modelType,
+    sector: profileLabel || snapshot.sector,
     latest: {
       ...(snapshot.latest || {}),
       latestPrice: latestMarketPrice ?? snapshot.latest?.latestPrice ?? null,
@@ -2371,7 +2611,11 @@ function updateTickerSnapshot({ ticker, snapshot, valuationRows, coverage }) {
       sourceNote,
       fairValueSource: sourceLabel,
       secCompanyFacts: coverage,
-      secCompanyFactsQuarterlyRows: coverage?.secRows ?? history.filter((row) => row.sourceType === "sec_companyfacts_quarterly_model").length,
+      secCompanyFactsQuarterlyRows: coverage?.secRows ?? history.filter((row) =>
+        isSecCompanyFactsModelSource(row.sourceType) ||
+        isSecCompanyFactsModelSource(row.dataSnapshot?.sourceType) ||
+        isSecCompanyFactsModelSource(row.dataSnapshot?.valuationSemantics?.sourceType)
+      ).length,
       trinityOfficialFinancialValuationRows: coverage?.trinityFinancialRows || 0,
       youtubeEarningsMetricValuationRows: 0,
       valuationCoverageKind: history.length >= 12 ? "quarterly" : history.length >= 4 ? "partial" : history.length ? "limited" : "unsupported",
@@ -2520,7 +2764,7 @@ function shouldPreserveLegacyBackendSnapshot(snapshot, valuationRows, sourceIsTr
   ).size;
   const hasLegacyHistory = history.some((row) => {
     const sourceText = `${row?.sourceType || ""} ${row?.dataSnapshot?.sourceType || ""} ${row?.dataSnapshot?.valuationSemantics?.sourceType || ""}`.toLowerCase();
-    return sourceText && !sourceText.includes("trinity_official_financial_model") && !sourceText.includes("sec_companyfacts_quarterly_model");
+    return sourceText && !sourceText.includes("trinity_official_financial_model") && !sourceText.includes("sec_companyfacts_");
   });
   return legacyBackendRows >= 8 &&
     history.length >= 8 &&
@@ -2546,15 +2790,22 @@ async function main() {
     const requestedTickers = DEFAULT_TICKERS.includes("ALL") ? [...currentTickers.keys()] : DEFAULT_TICKERS;
     const requested = requestedTickers.map((ticker) => {
       const companyModel = trinityModels.get(ticker);
-      const snapshot = currentTickers.get(ticker);
       const secInfo = secTickerMap.get(secLookupTicker(ticker));
-      const cik = companyModel?.cik || snapshot?.cik || snapshot?.dataQuality?.secCompanyFacts?.cik || secInfo?.cik_str;
       const trinityTicker = companyModel?.ticker || ticker;
       const dashboardTicker = dashboardTickerForTrinity(trinityTicker);
       const normalizedTicker = currentTickers.has(dashboardTicker) ? dashboardTicker : ticker;
+      const snapshot = currentTickers.get(normalizedTicker) ||
+        baseValuationSnapshot({
+          ticker: normalizedTicker,
+          companyModel,
+          secInfo,
+          priceHistory: readPriceHistoryFromDb(currentDb, normalizedTicker)
+        });
+      const cik = companyModel?.cik || snapshot?.cik || snapshot?.dataQuality?.secCompanyFacts?.cik || secInfo?.cik_str;
       return {
         ticker: normalizedTicker,
         trinityTicker,
+        snapshot,
         companyModel: {
           ...(companyModel || {}),
           ticker: trinityTicker,
@@ -2562,7 +2813,7 @@ async function main() {
           company: companyModel?.company || secInfo?.title || snapshot?.name || ticker
         }
       };
-    }).filter((item) => currentTickers.has(item.ticker));
+    }).filter((item) => item.snapshot);
 
     const youtubeByPeriod = readYoutubeEvidence([...new Set(requested.flatMap((item) => [item.ticker, item.trinityTicker]))]);
     const updated = [];
@@ -2570,7 +2821,8 @@ async function main() {
 
     for (const item of requested) {
       const { ticker, trinityTicker, companyModel } = item;
-      const snapshot = currentTickers.get(ticker);
+      const snapshot = item.snapshot;
+      if (!currentTickers.has(ticker)) currentTickers.set(ticker, snapshot);
       let quarterlyRows = [];
       let secRows = [];
       let factsUrl = null;
@@ -2583,6 +2835,20 @@ async function main() {
         await sleep(140);
         const facts = factsPayload?.facts || {};
         quarterlyRows = buildQuarterlyFinancials(facts);
+        if (process.env.DEBUG_SEC_VALUATION_TICKER === ticker) {
+          console.error(JSON.stringify({
+            ticker,
+            quarterlyRows: quarterlyRows.slice(-8).map((row) => ({
+              key: row.key,
+              label: row.label,
+              asOfDate: row.asOfDate,
+              revenue_m: row.revenue_m,
+              net_income_m: row.net_income_m,
+              shares_m: row.shares_m,
+              sources: row.sources
+            }))
+          }, null, 2));
+        }
         secRows = buildValuationRows({
           ticker,
           trinityTicker,
