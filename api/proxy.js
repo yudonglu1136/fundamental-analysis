@@ -14,6 +14,15 @@ const HOP_BY_HOP_HEADERS = new Set([
   "upgrade"
 ]);
 
+const REQUEST_HEADERS = [
+  "accept",
+  "accept-language",
+  "authorization",
+  "content-type",
+  "if-none-match",
+  "user-agent"
+];
+
 function targetUrl(request) {
   const requestUrl = new URL(request.url, "https://thesisforge.tech");
   const path = request.query.path || "";
@@ -26,13 +35,34 @@ function targetUrl(request) {
   return target;
 }
 
+function forwardedHeaders(request) {
+  const headers = {};
+  for (const key of REQUEST_HEADERS) {
+    const value = request.headers[key];
+    if (value) headers[key] = value;
+  }
+  headers["x-forwarded-host"] = request.headers.host || "thesisforge.tech";
+  headers["x-forwarded-proto"] = "https";
+  return headers;
+}
+
+function hasRequestBody(request) {
+  return !["GET", "HEAD"].includes(String(request.method || "GET").toUpperCase());
+}
+
 export default async function handler(request, response) {
+  const body = hasRequestBody(request)
+    ? await new Promise((resolve, reject) => {
+        const chunks = [];
+        request.on("data", (chunk) => chunks.push(chunk));
+        request.on("end", () => resolve(Buffer.concat(chunks)));
+        request.on("error", reject);
+      })
+    : undefined;
   const upstream = await fetch(targetUrl(request), {
     method: request.method,
-    headers: {
-      accept: request.headers.accept || "*/*",
-      "user-agent": request.headers["user-agent"] || "vercel-proxy"
-    }
+    headers: forwardedHeaders(request),
+    body
   });
 
   for (const [key, value] of upstream.headers.entries()) {
@@ -41,6 +71,6 @@ export default async function handler(request, response) {
     }
   }
 
-  const body = Buffer.from(await upstream.arrayBuffer());
-  response.status(upstream.status).send(body);
+  const upstreamBody = Buffer.from(await upstream.arrayBuffer());
+  response.status(upstream.status).send(upstreamBody);
 }

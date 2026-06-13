@@ -1,7 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm install --omit=dev",
-  "buildCommand": "echo 'Using Vercel proxy function for the AWS-hosted Flutter app'",
+  "buildCommand": "mkdir -p dist && printf '%s\\n' '<!doctype html><meta charset=\"utf-8\"><title>Guru Intelligence Proxy</title>' > dist/index.html",
+  "outputDirectory": "dist",
   "routes": [
     {
       "src": "/(.*)",
