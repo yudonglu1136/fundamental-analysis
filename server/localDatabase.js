@@ -144,6 +144,64 @@ db.exec(`
   );
 `);
 
+function syncBundledValuationSnapshots() {
+  if (process.env.SYNC_BUNDLED_VALUATION_SNAPSHOTS === "false") return;
+  if (dbPath === bundledDbPath || !fs.existsSync(bundledDbPath)) return;
+
+  let bundledDb;
+  try {
+    bundledDb = new DatabaseSync(bundledDbPath, { readOnly: true });
+    const dashboardRows = bundledDb.prepare(`
+      SELECT id, generated_at, payload_json
+      FROM valuation_snapshots
+    `).all();
+    const tickerRows = bundledDb.prepare(`
+      SELECT ticker, generated_at, payload_json
+      FROM valuation_ticker_snapshots
+    `).all();
+    if (!dashboardRows.length && !tickerRows.length) return;
+
+    const writeDashboard = db.prepare(`
+      INSERT INTO valuation_snapshots (id, generated_at, payload_json)
+      VALUES (?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        generated_at = excluded.generated_at,
+        payload_json = excluded.payload_json
+    `);
+    const writeTicker = db.prepare(`
+      INSERT INTO valuation_ticker_snapshots (ticker, generated_at, payload_json)
+      VALUES (?, ?, ?)
+      ON CONFLICT(ticker) DO UPDATE SET
+        generated_at = excluded.generated_at,
+        payload_json = excluded.payload_json
+    `);
+
+    db.exec("BEGIN");
+    try {
+      for (const row of dashboardRows) {
+        writeDashboard.run(row.id, row.generated_at, row.payload_json);
+      }
+      for (const row of tickerRows) {
+        writeTicker.run(row.ticker, row.generated_at, row.payload_json);
+      }
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+    console.info(
+      `[database] synced bundled valuation snapshots into ${dbPath}: ` +
+      `${dashboardRows.length} dashboard rows, ${tickerRows.length} ticker rows`
+    );
+  } catch (error) {
+    console.warn(`[database] bundled valuation snapshot sync skipped: ${error.message}`);
+  } finally {
+    bundledDb?.close();
+  }
+}
+
+syncBundledValuationSnapshots();
+
 function parsePayload(value) {
   try {
     return value ? JSON.parse(value) : null;
