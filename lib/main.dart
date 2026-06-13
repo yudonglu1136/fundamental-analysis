@@ -10572,6 +10572,77 @@ const monthNamesShort = [
 
 const dividendWeekdayLabels = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
+double dividendHoldingShareQuantity(Map<String, dynamic> holding) {
+  final quantity =
+      firstNumber([
+        holding['quantity'],
+        holding['shares'],
+        holding['units'],
+        holding['position'],
+      ]) ??
+      0;
+  final price =
+      firstNumber([
+        holding['price'],
+        holding['holdingPrice'],
+        holding['markPrice'],
+        holding['closePrice'],
+        holding['reportDatePrice'],
+      ]) ??
+      0;
+  final value =
+      firstNumber([
+        holding['value'],
+        holding['holdingValue'],
+        holding['marketValue'],
+        holding['positionValue'],
+        holding['currentValue'],
+      ]) ??
+      0;
+  if (price <= 0 || value <= 0) return math.max(0, quantity);
+  final impliedQuantity = value / price;
+  if (quantity <= 0) return math.max(0, impliedQuantity);
+  final valueFromQuantity = quantity * price;
+  final relativeValueError =
+      (valueFromQuantity - value).abs() / math.max(1, value.abs());
+  final quantityLooksLikeMarketValue =
+      price > 1.01 &&
+      value > 100 &&
+      (quantity - value).abs() / math.max(1, value.abs()) < .03;
+  final quantityIsImplausiblyHigh =
+      price > 1.01 && quantity > impliedQuantity * 20;
+  if (quantityLooksLikeMarketValue ||
+      quantityIsImplausiblyHigh ||
+      relativeValueError > .5) {
+    return math.max(0, impliedQuantity);
+  }
+  return math.max(0, quantity);
+}
+
+bool dividendEventUsesPerShareAmount(
+  Map<String, dynamic> event,
+  String source,
+) {
+  final amountKind =
+      '${text(event['amountKind'])} ${text(asMap(event['payload'])['amountKind'])}'
+          .toLowerCase()
+          .replaceAll('-', '_');
+  if (amountKind.contains('total') ||
+      amountKind.contains('cash') ||
+      text(event['perShare']).toLowerCase() == 'false') {
+    return false;
+  }
+  if (amountKind.contains('per_share') || truthy(event['perShare'])) {
+    return true;
+  }
+  final status = text(event['status']).toLowerCase();
+  return source.contains('yahoo') ||
+      source.contains('nasdaq') ||
+      source.contains('estimate') ||
+      source.contains('calendar') ||
+      status == 'estimated';
+}
+
 List<DividendDisplayEvent> normalizeDividendDisplayEvents(
   List<Map<String, dynamic>> dividends,
   List<Map<String, dynamic>> holdings, {
@@ -10582,9 +10653,19 @@ List<DividendDisplayEvent> normalizeDividendDisplayEvents(
   for (final holding in holdings) {
     final ticker = text(holding['ticker']).toUpperCase();
     if (ticker.isEmpty) continue;
+    final assetClass =
+        '${text(holding['sector'])} ${text(holding['assetCategory'])} ${text(holding['type'])}'
+            .toLowerCase();
+    if (assetClass.contains('option') ||
+        assetClass == 'opt' ||
+        assetClass.contains('future') ||
+        assetClass.contains('cash')) {
+      continue;
+    }
+    final shareQuantity = dividendHoldingShareQuantity(holding);
+    if (shareQuantity <= 0) continue;
     holdingsByTicker.putIfAbsent(ticker, () => holding);
-    quantityByTicker[ticker] =
-        (quantityByTicker[ticker] ?? 0) + number(holding['quantity']);
+    quantityByTicker[ticker] = (quantityByTicker[ticker] ?? 0) + shareQuantity;
   }
 
   final events = <DividendDisplayEvent>[];
@@ -10597,17 +10678,34 @@ List<DividendDisplayEvent> normalizeDividendDisplayEvents(
     final amount = number(event['amount']);
     if (amount == 0) continue;
     final holding = holdingsByTicker[ticker] ?? const <String, dynamic>{};
-    final quantity = quantityByTicker[ticker] ?? 0;
+    final eventQuantity =
+        firstNumber([
+          event['quantity'],
+          event['shares'],
+          event['holdingQuantity'],
+        ]) ??
+        0;
+    final fallbackQuantity = dividendHoldingShareQuantity({
+      ...event,
+      'quantity': eventQuantity,
+    });
+    final quantity = quantityByTicker[ticker] ?? fallbackQuantity;
     final source = '${text(event['source'])} ${text(event['sourceLabel'])}'
         .toLowerCase();
-    final perShare =
-        quantity > 0 &&
-        (source.contains('yahoo') ||
-            source.contains('nasdaq') ||
-            source.contains('estimate') ||
-            source.contains('calendar') ||
-            text(event['status']).toLowerCase() == 'estimated');
-    final payout = perShare ? amount * quantity : amount;
+    final perShare = dividendEventUsesPerShareAmount(event, source);
+    final explicitPayout = firstNumber([
+      event['estimatedPayout'],
+      event['payout'],
+      event['totalPayout'],
+      event['cashAmount'],
+      event['totalAmount'],
+    ]);
+    final payout = perShare
+        ? (explicitPayout != null && explicitPayout.abs() > amount.abs()
+              ? explicitPayout
+              : amount * quantity)
+        : (explicitPayout ?? amount);
+    if (payout == 0) continue;
     final status = dividendStatusForEvent(event, date);
     events.add(
       DividendDisplayEvent(

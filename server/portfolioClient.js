@@ -579,6 +579,29 @@ function combineHoldings(rows) {
   return [...byTicker.values()];
 }
 
+function safeHoldingQuantity(holding = {}) {
+  const quantity = finiteNumber(holding.quantity ?? holding.shares ?? holding.units ?? holding.position, NaN);
+  const price = finiteNumber(holding.price ?? holding.markPrice ?? holding.closePrice ?? holding.reportDatePrice, NaN);
+  const value = finiteNumber(
+    holding.value?.amount ?? holding.marketValue?.amount ?? holding.marketValue ?? holding.positionValue ?? holding.value,
+    NaN
+  );
+  if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(value) || value <= 0) {
+    return Number.isFinite(quantity) ? quantity : 0;
+  }
+  const impliedQuantity = value / price;
+  if (!Number.isFinite(quantity) || quantity <= 0) return impliedQuantity;
+  const valueFromQuantity = quantity * price;
+  const relativeValueError = Math.abs(valueFromQuantity - value) / Math.max(1, Math.abs(value));
+  const quantityLooksLikeMarketValue =
+    price > 1.01 && value > 100 && Math.abs(quantity - value) / Math.max(1, Math.abs(value)) < 0.03;
+  const quantityIsImplausiblyHigh = price > 1.01 && quantity > impliedQuantity * 20;
+  if (quantityLooksLikeMarketValue || quantityIsImplausiblyHigh || relativeValueError > 0.5) {
+    return impliedQuantity;
+  }
+  return quantity;
+}
+
 function extractPerformance(parsed) {
   const candidates = [
     ...collectByKey(parsed, "EquitySummaryByReportDateInBase"),
@@ -717,7 +740,11 @@ function attachStoredDividendCalendar(payload) {
     })
     .map((holding) => ({
       ticker: holding.ticker,
-      name: holding.name || holding.companyName || holding.ticker
+      name: holding.name || holding.companyName || holding.ticker,
+      sector: holding.sector || holding.assetCategory || "",
+      quantity: safeHoldingQuantity(holding),
+      price: finiteNumber(holding.price),
+      value: finiteNumber(holding.value)
     }));
   const stored = readDividendCalendarForTickers(tickerInputs);
   const upstreamEvents = payload.dividends || [];
@@ -952,12 +979,16 @@ function normalizePortfolio({
     0
   );
   const normalizedHoldings = holdings
-    .map((holding) => ({
-      ...holding,
-      ticker: normalizeTicker(holding.ticker) || "N/A",
-      logoUrl: holding.logoUrl || logoUrlForTicker(holding.ticker, holding.name),
-      weight: totalValue > 0 ? finiteNumber(holding.value) / totalValue : 0
-    }))
+    .map((holding) => {
+      const cleanQuantity = safeHoldingQuantity(holding);
+      return {
+        ...holding,
+        quantity: cleanQuantity,
+        ticker: normalizeTicker(holding.ticker) || "N/A",
+        logoUrl: holding.logoUrl || logoUrlForTicker(holding.ticker, holding.name),
+        weight: totalValue > 0 ? finiteNumber(holding.value) / totalValue : 0
+      };
+    })
     .sort((left, right) => finiteNumber(right.value) - finiteNumber(left.value));
   const bySector = new Map();
   for (const holding of normalizedHoldings) {

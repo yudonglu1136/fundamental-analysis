@@ -83,12 +83,51 @@ function normalizeTickerInputs(items = []) {
       : item?.ticker || item?.symbol || item?.underlyingSymbol;
     const ticker = canonicalTicker(rawTicker) || normalizeTicker(rawTicker);
     if (!ticker || ticker === "N/A" || ticker.startsWith("CASH")) continue;
+    const assetClass = typeof item === "string"
+      ? ""
+      : String(item?.sector || item?.assetCategory || item?.category || item?.type || "").toLowerCase();
+    if (/option|^opt$|future|futures|cash|forex|currency/.test(assetClass)) continue;
     const companyName = typeof item === "string"
       ? ticker
       : String(item?.companyName || item?.name || item?.description || ticker).trim();
-    byTicker.set(ticker, { ticker, companyName: companyName || ticker });
+    const quantity = typeof item === "string" ? 0 : safeHoldingQuantity(item);
+    const price = typeof item === "string" ? 0 : finiteNumber(item?.price ?? item?.markPrice, 0);
+    const value = typeof item === "string"
+      ? 0
+      : finiteNumber(item?.value?.amount ?? item?.marketValue?.amount ?? item?.marketValue ?? item?.value, 0);
+    const existing = byTicker.get(ticker);
+    byTicker.set(ticker, {
+      ticker,
+      companyName: companyName || existing?.companyName || ticker,
+      quantity: Math.max(0, (existing?.quantity || 0) + Math.max(0, quantity)),
+      price: price || existing?.price || 0,
+      value: Math.max(0, (existing?.value || 0) + Math.max(0, value))
+    });
   }
   return [...byTicker.values()].sort((left, right) => left.ticker.localeCompare(right.ticker));
+}
+
+function safeHoldingQuantity(item = {}) {
+  const quantity = finiteNumber(item.quantity ?? item.shares ?? item.units ?? item.position, NaN);
+  const price = finiteNumber(item.price ?? item.markPrice ?? item.closePrice ?? item.reportDatePrice, NaN);
+  const value = finiteNumber(
+    item.value?.amount ?? item.marketValue?.amount ?? item.marketValue ?? item.positionValue ?? item.value,
+    NaN
+  );
+  if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(value) || value <= 0) {
+    return Number.isFinite(quantity) ? quantity : 0;
+  }
+  const impliedQuantity = value / price;
+  if (!Number.isFinite(quantity) || quantity <= 0) return impliedQuantity;
+  const valueFromQuantity = quantity * price;
+  const relativeValueError = Math.abs(valueFromQuantity - value) / Math.max(1, Math.abs(value));
+  const quantityLooksLikeMarketValue =
+    price > 1.01 && value > 100 && Math.abs(quantity - value) / Math.max(1, Math.abs(value)) < 0.03;
+  const quantityIsImplausiblyHigh = price > 1.01 && quantity > impliedQuantity * 20;
+  if (quantityLooksLikeMarketValue || quantityIsImplausiblyHigh || relativeValueError > 0.5) {
+    return impliedQuantity;
+  }
+  return quantity;
 }
 
 function tickerHash(tickerInfos) {
@@ -137,6 +176,12 @@ function normalizeNasdaqDividend(row, tickerInfoByTicker) {
     recordDate: parseNasdaqDate(row.record_Date || row.recordDate),
     declarationDate: parseNasdaqDate(row.announcement_Date || row.declarationDate),
     amount,
+    amountKind: "per_share",
+    perShare: true,
+    quantity: info.quantity || undefined,
+    holdingValue: info.value || undefined,
+    holdingPrice: info.price || undefined,
+    estimatedPayout: info.quantity ? amount * info.quantity : undefined,
     currency: "USD",
     status: "declared",
     type: "Declared dividend",
@@ -241,6 +286,12 @@ function estimateFutureDividends(tickerInfo, history, { startDate, endDate }) {
       recordDate: "",
       declarationDate: "",
       amount,
+      amountKind: "per_share",
+      perShare: true,
+      quantity: tickerInfo.quantity || undefined,
+      holdingValue: tickerInfo.value || undefined,
+      holdingPrice: tickerInfo.price || undefined,
+      estimatedPayout: tickerInfo.quantity ? amount * tickerInfo.quantity : undefined,
       currency,
       status: "estimated",
       type: "Estimated dividend",
@@ -250,7 +301,8 @@ function estimateFutureDividends(tickerInfo, history, { startDate, endDate }) {
       payload: {
         intervalDays,
         lastDividendDate: history.at(-1).date,
-        historyPointCount: history.length
+        historyPointCount: history.length,
+        amountKind: "per_share"
       }
     });
     exDate = addDays(exDate, intervalDays);
@@ -316,11 +368,9 @@ export function readDividendCalendarForTickers(tickerInputs = [], {
 } = {}) {
   const tickerInfos = normalizeTickerInputs(tickerInputs);
   const endDate = addDays(startDate, Math.max(30, Math.min(740, Number(days) || 370)));
+  const tickerInfoByTicker = new Map(tickerInfos.map((item) => [item.ticker, item]));
   const events = readDividendEvents(tickerInfos.map((item) => item.ticker), startDate, endDate)
-    .map((event) => ({
-      ...event,
-      logoUrl: event.logoUrl || logoUrlForTicker(event.ticker)
-    }));
+    .map((event) => enrichStoredDividendEvent(event, tickerInfoByTicker));
   return {
     events,
     status: {
@@ -332,6 +382,33 @@ export function readDividendCalendarForTickers(tickerInputs = [], {
         ? `Stored dividend calendar: ${events.length} future event(s), declared events first and history-based estimates marked separately.`
         : "No stored future dividend events yet. The backend refresh job will populate declared events and history-based estimates."
     }
+  };
+}
+
+function enrichStoredDividendEvent(event, tickerInfoByTicker) {
+  const info = tickerInfoByTicker.get(event.ticker) || {};
+  const amount = finiteNumber(event.amount, 0);
+  const source = String(event.source || "").toLowerCase();
+  const payload = event.payload || {};
+  const amountKind = event.amountKind || payload.amountKind || (
+    source.includes("yahoo") || source.includes("nasdaq") ? "per_share" : ""
+  );
+  const perShare =
+    event.perShare === true ||
+    payload.perShare === true ||
+    amountKind === "per_share";
+  const quantity = Math.max(0, finiteNumber(info.quantity ?? event.quantity ?? payload.quantity, 0));
+  return {
+    ...event,
+    companyName: event.companyName || info.companyName || event.ticker,
+    name: event.name || event.companyName || info.companyName || event.ticker,
+    amountKind,
+    perShare,
+    quantity,
+    holdingValue: info.value || event.holdingValue || payload.holdingValue || undefined,
+    holdingPrice: info.price || event.holdingPrice || payload.holdingPrice || undefined,
+    estimatedPayout: perShare && quantity > 0 ? amount * quantity : undefined,
+    logoUrl: event.logoUrl || logoUrlForTicker(event.ticker)
   };
 }
 
