@@ -14480,7 +14480,14 @@ class ApiClient {
       } catch (_) {}
       throw Exception(message.isEmpty ? 'API ${response.statusCode}' : message);
     }
-    final decoded = jsonDecode(response.body);
+    Object? decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } catch (_) {
+      final source = response.request?.url.toString() ?? 'unknown API URL';
+      final contentType = response.headers['content-type'] ?? 'unknown type';
+      throw Exception('API returned non-JSON from $source ($contentType)');
+    }
     if (decoded is Map) {
       return decoded.map((key, value) => MapEntry('$key', value));
     }
@@ -14490,10 +14497,10 @@ class ApiClient {
 
 Uri apiUri(String path) {
   final base = apiBaseUrl();
+  final normalized = path.startsWith('/') ? path : '/$path';
   if (base.isNotEmpty) {
-    return Uri.parse('$base$path');
+    return Uri.parse('$base$normalized');
   }
-  final normalized = path.startsWith('/') ? path.substring(1) : path;
   return Uri.base.resolve(normalized);
 }
 
