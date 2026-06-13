@@ -16,9 +16,11 @@ import {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const dividendJobId = "portfolio_dividend_calendar";
 const yahooTickerOverrides = new Map([
+  ["LSEG", "LSEG.L"],
   ["AZNL", "AZN.L"],
   ["LSEGL", "LSEG.L"]
 ]);
+const londonDividendTickers = new Set(["AZNL", "LSEG", "LSEGL"]);
 
 let dividendCalendarRefresherStarted = false;
 let refreshInFlight = null;
@@ -139,6 +141,51 @@ function yahooTicker(ticker) {
   return yahooTickerOverrides.get(normalized) || String(normalized || ticker || "").replace(/\./g, "-");
 }
 
+function isPenceCurrency(currency) {
+  const raw = String(currency || "").trim();
+  const compact = raw.replace(/[^A-Za-z]/g, "").toUpperCase();
+  return (
+    raw === "GBp" ||
+    compact === "GBX" ||
+    compact === "GBPENCE" ||
+    compact === "PENCE" ||
+    compact === "PENNY"
+  );
+}
+
+function isLondonDividendTicker(ticker) {
+  const normalized = normalizeTicker(ticker);
+  return (
+    londonDividendTickers.has(normalized) ||
+    normalized.endsWith(".L") ||
+    yahooTicker(normalized).toUpperCase().endsWith(".L")
+  );
+}
+
+function normalizeDividendMoneyUnit({ ticker, amount, currency, source = "" }) {
+  const numericAmount = finiteNumber(amount, NaN);
+  const rawCurrency = String(currency || "USD").trim() || "USD";
+  if (!Number.isFinite(numericAmount)) {
+    return { amount: numericAmount, currency: rawCurrency, multiplier: 1, normalizedFrom: "" };
+  }
+  const sourceText = String(source || "").toLowerCase();
+  const currencyLooksPence = isPenceCurrency(rawCurrency);
+  const yahooLondonPence =
+    isLondonDividendTicker(ticker) &&
+    /^GBP$/i.test(rawCurrency) &&
+    sourceText.includes("yahoo") &&
+    Math.abs(numericAmount) >= 5;
+  if (!currencyLooksPence && !yahooLondonPence) {
+    return { amount: numericAmount, currency: rawCurrency, multiplier: 1, normalizedFrom: "" };
+  }
+  return {
+    amount: Math.round((numericAmount / 100) * 1000000) / 1000000,
+    currency: "GBP",
+    multiplier: 0.01,
+    normalizedFrom: rawCurrency
+  };
+}
+
 async function fetchNasdaqDividendRows(date) {
   const url = new URL("https://api.nasdaq.com/api/calendar/dividends");
   url.searchParams.set("date", date);
@@ -252,11 +299,20 @@ async function fetchYahooDividendHistory(ticker) {
   const currency = result?.meta?.currency || "USD";
   const rows = Object.values(result?.events?.dividends || {});
   return rows
-    .map((row) => ({
-      date: isoDate(new Date(Number(row.date) * 1000)),
-      amount: finiteNumber(row.amount, NaN),
-      currency
-    }))
+    .map((row) => {
+      const normalized = normalizeDividendMoneyUnit({
+        ticker,
+        amount: finiteNumber(row.amount, NaN),
+        currency,
+        source: "yahoo_dividend_history"
+      });
+      return {
+        date: isoDate(new Date(Number(row.date) * 1000)),
+        amount: normalized.amount,
+        currency: normalized.currency,
+        normalizedFrom: normalized.normalizedFrom
+      };
+    })
     .filter((row) => row.date && Number.isFinite(row.amount) && row.amount > 0)
     .sort((left, right) => left.date.localeCompare(right.date));
 }
@@ -272,6 +328,9 @@ function estimateFutureDividends(tickerInfo, history, { startDate, endDate }) {
   const recentAmounts = history.slice(-Math.min(6, history.length)).map((row) => row.amount);
   const amount = Math.round((median(recentAmounts) || history.at(-1).amount) * 10000) / 10000;
   const currency = history.at(-1).currency || "USD";
+  const normalizedFrom = history.findLast?.((row) => row.normalizedFrom)?.normalizedFrom ||
+    [...history].reverse().find((row) => row.normalizedFrom)?.normalizedFrom ||
+    "";
   let exDate = addDays(history.at(-1).date, intervalDays);
   while (exDate < startDate) exDate = addDays(exDate, intervalDays);
 
@@ -302,7 +361,8 @@ function estimateFutureDividends(tickerInfo, history, { startDate, endDate }) {
         intervalDays,
         lastDividendDate: history.at(-1).date,
         historyPointCount: history.length,
-        amountKind: "per_share"
+        amountKind: "per_share",
+        dividendUnitNormalization: normalizedFrom ? `${normalizedFrom}_to_GBP` : ""
       }
     });
     exDate = addDays(exDate, intervalDays);
@@ -387,9 +447,15 @@ export function readDividendCalendarForTickers(tickerInputs = [], {
 
 function enrichStoredDividendEvent(event, tickerInfoByTicker) {
   const info = tickerInfoByTicker.get(event.ticker) || {};
-  const amount = finiteNumber(event.amount, 0);
   const source = String(event.source || "").toLowerCase();
   const payload = event.payload || {};
+  const normalized = normalizeDividendMoneyUnit({
+    ticker: event.ticker,
+    amount: finiteNumber(event.amount, 0),
+    currency: event.currency,
+    source: `${event.source || ""} ${event.sourceLabel || ""}`
+  });
+  const amount = normalized.amount;
   const amountKind = event.amountKind || payload.amountKind || (
     source.includes("yahoo") || source.includes("nasdaq") ? "per_share" : ""
   );
@@ -402,13 +468,21 @@ function enrichStoredDividendEvent(event, tickerInfoByTicker) {
     ...event,
     companyName: event.companyName || info.companyName || event.ticker,
     name: event.name || event.companyName || info.companyName || event.ticker,
+    amount,
+    currency: normalized.currency,
     amountKind,
     perShare,
     quantity,
     holdingValue: info.value || event.holdingValue || payload.holdingValue || undefined,
     holdingPrice: info.price || event.holdingPrice || payload.holdingPrice || undefined,
     estimatedPayout: perShare && quantity > 0 ? amount * quantity : undefined,
-    logoUrl: event.logoUrl || logoUrlForTicker(event.ticker)
+    logoUrl: event.logoUrl || logoUrlForTicker(event.ticker),
+    payload: normalized.normalizedFrom
+      ? {
+          ...payload,
+          dividendUnitNormalization: `${normalized.normalizedFrom}_to_GBP`
+        }
+      : payload
   };
 }
 

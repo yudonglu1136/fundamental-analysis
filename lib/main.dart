@@ -8844,16 +8844,25 @@ class _PortfolioDividendCalendarSectionState
           return right.payout.abs().compareTo(left.payout.abs());
         });
     final buckets = dividendMonthBuckets(start, filtered);
-    final monthEvents = filtered
-        .where(
-          (event) =>
-              event.date.year == start.year && event.date.month == start.month,
-        )
-        .toList();
-    final monthTotal = monthEvents.fold<double>(
-      0,
-      (sum, event) => sum + event.payout.abs(),
+    final selectedBucket = buckets.firstWhere(
+      (bucket) =>
+          bucket.monthStart.year == start.year &&
+          bucket.monthStart.month == start.month,
+      orElse: () => buckets.first,
     );
+    final calendarBucket = selectedBucket.events.isNotEmpty
+        ? selectedBucket
+        : buckets.firstWhere(
+            (bucket) => bucket.events.isNotEmpty,
+            orElse: () => selectedBucket,
+          );
+    final calendarStart = calendarBucket.monthStart;
+    final monthEvents = [...calendarBucket.events]..sort((left, right) {
+      final dateOrder = left.date.compareTo(right.date);
+      if (dateOrder != 0) return dateOrder;
+      return right.payout.abs().compareTo(left.payout.abs());
+    });
+    final monthTotal = calendarBucket.total;
     final annualIncome = filtered.fold<double>(
       0,
       (sum, event) => sum + event.payout.abs(),
@@ -8960,7 +8969,7 @@ class _PortfolioDividendCalendarSectionState
                       tooltip: 'Previous month',
                     ),
                     Text(
-                      dividendWindowTitle(start),
+                      dividendWindowTitle(calendarStart),
                       style: TextStyle(
                         color: widget.palette.text,
                         fontWeight: FontWeight.w900,
@@ -9007,7 +9016,7 @@ class _PortfolioDividendCalendarSectionState
               )
             else if (_calendarView)
               DividendMonthCalendarGrid(
-                monthStart: start,
+                monthStart: calendarStart,
                 events: monthEvents,
                 currency: currency,
                 portfolioValue: widget.portfolioValue,
@@ -10546,11 +10555,24 @@ class DividendMonthBucket {
       .fold<double>(0, (sum, event) => sum + event.payout.abs());
 
   String tooltip(String currency) {
+    final byTicker = <String, double>{};
+    for (final event in events) {
+      byTicker[event.ticker] =
+          (byTicker[event.ticker] ?? 0) + event.payout.abs();
+    }
+    final contributors = byTicker.entries.toList()
+      ..sort((left, right) => right.value.compareTo(left.value));
+    final topContributors = contributors.take(6).map((entry) {
+      return '${entry.key}: ${formatDividendMoney(entry.value, currency)}';
+    });
     return [
       '${monthNamesShort[monthStart.month - 1]}: ${formatDividendMoney(total, currency)}',
       'Paid: ${formatDividendMoney(paid, currency)}',
       'Declared: ${formatDividendMoney(declared, currency)}',
       'Estimated: ${formatDividendMoney(estimated, currency)}',
+      if (contributors.isNotEmpty) 'Holdings:',
+      ...topContributors,
+      if (contributors.length > 6) '+${contributors.length - 6} more',
     ].join('\n');
   }
 }
@@ -10643,6 +10665,38 @@ bool dividendEventUsesPerShareAmount(
       status == 'estimated';
 }
 
+bool dividendCurrencyLooksPence(String currency) {
+  final raw = currency.trim();
+  final compact = raw.replaceAll(RegExp('[^A-Za-z]'), '').toUpperCase();
+  return raw == 'GBp' ||
+      compact == 'GBX' ||
+      compact == 'GBPENCE' ||
+      compact == 'PENCE' ||
+      compact == 'PENNY';
+}
+
+bool dividendTickerLooksLondon(String ticker) {
+  final normalized = ticker.toUpperCase();
+  return normalized == 'LSEG' ||
+      normalized == 'LSEGL' ||
+      normalized == 'AZNL' ||
+      normalized.endsWith('.L');
+}
+
+bool dividendAmountLooksPence({
+  required String ticker,
+  required String currency,
+  required String source,
+  required double amount,
+}) {
+  if (!amount.isFinite || amount.abs() < 5) return false;
+  final sourceText = source.toLowerCase();
+  return dividendCurrencyLooksPence(currency) ||
+      (dividendTickerLooksLondon(ticker) &&
+          currency.toUpperCase() == 'GBP' &&
+          sourceText.contains('yahoo'));
+}
+
 List<DividendDisplayEvent> normalizeDividendDisplayEvents(
   List<Map<String, dynamic>> dividends,
   List<Map<String, dynamic>> holdings, {
@@ -10675,8 +10729,20 @@ List<DividendDisplayEvent> normalizeDividendDisplayEvents(
     final dateText = dividendEventDateForMode(event, dateMode);
     final date = parseDividendDate(dateText);
     if (date == null) continue;
-    final amount = number(event['amount']);
-    if (amount == 0) continue;
+    final source = '${text(event['source'])} ${text(event['sourceLabel'])}'
+        .toLowerCase();
+    final rawCurrency = text(event['currency'], 'USD');
+    final rawAmount = number(event['amount']);
+    if (rawAmount == 0) continue;
+    final shouldNormalizePence = dividendAmountLooksPence(
+      ticker: ticker,
+      currency: rawCurrency,
+      source: source,
+      amount: rawAmount,
+    );
+    final amount = shouldNormalizePence ? rawAmount / 100 : rawAmount;
+    final currency = shouldNormalizePence ? 'GBP' : rawCurrency;
+    final amountMultiplier = rawAmount.abs() > 0 ? amount / rawAmount : 1.0;
     final holding = holdingsByTicker[ticker] ?? const <String, dynamic>{};
     final eventQuantity =
         firstNumber([
@@ -10690,16 +10756,18 @@ List<DividendDisplayEvent> normalizeDividendDisplayEvents(
       'quantity': eventQuantity,
     });
     final quantity = quantityByTicker[ticker] ?? fallbackQuantity;
-    final source = '${text(event['source'])} ${text(event['sourceLabel'])}'
-        .toLowerCase();
     final perShare = dividendEventUsesPerShareAmount(event, source);
-    final explicitPayout = firstNumber([
+    final rawExplicitPayout = firstNumber([
       event['estimatedPayout'],
       event['payout'],
       event['totalPayout'],
       event['cashAmount'],
       event['totalAmount'],
     ]);
+    final explicitPayout =
+        shouldNormalizePence && perShare && rawExplicitPayout != null
+        ? rawExplicitPayout * amountMultiplier
+        : rawExplicitPayout;
     final payout = perShare
         ? (explicitPayout != null && explicitPayout.abs() > amount.abs()
               ? explicitPayout
@@ -10718,7 +10786,7 @@ List<DividendDisplayEvent> normalizeDividendDisplayEvents(
         amount: amount,
         payout: payout,
         quantity: quantity,
-        currency: text(event['currency'], 'USD'),
+        currency: currency,
         status: status,
         type: text(event['type'], 'Dividend'),
         logoUrl: text(event['logoUrl'], text(holding['logoUrl'])),
