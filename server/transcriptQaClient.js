@@ -30,6 +30,16 @@ function cleanText(value, maxChars = 0) {
   return `${text.slice(0, maxChars - 1).trim()}...`;
 }
 
+function isTranscriptPlaceholderText(value) {
+  const text = cleanText(value).toLowerCase();
+  return Boolean(
+    text.includes("unlock this transcript") ||
+    text.includes("stock analysis pro") ||
+    text.includes("sign up sign in") ||
+    text.includes("read full transcripts older than")
+  );
+}
+
 function splitSegmentText(value) {
   const lines = String(value || "")
     .split(/\n+/)
@@ -104,7 +114,9 @@ function extractQuestion(body) {
 }
 
 function isQuestionSegment(segment) {
+  if (isTranscriptPlaceholderText(segment.text)) return false;
   const parsed = splitSegmentText(segment.text);
+  if (isTranscriptPlaceholderText(parsed.speaker) || isTranscriptPlaceholderText(parsed.body)) return false;
   if (!parsed.body.includes("?")) return false;
   const role = speakerRole(parsed.speaker, parsed.body);
   if (role === "analyst") return true;
@@ -117,7 +129,9 @@ function answerContextAfter(segments, questionIndex) {
   for (let index = questionIndex + 1; index < segments.length; index += 1) {
     const segment = segments[index];
     if (isQuestionSegment(segment)) break;
+    if (isTranscriptPlaceholderText(segment.text)) break;
     const parsed = splitSegmentText(segment.text);
+    if (isTranscriptPlaceholderText(parsed.speaker) || isTranscriptPlaceholderText(parsed.body)) break;
     if (!parsed.body) continue;
     const role = speakerRole(parsed.speaker, parsed.body);
     if (role === "analyst") break;
@@ -181,15 +195,18 @@ export function readTranscriptQaByTickerPeriod(db, tickerSet, { limitPerPeriod =
       if (!isQuestionSegment(segment)) continue;
       const parsed = splitSegmentText(segment.text);
       const question = extractQuestion(parsed.body);
+      if (isTranscriptPlaceholderText(question)) continue;
       if (!question) continue;
       const questionKey = `${key}::${question.toLowerCase()}`;
       if (seenQuestions.has(questionKey)) continue;
+      const answer = answerContextAfter(segments, index);
+      if (!answer || isTranscriptPlaceholderText(answer)) continue;
       seenQuestions.add(questionKey);
       existing.push({
         ticker: call.parsed.ticker,
         fiscalPeriod: call.parsed.period,
         question,
-        answer: answerContextAfter(segments, index),
+        answer,
         askedBy: askedByFromSegment(parsed.speaker, parsed.body),
         speaker: parsed.speaker,
         callDate: call.upload_date || null,

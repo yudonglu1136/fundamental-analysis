@@ -65,9 +65,11 @@ function needsStoredChinese(existingValue, sourceValue) {
 
 function qaRowsForHistoryRow(ticker, historyRow, qaByPeriod) {
   const period = periodKeyFromHistoryRow(historyRow);
-  const qa = qaByPeriod.get(`${ticker}::${period}`) || [];
+  const key = `${ticker}::${period}`;
+  const hasFreshPeriod = qaByPeriod.has(key);
+  const qa = qaByPeriod.get(key) || [];
   const existingQa = historyRow.dataSnapshot?.youtubeEarnings?.qa || [];
-  if (!qa.length) return existingQa;
+  if (!hasFreshPeriod || !qa.length) return [];
   if (!existingQa.length) return qa;
   return mergeStoredQaTranslations(qa, existingQa);
 }
@@ -207,6 +209,20 @@ try {
       for (const historyRow of history) {
         const qaRows = qaRowsForHistoryRow(ticker, historyRow, qaByPeriod);
         if (!qaRows.length) {
+          if (historyRow.dataSnapshot?.youtubeEarnings?.qa?.length) {
+            tickerChanged = true;
+            nextHistory.push({
+              ...historyRow,
+              dataSnapshot: {
+                ...(historyRow.dataSnapshot || {}),
+                youtubeEarnings: {
+                  ...(historyRow.dataSnapshot?.youtubeEarnings || {}),
+                  qa: []
+                }
+              }
+            });
+            continue;
+          }
           nextHistory.push(historyRow);
           continue;
         }
