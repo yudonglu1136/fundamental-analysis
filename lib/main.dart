@@ -14524,19 +14524,6 @@ class ValuationQuarterQaList extends StatefulWidget {
 
 class _ValuationQuarterQaListState extends State<ValuationQuarterQaList> {
   bool _showChinese = true;
-  bool _translating = false;
-  String? _translationError;
-  String _translationSignature = '';
-  final Map<String, String> _zhTranslations = {};
-
-  @override
-  void didUpdateWidget(covariant ValuationQuarterQaList oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.row != widget.row) {
-      _translationError = null;
-      _translationSignature = '';
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -14545,7 +14532,6 @@ class _ValuationQuarterQaListState extends State<ValuationQuarterQaList> {
       widget.previous,
       widget.currency,
     );
-    _ensureChineseTranslations(items);
     return ValuationResearchCard(
       palette: widget.palette,
       icon: Icons.question_answer_rounded,
@@ -14555,11 +14541,7 @@ class _ValuationQuarterQaListState extends State<ValuationQuarterQaList> {
         showChinese: _showChinese,
         palette: widget.palette,
         onChanged: (value) {
-          setState(() {
-            _showChinese = value;
-            _translationError = null;
-            if (value) _translationSignature = '';
-          });
+          setState(() => _showChinese = value);
         },
       ),
       child: Column(
@@ -14573,43 +14555,17 @@ class _ValuationQuarterQaListState extends State<ValuationQuarterQaList> {
               palette: widget.palette,
             )
           else ...[
-            if (_translationError != null && _showChinese) ...[
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: widget.palette.secondary.withValues(alpha: .10),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: widget.palette.secondary.withValues(alpha: .28),
-                  ),
-                ),
-                child: Text(
-                  '中文翻译暂时不可用，先显示原始英文：${_translationError!}',
-                  style: TextStyle(
-                    color: widget.palette.secondary,
-                    fontSize: 12,
-                    height: 1.35,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
             for (var index = 0; index < items.length; index += 1)
               ValuationQaAccordionItem(
                 index: index,
-                question: _localized(items[index].question),
-                answer: _localized(items[index].answer),
+                question: items[index].questionFor(_showChinese),
+                answer: items[index].answerFor(_showChinese),
                 metadata: _showChinese
                     ? items[index].metadataZh
                     : items[index].metadata,
                 answerLabel: _showChinese ? '管理层回答' : 'Management answer',
                 expanded: widget.expandedIndex == index,
-                translating:
-                    _showChinese &&
-                    _translating &&
-                    _needsTranslation(items[index]),
+                translating: false,
                 isLast: index == items.length - 1,
                 palette: widget.palette,
                 onTap: () => widget.onToggle(index),
@@ -14618,75 +14574,6 @@ class _ValuationQuarterQaListState extends State<ValuationQuarterQaList> {
         ],
       ),
     );
-  }
-
-  String _localized(String value) {
-    if (!_showChinese) return value;
-    final translated = _zhTranslations[value];
-    if (translated != null && translated.isNotEmpty) return translated;
-    return value;
-  }
-
-  bool _needsTranslation(ValuationQaDatum item) =>
-      _needsTextTranslation(item.question) ||
-      _needsTextTranslation(item.answer);
-
-  bool _needsTextTranslation(String value) {
-    final trimmed = value.trim();
-    return trimmed.isNotEmpty &&
-        !containsChinese(trimmed) &&
-        !_zhTranslations.containsKey(trimmed);
-  }
-
-  void _ensureChineseTranslations(List<ValuationQaDatum> items) {
-    if (!_showChinese || items.isEmpty || _translating) return;
-    final missing = <String>{};
-    for (final item in items) {
-      if (_needsTextTranslation(item.question)) missing.add(item.question);
-      if (_needsTextTranslation(item.answer)) missing.add(item.answer);
-    }
-    if (missing.isEmpty) return;
-    final signature = missing.join('\u241f');
-    if (signature == _translationSignature) return;
-    _translationSignature = signature;
-    scheduleMicrotask(() {
-      if (!mounted) return;
-      unawaited(_loadChineseTranslations(missing.toList()));
-    });
-  }
-
-  Future<void> _loadChineseTranslations(List<String> texts) async {
-    if (texts.isEmpty) return;
-    setState(() {
-      _translating = true;
-      _translationError = null;
-    });
-    try {
-      final payload = await widget.api.postJson('/api/translate/zh', {
-        'texts': texts,
-      });
-      final rows = asList(payload['translations']);
-      if (!mounted) return;
-      setState(() {
-        for (final row in rows) {
-          final source = text(row['source']);
-          final translated = text(row['translated']);
-          if (source.isNotEmpty && translated.isNotEmpty) {
-            _zhTranslations[source] = translated;
-          }
-        }
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(
-        () => _translationError = error.toString().replaceFirst(
-          'Exception: ',
-          '',
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _translating = false);
-    }
   }
 }
 
@@ -14911,14 +14798,24 @@ class ValuationQaDatum {
   const ValuationQaDatum({
     required this.question,
     required this.answer,
+    required this.questionZh,
+    required this.answerZh,
     required this.metadata,
     required this.metadataZh,
   });
 
   final String question;
   final String answer;
+  final String questionZh;
+  final String answerZh;
   final String metadata;
   final String metadataZh;
+
+  String questionFor(bool showChinese) =>
+      showChinese && questionZh.isNotEmpty ? questionZh : question;
+
+  String answerFor(bool showChinese) =>
+      showChinese && answerZh.isNotEmpty ? answerZh : answer;
 }
 
 class ValuationQualityChip extends StatelessWidget {
@@ -16100,9 +15997,6 @@ String text(dynamic value, [String fallback = '']) {
   return string.isEmpty ? fallback : string;
 }
 
-bool containsChinese(String value) =>
-    RegExp(r'[\u3400-\u9fff]').hasMatch(value);
-
 String publicAssetUrl(dynamic value) {
   final raw = text(value);
   if (raw.isEmpty) return '';
@@ -16446,24 +16340,29 @@ List<ValuationQaDatum> valuationQaItems(
         final answer = text(item['answer']);
         if (question.isEmpty) return null;
         final askedBy = text(item['askedBy'], text(item['speaker']));
+        final askedByZh = text(item['askedByZh'], askedBy);
         final callDate = text(item['callDate']);
         final title = text(item['title']);
+        final titleZh = text(item['titleZh'], title);
         final metadata = [
           if (askedBy.isNotEmpty) 'Asked by $askedBy',
           if (callDate.isNotEmpty) formatDate(callDate),
           if (title.isNotEmpty) title,
         ].join(' · ');
         final metadataZh = [
-          if (askedBy.isNotEmpty) '提问人 $askedBy',
+          if (askedByZh.isNotEmpty) '提问人 $askedByZh',
           if (callDate.isNotEmpty) formatDate(callDate),
-          if (title.isNotEmpty) title,
+          if (titleZh.isNotEmpty) titleZh,
         ].join(' · ');
         final body = answer.isNotEmpty
             ? answer
             : 'Management response context is not available in the structured transcript extract.';
+        final bodyZh = text(item['answerZh']);
         return ValuationQaDatum(
           question: question,
           answer: body,
+          questionZh: text(item['questionZh']),
+          answerZh: bodyZh,
           metadata: metadata,
           metadataZh: metadataZh,
         );

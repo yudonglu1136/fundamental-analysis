@@ -15,7 +15,7 @@ function isMostlyChinese(value) {
   return /[\u3400-\u9fff]/.test(value);
 }
 
-function splitForTranslation(value, maxChars = 1500) {
+function splitForTranslation(value, maxChars = 900) {
   const text = cleanText(value);
   if (text.length <= maxChars) return [text];
   const paragraphs = text.split(/\n{2,}/).map((part) => part.trim()).filter(Boolean);
@@ -73,7 +73,7 @@ async function translateChunkToChinese(chunk) {
   return translated;
 }
 
-async function translateOneToChinese(value) {
+export async function translateTextToChinese(value) {
   const source = cleanText(value);
   if (!source || isMostlyChinese(source)) return source;
   const key = cacheKey("zh-CN", source);
@@ -95,7 +95,7 @@ export async function translateTextsToChinese(texts) {
   const unique = [...new Set(normalized)];
   const translatedBySource = new Map();
   for (const source of unique) {
-    translatedBySource.set(source, await translateOneToChinese(source));
+    translatedBySource.set(source, await translateTextToChinese(source));
   }
   return normalized.map((source) => ({
     source,
