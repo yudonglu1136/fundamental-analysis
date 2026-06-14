@@ -7,6 +7,7 @@ import { translateTextToChinese } from "./translationClient.js";
 const CURRENT_DB_PATH = process.env.SQLITE_DB_PATH || path.join(process.cwd(), "server/data/guru-analysis.sqlite");
 const YOUTUBE_DB_PATH = process.env.YOUTUBE_TRANSCRIPT_DB_PATH || "/Users/yudonglu/Documents/youtube_transcript_db/transcripts.sqlite";
 const SHOULD_TRANSLATE_ZH = process.env.TRANSCRIPT_QA_TRANSLATE_ZH !== "false";
+const FORCE_RETRANSLATE_ZH = process.env.TRANSCRIPT_QA_FORCE_RETRANSLATE_ZH === "true";
 const TRANSLATION_CONCURRENCY = Math.max(1, Number(process.env.TRANSCRIPT_QA_TRANSLATION_CONCURRENCY || 6));
 const FALLBACK_ANSWER = "Management response context is not available in the structured transcript extract.";
 
@@ -60,7 +61,33 @@ function translationSource(value, fallback = "") {
 function needsStoredChinese(existingValue, sourceValue) {
   const source = translationSource(sourceValue);
   if (!SHOULD_TRANSLATE_ZH || !source) return false;
+  if (FORCE_RETRANSLATE_ZH) return true;
   return !enoughChineseForSource(existingValue, source);
+}
+
+function titleToChinese(value) {
+  const title = textValue(value);
+  if (!title) return "";
+  const earningsCallMatch = title.match(/^(.+?)\s+\(([A-Z.]+)\)\s+Earnings Call:\s+Q([1-4])\s+(\d{4})$/i);
+  if (earningsCallMatch) {
+    const [, company, ticker, quarter, year] = earningsCallMatch;
+    return `${company}（${ticker.toUpperCase()}）${year} 年 Q${quarter} 财报电话会`;
+  }
+  return title
+    .replace(/\bEarnings Call\b/gi, "财报电话会")
+    .replace(/\bQ([1-4])\s+(\d{4})\b/gi, "$2 年 Q$1");
+}
+
+function askedByToChinese(value) {
+  const askedBy = textValue(value);
+  if (!askedBy) return "";
+  return askedBy
+    .replace(/\s+—\s+Chief Executive Officer\b/gi, " — 首席执行官")
+    .replace(/\s+—\s+Chief Financial Officer\b/gi, " — 首席财务官")
+    .replace(/\s+—\s+Chief Operating Officer\b/gi, " — 首席运营官")
+    .replace(/\s+—\s+Chairman and CEO\b/gi, " — 董事长兼 CEO")
+    .replace(/\s+—\s+President and CEO\b/gi, " — 总裁兼 CEO")
+    .replace(/\s+—\s+Analyst\b/gi, " — 分析师");
 }
 
 function missingCoverage(ticker, period, historyRow, existingCoverage = {}) {
@@ -196,6 +223,8 @@ function translateQaRowsToChinese(qaRows, translatedBySource) {
     next.answer = answer;
     next.questionZh = translatedValue(qa.question, next.questionZh, translatedBySource);
     next.answerZh = translatedValue(answer, next.answerZh, translatedBySource);
+    if (FORCE_RETRANSLATE_ZH || !next.titleZh) next.titleZh = titleToChinese(next.title);
+    if (FORCE_RETRANSLATE_ZH || !next.askedByZh) next.askedByZh = askedByToChinese(next.askedBy || next.speaker);
     return next;
   });
 }
