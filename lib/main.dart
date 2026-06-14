@@ -8844,18 +8844,12 @@ class _PortfolioDividendCalendarSectionState
           return right.payout.abs().compareTo(left.payout.abs());
         });
     final buckets = dividendMonthBuckets(start, filtered);
-    final selectedBucket = buckets.firstWhere(
+    final calendarBucket = buckets.firstWhere(
       (bucket) =>
           bucket.monthStart.year == start.year &&
           bucket.monthStart.month == start.month,
       orElse: () => buckets.first,
     );
-    final calendarBucket = selectedBucket.events.isNotEmpty
-        ? selectedBucket
-        : buckets.firstWhere(
-            (bucket) => bucket.events.isNotEmpty,
-            orElse: () => selectedBucket,
-          );
     final calendarStart = calendarBucket.monthStart;
     final monthEvents = [...calendarBucket.events]
       ..sort((left, right) {
