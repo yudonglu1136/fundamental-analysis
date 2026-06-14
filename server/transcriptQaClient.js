@@ -58,14 +58,14 @@ function splitSegmentText(value) {
 
 function speakerRole(speaker, body = "") {
   const text = `${speaker} ${body}`.toLowerCase();
+  if (/\bceo\b|\bcfo\b|\bcoo\b|\bcto\b|chief|president|founder|chairman|management/.test(text)) {
+    return "management";
+  }
   if (/\banalyst\b|securities|capital markets|research|equity research|bank of america|morgan stanley|goldman|wedbush|wells fargo|rbc|ubs|jpmorgan|barclays|citi|deutsche|jefferies|bernstein|evercore|mizuho|baird|stifel|td cowen/.test(text)) {
     return "analyst";
   }
   if (/investor relations|head of ir|asks?,\s*["“]|we received a question|question from/i.test(text)) {
     return "ir";
-  }
-  if (/\bceo\b|\bcfo\b|\bcoo\b|\bcto\b|chief|president|founder|chairman|management/.test(text)) {
-    return "management";
   }
   return "unknown";
 }
