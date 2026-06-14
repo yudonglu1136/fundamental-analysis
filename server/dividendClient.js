@@ -94,6 +94,9 @@ function normalizeTickerInputs(items = []) {
       : String(item?.companyName || item?.name || item?.description || ticker).trim();
     const quantity = typeof item === "string" ? 0 : safeHoldingQuantity(item);
     const price = typeof item === "string" ? 0 : finiteNumber(item?.price ?? item?.markPrice, 0);
+    const fxRateToBase = typeof item === "string" ? 1 : finiteNumber(item?.fxRateToBase ?? item?.fxRate, 1);
+    const currency = typeof item === "string" ? "USD" : String(item?.currency || "USD").trim() || "USD";
+    const baseCurrency = typeof item === "string" ? "USD" : String(item?.baseCurrency || "USD").trim() || "USD";
     const value = typeof item === "string"
       ? 0
       : finiteNumber(item?.value?.amount ?? item?.marketValue?.amount ?? item?.marketValue ?? item?.value, 0);
@@ -103,7 +106,10 @@ function normalizeTickerInputs(items = []) {
       companyName: companyName || existing?.companyName || ticker,
       quantity: Math.max(0, (existing?.quantity || 0) + Math.max(0, quantity)),
       price: price || existing?.price || 0,
-      value: Math.max(0, (existing?.value || 0) + Math.max(0, value))
+      value: Math.max(0, (existing?.value || 0) + Math.max(0, value)),
+      currency: currency || existing?.currency || "USD",
+      fxRateToBase: fxRateToBase || existing?.fxRateToBase || 1,
+      baseCurrency: baseCurrency || existing?.baseCurrency || "USD"
     });
   }
   return [...byTicker.values()].sort((left, right) => left.ticker.localeCompare(right.ticker));
@@ -111,7 +117,14 @@ function normalizeTickerInputs(items = []) {
 
 function safeHoldingQuantity(item = {}) {
   const quantity = finiteNumber(item.quantity ?? item.shares ?? item.units ?? item.position, NaN);
-  const price = finiteNumber(item.price ?? item.markPrice ?? item.closePrice ?? item.reportDatePrice, NaN);
+  const rawPrice = finiteNumber(item.price ?? item.markPrice ?? item.closePrice ?? item.reportDatePrice, NaN);
+  const currency = String(item.currency || item.currencyPrimary || "USD").trim().toUpperCase();
+  const ticker = canonicalTicker(item.ticker || item.symbol || item.underlyingSymbol) ||
+    normalizeTicker(item.ticker || item.symbol || item.underlyingSymbol);
+  const price = isLondonDividendTicker(ticker) && currency === "GBP" && rawPrice > 100
+    ? rawPrice / 100
+    : rawPrice;
+  const fxRateToBase = Math.max(0.000001, finiteNumber(item.fxRateToBase ?? item.fxRate, 1));
   const value = finiteNumber(
     item.value?.amount ?? item.marketValue?.amount ?? item.marketValue ?? item.positionValue ?? item.value,
     NaN
@@ -119,9 +132,10 @@ function safeHoldingQuantity(item = {}) {
   if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(value) || value <= 0) {
     return Number.isFinite(quantity) ? quantity : 0;
   }
-  const impliedQuantity = value / price;
+  const priceInBase = price * fxRateToBase;
+  const impliedQuantity = value / priceInBase;
   if (!Number.isFinite(quantity) || quantity <= 0) return impliedQuantity;
-  const valueFromQuantity = quantity * price;
+  const valueFromQuantity = quantity * priceInBase;
   const relativeValueError = Math.abs(valueFromQuantity - value) / Math.max(1, Math.abs(value));
   const quantityLooksLikeMarketValue =
     price > 1.01 && value > 100 && Math.abs(quantity - value) / Math.max(1, Math.abs(value)) < 0.03;
@@ -214,6 +228,8 @@ function normalizeNasdaqDividend(row, tickerInfoByTicker) {
   const amount = finiteNumber(row.dividend_Rate || row.dividendRate || row.amount, NaN);
   if (!Number.isFinite(amount)) return null;
   const companyName = String(row.companyName || info.companyName || ticker).trim();
+  const fxRateToBase = finiteNumber(info.fxRateToBase, 1);
+  const baseCurrency = info.baseCurrency || "USD";
   return {
     ticker,
     companyName,
@@ -230,12 +246,18 @@ function normalizeNasdaqDividend(row, tickerInfoByTicker) {
     holdingPrice: info.price || undefined,
     estimatedPayout: info.quantity ? amount * info.quantity : undefined,
     currency: "USD",
+    fxRateToBase,
+    baseCurrency,
     status: "declared",
     type: "Declared dividend",
     source: "nasdaq_calendar",
     sourceLabel: "Nasdaq dividend calendar",
     logoUrl: logoUrlForTicker(ticker),
-    payload: row
+    payload: {
+      ...row,
+      fxRateToBase,
+      baseCurrency
+    }
   };
 }
 
@@ -328,6 +350,8 @@ function estimateFutureDividends(tickerInfo, history, { startDate, endDate }) {
   const recentAmounts = history.slice(-Math.min(6, history.length)).map((row) => row.amount);
   const amount = Math.round((median(recentAmounts) || history.at(-1).amount) * 10000) / 10000;
   const currency = history.at(-1).currency || "USD";
+  const fxRateToBase = finiteNumber(tickerInfo.fxRateToBase, 1);
+  const baseCurrency = tickerInfo.baseCurrency || "USD";
   const normalizedFrom = history.findLast?.((row) => row.normalizedFrom)?.normalizedFrom ||
     [...history].reverse().find((row) => row.normalizedFrom)?.normalizedFrom ||
     "";
@@ -352,6 +376,8 @@ function estimateFutureDividends(tickerInfo, history, { startDate, endDate }) {
       holdingPrice: tickerInfo.price || undefined,
       estimatedPayout: tickerInfo.quantity ? amount * tickerInfo.quantity : undefined,
       currency,
+      fxRateToBase,
+      baseCurrency,
       status: "estimated",
       type: "Estimated dividend",
       source: "yahoo_history_estimate",
@@ -362,6 +388,8 @@ function estimateFutureDividends(tickerInfo, history, { startDate, endDate }) {
         lastDividendDate: history.at(-1).date,
         historyPointCount: history.length,
         amountKind: "per_share",
+        fxRateToBase,
+        baseCurrency,
         dividendUnitNormalization: normalizedFrom ? `${normalizedFrom}_to_GBP` : ""
       }
     });
@@ -464,12 +492,27 @@ function enrichStoredDividendEvent(event, tickerInfoByTicker) {
     payload.perShare === true ||
     amountKind === "per_share";
   const quantity = Math.max(0, finiteNumber(info.quantity ?? event.quantity ?? payload.quantity, 0));
+  const fxRateToBase = finiteNumber(
+    event.fxRateToBase ?? payload.fxRateToBase ?? info.fxRateToBase,
+    1
+  );
+  const baseCurrency = event.baseCurrency || payload.baseCurrency || info.baseCurrency || "USD";
+  const nextPayload = {
+    ...payload,
+    fxRateToBase,
+    baseCurrency,
+    ...(normalized.normalizedFrom
+      ? { dividendUnitNormalization: `${normalized.normalizedFrom}_to_GBP` }
+      : {})
+  };
   return {
     ...event,
     companyName: event.companyName || info.companyName || event.ticker,
     name: event.name || event.companyName || info.companyName || event.ticker,
     amount,
     currency: normalized.currency,
+    fxRateToBase,
+    baseCurrency,
     amountKind,
     perShare,
     quantity,
@@ -477,12 +520,7 @@ function enrichStoredDividendEvent(event, tickerInfoByTicker) {
     holdingPrice: info.price || event.holdingPrice || payload.holdingPrice || undefined,
     estimatedPayout: perShare && quantity > 0 ? amount * quantity : undefined,
     logoUrl: event.logoUrl || logoUrlForTicker(event.ticker),
-    payload: normalized.normalizedFrom
-      ? {
-          ...payload,
-          dividendUnitNormalization: `${normalized.normalizedFrom}_to_GBP`
-        }
-      : payload
+    payload: nextPayload
   };
 }
 

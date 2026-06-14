@@ -227,6 +227,11 @@ function normalizeTicker(value) {
   return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.-]/g, "");
 }
 
+function isLondonPortfolioTicker(value) {
+  const ticker = normalizeTicker(value);
+  return ticker === "LSEG" || ticker === "LSEGL" || ticker === "AZNL" || ticker.endsWith(".L");
+}
+
 function asArray(value) {
   if (value === null || value === undefined) return [];
   return Array.isArray(value) ? value : [value];
@@ -519,6 +524,7 @@ function normalizeIbkrPosition(row) {
     value,
     costBasis,
     unrealizedPnl,
+    fxRateToBase,
     currency: textValue(pick(row, ["currency", "currencyPrimary"], "USD"), "USD"),
     logoUrl: logoUrlForTicker(logoTicker, pick(row, ["description", "name", "issuer"], symbol)),
     dayChange: 0
@@ -581,7 +587,13 @@ function combineHoldings(rows) {
 
 function safeHoldingQuantity(holding = {}) {
   const quantity = finiteNumber(holding.quantity ?? holding.shares ?? holding.units ?? holding.position, NaN);
-  const price = finiteNumber(holding.price ?? holding.markPrice ?? holding.closePrice ?? holding.reportDatePrice, NaN);
+  const rawPrice = finiteNumber(holding.price ?? holding.markPrice ?? holding.closePrice ?? holding.reportDatePrice, NaN);
+  const currency = textValue(holding.currency || holding.currencyPrimary || "USD", "USD").toUpperCase();
+  const ticker = normalizeTicker(holding.ticker || holding.symbol || holding.underlyingSymbol);
+  const price = isLondonPortfolioTicker(ticker) && currency === "GBP" && rawPrice > 100
+    ? rawPrice / 100
+    : rawPrice;
+  const fxRateToBase = Math.max(0.000001, finiteNumber(holding.fxRateToBase ?? holding.fxRate, 1));
   const value = finiteNumber(
     holding.value?.amount ?? holding.marketValue?.amount ?? holding.marketValue ?? holding.positionValue ?? holding.value,
     NaN
@@ -589,9 +601,10 @@ function safeHoldingQuantity(holding = {}) {
   if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(value) || value <= 0) {
     return Number.isFinite(quantity) ? quantity : 0;
   }
-  const impliedQuantity = value / price;
+  const priceInBase = price * fxRateToBase;
+  const impliedQuantity = value / priceInBase;
   if (!Number.isFinite(quantity) || quantity <= 0) return impliedQuantity;
-  const valueFromQuantity = quantity * price;
+  const valueFromQuantity = quantity * priceInBase;
   const relativeValueError = Math.abs(valueFromQuantity - value) / Math.max(1, Math.abs(value));
   const quantityLooksLikeMarketValue =
     price > 1.01 && value > 100 && Math.abs(quantity - value) / Math.max(1, Math.abs(value)) < 0.03;
@@ -744,7 +757,10 @@ function attachStoredDividendCalendar(payload) {
       sector: holding.sector || holding.assetCategory || "",
       quantity: safeHoldingQuantity(holding),
       price: finiteNumber(holding.price),
-      value: finiteNumber(holding.value)
+      value: finiteNumber(holding.value),
+      currency: holding.currency || "USD",
+      fxRateToBase: finiteNumber(holding.fxRateToBase, 1),
+      baseCurrency: payload.summary?.currency || "USD"
     }));
   const stored = readDividendCalendarForTickers(tickerInputs);
   const upstreamEvents = payload.dividends || [];

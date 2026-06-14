@@ -7370,6 +7370,7 @@ class PortfolioDashboard extends StatelessWidget {
                   holdings: holdings,
                   status: dividendStatus,
                   portfolioValue: number(summary['totalValue']),
+                  baseCurrency: text(summary['currency'], 'USD'),
                   palette: palette,
                 ),
               ],
@@ -8794,6 +8795,7 @@ class PortfolioDividendCalendarSection extends StatefulWidget {
     required this.holdings,
     required this.status,
     required this.portfolioValue,
+    required this.baseCurrency,
     required this.palette,
   });
 
@@ -8801,6 +8803,7 @@ class PortfolioDividendCalendarSection extends StatefulWidget {
   final List<Map<String, dynamic>> holdings;
   final Map<String, dynamic> status;
   final double portfolioValue;
+  final String baseCurrency;
   final Palette palette;
 
   @override
@@ -8816,15 +8819,23 @@ class _PortfolioDividendCalendarSectionState
   bool _calendarView = true;
   int _monthOffset = 0;
 
+  int _offsetForMonth(DateTime target) {
+    final today = DateTime.now();
+    final base = DateTime(today.year, today.month, 1);
+    return (target.year - base.year) * 12 + target.month - base.month;
+  }
+
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
     final start = DateTime(today.year, today.month + _monthOffset, 1);
     final end = DateTime(start.year, start.month + 12, 0);
+    final baseCurrency = normalizeDividendCurrency(widget.baseCurrency);
     final allEvents = normalizeDividendDisplayEvents(
       widget.dividends,
       widget.holdings,
       dateMode: _dateMode,
+      baseCurrency: baseCurrency,
     );
     final filtered =
         allEvents.where((event) {
@@ -8841,7 +8852,7 @@ class _PortfolioDividendCalendarSectionState
         }).toList()..sort((left, right) {
           final dateOrder = left.date.compareTo(right.date);
           if (dateOrder != 0) return dateOrder;
-          return right.payout.abs().compareTo(left.payout.abs());
+          return right.payoutBase.abs().compareTo(left.payoutBase.abs());
         });
     final buckets = dividendMonthBuckets(start, filtered);
     final calendarBucket = buckets.firstWhere(
@@ -8855,19 +8866,20 @@ class _PortfolioDividendCalendarSectionState
       ..sort((left, right) {
         final dateOrder = left.date.compareTo(right.date);
         if (dateOrder != 0) return dateOrder;
-        return right.payout.abs().compareTo(left.payout.abs());
+        return right.payoutBase.abs().compareTo(left.payoutBase.abs());
       });
     final monthTotal = calendarBucket.total;
     final annualIncome = filtered.fold<double>(
       0,
-      (sum, event) => sum + event.payout.abs(),
+      (sum, event) => sum + event.payoutBase.abs(),
     );
     final monthlyIncome = annualIncome / 12;
     final dailyIncome = annualIncome / 365;
     final yield = widget.portfolioValue > 0
         ? annualIncome / widget.portfolioValue
         : 0.0;
-    final currency = filtered.isNotEmpty ? filtered.first.currency : 'USD';
+    final currency = baseCurrency;
+    final nextDividendMonth = nextDividendMonthAfter(calendarStart, filtered);
     final isCompact = MediaQuery.sizeOf(context).width < 760;
 
     return Panel(
@@ -9010,12 +9022,42 @@ class _PortfolioDividendCalendarSectionState
                 palette: widget.palette,
               )
             else if (_calendarView)
-              DividendMonthCalendarGrid(
+              Column(
+                children: [
+                  if (monthEvents.isEmpty) ...[
+                    DividendEmptyMonthNotice(
+                      monthStart: calendarStart,
+                      nextMonth: nextDividendMonth,
+                      palette: widget.palette,
+                      onJumpToNext: nextDividendMonth == null
+                          ? null
+                          : () => setState(
+                              () => _monthOffset = _offsetForMonth(
+                                nextDividendMonth,
+                              ),
+                            ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  DividendMonthCalendarGrid(
+                    monthStart: calendarStart,
+                    events: monthEvents,
+                    currency: currency,
+                    portfolioValue: widget.portfolioValue,
+                    palette: widget.palette,
+                  ),
+                ],
+              )
+            else if (monthEvents.isEmpty)
+              DividendEmptyMonthNotice(
                 monthStart: calendarStart,
-                events: monthEvents,
-                currency: currency,
-                portfolioValue: widget.portfolioValue,
+                nextMonth: nextDividendMonth,
                 palette: widget.palette,
+                onJumpToNext: nextDividendMonth == null
+                    ? null
+                    : () => setState(
+                        () => _monthOffset = _offsetForMonth(nextDividendMonth),
+                      ),
               )
             else
               DividendEventList(
@@ -9743,6 +9785,60 @@ class DividendToggleButton extends StatelessWidget {
   }
 }
 
+class DividendEmptyMonthNotice extends StatelessWidget {
+  const DividendEmptyMonthNotice({
+    super.key,
+    required this.monthStart,
+    required this.nextMonth,
+    required this.palette,
+    required this.onJumpToNext,
+  });
+
+  final DateTime monthStart;
+  final DateTime? nextMonth;
+  final Palette palette;
+  final VoidCallback? onJumpToNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final next = nextMonth;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: palette.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: palette.border),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.calendar_month_rounded, color: palette.muted, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '${dividendWindowTitle(monthStart)} has no dividend events.',
+              style: TextStyle(
+                color: palette.muted,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          if (next != null)
+            TextButton.icon(
+              onPressed: onJumpToNext,
+              icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+              label: Text('Next: ${dividendWindowTitle(next)}'),
+              style: TextButton.styleFrom(
+                foregroundColor: palette.accent,
+                textStyle: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class DividendMonthCalendarGrid extends StatelessWidget {
   const DividendMonthCalendarGrid({
     super.key,
@@ -9769,7 +9865,9 @@ class DividendMonthCalendarGrid extends StatelessWidget {
       eventsByDay.putIfAbsent(event.date.day, () => []).add(event);
     }
     for (final dayEvents in eventsByDay.values) {
-      dayEvents.sort((left, right) => right.payout.compareTo(left.payout));
+      dayEvents.sort(
+        (left, right) => right.payoutBase.compareTo(left.payoutBase),
+      );
     }
 
     return LayoutBuilder(
@@ -9899,7 +9997,7 @@ class DividendCalendarDayCell extends StatelessWidget {
     final inMonth = day != null && date != null;
     final total = events.fold<double>(
       0,
-      (sum, event) => sum + event.payout.abs(),
+      (sum, event) => sum + event.payoutBase.abs(),
     );
     final dayColor = inMonth
         ? palette.text.withValues(alpha: .78)
@@ -10013,12 +10111,14 @@ class DividendCalendarEventChip extends StatelessWidget {
       _ => dividendEstimatedColor,
     };
     final weight = portfolioValue > 0
-        ? event.payout.abs() / portfolioValue
+        ? event.payoutBase.abs() / portfolioValue
         : 0.0;
     final tooltip = [
       '${event.ticker} ${event.statusLabel}',
       'Date: ${formatDate(event.isoDate)}',
       'Payout: ${formatDividendMoney(event.payout.abs(), event.currency)}',
+      if (event.hasCurrencyConversion)
+        'Base: ${formatDividendMoney(event.payoutBase.abs(), event.displayCurrency)} (${event.currency} x ${event.fxRateToBase.toStringAsFixed(4)})',
       if (event.quantity > 0) 'Shares: ${formatNumber(event.quantity)}',
     ].join('\n');
 
@@ -10070,7 +10170,10 @@ class DividendCalendarEventChip extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        formatDividendMoney(event.payout.abs(), event.currency),
+                        formatDividendMoney(
+                          event.payoutBase.abs(),
+                          event.displayCurrency,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -10184,7 +10287,7 @@ class DividendAgendaDayCard extends StatelessWidget {
         '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
     final total = events.fold<double>(
       0,
-      (sum, event) => sum + event.payout.abs(),
+      (sum, event) => sum + event.payoutBase.abs(),
     );
     return Container(
       width: double.infinity,
@@ -10301,7 +10404,7 @@ class DividendDateGroupCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final total = events.fold<double>(
       0,
-      (sum, event) => sum + event.payout.abs(),
+      (sum, event) => sum + event.payoutBase.abs(),
     );
     return Container(
       width: double.infinity,
@@ -10463,6 +10566,15 @@ class DividendEventRow extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                 ),
               ),
+              if (!compact && event.hasCurrencyConversion)
+                Text(
+                  '${formatDividendMoney(event.payoutBase.abs(), event.displayCurrency)} base',
+                  style: TextStyle(
+                    color: palette.muted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               if (!compact && event.quantity > 0)
                 Text(
                   '${formatDividendMoney(event.amount.abs(), event.currency)} / sh',
@@ -10487,8 +10599,11 @@ class DividendDisplayEvent {
     required this.date,
     required this.amount,
     required this.payout,
+    required this.payoutBase,
     required this.quantity,
     required this.currency,
+    required this.displayCurrency,
+    required this.fxRateToBase,
     required this.status,
     required this.type,
     required this.logoUrl,
@@ -10500,12 +10615,19 @@ class DividendDisplayEvent {
   final DateTime date;
   final double amount;
   final double payout;
+  final double payoutBase;
   final double quantity;
   final String currency;
+  final String displayCurrency;
+  final double fxRateToBase;
   final String status;
   final String type;
   final String logoUrl;
   final String sourceLabel;
+
+  bool get hasCurrencyConversion =>
+      normalizeDividendCurrency(currency) !=
+      normalizeDividendCurrency(displayCurrency);
 
   String get isoDate =>
       '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -10541,19 +10663,19 @@ class DividendMonthBucket {
   double get declared => _sum('declared');
   double get estimated => _sum('estimated');
   double get total =>
-      events.fold<double>(0, (sum, event) => sum + event.payout.abs());
+      events.fold<double>(0, (sum, event) => sum + event.payoutBase.abs());
 
   void add(DividendDisplayEvent event) => events.add(event);
 
   double _sum(String status) => events
       .where((event) => event.status == status)
-      .fold<double>(0, (sum, event) => sum + event.payout.abs());
+      .fold<double>(0, (sum, event) => sum + event.payoutBase.abs());
 
   String tooltip(String currency) {
     final byTicker = <String, double>{};
     for (final event in events) {
       byTicker[event.ticker] =
-          (byTicker[event.ticker] ?? 0) + event.payout.abs();
+          (byTicker[event.ticker] ?? 0) + event.payoutBase.abs();
     }
     final contributors = byTicker.entries.toList()
       ..sort((left, right) => right.value.compareTo(left.value));
@@ -10590,6 +10712,7 @@ const monthNamesShort = [
 const dividendWeekdayLabels = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 double dividendHoldingShareQuantity(Map<String, dynamic> holding) {
+  final ticker = text(holding['ticker']).toUpperCase();
   final quantity =
       firstNumber([
         holding['quantity'],
@@ -10598,7 +10721,7 @@ double dividendHoldingShareQuantity(Map<String, dynamic> holding) {
         holding['position'],
       ]) ??
       0;
-  final price =
+  final rawPrice =
       firstNumber([
         holding['price'],
         holding['holdingPrice'],
@@ -10607,6 +10730,15 @@ double dividendHoldingShareQuantity(Map<String, dynamic> holding) {
         holding['reportDatePrice'],
       ]) ??
       0;
+  final currency = normalizeDividendCurrency(text(holding['currency'], 'USD'));
+  final price =
+      dividendTickerLooksLondon(ticker) && currency == 'GBP' && rawPrice > 100
+      ? rawPrice / 100
+      : rawPrice;
+  final fxRateToBase = math.max(
+    .000001,
+    firstNumber([holding['fxRateToBase'], holding['fxRate']]) ?? 1,
+  );
   final value =
       firstNumber([
         holding['value'],
@@ -10617,9 +10749,10 @@ double dividendHoldingShareQuantity(Map<String, dynamic> holding) {
       ]) ??
       0;
   if (price <= 0 || value <= 0) return math.max(0, quantity);
-  final impliedQuantity = value / price;
+  final priceInBase = price * fxRateToBase;
+  final impliedQuantity = value / priceInBase;
   if (quantity <= 0) return math.max(0, impliedQuantity);
-  final valueFromQuantity = quantity * price;
+  final valueFromQuantity = quantity * priceInBase;
   final relativeValueError =
       (valueFromQuantity - value).abs() / math.max(1, value.abs());
   final quantityLooksLikeMarketValue =
@@ -10692,10 +10825,72 @@ bool dividendAmountLooksPence({
           sourceText.contains('yahoo'));
 }
 
+String normalizeDividendCurrency(String currency, [String fallback = 'USD']) {
+  final raw = text(currency, fallback).trim();
+  final compact = raw.replaceAll(RegExp('[^A-Za-z]'), '').toUpperCase();
+  if (compact == 'GBX' ||
+      compact == 'GBPENCE' ||
+      compact == 'PENCE' ||
+      compact == 'PENNY' ||
+      raw == 'GBp') {
+    return 'GBP';
+  }
+  return compact.isEmpty ? fallback.toUpperCase() : compact;
+}
+
+double fallbackDividendFxRate(String fromCurrency, String toCurrency) {
+  final from = normalizeDividendCurrency(fromCurrency);
+  final to = normalizeDividendCurrency(toCurrency);
+  if (from == to) return 1;
+  const usdRates = {
+    'USD': 1.0,
+    'GBP': 1.27,
+    'EUR': 1.08,
+    'CAD': .73,
+    'JPY': .0064,
+    'HKD': .128,
+    'CHF': 1.12,
+    'AUD': .66,
+    'SGD': .74,
+    'TWD': .031,
+  };
+  final fromUsd = usdRates[from];
+  final toUsd = usdRates[to];
+  if (fromUsd == null || toUsd == null || toUsd <= 0) return 1;
+  return fromUsd / toUsd;
+}
+
+double dividendFxRateToBase({
+  required Map<String, dynamic> event,
+  required Map<String, dynamic> holding,
+  required String currency,
+  required String baseCurrency,
+}) {
+  final from = normalizeDividendCurrency(currency);
+  final to = normalizeDividendCurrency(baseCurrency);
+  if (from == to) return 1;
+  final payload = asMap(event['payload']);
+  final explicitRate = firstNumber([
+    event['fxRateToBase'],
+    event['fxRate'],
+    payload['fxRateToBase'],
+    payload['fxRate'],
+    holding['fxRateToBase'],
+    holding['fxRate'],
+  ]);
+  if (explicitRate != null &&
+      explicitRate > 0 &&
+      (explicitRate - 1).abs() > .0001) {
+    return explicitRate;
+  }
+  return fallbackDividendFxRate(from, to);
+}
+
 List<DividendDisplayEvent> normalizeDividendDisplayEvents(
   List<Map<String, dynamic>> dividends,
   List<Map<String, dynamic>> holdings, {
   required String dateMode,
+  required String baseCurrency,
 }) {
   final holdingsByTicker = <String, Map<String, dynamic>>{};
   final quantityByTicker = <String, double>{};
@@ -10736,7 +10931,9 @@ List<DividendDisplayEvent> normalizeDividendDisplayEvents(
       amount: rawAmount,
     );
     final amount = shouldNormalizePence ? rawAmount / 100 : rawAmount;
-    final currency = shouldNormalizePence ? 'GBP' : rawCurrency;
+    final currency = shouldNormalizePence
+        ? 'GBP'
+        : normalizeDividendCurrency(rawCurrency);
     final amountMultiplier = rawAmount.abs() > 0 ? amount / rawAmount : 1.0;
     final holding = holdingsByTicker[ticker] ?? const <String, dynamic>{};
     final eventQuantity =
@@ -10769,6 +10966,14 @@ List<DividendDisplayEvent> normalizeDividendDisplayEvents(
               : amount * quantity)
         : (explicitPayout ?? amount);
     if (payout == 0) continue;
+    final displayCurrency = normalizeDividendCurrency(baseCurrency);
+    final fxRateToBase = dividendFxRateToBase(
+      event: event,
+      holding: holding,
+      currency: currency,
+      baseCurrency: displayCurrency,
+    );
+    final payoutBase = payout * fxRateToBase;
     final status = dividendStatusForEvent(event, date);
     events.add(
       DividendDisplayEvent(
@@ -10780,8 +10985,11 @@ List<DividendDisplayEvent> normalizeDividendDisplayEvents(
         date: date,
         amount: amount,
         payout: payout,
+        payoutBase: payoutBase,
         quantity: quantity,
         currency: currency,
+        displayCurrency: displayCurrency,
+        fxRateToBase: fxRateToBase,
         status: status,
         type: text(event['type'], 'Dividend'),
         logoUrl: text(event['logoUrl'], text(holding['logoUrl'])),
@@ -10843,6 +11051,21 @@ String dividendStatusForEvent(Map<String, dynamic> event, DateTime date) {
 
 String dividendWindowTitle(DateTime start) =>
     '${monthNamesShort[start.month - 1]} ${start.year}';
+
+DateTime? nextDividendMonthAfter(
+  DateTime monthStart,
+  List<DividendDisplayEvent> events,
+) {
+  final current = DateTime(monthStart.year, monthStart.month, 1);
+  final months =
+      events
+          .map((event) => DateTime(event.date.year, event.date.month, 1))
+          .where((month) => month.isAfter(current))
+          .toSet()
+          .toList()
+        ..sort();
+  return months.isEmpty ? null : months.first;
+}
 
 String formatDividendMoney(
   double value,
