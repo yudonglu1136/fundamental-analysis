@@ -8845,24 +8845,45 @@ class _PortfolioDividendCalendarSectionState
       dateMode: _dateMode,
       baseCurrency: baseCurrency,
     );
+    bool matchesSearchAndStatus(DividendDisplayEvent event) {
+      final statusMatches =
+          _statusFilter == 'all' || event.status == _statusFilter;
+      final query = _query.trim().toUpperCase();
+      final queryMatches =
+          query.isEmpty ||
+          event.ticker.contains(query) ||
+          event.name.toUpperCase().contains(query);
+      return statusMatches && queryMatches;
+    }
+
     final filtered =
         allEvents.where((event) {
           final matchesWindow =
               !event.date.isBefore(start) && !event.date.isAfter(end);
-          final statusMatches =
-              _statusFilter == 'all' || event.status == _statusFilter;
-          final query = _query.trim().toUpperCase();
-          final queryMatches =
-              query.isEmpty ||
-              event.ticker.contains(query) ||
-              event.name.toUpperCase().contains(query);
-          return matchesWindow && statusMatches && queryMatches;
+          return matchesWindow && matchesSearchAndStatus(event);
         }).toList()..sort((left, right) {
           final dateOrder = left.date.compareTo(right.date);
           if (dateOrder != 0) return dateOrder;
           return right.payoutBase.abs().compareTo(left.payoutBase.abs());
         });
+    final comparisonEvents =
+        allEvents
+            .where(
+              (event) =>
+                  event.date.year >= 2025 &&
+                  event.date.year <= 2026 &&
+                  matchesSearchAndStatus(event),
+            )
+            .toList()
+          ..sort((left, right) {
+            final dateOrder = left.date.compareTo(right.date);
+            if (dateOrder != 0) return dateOrder;
+            return right.payoutBase.abs().compareTo(left.payoutBase.abs());
+          });
     final buckets = dividendMonthBuckets(start, filtered);
+    final comparisonBuckets = _windowMode == 'forward'
+        ? const <DividendYearComparisonBucket>[]
+        : dividendYearComparisonBuckets(const [2025, 2026], comparisonEvents);
     final calendarBucket = buckets.firstWhere(
       (bucket) =>
           bucket.monthStart.year == visibleMonthStart.year &&
@@ -8945,6 +8966,8 @@ class _PortfolioDividendCalendarSectionState
                 );
                 final chartCard = DividendMonthlyChartCard(
                   buckets: buckets,
+                  comparisonBuckets: comparisonBuckets,
+                  comparisonYears: const [2025, 2026],
                   currency: currency,
                   palette: widget.palette,
                 );
@@ -9451,16 +9474,21 @@ class DividendMonthlyChartCard extends StatelessWidget {
   const DividendMonthlyChartCard({
     super.key,
     required this.buckets,
+    required this.comparisonBuckets,
+    required this.comparisonYears,
     required this.currency,
     required this.palette,
   });
 
   final List<DividendMonthBucket> buckets;
+  final List<DividendYearComparisonBucket> comparisonBuckets;
+  final List<int> comparisonYears;
   final String currency;
   final Palette palette;
 
   @override
   Widget build(BuildContext context) {
+    final hasComparison = comparisonBuckets.isNotEmpty;
     return Container(
       constraints: const BoxConstraints(minHeight: 236),
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
@@ -9473,22 +9501,50 @@ class DividendMonthlyChartCard extends StatelessWidget {
         children: [
           SizedBox(
             height: 190,
-            child: PortfolioDividendBarChart(
-              buckets: buckets,
-              currency: currency,
-              palette: palette,
-            ),
+            child: hasComparison
+                ? PortfolioDividendYearComparisonChart(
+                    buckets: comparisonBuckets,
+                    years: comparisonYears,
+                    currency: currency,
+                    palette: palette,
+                  )
+                : PortfolioDividendBarChart(
+                    buckets: buckets,
+                    currency: currency,
+                    palette: palette,
+                  ),
           ),
           const SizedBox(height: 10),
           Wrap(
             alignment: WrapAlignment.center,
             spacing: 14,
             runSpacing: 8,
-            children: [
-              DividendLegendDot('Paid', dividendPaidColor, palette),
-              DividendLegendDot('Declared', dividendDeclaredColor, palette),
-              DividendLegendDot('Estimated', dividendEstimatedColor, palette),
-            ],
+            children: hasComparison
+                ? [
+                    DividendLegendDot(
+                      '2025 paid history',
+                      dividend2025Color,
+                      palette,
+                    ),
+                    DividendLegendDot(
+                      '2026 paid + forecast',
+                      dividend2026Color,
+                      palette,
+                    ),
+                  ]
+                : [
+                    DividendLegendDot('Paid', dividendPaidColor, palette),
+                    DividendLegendDot(
+                      'Declared',
+                      dividendDeclaredColor,
+                      palette,
+                    ),
+                    DividendLegendDot(
+                      'Estimated',
+                      dividendEstimatedColor,
+                      palette,
+                    ),
+                  ],
           ),
         ],
       ),
@@ -9629,6 +9685,167 @@ class PortfolioDividendBarChart extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class PortfolioDividendYearComparisonChart extends StatelessWidget {
+  const PortfolioDividendYearComparisonChart({
+    super.key,
+    required this.buckets,
+    required this.years,
+    required this.currency,
+    required this.palette,
+  });
+
+  final List<DividendYearComparisonBucket> buckets;
+  final List<int> years;
+  final String currency;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxTotal = buckets.fold<double>(
+      0,
+      (maxValue, bucket) => math.max(maxValue, bucket.maxTotal),
+    );
+    if (maxTotal <= 0) {
+      return EmptyState(
+        text: 'No 2025/2026 dividend history for this filter.',
+        palette: palette,
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 760;
+        final chartWidth = compact ? 780.0 : constraints.maxWidth;
+        return ScrollConfiguration(
+          behavior: const ScrollBehavior().copyWith(scrollbars: false),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: chartWidth,
+              child: CustomPaint(
+                painter: DividendGridPainter(palette: palette),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      for (final bucket in buckets)
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                SizedBox(
+                                  height: 24,
+                                  child: Text(
+                                    bucket.topLabel(currency),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: palette.muted,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(
+                                  height: math.max(
+                                    120.0,
+                                    constraints.maxHeight - 44,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      for (final year in years) ...[
+                                        DividendYearBar(
+                                          bucket: bucket.bucketForYear(year),
+                                          year: year,
+                                          maxTotal: maxTotal,
+                                          chartHeight: math.max(
+                                            120.0,
+                                            constraints.maxHeight - 44,
+                                          ),
+                                          currency: currency,
+                                          palette: palette,
+                                        ),
+                                        if (year != years.last)
+                                          const SizedBox(width: 5),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  monthNamesShort[bucket.month - 1],
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: palette.muted,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class DividendYearBar extends StatelessWidget {
+  const DividendYearBar({
+    super.key,
+    required this.bucket,
+    required this.year,
+    required this.maxTotal,
+    required this.chartHeight,
+    required this.currency,
+    required this.palette,
+  });
+
+  final DividendMonthBucket bucket;
+  final int year;
+  final double maxTotal;
+  final double chartHeight;
+  final String currency;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = dividendYearColor(year);
+    final total = bucket.total;
+    final height = total <= 0 || maxTotal <= 0
+        ? 2.0
+        : math.max(5.0, chartHeight * .82 * total / maxTotal);
+    final width = MediaQuery.sizeOf(context).width < 760 ? 22.0 : 28.0;
+    final bar = Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: total > 0 ? color : palette.border.withValues(alpha: .8),
+        borderRadius: BorderRadius.circular(7),
+        border: total > 0
+            ? Border.all(color: color.withValues(alpha: .26))
+            : null,
+      ),
+    );
+    return Tooltip(
+      message: bucket.tooltip(currency, titleYear: year),
+      child: bar,
     );
   }
 }
@@ -10626,9 +10843,17 @@ class DividendEventRow extends StatelessWidget {
   }
 }
 
-const dividendPaidColor = Color(0xFF8D6AF4);
+const dividend2025Color = Color(0xFF8D6AF4);
+const dividend2026Color = Color(0xFF54B8F6);
+const dividendPaidColor = dividend2025Color;
 const dividendDeclaredColor = Color(0xFF54B8F6);
 const dividendEstimatedColor = Color(0xFF3F7EAA);
+
+Color dividendYearColor(int year) => year == 2025
+    ? dividend2025Color
+    : year == 2026
+    ? dividend2026Color
+    : dividendEstimatedColor;
 
 class DividendCalendarWindowOption {
   const DividendCalendarWindowOption(this.key, this.label);
@@ -10759,7 +10984,7 @@ class DividendMonthBucket {
       .where((event) => event.status == status)
       .fold<double>(0, (sum, event) => sum + event.payoutBase.abs());
 
-  String tooltip(String currency) {
+  String tooltip(String currency, {int? titleYear}) {
     final byTicker = <String, double>{};
     for (final event in events) {
       byTicker[event.ticker] =
@@ -10770,8 +10995,11 @@ class DividendMonthBucket {
     final topContributors = contributors.take(6).map((entry) {
       return '${entry.key}: ${formatDividendMoney(entry.value, currency)}';
     });
+    final title = titleYear == null
+        ? monthNamesShort[monthStart.month - 1]
+        : '${monthNamesShort[monthStart.month - 1]} $titleYear';
     return [
-      '${monthNamesShort[monthStart.month - 1]}: ${formatDividendMoney(total, currency)}',
+      '$title: ${formatDividendMoney(total, currency)}',
       'Paid: ${formatDividendMoney(paid, currency)}',
       'Declared: ${formatDividendMoney(declared, currency)}',
       'Estimated: ${formatDividendMoney(estimated, currency)}',
@@ -10780,6 +11008,49 @@ class DividendMonthBucket {
       if (contributors.length > 6) '+${contributors.length - 6} more',
     ].join('\n');
   }
+}
+
+class DividendYearComparisonBucket {
+  DividendYearComparisonBucket({required this.month, required List<int> years})
+    : _byYear = {
+        for (final year in years)
+          year: DividendMonthBucket(DateTime(year, month, 1)),
+      };
+
+  final int month;
+  final Map<int, DividendMonthBucket> _byYear;
+
+  double get maxTotal => _byYear.values.fold<double>(
+    0,
+    (maxValue, bucket) => math.max(maxValue, bucket.total),
+  );
+
+  DividendMonthBucket bucketForYear(int year) =>
+      _byYear[year] ?? DividendMonthBucket(DateTime(year, month, 1));
+
+  void add(DividendDisplayEvent event) =>
+      bucketForYear(event.date.year).add(event);
+
+  String topLabel(String currency) {
+    if (maxTotal <= 0) return '';
+    return formatDividendMoney(maxTotal, currency, compact: true);
+  }
+}
+
+List<DividendYearComparisonBucket> dividendYearComparisonBuckets(
+  List<int> years,
+  List<DividendDisplayEvent> events,
+) {
+  final normalizedYears = years.toSet();
+  final buckets = [
+    for (var month = 1; month <= 12; month += 1)
+      DividendYearComparisonBucket(month: month, years: years),
+  ];
+  for (final event in events) {
+    if (!normalizedYears.contains(event.date.year)) continue;
+    buckets[event.date.month - 1].add(event);
+  }
+  return buckets;
 }
 
 const monthNamesShort = [
