@@ -200,7 +200,191 @@ function syncBundledValuationSnapshots() {
   }
 }
 
+function syncBundledDividendCalendar() {
+  if (process.env.SYNC_BUNDLED_DIVIDEND_CALENDAR === "false") return;
+  if (dbPath === bundledDbPath || !fs.existsSync(bundledDbPath)) return;
+
+  let bundledDb;
+  try {
+    bundledDb = new DatabaseSync(bundledDbPath, { readOnly: true });
+    const bundledSummary = bundledDb.prepare(`
+      SELECT
+        COUNT(*) AS count,
+        MIN(ex_date) AS min_date,
+        MAX(ex_date) AS max_date,
+        MAX(updated_at) AS updated_at
+      FROM dividend_events
+    `).get();
+    if (!bundledSummary?.count) return;
+
+    const currentSummary = db.prepare(`
+      SELECT
+        COUNT(*) AS count,
+        MIN(ex_date) AS min_date,
+        MAX(ex_date) AS max_date,
+        MAX(updated_at) AS updated_at
+      FROM dividend_events
+    `).get();
+    const bundledCount = Number(bundledSummary.count) || 0;
+    const currentCount = Number(currentSummary?.count) || 0;
+    const shouldSync =
+      bundledCount > currentCount ||
+      (bundledSummary.min_date && (!currentSummary?.min_date || bundledSummary.min_date < currentSummary.min_date)) ||
+      (bundledSummary.updated_at && (!currentSummary?.updated_at || bundledSummary.updated_at > currentSummary.updated_at));
+    if (!shouldSync) return;
+
+    const eventRows = bundledDb.prepare(`
+      SELECT
+        ticker,
+        company_name,
+        ex_date,
+        pay_date,
+        record_date,
+        declaration_date,
+        amount,
+        currency,
+        status,
+        source,
+        source_label,
+        logo_url,
+        payload_json,
+        updated_at
+      FROM dividend_events
+    `).all();
+    const assetRows = bundledDb.prepare(`
+      SELECT ticker, company_name, logo_url, logo_domain, logo_source, payload_json, updated_at
+      FROM ticker_assets
+      WHERE ticker IN (SELECT DISTINCT ticker FROM dividend_events)
+    `).all();
+    const jobRows = bundledDb.prepare(`
+      SELECT job_id, started_at, finished_at, status, payload_json
+      FROM background_job_runs
+      WHERE job_id = 'portfolio_dividend_calendar'
+    `).all();
+    if (!eventRows.length) return;
+
+    const tickers = [...new Set(eventRows.map((row) => row.ticker).filter(Boolean))];
+    const placeholders = tickers.map(() => "?").join(", ");
+    const writeEvent = db.prepare(`
+      INSERT INTO dividend_events (
+        ticker,
+        company_name,
+        ex_date,
+        pay_date,
+        record_date,
+        declaration_date,
+        amount,
+        currency,
+        status,
+        source,
+        source_label,
+        logo_url,
+        payload_json,
+        updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(ticker, ex_date, source) DO UPDATE SET
+        company_name = excluded.company_name,
+        pay_date = excluded.pay_date,
+        record_date = excluded.record_date,
+        declaration_date = excluded.declaration_date,
+        amount = excluded.amount,
+        currency = excluded.currency,
+        status = excluded.status,
+        source_label = excluded.source_label,
+        logo_url = excluded.logo_url,
+        payload_json = excluded.payload_json,
+        updated_at = excluded.updated_at
+    `);
+    const writeAsset = db.prepare(`
+      INSERT INTO ticker_assets (
+        ticker,
+        company_name,
+        logo_url,
+        logo_domain,
+        logo_source,
+        payload_json,
+        updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(ticker) DO UPDATE SET
+        company_name = excluded.company_name,
+        logo_url = excluded.logo_url,
+        logo_domain = excluded.logo_domain,
+        logo_source = excluded.logo_source,
+        payload_json = excluded.payload_json,
+        updated_at = excluded.updated_at
+    `);
+    const writeJob = db.prepare(`
+      INSERT INTO background_job_runs (job_id, started_at, finished_at, status, payload_json)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(job_id) DO UPDATE SET
+        started_at = excluded.started_at,
+        finished_at = excluded.finished_at,
+        status = excluded.status,
+        payload_json = excluded.payload_json
+    `);
+
+    db.exec("BEGIN");
+    try {
+      if (tickers.length && bundledSummary.min_date && bundledSummary.max_date) {
+        db.prepare(`
+          DELETE FROM dividend_events
+          WHERE ticker IN (${placeholders})
+            AND ex_date >= ?
+            AND ex_date <= ?
+        `).run(...tickers, bundledSummary.min_date, bundledSummary.max_date);
+      }
+      for (const row of assetRows) {
+        writeAsset.run(
+          row.ticker,
+          row.company_name,
+          row.logo_url,
+          row.logo_domain,
+          row.logo_source,
+          row.payload_json,
+          row.updated_at
+        );
+      }
+      for (const row of eventRows) {
+        writeEvent.run(
+          row.ticker,
+          row.company_name,
+          row.ex_date,
+          row.pay_date,
+          row.record_date,
+          row.declaration_date,
+          row.amount,
+          row.currency,
+          row.status,
+          row.source,
+          row.source_label,
+          row.logo_url,
+          row.payload_json,
+          row.updated_at
+        );
+      }
+      for (const row of jobRows) {
+        writeJob.run(row.job_id, row.started_at, row.finished_at, row.status, row.payload_json);
+      }
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+    console.info(
+      `[database] synced bundled dividend calendar into ${dbPath}: ` +
+      `${eventRows.length} events, ${assetRows.length} assets`
+    );
+  } catch (error) {
+    console.warn(`[database] bundled dividend calendar sync skipped: ${error.message}`);
+  } finally {
+    bundledDb?.close();
+  }
+}
+
 syncBundledValuationSnapshots();
+syncBundledDividendCalendar();
 
 function parsePayload(value) {
   try {
