@@ -43,6 +43,22 @@ function addDays(date, days) {
   return isoDate(parsed);
 }
 
+function yearFromDate(date) {
+  return new Date(`${isoDate(date)}T00:00:00.000Z`).getUTCFullYear();
+}
+
+function yearStartDate(year) {
+  return `${year}-01-01`;
+}
+
+function defaultDividendReadStartDate(referenceDate = isoDate()) {
+  return yearStartDate(Math.min(yearFromDate(referenceDate) - 1, 2025));
+}
+
+function defaultDividendReadEndDate(referenceDate = isoDate()) {
+  return addDays(referenceDate, 370);
+}
+
 function dayDiff(left, right) {
   return Math.round((new Date(`${isoDate(right)}T00:00:00.000Z`) - new Date(`${isoDate(left)}T00:00:00.000Z`)) / DAY_MS);
 }
@@ -398,19 +414,73 @@ function estimateFutureDividends(tickerInfo, history, { startDate, endDate }) {
   return events;
 }
 
-async function loadEstimatedEvents(tickerInfos, { startDate, endDate, requestDelayMs }) {
+function historicalDividendEvents(tickerInfo, history, { startDate, endDate }) {
+  const normalizedStart = isoDate(startDate);
+  const normalizedEnd = isoDate(endDate);
+  if (!history.length || normalizedEnd < normalizedStart) return [];
+  const fxRateToBase = finiteNumber(tickerInfo.fxRateToBase, 1);
+  const baseCurrency = tickerInfo.baseCurrency || "USD";
+  return history
+    .filter((row) => row.date >= normalizedStart && row.date <= normalizedEnd)
+    .map((row) => ({
+      ticker: tickerInfo.ticker,
+      companyName: tickerInfo.companyName,
+      name: tickerInfo.companyName,
+      exDate: row.date,
+      payDate: "",
+      recordDate: "",
+      declarationDate: "",
+      amount: row.amount,
+      amountKind: "per_share",
+      perShare: true,
+      quantity: tickerInfo.quantity || undefined,
+      holdingValue: tickerInfo.value || undefined,
+      holdingPrice: tickerInfo.price || undefined,
+      estimatedPayout: tickerInfo.quantity ? row.amount * tickerInfo.quantity : undefined,
+      currency: row.currency || "USD",
+      fxRateToBase,
+      baseCurrency,
+      status: "paid",
+      type: "Paid dividend",
+      source: "yahoo_dividend_history",
+      sourceLabel: "Yahoo dividend history",
+      logoUrl: logoUrlForTicker(tickerInfo.ticker),
+      payload: {
+        amountKind: "per_share",
+        fxRateToBase,
+        baseCurrency,
+        dividendUnitNormalization: row.normalizedFrom ? `${row.normalizedFrom}_to_GBP` : ""
+      }
+    }));
+}
+
+async function loadEstimatedEvents(tickerInfos, {
+  historyStartDate,
+  startDate,
+  endDate,
+  requestDelayMs
+}) {
   if (process.env.DIVIDEND_YAHOO_ESTIMATE_ENABLED === "false") {
-    return { events: [], attempted: 0, errors: 0, ok: false, skipped: true };
+    return { events: [], attempted: 0, errors: 0, historicalCount: 0, estimatedCount: 0, ok: false, skipped: true };
   }
 
   const events = [];
+  let historicalCount = 0;
+  let estimatedCount = 0;
   let attempted = 0;
   let errors = 0;
   for (const tickerInfo of tickerInfos) {
     attempted += 1;
     try {
       const history = await fetchYahooDividendHistory(tickerInfo.ticker);
-      events.push(...estimateFutureDividends(tickerInfo, history, { startDate, endDate }));
+      const historical = historicalDividendEvents(tickerInfo, history, {
+        startDate: historyStartDate || defaultDividendReadStartDate(startDate),
+        endDate: addDays(startDate, -1)
+      });
+      const estimated = estimateFutureDividends(tickerInfo, history, { startDate, endDate });
+      historicalCount += historical.length;
+      estimatedCount += estimated.length;
+      events.push(...historical, ...estimated);
     } catch (error) {
       errors += 1;
       if (errors <= 5) console.warn(`Yahoo dividend estimate warning: ${error.message}`);
@@ -421,6 +491,8 @@ async function loadEstimatedEvents(tickerInfos, { startDate, endDate, requestDel
     events,
     attempted,
     errors,
+    historicalCount,
+    estimatedCount,
     ok: attempted > 0 && errors < attempted
   };
 }
@@ -451,13 +523,18 @@ function mergeDividendEvents(declaredEvents, estimatedEvents) {
 }
 
 export function readDividendCalendarForTickers(tickerInputs = [], {
-  startDate = isoDate(),
-  days = 370
+  startDate = defaultDividendReadStartDate(),
+  endDate = "",
+  days = 0
 } = {}) {
   const tickerInfos = normalizeTickerInputs(tickerInputs);
-  const endDate = addDays(startDate, Math.max(30, Math.min(740, Number(days) || 370)));
+  const effectiveEndDate = endDate || (
+    days
+      ? addDays(startDate, Math.max(30, Math.min(1100, Number(days) || 370)))
+      : defaultDividendReadEndDate()
+  );
   const tickerInfoByTicker = new Map(tickerInfos.map((item) => [item.ticker, item]));
-  const events = readDividendEvents(tickerInfos.map((item) => item.ticker), startDate, endDate)
+  const events = readDividendEvents(tickerInfos.map((item) => item.ticker), startDate, effectiveEndDate)
     .map((event) => enrichStoredDividendEvent(event, tickerInfoByTicker));
   return {
     events,
@@ -465,10 +542,10 @@ export function readDividendCalendarForTickers(tickerInputs = [], {
       source: events.length ? "sqlite_dividend_calendar" : "sqlite_dividend_calendar_empty",
       pointCount: events.length,
       startDate,
-      endDate,
+      endDate: effectiveEndDate,
       message: events.length
-        ? `Stored dividend calendar: ${events.length} future event(s), declared events first and history-based estimates marked separately.`
-        : "No stored future dividend events yet. The backend refresh job will populate declared events and history-based estimates."
+        ? `Stored dividend calendar: ${events.length} event(s), including paid history, declared events, and history-based estimates.`
+        : "No stored dividend events yet. The backend refresh job will populate paid history, declared events, and history-based estimates."
     }
   };
 }
@@ -530,14 +607,16 @@ export async function refreshDividendCalendarForTickers(tickerInputs = [], optio
   refreshInFlight = (async () => {
     const maxTickers = Math.max(1, Math.min(250, finiteNumber(process.env.DIVIDEND_REFRESH_MAX_TICKERS, 120)));
     const tickerInfos = normalizeTickerInputs(tickerInputs).slice(0, maxTickers);
-    const startDate = options.startDate || isoDate();
+    const forecastStartDate = options.forecastStartDate || options.startDate || isoDate();
+    const historyStartDate = options.historyStartDate || defaultDividendReadStartDate(forecastStartDate);
+    const startDate = historyStartDate;
     const days = Math.max(30, Math.min(740, finiteNumber(options.days ?? process.env.DIVIDEND_REFRESH_DAYS, 370)));
-    const endDate = options.endDate || addDays(startDate, days);
+    const endDate = options.endDate || addDays(forecastStartDate, days);
     const nasdaqScanDays = Math.max(
       0,
       Math.min(days, finiteNumber(process.env.DIVIDEND_NASDAQ_SCAN_DAYS, 90))
     );
-    const nasdaqEndDate = addDays(startDate, nasdaqScanDays);
+    const nasdaqEndDate = addDays(forecastStartDate, nasdaqScanDays);
     const requestDelayMs = Math.max(0, finiteNumber(process.env.DIVIDEND_NASDAQ_REQUEST_DELAY_MS, 125));
     const nasdaqTimeBudgetMs = Math.max(5000, finiteNumber(process.env.DIVIDEND_NASDAQ_TIME_BUDGET_MS, 45_000));
     const yahooDelayMs = Math.max(0, finiteNumber(process.env.DIVIDEND_YAHOO_REQUEST_DELAY_MS, 50));
@@ -567,12 +646,13 @@ export async function refreshDividendCalendarForTickers(tickerInputs = [], optio
       previousFinishedAt &&
       Date.now() - previousFinishedAt < freshTtlMs
     ) {
-      const stored = readDividendCalendarForTickers(tickerInfos, { startDate, days });
+      const stored = readDividendCalendarForTickers(tickerInfos, { startDate, endDate });
       return {
         skipped: true,
         reason: "fresh_cache",
         tickers: tickerInfos.map((item) => item.ticker),
         events: stored.events,
+        paidCount: stored.events.filter((event) => event.status === "paid").length,
         declaredCount: stored.events.filter((event) => event.status === "declared").length,
         estimatedCount: stored.events.filter((event) => event.status === "estimated").length,
         startDate,
@@ -589,6 +669,7 @@ export async function refreshDividendCalendarForTickers(tickerInputs = [], optio
         tickerHash: hash,
         tickers: tickerInfos.map((item) => item.ticker),
         startDate,
+        forecastStartDate,
         endDate
       }
     });
@@ -604,13 +685,18 @@ export async function refreshDividendCalendarForTickers(tickerInputs = [], optio
       const [declaredResult, estimatedResult] = await Promise.all([
         nasdaqScanDays > 0
           ? loadNasdaqDeclaredEvents(tickerInfos, {
-              startDate,
+              startDate: forecastStartDate,
               endDate: nasdaqEndDate,
               requestDelayMs,
               timeBudgetMs: nasdaqTimeBudgetMs
             })
           : Promise.resolve({ events: [], scannedDays: 0, errors: 0, ok: false, skipped: true }),
-        loadEstimatedEvents(tickerInfos, { startDate, endDate, requestDelayMs: yahooDelayMs })
+        loadEstimatedEvents(tickerInfos, {
+          historyStartDate,
+          startDate: forecastStartDate,
+          endDate,
+          requestDelayMs: yahooDelayMs
+        })
       ]);
       if (!declaredResult.ok && !estimatedResult.ok) {
         throw new Error("Dividend calendar providers failed; keeping existing stored calendar.");
@@ -624,8 +710,10 @@ export async function refreshDividendCalendarForTickers(tickerInputs = [], optio
         tickers: tickerInfos.map((item) => item.ticker),
         tickerHash: hash,
         startDate,
+        forecastStartDate,
         endDate,
         eventCount: written,
+        paidCount: events.filter((event) => event.status === "paid").length,
         declaredCount: events.filter((event) => event.status === "declared").length,
         estimatedCount: events.filter((event) => event.status === "estimated").length,
         nasdaq: {
@@ -638,6 +726,8 @@ export async function refreshDividendCalendarForTickers(tickerInputs = [], optio
         yahoo: {
           attempted: estimatedResult.attempted,
           errors: estimatedResult.errors,
+          historicalCount: estimatedResult.historicalCount,
+          estimatedCount: estimatedResult.estimatedCount,
           skipped: Boolean(estimatedResult.skipped)
         }
       };
@@ -661,6 +751,7 @@ export async function refreshDividendCalendarForTickers(tickerInputs = [], optio
           tickerHash: hash,
           tickers: tickerInfos.map((item) => item.ticker),
           startDate,
+          forecastStartDate,
           endDate,
           error: error.message
         }

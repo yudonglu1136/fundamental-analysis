@@ -700,7 +700,11 @@ export function readDividendEvents(tickers = [], startDate, endDate) {
     amount: row.amount,
     currency: row.currency || "USD",
     status: row.status || "",
-    type: row.status === "declared" ? "Declared dividend" : "Estimated dividend",
+    type: row.status === "paid"
+      ? "Paid dividend"
+      : row.status === "declared"
+        ? "Declared dividend"
+        : "Estimated dividend",
     source: row.source || "",
     sourceLabel: row.source_label || "",
     logoUrl: row.logo_url || "",

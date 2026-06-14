@@ -8816,20 +8816,28 @@ class _PortfolioDividendCalendarSectionState
   String _query = '';
   String _statusFilter = 'all';
   String _dateMode = 'auto';
+  String _windowMode = 'forward';
   bool _calendarView = true;
   int _monthOffset = 0;
 
-  int _offsetForMonth(DateTime target) {
-    final today = DateTime.now();
-    final base = DateTime(today.year, today.month, 1);
-    return (target.year - base.year) * 12 + target.month - base.month;
+  int _offsetForMonth(DateTime target, DateTime windowStart) {
+    final base = DateTime(windowStart.year, windowStart.month, 1);
+    final offset = (target.year - base.year) * 12 + target.month - base.month;
+    return offset.clamp(0, 11).toInt();
   }
 
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
-    final start = DateTime(today.year, today.month + _monthOffset, 1);
-    final end = DateTime(start.year, start.month + 12, 0);
+    final window = dividendCalendarWindowForKey(_windowMode, today);
+    final start = window.start;
+    final end = window.end;
+    final monthOffset = _monthOffset.clamp(0, 11).toInt();
+    final visibleMonthStart = DateTime(
+      start.year,
+      start.month + monthOffset,
+      1,
+    );
     final baseCurrency = normalizeDividendCurrency(widget.baseCurrency);
     final allEvents = normalizeDividendDisplayEvents(
       widget.dividends,
@@ -8857,8 +8865,8 @@ class _PortfolioDividendCalendarSectionState
     final buckets = dividendMonthBuckets(start, filtered);
     final calendarBucket = buckets.firstWhere(
       (bucket) =>
-          bucket.monthStart.year == start.year &&
-          bucket.monthStart.month == start.month,
+          bucket.monthStart.year == visibleMonthStart.year &&
+          bucket.monthStart.month == visibleMonthStart.month,
       orElse: () => buckets.first,
     );
     final calendarStart = calendarBucket.monthStart;
@@ -8900,18 +8908,18 @@ class _PortfolioDividendCalendarSectionState
           ),
           const SizedBox(height: 12),
           DividendCalendarToolbar(
-            start: start,
-            end: end,
+            windowMode: _windowMode,
             query: _query,
             statusFilter: _statusFilter,
             dateMode: _dateMode,
             palette: widget.palette,
+            onWindowChanged: (value) => setState(() {
+              _windowMode = value;
+              _monthOffset = 0;
+            }),
             onQueryChanged: (value) => setState(() => _query = value),
             onStatusChanged: (value) => setState(() => _statusFilter = value),
             onDateModeChanged: (value) => setState(() => _dateMode = value),
-            onPrevious: () => setState(() => _monthOffset -= 1),
-            onNext: () => setState(() => _monthOffset += 1),
-            onReset: () => setState(() => _monthOffset = 0),
           ),
           const SizedBox(height: 16),
           if (allEvents.isEmpty)
@@ -8970,7 +8978,9 @@ class _PortfolioDividendCalendarSectionState
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      onPressed: () => setState(() => _monthOffset -= 1),
+                      onPressed: monthOffset <= 0
+                          ? null
+                          : () => setState(() => _monthOffset -= 1),
                       icon: const Icon(Icons.chevron_left_rounded),
                       color: widget.palette.muted,
                       tooltip: 'Previous month',
@@ -8984,7 +8994,9 @@ class _PortfolioDividendCalendarSectionState
                       ),
                     ),
                     IconButton(
-                      onPressed: () => setState(() => _monthOffset += 1),
+                      onPressed: monthOffset >= 11
+                          ? null
+                          : () => setState(() => _monthOffset += 1),
                       icon: const Icon(Icons.chevron_right_rounded),
                       color: widget.palette.muted,
                       tooltip: 'Next month',
@@ -9034,6 +9046,7 @@ class _PortfolioDividendCalendarSectionState
                           : () => setState(
                               () => _monthOffset = _offsetForMonth(
                                 nextDividendMonth,
+                                start,
                               ),
                             ),
                     ),
@@ -9056,7 +9069,10 @@ class _PortfolioDividendCalendarSectionState
                 onJumpToNext: nextDividendMonth == null
                     ? null
                     : () => setState(
-                        () => _monthOffset = _offsetForMonth(nextDividendMonth),
+                        () => _monthOffset = _offsetForMonth(
+                          nextDividendMonth,
+                          start,
+                        ),
                       ),
               )
             else
@@ -9075,70 +9091,34 @@ class _PortfolioDividendCalendarSectionState
 class DividendCalendarToolbar extends StatelessWidget {
   const DividendCalendarToolbar({
     super.key,
-    required this.start,
-    required this.end,
+    required this.windowMode,
     required this.query,
     required this.statusFilter,
     required this.dateMode,
     required this.palette,
+    required this.onWindowChanged,
     required this.onQueryChanged,
     required this.onStatusChanged,
     required this.onDateModeChanged,
-    required this.onPrevious,
-    required this.onNext,
-    required this.onReset,
   });
 
-  final DateTime start;
-  final DateTime end;
+  final String windowMode;
   final String query;
   final String statusFilter;
   final String dateMode;
   final Palette palette;
+  final ValueChanged<String> onWindowChanged;
   final ValueChanged<String> onQueryChanged;
   final ValueChanged<String> onStatusChanged;
   final ValueChanged<String> onDateModeChanged;
-  final VoidCallback onPrevious;
-  final VoidCallback onNext;
-  final VoidCallback onReset;
 
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 760;
-    final rangeControls = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          onPressed: onPrevious,
-          icon: const Icon(Icons.chevron_left_rounded),
-          tooltip: 'Previous month',
-          color: palette.muted,
-        ),
-        TextButton(
-          onPressed: onReset,
-          style: TextButton.styleFrom(
-            foregroundColor: palette.text,
-            backgroundColor: palette.text.withValues(alpha: .92),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(999),
-            ),
-          ),
-          child: Text(
-            'One year ahead',
-            style: TextStyle(
-              color: palette.background,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-        IconButton(
-          onPressed: onNext,
-          icon: const Icon(Icons.chevron_right_rounded),
-          tooltip: 'Next month',
-          color: palette.muted,
-        ),
-      ],
+    final rangeControls = DividendWindowSelector(
+      value: windowMode,
+      palette: palette,
+      onChanged: onWindowChanged,
     );
 
     final search = SizedBox(
@@ -9222,6 +9202,64 @@ class DividendCalendarToolbar extends StatelessWidget {
         const SizedBox(width: 10),
         filters,
       ],
+    );
+  }
+}
+
+class DividendWindowSelector extends StatelessWidget {
+  const DividendWindowSelector({
+    super.key,
+    required this.value,
+    required this.palette,
+    required this.onChanged,
+  });
+
+  final String value;
+  final Palette palette;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 760;
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: palette.card,
+        border: Border.all(color: palette.border),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: dividendCalendarWindowOptions.map((option) {
+          final selected = value == option.key;
+          return InkWell(
+            onTap: () => onChanged(option.key),
+            borderRadius: BorderRadius.circular(999),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 12 : 16,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: selected
+                    ? palette.text.withValues(alpha: .92)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                option.label,
+                style: TextStyle(
+                  color: selected ? palette.background : palette.muted,
+                  fontWeight: FontWeight.w900,
+                  fontSize: compact ? 12 : 13,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }
@@ -10591,6 +10629,56 @@ class DividendEventRow extends StatelessWidget {
 const dividendPaidColor = Color(0xFF8D6AF4);
 const dividendDeclaredColor = Color(0xFF54B8F6);
 const dividendEstimatedColor = Color(0xFF3F7EAA);
+
+class DividendCalendarWindowOption {
+  const DividendCalendarWindowOption(this.key, this.label);
+
+  final String key;
+  final String label;
+}
+
+class DividendCalendarWindow {
+  const DividendCalendarWindow({
+    required this.key,
+    required this.label,
+    required this.start,
+    required this.end,
+  });
+
+  final String key;
+  final String label;
+  final DateTime start;
+  final DateTime end;
+}
+
+const dividendCalendarWindowOptions = [
+  DividendCalendarWindowOption('2025', '2025'),
+  DividendCalendarWindowOption('2026', '2026'),
+  DividendCalendarWindowOption('forward', 'One year ahead'),
+];
+
+DividendCalendarWindow dividendCalendarWindowForKey(
+  String key,
+  DateTime today,
+) {
+  final normalizedToday = DateTime(today.year, today.month, today.day);
+  if (key == '2025' || key == '2026') {
+    final year = int.parse(key);
+    return DividendCalendarWindow(
+      key: key,
+      label: key,
+      start: DateTime(year, 1, 1),
+      end: DateTime(year, 12, 31),
+    );
+  }
+  final start = DateTime(normalizedToday.year, normalizedToday.month, 1);
+  return DividendCalendarWindow(
+    key: 'forward',
+    label: 'One year ahead',
+    start: start,
+    end: DateTime(start.year, start.month + 12, 0),
+  );
+}
 
 class DividendDisplayEvent {
   DividendDisplayEvent({
