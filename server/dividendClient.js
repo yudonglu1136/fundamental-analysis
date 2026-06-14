@@ -16,11 +16,12 @@ import {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const dividendJobId = "portfolio_dividend_calendar";
 const yahooTickerOverrides = new Map([
+  ["AZN", "AZN.L"],
   ["LSEG", "LSEG.L"],
   ["AZNL", "AZN.L"],
   ["LSEGL", "LSEG.L"]
 ]);
-const londonDividendTickers = new Set(["AZNL", "LSEG", "LSEGL"]);
+const londonDividendTickers = new Set(["AZN", "AZNL", "LSEG", "LSEGL"]);
 
 let dividendCalendarRefresherStarted = false;
 let refreshInFlight = null;
@@ -99,6 +100,7 @@ function normalizeTickerInputs(items = []) {
     const rawTicker = typeof item === "string"
       ? item
       : item?.ticker || item?.symbol || item?.underlyingSymbol;
+    const normalizedRawTicker = normalizeTicker(rawTicker);
     const ticker = canonicalTicker(rawTicker) || normalizeTicker(rawTicker);
     if (!ticker || ticker === "N/A" || ticker.startsWith("CASH")) continue;
     const assetClass = typeof item === "string"
@@ -113,6 +115,10 @@ function normalizeTickerInputs(items = []) {
     const fxRateToBase = typeof item === "string" ? 1 : finiteNumber(item?.fxRateToBase ?? item?.fxRate, 1);
     const currency = typeof item === "string" ? "USD" : String(item?.currency || "USD").trim() || "USD";
     const baseCurrency = typeof item === "string" ? "USD" : String(item?.baseCurrency || "USD").trim() || "USD";
+    const londonListed =
+      normalizedRawTicker.endsWith(".L") ||
+      currency.toUpperCase() === "GBP" ||
+      isLondonDividendTicker(ticker);
     const value = typeof item === "string"
       ? 0
       : finiteNumber(item?.value?.amount ?? item?.marketValue?.amount ?? item?.marketValue ?? item?.value, 0);
@@ -125,7 +131,8 @@ function normalizeTickerInputs(items = []) {
       value: Math.max(0, (existing?.value || 0) + Math.max(0, value)),
       currency: currency || existing?.currency || "USD",
       fxRateToBase: fxRateToBase || existing?.fxRateToBase || 1,
-      baseCurrency: baseCurrency || existing?.baseCurrency || "USD"
+      baseCurrency: baseCurrency || existing?.baseCurrency || "USD",
+      londonListed: Boolean(existing?.londonListed || londonListed)
     });
   }
   return [...byTicker.values()].sort((left, right) => left.ticker.localeCompare(right.ticker));
@@ -134,17 +141,26 @@ function normalizeTickerInputs(items = []) {
 function safeHoldingQuantity(item = {}) {
   const quantity = finiteNumber(item.quantity ?? item.shares ?? item.units ?? item.position, NaN);
   const rawPrice = finiteNumber(item.price ?? item.markPrice ?? item.closePrice ?? item.reportDatePrice, NaN);
-  const currency = String(item.currency || item.currencyPrimary || "USD").trim().toUpperCase();
+  const currency = String(item.currency || item.currencyPrimary || "USD").trim();
   const ticker = canonicalTicker(item.ticker || item.symbol || item.underlyingSymbol) ||
     normalizeTicker(item.ticker || item.symbol || item.underlyingSymbol);
-  const price = isLondonDividendTicker(ticker) && currency === "GBP" && rawPrice > 100
-    ? rawPrice / 100
-    : rawPrice;
   const fxRateToBase = Math.max(0.000001, finiteNumber(item.fxRateToBase ?? item.fxRate, 1));
   const value = finiteNumber(
     item.value?.amount ?? item.marketValue?.amount ?? item.marketValue ?? item.positionValue ?? item.value,
     NaN
   );
+  let price = rawPrice;
+  if (isSterlingCurrency(currency) && rawPrice > 100) {
+    const pencePrice = rawPrice / 100;
+    const canCompareValue = Number.isFinite(quantity) && quantity > 0 && Number.isFinite(value) && value > 0;
+    if (canCompareValue) {
+      const rawError = Math.abs(quantity * rawPrice * fxRateToBase - value) / Math.max(1, Math.abs(value));
+      const penceError = Math.abs(quantity * pencePrice * fxRateToBase - value) / Math.max(1, Math.abs(value));
+      if (penceError < rawError && (penceError < 0.35 || rawError > 0.5)) price = pencePrice;
+    } else if (isLondonDividendTicker(ticker) && rawPrice >= 1000) {
+      price = pencePrice;
+    }
+  }
   if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(value) || value <= 0) {
     return Number.isFinite(quantity) ? quantity : 0;
   }
@@ -166,9 +182,12 @@ function tickerHash(tickerInfos) {
   return tickerInfos.map((item) => item.ticker).sort().join(",");
 }
 
-function yahooTicker(ticker) {
+function yahooTicker(ticker, { londonListed = false } = {}) {
   const normalized = normalizeTicker(ticker);
-  return yahooTickerOverrides.get(normalized) || String(normalized || ticker || "").replace(/\./g, "-");
+  const override = yahooTickerOverrides.get(normalized);
+  if (override) return override;
+  if (londonListed && normalized && !normalized.endsWith(".L")) return `${normalized}.L`;
+  return String(normalized || ticker || "").replace(/\./g, "-");
 }
 
 function isPenceCurrency(currency) {
@@ -181,6 +200,12 @@ function isPenceCurrency(currency) {
     compact === "PENCE" ||
     compact === "PENNY"
   );
+}
+
+function isSterlingCurrency(currency) {
+  const raw = String(currency || "").trim();
+  const compact = raw.replace(/[^A-Za-z]/g, "").toUpperCase();
+  return compact === "GBP" || isPenceCurrency(raw);
 }
 
 function isLondonDividendTicker(ticker) {
@@ -200,12 +225,17 @@ function normalizeDividendMoneyUnit({ ticker, amount, currency, source = "" }) {
   }
   const sourceText = String(source || "").toLowerCase();
   const currencyLooksPence = isPenceCurrency(rawCurrency);
-  const yahooLondonPence =
-    isLondonDividendTicker(ticker) &&
+  const marketDataPenceSource =
+    sourceText.includes("yahoo") ||
+    sourceText.includes("lseg") ||
+    sourceText.includes("market") ||
+    sourceText.includes("history");
+  const londonPenceLabeledAsGbp =
+    (isLondonDividendTicker(ticker) || sourceText.includes("london")) &&
     /^GBP$/i.test(rawCurrency) &&
-    sourceText.includes("yahoo") &&
+    marketDataPenceSource &&
     Math.abs(numericAmount) >= 5;
-  if (!currencyLooksPence && !yahooLondonPence) {
+  if (!currencyLooksPence && !londonPenceLabeledAsGbp) {
     return { amount: numericAmount, currency: rawCurrency, multiplier: 1, normalizedFrom: "" };
   }
   return {
@@ -317,8 +347,12 @@ async function loadNasdaqDeclaredEvents(tickerInfos, { startDate, endDate, reque
   };
 }
 
-async function fetchYahooDividendHistory(ticker) {
-  const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooTicker(ticker))}`);
+async function fetchYahooDividendHistory(tickerInput) {
+  const tickerInfo = typeof tickerInput === "string" ? { ticker: tickerInput } : tickerInput;
+  const ticker = tickerInfo.ticker;
+  const londonListed = Boolean(tickerInfo.londonListed || isLondonDividendTicker(ticker));
+  const source = londonListed ? "yahoo_dividend_history_london" : "yahoo_dividend_history";
+  const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooTicker(ticker, { londonListed }))}`);
   url.searchParams.set("range", "5y");
   url.searchParams.set("interval", "1d");
   url.searchParams.set("events", "div");
@@ -342,13 +376,14 @@ async function fetchYahooDividendHistory(ticker) {
         ticker,
         amount: finiteNumber(row.amount, NaN),
         currency,
-        source: "yahoo_dividend_history"
+        source
       });
       return {
         date: isoDate(new Date(Number(row.date) * 1000)),
         amount: normalized.amount,
         currency: normalized.currency,
-        normalizedFrom: normalized.normalizedFrom
+        normalizedFrom: normalized.normalizedFrom,
+        source
       };
     })
     .filter((row) => row.date && Number.isFinite(row.amount) && row.amount > 0)
@@ -366,6 +401,7 @@ function estimateFutureDividends(tickerInfo, history, { startDate, endDate }) {
   const recentAmounts = history.slice(-Math.min(6, history.length)).map((row) => row.amount);
   const amount = Math.round((median(recentAmounts) || history.at(-1).amount) * 10000) / 10000;
   const currency = history.at(-1).currency || "USD";
+  const historySource = history.at(-1).source || "";
   const fxRateToBase = finiteNumber(tickerInfo.fxRateToBase, 1);
   const baseCurrency = tickerInfo.baseCurrency || "USD";
   const normalizedFrom = history.findLast?.((row) => row.normalizedFrom)?.normalizedFrom ||
@@ -396,7 +432,9 @@ function estimateFutureDividends(tickerInfo, history, { startDate, endDate }) {
       baseCurrency,
       status: "estimated",
       type: "Estimated dividend",
-      source: "yahoo_history_estimate",
+      source: historySource.includes("london")
+        ? "yahoo_history_estimate_london"
+        : "yahoo_history_estimate",
       sourceLabel: "Yahoo dividend history estimate",
       logoUrl: logoUrlForTicker(tickerInfo.ticker),
       payload: {
@@ -442,8 +480,10 @@ function historicalDividendEvents(tickerInfo, history, { startDate, endDate }) {
       baseCurrency,
       status: "paid",
       type: "Paid dividend",
-      source: "yahoo_dividend_history",
-      sourceLabel: "Yahoo dividend history",
+      source: row.source || "yahoo_dividend_history",
+      sourceLabel: row.source?.includes("london")
+        ? "Yahoo London dividend history"
+        : "Yahoo dividend history",
       logoUrl: logoUrlForTicker(tickerInfo.ticker),
       payload: {
         amountKind: "per_share",
@@ -472,7 +512,7 @@ async function loadEstimatedEvents(tickerInfos, {
   for (const tickerInfo of tickerInfos) {
     attempted += 1;
     try {
-      const history = await fetchYahooDividendHistory(tickerInfo.ticker);
+      const history = await fetchYahooDividendHistory(tickerInfo);
       const historical = historicalDividendEvents(tickerInfo, history, {
         startDate: historyStartDate || defaultDividendReadStartDate(startDate),
         endDate: addDays(startDate, -1)
@@ -795,3 +835,10 @@ export function startDividendCalendarRefresher(getTickerInputs, {
     `Dividend calendar refresher scheduled: initial ${Math.max(1000, initialDelayMs)}ms, interval ${Math.max(60_000, intervalMs)}ms.`
   );
 }
+
+export const __dividendTestInternals = {
+  isLondonDividendTicker,
+  normalizeDividendMoneyUnit,
+  safeHoldingQuantity,
+  yahooTicker
+};

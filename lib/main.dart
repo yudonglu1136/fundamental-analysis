@@ -11090,10 +11090,6 @@ double dividendHoldingShareQuantity(Map<String, dynamic> holding) {
       ]) ??
       0;
   final currency = normalizeDividendCurrency(text(holding['currency'], 'USD'));
-  final price =
-      dividendTickerLooksLondon(ticker) && currency == 'GBP' && rawPrice > 100
-      ? rawPrice / 100
-      : rawPrice;
   final fxRateToBase = math.max(
     .000001,
     firstNumber([holding['fxRateToBase'], holding['fxRate']]) ?? 1,
@@ -11107,6 +11103,24 @@ double dividendHoldingShareQuantity(Map<String, dynamic> holding) {
         holding['currentValue'],
       ]) ??
       0;
+  var price = rawPrice;
+  if (currency == 'GBP' && rawPrice > 100) {
+    final pencePrice = rawPrice / 100;
+    final canCompareValue = quantity > 0 && value > 0;
+    if (canCompareValue) {
+      final rawError =
+          (quantity * rawPrice * fxRateToBase - value).abs() /
+          math.max(1, value.abs());
+      final penceError =
+          (quantity * pencePrice * fxRateToBase - value).abs() /
+          math.max(1, value.abs());
+      if (penceError < rawError && (penceError < .35 || rawError > .5)) {
+        price = pencePrice;
+      }
+    } else if (dividendTickerLooksLondon(ticker) && rawPrice >= 1000) {
+      price = pencePrice;
+    }
+  }
   if (price <= 0 || value <= 0) return math.max(0, quantity);
   final priceInBase = price * fxRateToBase;
   final impliedQuantity = value / priceInBase;
@@ -11164,7 +11178,8 @@ bool dividendCurrencyLooksPence(String currency) {
 
 bool dividendTickerLooksLondon(String ticker) {
   final normalized = ticker.toUpperCase();
-  return normalized == 'LSEG' ||
+  return normalized == 'AZN' ||
+      normalized == 'LSEG' ||
       normalized == 'LSEGL' ||
       normalized == 'AZNL' ||
       normalized.endsWith('.L');
@@ -11178,10 +11193,15 @@ bool dividendAmountLooksPence({
 }) {
   if (!amount.isFinite || amount.abs() < 5) return false;
   final sourceText = source.toLowerCase();
+  final marketDataPenceSource =
+      sourceText.contains('yahoo') ||
+      sourceText.contains('lseg') ||
+      sourceText.contains('market') ||
+      sourceText.contains('history');
   return dividendCurrencyLooksPence(currency) ||
-      (dividendTickerLooksLondon(ticker) &&
+      ((dividendTickerLooksLondon(ticker) || sourceText.contains('london')) &&
           currency.toUpperCase() == 'GBP' &&
-          sourceText.contains('yahoo'));
+          marketDataPenceSource);
 }
 
 String normalizeDividendCurrency(String currency, [String fallback = 'USD']) {

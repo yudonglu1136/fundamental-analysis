@@ -229,7 +229,12 @@ function normalizeTicker(value) {
 
 function isLondonPortfolioTicker(value) {
   const ticker = normalizeTicker(value);
-  return ticker === "LSEG" || ticker === "LSEGL" || ticker === "AZNL" || ticker.endsWith(".L");
+  return ticker === "AZN" || ticker === "AZNL" || ticker === "LSEG" || ticker === "LSEGL" || ticker.endsWith(".L");
+}
+
+function isSterlingPortfolioCurrency(value) {
+  const compact = textValue(value, "").replace(/[^A-Za-z]/g, "").toUpperCase();
+  return compact === "GBP" || compact === "GBX" || compact === "GBPENCE" || compact === "PENCE" || compact === "PENNY";
 }
 
 function asArray(value) {
@@ -588,16 +593,25 @@ function combineHoldings(rows) {
 function safeHoldingQuantity(holding = {}) {
   const quantity = finiteNumber(holding.quantity ?? holding.shares ?? holding.units ?? holding.position, NaN);
   const rawPrice = finiteNumber(holding.price ?? holding.markPrice ?? holding.closePrice ?? holding.reportDatePrice, NaN);
-  const currency = textValue(holding.currency || holding.currencyPrimary || "USD", "USD").toUpperCase();
+  const currency = textValue(holding.currency || holding.currencyPrimary || "USD", "USD");
   const ticker = normalizeTicker(holding.ticker || holding.symbol || holding.underlyingSymbol);
-  const price = isLondonPortfolioTicker(ticker) && currency === "GBP" && rawPrice > 100
-    ? rawPrice / 100
-    : rawPrice;
   const fxRateToBase = Math.max(0.000001, finiteNumber(holding.fxRateToBase ?? holding.fxRate, 1));
   const value = finiteNumber(
     holding.value?.amount ?? holding.marketValue?.amount ?? holding.marketValue ?? holding.positionValue ?? holding.value,
     NaN
   );
+  let price = rawPrice;
+  if (isSterlingPortfolioCurrency(currency) && rawPrice > 100) {
+    const pencePrice = rawPrice / 100;
+    const canCompareValue = Number.isFinite(quantity) && quantity > 0 && Number.isFinite(value) && value > 0;
+    if (canCompareValue) {
+      const rawError = Math.abs(quantity * rawPrice * fxRateToBase - value) / Math.max(1, Math.abs(value));
+      const penceError = Math.abs(quantity * pencePrice * fxRateToBase - value) / Math.max(1, Math.abs(value));
+      if (penceError < rawError && (penceError < 0.35 || rawError > 0.5)) price = pencePrice;
+    } else if (isLondonPortfolioTicker(ticker) && rawPrice >= 1000) {
+      price = pencePrice;
+    }
+  }
   if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(value) || value <= 0) {
     return Number.isFinite(quantity) ? quantity : 0;
   }
