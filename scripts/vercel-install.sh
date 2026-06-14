@@ -40,4 +40,5 @@ if [ ! -x "$flutter_root/bin/flutter" ]; then
 fi
 
 export PATH="$flutter_root/bin:$PATH"
+git config --global --add safe.directory "$flutter_root" >/dev/null 2>&1 || true
 flutter --version
