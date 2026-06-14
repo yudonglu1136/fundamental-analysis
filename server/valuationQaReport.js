@@ -94,6 +94,34 @@ function stepThresholds(profile) {
   return { up: 0.55, down: -0.4 };
 }
 
+function transcriptQaStats(history) {
+  const statusCounts = {};
+  let coveragePeriods = 0;
+  let qaPeriods = 0;
+  let qaItems = 0;
+  for (const row of history) {
+    const youtube = row.dataSnapshot?.youtubeEarnings || {};
+    const qa = Array.isArray(youtube.qa) ? youtube.qa : [];
+    const coverage = youtube.qaCoverage || null;
+    if (qa.length) {
+      qaPeriods += 1;
+      qaItems += qa.length;
+    }
+    if (coverage) {
+      coveragePeriods += 1;
+      const status = String(coverage.status || "unknown");
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+    }
+  }
+  return {
+    coveragePeriods,
+    qaPeriods,
+    qaItems,
+    missingPeriods: Math.max(0, history.length - qaPeriods),
+    statusCounts
+  };
+}
+
 function tickerQa(snapshot) {
   const history = [...(snapshot.history || [])]
     .filter((row) => row.asOfDate && finiteNumber(row.fairValue) != null)
@@ -104,6 +132,7 @@ function tickerQa(snapshot) {
   const unified = snapshot.dataQuality?.unifiedValuationAudit || {};
   const modelAudit = snapshot.dataQuality?.modelInputAudit || {};
   const profile = history.at(-1)?.dataSnapshot?.valuationSemantics?.scoreInputs?.profile || null;
+  const transcriptQa = transcriptQaStats(history);
   const issues = [];
   const watchNotes = [];
   const verifiedInputs = modelAudit.status === "pass" ||
@@ -213,6 +242,22 @@ function tickerQa(snapshot) {
   if (consensusCheck.status === "no_external_consensus") {
     watchNotes.push(issue("watch", "no_external_consensus", consensusCheck.message || "No external consensus guardrail available."));
   }
+  if (history.length && transcriptQa.coveragePeriods < history.length) {
+    issues.push(issue("review", "transcript_qa_coverage_missing", "Some valuation quarters do not have transcript Q&A coverage metadata.", {
+      historyRows: history.length,
+      coveragePeriods: transcriptQa.coveragePeriods
+    }));
+  }
+  if (transcriptQa.statusCounts.qa_parse_miss) {
+    watchNotes.push(issue("watch", "transcript_qa_parse_miss", "Some transcripts contain question-like text but could not be safely paired into analyst Q&A.", {
+      rows: transcriptQa.statusCounts.qa_parse_miss
+    }));
+  }
+  if (transcriptQa.statusCounts.locked_preview) {
+    watchNotes.push(issue("watch", "transcript_qa_locked_preview", "Some local transcripts are locked previews without the Q&A section.", {
+      rows: transcriptQa.statusCounts.locked_preview
+    }));
+  }
 
   const severityRank = { pass: 0, review: 1, fail: 2 };
   const status = issues.some((item) => item.severity === "fail")
@@ -234,6 +279,7 @@ function tickerQa(snapshot) {
     latestFairToPrice: ratio(latestFairToPrice),
     unifiedStatus: unified.status || null,
     consensusStatus: consensusCheck.status || null,
+    transcriptQa,
     issueCount: issues.length,
     issues,
     watchNotes,
@@ -253,7 +299,10 @@ function main() {
         tickerCount: tickers.length,
         passCount: tickers.filter((ticker) => ticker.status === "pass").length,
         reviewCount: tickers.filter((ticker) => ticker.status === "review").length,
-        failCount: tickers.filter((ticker) => ticker.status === "fail").length
+        failCount: tickers.filter((ticker) => ticker.status === "fail").length,
+        transcriptQaCoveragePeriods: tickers.reduce((sum, ticker) => sum + ticker.transcriptQa.coveragePeriods, 0),
+        transcriptQaPeriods: tickers.reduce((sum, ticker) => sum + ticker.transcriptQa.qaPeriods, 0),
+        transcriptQaItems: tickers.reduce((sum, ticker) => sum + ticker.transcriptQa.qaItems, 0)
       },
       tickers: tickers.sort((left, right) => right.sortRank - left.sortRank || left.ticker.localeCompare(right.ticker))
     };

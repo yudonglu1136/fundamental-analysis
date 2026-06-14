@@ -61,7 +61,7 @@ function speakerRole(speaker, body = "") {
   if (/\bceo\b|\bcfo\b|\bcoo\b|\bcto\b|chief|president|founder|chairman|management/.test(text)) {
     return "management";
   }
-  if (/\banalyst\b|securities|capital markets|research|equity research|bank of america|morgan stanley|goldman|wedbush|wells fargo|rbc|ubs|jpmorgan|barclays|citi|deutsche|jefferies|bernstein|evercore|mizuho|baird|stifel|td cowen/.test(text)) {
+  if (/\banalyst\b|securities|capital markets|research|equity research|bank of america|\bbofa\b|morgan stanley|goldman|wedbush|wells fargo|rbc|ubs|jpmorgan|barclays|citi|deutsche|jefferies|bernstein|evercore|mizuho|baird|stifel|td cowen|bnp paribas|hsbc|bmo|kbw|melius|keybanc|guggenheim|loop capital|piper sandler|raymond james|susquehanna|truist|william blair|oppenheimer|wolfe/.test(text)) {
     return "analyst";
   }
   if (/investor relations|head of ir|asks?,\s*["“]|we received a question|question from/i.test(text)) {
@@ -155,9 +155,54 @@ function askedByFromSegment(speaker, body) {
   return askedByFromSpeaker(speaker);
 }
 
-export function readTranscriptQaByTickerPeriod(db, tickerSet, { limitPerPeriod = MAX_QA_PER_PERIOD } = {}) {
+function summarizeCallCoverage(call, segments, qaRows) {
+  const segmentCount = segments.length;
+  const placeholderCount = segments.filter((segment) => isTranscriptPlaceholderText(segment.text)).length;
+  const questionLikeCount = segments.filter((segment) => String(segment.text || "").includes("?")).length;
+  let status = "qa_not_found";
+  let reason = "A transcript is stored, but no analyst question with management answer was detected.";
+
+  if (qaRows.length) {
+    status = "has_qa";
+    reason = "Structured analyst Q&A was extracted from the stored call transcript.";
+  } else if (!segmentCount) {
+    status = "no_segments";
+    reason = "The earnings-call record exists, but transcript segments are missing.";
+  } else if (placeholderCount > 0) {
+    status = "locked_preview";
+    reason = "The stored transcript is a locked/preview source and does not include the Q&A section.";
+  } else if (segmentCount < 8 && questionLikeCount === 0) {
+    status = "partial_transcript";
+    reason = "The stored transcript is too short to contain a usable Q&A section.";
+  } else if (questionLikeCount > 0) {
+    status = "qa_parse_miss";
+    reason = "The transcript contains question-like text, but the role parser could not pair a clean analyst question with a management answer.";
+  }
+
+  return {
+    ticker: call.parsed.ticker,
+    fiscalPeriod: call.parsed.period,
+    status,
+    reason,
+    qaCount: qaRows.length,
+    segmentCount,
+    questionLikeCount,
+    placeholderCount,
+    callDate: call.upload_date || null,
+    title: call.title || null,
+    url: call.url || null,
+    sourceId: call.source_id || null
+  };
+}
+
+export function readTranscriptQaBundleByTickerPeriod(db, tickerSet, { limitPerPeriod = MAX_QA_PER_PERIOD } = {}) {
   const wanted = new Set([...tickerSet].map((ticker) => String(ticker || "").toUpperCase()).filter(Boolean));
-  if (!wanted.size) return new Map();
+  if (!wanted.size) {
+    return {
+      qaByPeriod: new Map(),
+      coverageByPeriod: new Map()
+    };
+  }
   const callRows = db.prepare(`
     SELECT id, source_id, url, title, upload_date
     FROM videos
@@ -167,9 +212,13 @@ export function readTranscriptQaByTickerPeriod(db, tickerSet, { limitPerPeriod =
   const calls = callRows
     .map((row) => ({ ...row, parsed: parseEarningsSourceId(row.source_id) }))
     .filter((row) => row.parsed && wanted.has(row.parsed.ticker));
-  if (!calls.length) return new Map();
+  if (!calls.length) {
+    return {
+      qaByPeriod: new Map(),
+      coverageByPeriod: new Map()
+    };
+  }
 
-  const byVideoId = new Map(calls.map((call) => [call.id, call]));
   const placeholders = calls.map(() => "?").join(", ");
   const segmentRows = db.prepare(`
     SELECT video_id, segment_index, text
@@ -183,13 +232,13 @@ export function readTranscriptQaByTickerPeriod(db, tickerSet, { limitPerPeriod =
     segmentsByVideo.set(row.video_id, [...(segmentsByVideo.get(row.video_id) || []), row]);
   }
 
-  const result = new Map();
+  const qaByPeriod = new Map();
+  const coverageByPeriod = new Map();
   const seenQuestions = new Set();
-  for (const [videoId, segments] of segmentsByVideo.entries()) {
-    const call = byVideoId.get(videoId);
-    if (!call?.parsed) continue;
+  for (const call of calls) {
+    const segments = segmentsByVideo.get(call.id) || [];
     const key = `${call.parsed.ticker}::${call.parsed.period}`;
-    const existing = result.get(key) || [];
+    const existing = qaByPeriod.get(key) || [];
     for (let index = 0; index < segments.length && existing.length < limitPerPeriod; index += 1) {
       const segment = segments[index];
       if (!isQuestionSegment(segment)) continue;
@@ -216,7 +265,16 @@ export function readTranscriptQaByTickerPeriod(db, tickerSet, { limitPerPeriod =
         segmentIndex: segment.segment_index
       });
     }
-    if (existing.length) result.set(key, existing);
+    if (existing.length) qaByPeriod.set(key, existing);
+    coverageByPeriod.set(key, summarizeCallCoverage(call, segments, existing));
   }
-  return result;
+  return { qaByPeriod, coverageByPeriod };
+}
+
+export function readTranscriptQaByTickerPeriod(db, tickerSet, options = {}) {
+  return readTranscriptQaBundleByTickerPeriod(db, tickerSet, options).qaByPeriod;
+}
+
+export function readTranscriptQaCoverageByTickerPeriod(db, tickerSet, options = {}) {
+  return readTranscriptQaBundleByTickerPeriod(db, tickerSet, options).coverageByPeriod;
 }

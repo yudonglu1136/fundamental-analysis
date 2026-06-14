@@ -14928,9 +14928,7 @@ class _ValuationQuarterQaListState extends State<ValuationQuarterQaList> {
         children: [
           if (items.isEmpty)
             EmptyState(
-              text: _showChinese
-                  ? '这个季度没有找到结构化的分析师问答。'
-                  : 'No structured analyst Q&A was found for this quarter.',
+              text: valuationQaEmptyText(widget.row, _showChinese),
               palette: widget.palette,
             )
           else ...[
@@ -16749,6 +16747,58 @@ List<ValuationQaDatum> valuationQaItems(
       .whereType<ValuationQaDatum>()
       .take(6)
       .toList();
+}
+
+String valuationQaEmptyText(Map<String, dynamic> row, bool showChinese) {
+  final snapshot = asMap(row['dataSnapshot']);
+  final youtube = asMap(snapshot['youtubeEarnings']);
+  final coverage = asMap(youtube['qaCoverage']);
+  final status = text(coverage['status']);
+  final callDate = text(coverage['callDate']);
+  final title = text(coverage['title']);
+  final source = [
+    if (callDate.isNotEmpty) formatDate(callDate),
+    if (title.isNotEmpty) title,
+  ].join(' · ');
+  final suffix = source.isEmpty
+      ? ''
+      : (showChinese ? '\n来源：$source' : '\nSource: $source');
+
+  if (showChinese) {
+    switch (status) {
+      case 'locked_preview':
+        return '这个季度的电话会 transcript 在当前源里只有锁定预览，没有包含分析师 Q&A；已写入数据库并标记为待补抓。$suffix';
+      case 'partial_transcript':
+        return '这个季度的 transcript 太短，不足以抽取完整分析师问答；已记录为部分 transcript。$suffix';
+      case 'no_segments':
+        return '这个季度有电话会记录，但本地 transcript segments 为空；已记录为待重新同步。$suffix';
+      case 'transcript_not_in_source':
+        return '这个季度本地 transcript 库没有对应电话会，所以无法显示真实分析师问答；已记录为缺失源数据。$suffix';
+      case 'qa_parse_miss':
+        return '这个季度的 transcript 里有疑似问题文本，但没有可靠识别出“分析师提问 + 管理层回答”的配对；已标记为解析待修。$suffix';
+      case 'has_qa':
+        return '数据库标记这个季度应该有 Q&A，但前端没有收到可渲染的问题；请重新同步 valuation Q&A。$suffix';
+      default:
+        return '这个季度没有可用的结构化分析师问答；数据库会保留具体覆盖状态，等待补抓或重跑解析。$suffix';
+    }
+  }
+
+  switch (status) {
+    case 'locked_preview':
+      return 'This quarter has only a locked transcript preview in the current source, so analyst Q&A is not available yet.$suffix';
+    case 'partial_transcript':
+      return 'The stored transcript is too short to extract a complete analyst Q&A section.$suffix';
+    case 'no_segments':
+      return 'The earnings-call record exists, but transcript segments are missing.$suffix';
+    case 'transcript_not_in_source':
+      return 'No matching earnings-call transcript is stored locally for this valuation quarter yet.$suffix';
+    case 'qa_parse_miss':
+      return 'The transcript contains question-like text, but the parser could not safely pair analyst questions with management answers.$suffix';
+    case 'has_qa':
+      return 'This quarter is marked as having Q&A, but no renderable question reached the client. Please resync valuation Q&A.$suffix';
+    default:
+      return 'No structured analyst Q&A is available for this quarter yet; the database keeps the coverage reason for follow-up.$suffix';
+  }
 }
 
 String valuationWeightSummary(Map<String, dynamic> row) {

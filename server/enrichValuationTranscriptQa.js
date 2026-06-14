@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { normalizeEarningsPeriod, readTranscriptQaByTickerPeriod } from "./transcriptQaClient.js";
+import { normalizeEarningsPeriod, readTranscriptQaBundleByTickerPeriod } from "./transcriptQaClient.js";
 import { translateTextToChinese } from "./translationClient.js";
 
 const CURRENT_DB_PATH = process.env.SQLITE_DB_PATH || path.join(process.cwd(), "server/data/guru-analysis.sqlite");
@@ -63,15 +63,55 @@ function needsStoredChinese(existingValue, sourceValue) {
   return !enoughChineseForSource(existingValue, source);
 }
 
-function qaRowsForHistoryRow(ticker, historyRow, qaByPeriod) {
+function missingCoverage(ticker, period, historyRow, existingCoverage = {}) {
+  return {
+    ticker,
+    fiscalPeriod: period,
+    status: textValue(existingCoverage.status, "transcript_not_in_source"),
+    reason: textValue(
+      existingCoverage.reason,
+      "No earnings-call transcript is stored for this ticker/period in the local transcript database."
+    ),
+    qaCount: Number(existingCoverage.qaCount || 0),
+    segmentCount: Number(existingCoverage.segmentCount || 0),
+    questionLikeCount: Number(existingCoverage.questionLikeCount || 0),
+    placeholderCount: Number(existingCoverage.placeholderCount || 0),
+    callDate: existingCoverage.callDate || historyRow.asOfDate || null,
+    title: existingCoverage.title || null,
+    url: existingCoverage.url || null,
+    sourceId: existingCoverage.sourceId || null
+  };
+}
+
+function resolvedQaForHistoryRow(ticker, historyRow, qaByPeriod, coverageByPeriod) {
   const period = periodKeyFromHistoryRow(historyRow);
   const key = `${ticker}::${period}`;
-  const hasFreshPeriod = qaByPeriod.has(key);
   const qa = qaByPeriod.get(key) || [];
   const existingQa = historyRow.dataSnapshot?.youtubeEarnings?.qa || [];
-  if (!hasFreshPeriod || !qa.length) return [];
-  if (!existingQa.length) return qa;
-  return mergeStoredQaTranslations(qa, existingQa);
+  const existingCoverage = historyRow.dataSnapshot?.youtubeEarnings?.qaCoverage || {};
+  const coverage = coverageByPeriod.get(key) || missingCoverage(ticker, period, historyRow, existingCoverage);
+  const qaRows = qa.length
+    ? (existingQa.length ? mergeStoredQaTranslations(qa, existingQa) : qa)
+    : existingQa;
+  const nextCoverage = {
+    ...coverage,
+    ticker,
+    fiscalPeriod: period,
+    qaCount: qaRows.length || Number(coverage.qaCount || 0)
+  };
+  if (qaRows.length) {
+    nextCoverage.status = "has_qa";
+    nextCoverage.reason = "Structured analyst Q&A is attached for this valuation period.";
+    nextCoverage.qaCount = qaRows.length;
+  }
+  return {
+    period,
+    key,
+    qaRows,
+    coverage: nextCoverage,
+    hasFreshQa: qa.length > 0,
+    preservedExistingQa: !qa.length && existingQa.length > 0
+  };
 }
 
 function qaIdentity(qa) {
@@ -160,6 +200,15 @@ function translateQaRowsToChinese(qaRows, translatedBySource) {
   });
 }
 
+function statusCountsForHistory(history) {
+  const counts = {};
+  for (const historyRow of history) {
+    const status = textValue(historyRow.dataSnapshot?.youtubeEarnings?.qaCoverage?.status, "unknown");
+    counts[status] = (counts[status] || 0) + 1;
+  }
+  return counts;
+}
+
 if (!fs.existsSync(CURRENT_DB_PATH)) {
   throw new Error(`Valuation database not found at ${CURRENT_DB_PATH}`);
 }
@@ -173,7 +222,7 @@ const youtubeDb = new DatabaseSync(YOUTUBE_DB_PATH, { readOnly: true });
 try {
   const rows = currentDb.prepare("SELECT ticker, payload_json FROM valuation_ticker_snapshots").all();
   const tickerSet = new Set(rows.map((row) => String(row.ticker || "").toUpperCase()).filter(Boolean));
-  const qaByPeriod = readTranscriptQaByTickerPeriod(youtubeDb, tickerSet);
+  const { qaByPeriod, coverageByPeriod } = readTranscriptQaBundleByTickerPeriod(youtubeDb, tickerSet);
   const translationSources = new Set();
 
   for (const row of rows) {
@@ -181,7 +230,7 @@ try {
     const snapshot = parseJson(row.payload_json, {});
     const history = Array.isArray(snapshot.history) ? snapshot.history : [];
     for (const historyRow of history) {
-      const qaRows = qaRowsForHistoryRow(ticker, historyRow, qaByPeriod);
+      const { qaRows } = resolvedQaForHistoryRow(ticker, historyRow, qaByPeriod, coverageByPeriod);
       if (qaRows.length) collectTranslationSources(qaRows, translationSources);
     }
   }
@@ -198,6 +247,12 @@ try {
   let updatedTickers = 0;
   let updatedRows = 0;
   let attachedQa = 0;
+  let coverageRows = 0;
+  let rowsWithoutQa = 0;
+  let lockedPreviewRows = 0;
+  let missingTranscriptRows = 0;
+  let parseMissRows = 0;
+  let preservedQaRows = 0;
   currentDb.exec("BEGIN");
   try {
     for (const row of rows) {
@@ -207,27 +262,20 @@ try {
       let tickerChanged = false;
       const nextHistory = [];
       for (const historyRow of history) {
-        const qaRows = qaRowsForHistoryRow(ticker, historyRow, qaByPeriod);
-        if (!qaRows.length) {
-          if (historyRow.dataSnapshot?.youtubeEarnings?.qa?.length) {
-            tickerChanged = true;
-            nextHistory.push({
-              ...historyRow,
-              dataSnapshot: {
-                ...(historyRow.dataSnapshot || {}),
-                youtubeEarnings: {
-                  ...(historyRow.dataSnapshot?.youtubeEarnings || {}),
-                  qa: []
-                }
-              }
-            });
-            continue;
-          }
-          nextHistory.push(historyRow);
-          continue;
-        }
+        const { qaRows, coverage, preservedExistingQa } = resolvedQaForHistoryRow(
+          ticker,
+          historyRow,
+          qaByPeriod,
+          coverageByPeriod
+        );
         tickerChanged = true;
         updatedRows += 1;
+        coverageRows += 1;
+        if (preservedExistingQa) preservedQaRows += 1;
+        if (!qaRows.length) rowsWithoutQa += 1;
+        if (coverage.status === "locked_preview") lockedPreviewRows += 1;
+        if (coverage.status === "transcript_not_in_source") missingTranscriptRows += 1;
+        if (coverage.status === "qa_parse_miss") parseMissRows += 1;
         const translatedQa = translateQaRowsToChinese(qaRows, translatedBySource);
         attachedQa += translatedQa.length;
         nextHistory.push({
@@ -236,7 +284,8 @@ try {
             ...(historyRow.dataSnapshot || {}),
             youtubeEarnings: {
               ...(historyRow.dataSnapshot?.youtubeEarnings || {}),
-              qa: translatedQa
+              qa: translatedQa,
+              qaCoverage: coverage
             }
           }
         });
@@ -250,7 +299,13 @@ try {
         history: nextHistory,
         dataQuality: {
           ...(snapshot.dataQuality || {}),
-          transcriptQaPeriods: nextHistory.filter((historyRow) => historyRow.dataSnapshot?.youtubeEarnings?.qa?.length).length
+          transcriptQaPeriods: nextHistory.filter((historyRow) => historyRow.dataSnapshot?.youtubeEarnings?.qa?.length).length,
+          transcriptQaCoverage: {
+            totalPeriods: nextHistory.length,
+            coveragePeriods: nextHistory.filter((historyRow) => historyRow.dataSnapshot?.youtubeEarnings?.qaCoverage).length,
+            qaPeriods: nextHistory.filter((historyRow) => historyRow.dataSnapshot?.youtubeEarnings?.qa?.length).length,
+            statusCounts: statusCountsForHistory(nextHistory)
+          }
         }
       };
       statement.run(ticker, generatedAt, JSON.stringify(nextSnapshot));
@@ -270,7 +325,9 @@ try {
         summary: {
           ...(dashboard.summary || {}),
           transcriptQaTickerCount: updatedTickers,
-          transcriptQaEventCount: attachedQa
+          transcriptQaEventCount: attachedQa,
+          transcriptQaCoverageRows: coverageRows,
+          transcriptQaRowsWithoutQa: rowsWithoutQa
         }
       }));
     }
@@ -285,7 +342,13 @@ try {
     youtubeDbPath: YOUTUBE_DB_PATH,
     updatedTickers,
     updatedRows,
-    attachedQa
+    attachedQa,
+    coverageRows,
+    rowsWithoutQa,
+    lockedPreviewRows,
+    missingTranscriptRows,
+    parseMissRows,
+    preservedQaRows
   }, null, 2));
 } finally {
   youtubeDb.close();
