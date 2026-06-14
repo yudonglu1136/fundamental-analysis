@@ -12215,6 +12215,7 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
     }
 
     Widget buildDetailPanel() => ValuationTickerDetailPanel(
+      api: widget.api,
       payload: _detailPayload,
       selectedRow: selectedRow,
       loading: _detailLoading,
@@ -12698,6 +12699,7 @@ class ValuationWatchlistRow extends StatelessWidget {
 class ValuationTickerDetailPanel extends StatelessWidget {
   const ValuationTickerDetailPanel({
     super.key,
+    required this.api,
     required this.payload,
     required this.selectedRow,
     required this.loading,
@@ -12706,6 +12708,7 @@ class ValuationTickerDetailPanel extends StatelessWidget {
     required this.onRetry,
   });
 
+  final ApiClient api;
   final Map<String, dynamic>? payload;
   final ValuationRow selectedRow;
   final bool loading;
@@ -12825,6 +12828,7 @@ class ValuationTickerDetailPanel extends StatelessWidget {
               ],
             ),
             ValuationTickerHistorySection(
+              api: api,
               rows: history,
               priceHistory: priceHistory,
               fallbackMethodCards: methodCards,
@@ -12841,6 +12845,7 @@ class ValuationTickerDetailPanel extends StatelessWidget {
 class ValuationTickerHistorySection extends StatefulWidget {
   const ValuationTickerHistorySection({
     super.key,
+    required this.api,
     required this.rows,
     required this.priceHistory,
     required this.fallbackMethodCards,
@@ -12848,6 +12853,7 @@ class ValuationTickerHistorySection extends StatefulWidget {
     required this.palette,
   });
 
+  final ApiClient api;
   final List<Map<String, dynamic>> rows;
   final List<Map<String, dynamic>> priceHistory;
   final List<Map<String, dynamic>> fallbackMethodCards;
@@ -12931,6 +12937,7 @@ class _ValuationTickerHistorySectionState
         ),
         const SizedBox(height: 18),
         ValuationQuarterResearchPanel(
+          api: widget.api,
           rows: widget.rows,
           fallbackMethodCards: widget.fallbackMethodCards,
           currency: widget.currency,
@@ -13426,6 +13433,7 @@ class ValuationHistoryLine extends StatelessWidget {
 class ValuationQuarterResearchPanel extends StatefulWidget {
   const ValuationQuarterResearchPanel({
     super.key,
+    required this.api,
     required this.rows,
     required this.fallbackMethodCards,
     required this.currency,
@@ -13434,6 +13442,7 @@ class ValuationQuarterResearchPanel extends StatefulWidget {
     required this.onSelectQuarter,
   });
 
+  final ApiClient api;
   final List<Map<String, dynamic>> rows;
   final List<Map<String, dynamic>> fallbackMethodCards;
   final String currency;
@@ -13583,6 +13592,7 @@ class _ValuationQuarterResearchPanelState
           ),
           const SizedBox(height: 12),
           ValuationQuarterQaList(
+            api: widget.api,
             row: selected,
             previous: previous,
             currency: widget.currency,
@@ -14024,6 +14034,7 @@ class ValuationResearchCard extends StatelessWidget {
     required this.kicker,
     required this.title,
     required this.child,
+    this.trailing,
   });
 
   final Palette palette;
@@ -14031,6 +14042,7 @@ class ValuationResearchCard extends StatelessWidget {
   final String kicker;
   final String title;
   final Widget child;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -14073,6 +14085,7 @@ class ValuationResearchCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (trailing != null) ...[const SizedBox(width: 10), trailing!],
             ],
           ),
           const SizedBox(height: 12),
@@ -14268,9 +14281,10 @@ class ValuationEvidenceSnippet extends StatelessWidget {
   }
 }
 
-class ValuationQuarterQaList extends StatelessWidget {
+class ValuationQuarterQaList extends StatefulWidget {
   const ValuationQuarterQaList({
     super.key,
+    required this.api,
     required this.row,
     required this.previous,
     required this.currency,
@@ -14279,6 +14293,7 @@ class ValuationQuarterQaList extends StatelessWidget {
     required this.onToggle,
   });
 
+  final ApiClient api;
   final Map<String, dynamic> row;
   final Map<String, dynamic>? previous;
   final String currency;
@@ -14287,31 +14302,257 @@ class ValuationQuarterQaList extends StatelessWidget {
   final ValueChanged<int> onToggle;
 
   @override
+  State<ValuationQuarterQaList> createState() => _ValuationQuarterQaListState();
+}
+
+class _ValuationQuarterQaListState extends State<ValuationQuarterQaList> {
+  bool _showChinese = true;
+  bool _translating = false;
+  String? _translationError;
+  String _translationSignature = '';
+  final Map<String, String> _zhTranslations = {};
+
+  @override
+  void didUpdateWidget(covariant ValuationQuarterQaList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.row != widget.row) {
+      _translationError = null;
+      _translationSignature = '';
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final items = valuationQaItems(row, previous, currency);
+    final items = valuationQaItems(
+      widget.row,
+      widget.previous,
+      widget.currency,
+    );
+    _ensureChineseTranslations(items);
     return ValuationResearchCard(
-      palette: palette,
+      palette: widget.palette,
       icon: Icons.question_answer_rounded,
       kicker: 'CALL TRANSCRIPT Q&A',
-      title: '电话会 Q&A',
+      title: _showChinese ? '电话会 Q&A' : 'Call transcript Q&A',
+      trailing: ValuationQaLanguageToggle(
+        showChinese: _showChinese,
+        palette: widget.palette,
+        onChanged: (value) {
+          setState(() {
+            _showChinese = value;
+            _translationError = null;
+            if (value) _translationSignature = '';
+          });
+        },
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (items.isEmpty)
             EmptyState(
-              text: 'No structured analyst Q&A was found for this quarter.',
-              palette: palette,
+              text: _showChinese
+                  ? '这个季度没有找到结构化的分析师问答。'
+                  : 'No structured analyst Q&A was found for this quarter.',
+              palette: widget.palette,
             )
-          else
+          else ...[
+            if (_translationError != null && _showChinese) ...[
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: widget.palette.secondary.withValues(alpha: .10),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: widget.palette.secondary.withValues(alpha: .28),
+                  ),
+                ),
+                child: Text(
+                  '中文翻译暂时不可用，先显示原始英文：${_translationError!}',
+                  style: TextStyle(
+                    color: widget.palette.secondary,
+                    fontSize: 12,
+                    height: 1.35,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
             for (var index = 0; index < items.length; index += 1)
               ValuationQaAccordionItem(
                 index: index,
-                question: items[index].question,
-                answer: items[index].answer,
-                expanded: expandedIndex == index,
-                palette: palette,
-                onTap: () => onToggle(index),
+                question: _localized(items[index].question),
+                answer: _localized(items[index].answer),
+                metadata: _showChinese
+                    ? items[index].metadataZh
+                    : items[index].metadata,
+                answerLabel: _showChinese ? '管理层回答' : 'Management answer',
+                expanded: widget.expandedIndex == index,
+                translating:
+                    _showChinese &&
+                    _translating &&
+                    _needsTranslation(items[index]),
+                isLast: index == items.length - 1,
+                palette: widget.palette,
+                onTap: () => widget.onToggle(index),
               ),
+          ],
         ],
+      ),
+    );
+  }
+
+  String _localized(String value) {
+    if (!_showChinese) return value;
+    final translated = _zhTranslations[value];
+    if (translated != null && translated.isNotEmpty) return translated;
+    return value;
+  }
+
+  bool _needsTranslation(ValuationQaDatum item) =>
+      _needsTextTranslation(item.question) ||
+      _needsTextTranslation(item.answer);
+
+  bool _needsTextTranslation(String value) {
+    final trimmed = value.trim();
+    return trimmed.isNotEmpty &&
+        !containsChinese(trimmed) &&
+        !_zhTranslations.containsKey(trimmed);
+  }
+
+  void _ensureChineseTranslations(List<ValuationQaDatum> items) {
+    if (!_showChinese || items.isEmpty || _translating) return;
+    final missing = <String>{};
+    for (final item in items) {
+      if (_needsTextTranslation(item.question)) missing.add(item.question);
+      if (_needsTextTranslation(item.answer)) missing.add(item.answer);
+    }
+    if (missing.isEmpty) return;
+    final signature = missing.join('\u241f');
+    if (signature == _translationSignature) return;
+    _translationSignature = signature;
+    scheduleMicrotask(() {
+      if (!mounted) return;
+      unawaited(_loadChineseTranslations(missing.toList()));
+    });
+  }
+
+  Future<void> _loadChineseTranslations(List<String> texts) async {
+    if (texts.isEmpty) return;
+    setState(() {
+      _translating = true;
+      _translationError = null;
+    });
+    try {
+      final payload = await widget.api.postJson('/api/translate/zh', {
+        'texts': texts,
+      });
+      final rows = asList(payload['translations']);
+      if (!mounted) return;
+      setState(() {
+        for (final row in rows) {
+          final source = text(row['source']);
+          final translated = text(row['translated']);
+          if (source.isNotEmpty && translated.isNotEmpty) {
+            _zhTranslations[source] = translated;
+          }
+        }
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _translationError = error.toString().replaceFirst(
+          'Exception: ',
+          '',
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _translating = false);
+    }
+  }
+}
+
+class ValuationQaLanguageToggle extends StatelessWidget {
+  const ValuationQaLanguageToggle({
+    super.key,
+    required this.showChinese,
+    required this.palette,
+    required this.onChanged,
+  });
+
+  final bool showChinese;
+  final Palette palette;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: palette.card,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _QaLanguageButton(
+            active: showChinese,
+            label: '中文',
+            palette: palette,
+            onTap: () => onChanged(true),
+          ),
+          _QaLanguageButton(
+            active: !showChinese,
+            label: 'English',
+            palette: palette,
+            onTap: () => onChanged(false),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QaLanguageButton extends StatelessWidget {
+  const _QaLanguageButton({
+    required this.active,
+    required this.label,
+    required this.palette,
+    required this.onTap,
+  });
+
+  final bool active;
+  final String label;
+  final Palette palette;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? palette.accent.withValues(alpha: .16) : null,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: active
+                ? palette.accent.withValues(alpha: .36)
+                : Colors.transparent,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: active ? palette.accent : palette.muted,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
       ),
     );
   }
@@ -14323,7 +14564,11 @@ class ValuationQaAccordionItem extends StatelessWidget {
     required this.index,
     required this.question,
     required this.answer,
+    required this.metadata,
+    required this.answerLabel,
     required this.expanded,
+    required this.translating,
+    required this.isLast,
     required this.palette,
     required this.onTap,
   });
@@ -14331,14 +14576,18 @@ class ValuationQaAccordionItem extends StatelessWidget {
   final int index;
   final String question;
   final String answer;
+  final String metadata;
+  final String answerLabel;
   final bool expanded;
+  final bool translating;
+  final bool isLast;
   final Palette palette;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.only(bottom: index == 2 ? 0 : 8),
+      margin: EdgeInsets.only(bottom: isLast ? 0 : 8),
       decoration: BoxDecoration(
         color: palette.card.withValues(alpha: .62),
         borderRadius: BorderRadius.circular(11),
@@ -14359,14 +14608,28 @@ class ValuationQaAccordionItem extends StatelessWidget {
                   Expanded(
                     child: Text(
                       question,
-                      maxLines: expanded ? 3 : 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: expanded ? null : 1,
+                      overflow: expanded
+                          ? TextOverflow.visible
+                          : TextOverflow.ellipsis,
                       style: TextStyle(
                         color: palette.text,
+                        height: 1.34,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
+                  if (translating) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      '翻译中',
+                      style: TextStyle(
+                        color: palette.accent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
                   Icon(
                     expanded
                         ? Icons.keyboard_arrow_up_rounded
@@ -14378,14 +14641,40 @@ class ValuationQaAccordionItem extends StatelessWidget {
               AnimatedCrossFade(
                 firstChild: const SizedBox.shrink(),
                 secondChild: Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: Text(
-                    answer,
-                    style: TextStyle(
-                      color: palette.muted,
-                      height: 1.42,
-                      fontSize: 13,
-                    ),
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (metadata.isNotEmpty) ...[
+                        Text(
+                          metadata,
+                          style: TextStyle(
+                            color: palette.faint,
+                            height: 1.35,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      Text(
+                        answerLabel,
+                        style: TextStyle(
+                          color: palette.secondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        answer,
+                        style: TextStyle(
+                          color: palette.muted,
+                          height: 1.48,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 crossFadeState: expanded
@@ -14402,10 +14691,17 @@ class ValuationQaAccordionItem extends StatelessWidget {
 }
 
 class ValuationQaDatum {
-  const ValuationQaDatum({required this.question, required this.answer});
+  const ValuationQaDatum({
+    required this.question,
+    required this.answer,
+    required this.metadata,
+    required this.metadataZh,
+  });
 
   final String question;
   final String answer;
+  final String metadata;
+  final String metadataZh;
 }
 
 class ValuationQualityChip extends StatelessWidget {
@@ -15587,6 +15883,9 @@ String text(dynamic value, [String fallback = '']) {
   return string.isEmpty ? fallback : string;
 }
 
+bool containsChinese(String value) =>
+    RegExp(r'[\u3400-\u9fff]').hasMatch(value);
+
 String publicAssetUrl(dynamic value) {
   final raw = text(value);
   if (raw.isEmpty) return '';
@@ -15937,12 +16236,19 @@ List<ValuationQaDatum> valuationQaItems(
           if (callDate.isNotEmpty) formatDate(callDate),
           if (title.isNotEmpty) title,
         ].join(' · ');
+        final metadataZh = [
+          if (askedBy.isNotEmpty) '提问人 $askedBy',
+          if (callDate.isNotEmpty) formatDate(callDate),
+          if (title.isNotEmpty) title,
+        ].join(' · ');
         final body = answer.isNotEmpty
             ? answer
             : 'Management response context is not available in the structured transcript extract.';
         return ValuationQaDatum(
           question: question,
-          answer: metadata.isEmpty ? body : '$metadata\n\n$body',
+          answer: body,
+          metadata: metadata,
+          metadataZh: metadataZh,
         );
       })
       .whereType<ValuationQaDatum>()

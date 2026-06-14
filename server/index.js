@@ -11,6 +11,7 @@ import { clearPortfolioCache, loadPortfolioDashboard, startPortfolioNavRecorder 
 import { requireAuth } from "./auth/requireAuth.js";
 import { loadGuruBacktest, loadGuruBacktests } from "./backtest.js";
 import { loadValuationDashboard, loadValuationTicker } from "./valuationClient.js";
+import { translateTextsToChinese } from "./translationClient.js";
 import { databaseInfo } from "./localDatabase.js";
 import { loadTickerLogo } from "./logoClient.js";
 import {
@@ -233,6 +234,28 @@ app.get("/api/valuation/:ticker", async (request, response) => {
     response.json(payload);
   } catch (error) {
     response.status(404).json({ error: error.message });
+  }
+});
+
+app.post("/api/translate/zh", async (request, response) => {
+  try {
+    const texts = Array.isArray(request.body?.texts) ? request.body.texts : [];
+    const totalChars = texts.reduce((sum, value) => sum + String(value || "").length, 0);
+    if (texts.length > 24 || totalChars > 60000) {
+      response.status(400).json({
+        error: "translation_request_too_large",
+        message: "Translation request is too large."
+      });
+      return;
+    }
+    const translations = await translateTextsToChinese(texts);
+    response.setHeader("Cache-Control", "private, max-age=86400");
+    response.json({ targetLanguage: "zh-CN", translations });
+  } catch (error) {
+    response.status(502).json({
+      error: "translation_failed",
+      message: error.message
+    });
   }
 });
 

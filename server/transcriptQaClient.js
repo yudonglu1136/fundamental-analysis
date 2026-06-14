@@ -1,6 +1,6 @@
 const MAX_QA_PER_PERIOD = Number(process.env.MAX_TRANSCRIPT_QA_PER_PERIOD || 6);
-const MAX_QUESTION_CHARS = 700;
-const MAX_ANSWER_CHARS = 1100;
+const MAX_QUESTION_CHARS = Number(process.env.MAX_TRANSCRIPT_QUESTION_CHARS || 4000);
+const MAX_ANSWER_CHARS = Number(process.env.MAX_TRANSCRIPT_ANSWER_CHARS || 20000);
 
 export function normalizeEarningsPeriod(period) {
   const value = String(period || "").trim().toUpperCase().replace(/\s+/g, "");
@@ -96,7 +96,7 @@ function extractQuestion(body) {
   let cursor = firstQuestionEnd + 1;
   while (cursor < body.length) {
     const nextEnd = body.indexOf("?", cursor);
-    if (nextEnd < 0 || nextEnd > MAX_QUESTION_CHARS) break;
+    if (nextEnd < 0 || (MAX_QUESTION_CHARS && nextEnd > MAX_QUESTION_CHARS)) break;
     question = body.slice(start, nextEnd + 1);
     cursor = nextEnd + 1;
   }
@@ -114,7 +114,7 @@ function isQuestionSegment(segment) {
 
 function answerContextAfter(segments, questionIndex) {
   const pieces = [];
-  for (let index = questionIndex + 1; index < segments.length && pieces.length < 3; index += 1) {
+  for (let index = questionIndex + 1; index < segments.length; index += 1) {
     const segment = segments[index];
     if (isQuestionSegment(segment)) break;
     const parsed = splitSegmentText(segment.text);
