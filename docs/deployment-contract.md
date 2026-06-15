@@ -65,6 +65,19 @@ git push origin HEAD:trunk
 
 Then verify the Vercel production deployment.
 
+After Vercel finishes, verify both custom domains resolve to the latest deployment:
+
+```bash
+npm exec -- vercel inspect https://www.thesisforge.tech --scope yudonglu1136s-projects
+npm exec -- vercel inspect https://thesisforge.tech --scope yudonglu1136s-projects
+```
+
+If `www` points to an older deployment, move it explicitly:
+
+```bash
+npm exec -- vercel alias set <latest-deployment>.vercel.app www.thesisforge.tech --scope yudonglu1136s-projects
+```
+
 Manual production deploy:
 
 ```bash
