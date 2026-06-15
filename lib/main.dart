@@ -7238,6 +7238,7 @@ class PortfolioDashboard extends StatelessWidget {
     final performanceStatus = asMap(data['performanceStatus']);
     final dividends = asList(data['dividends']);
     final dividendStatus = asMap(data['dividendStatus']);
+    final analytics = asMap(data['analytics']);
     final configured = truthy(connection['configured']);
     final registered = truthy(connection['registered']) || configured;
     final dayPnl = number(summary['dayPnl']);
@@ -7362,6 +7363,8 @@ class PortfolioDashboard extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(height: 10),
+                PortfolioAnalyticsPanel(analytics: analytics, palette: palette),
                 const SizedBox(height: 10),
                 PortfolioHoldingsTable(holdings: holdings, palette: palette),
                 const SizedBox(height: 10),
@@ -8786,6 +8789,587 @@ class PortfolioPiePainter extends CustomPainter {
       oldDelegate.slices != slices ||
       oldDelegate.total != total ||
       oldDelegate.palette != palette;
+}
+
+class PortfolioAnalyticsPanel extends StatelessWidget {
+  const PortfolioAnalyticsPanel({
+    super.key,
+    required this.analytics,
+    required this.palette,
+  });
+
+  final Map<String, dynamic> analytics;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = asList(analytics['holdings']);
+    final historical = asMap(analytics['historicalOneYear']);
+    final forward = asMap(analytics['forwardOneYear']);
+    final coverage = asMap(analytics['coverage']);
+    final assumptions = asMap(analytics['assumptions']);
+    final source = asMap(analytics['source']);
+    final status = text(analytics['status']);
+    if (analytics.isEmpty || status == 'error') {
+      return Panel(
+        palette: palette,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            PanelTitle(
+              icon: Icons.insights_rounded,
+              kicker: 'PORTFOLIO ANALYTICS',
+              title: '估值差距 / Sharpe',
+              palette: palette,
+            ),
+            const SizedBox(height: 14),
+            PortfolioDataNotice(
+              icon: Icons.info_outline_rounded,
+              text: text(
+                analytics['message'],
+                'Portfolio analytics are not available yet.',
+              ),
+              palette: palette,
+            ),
+          ],
+        ),
+      );
+    }
+
+    final modelCoverage = number(coverage['valuationCoveredWeight']);
+    final priceCoverage = number(coverage['priceCoveredWeight']);
+    final riskFreeRate = number(assumptions['riskFreeRate']);
+    final topRows = rows
+        .where((row) => !text(row['ticker']).startsWith('CASH'))
+        .take(10)
+        .toList();
+
+    return Panel(
+      palette: palette,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PanelTitle(
+            icon: Icons.analytics_rounded,
+            kicker: 'PORTFOLIO ANALYTICS',
+            title: '估值差距 / Sharpe',
+            palette: palette,
+            trailing: Tooltip(
+              message: text(
+                source['methodology'],
+                'Historical risk uses one-year daily returns; forward return is a model-implied scenario.',
+              ),
+              child: Icon(
+                Icons.info_outline_rounded,
+                color: palette.muted,
+                size: 18,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          GridWrap(
+            minTileWidth: 170,
+            spacing: 10,
+            children: [
+              PortfolioAnalyticsMetricCard(
+                label: '过去一年收益',
+                value: formatReturn(number(historical['totalReturn'])),
+                sub:
+                    'Sharpe ${formatSharpe(number(historical['sharpe']))}',
+                icon: Icons.history_rounded,
+                tone: number(historical['totalReturn']),
+                palette: palette,
+              ),
+              PortfolioAnalyticsMetricCard(
+                label: '过去一年波动',
+                value: formatReturn(
+                  number(historical['volatility']),
+                ).replaceFirst('+', ''),
+                sub: 'current-weight backsolve',
+                icon: Icons.show_chart_rounded,
+                palette: palette,
+              ),
+              PortfolioAnalyticsMetricCard(
+                label: '未来一年情景回报',
+                value: formatReturn(number(forward['expectedReturn'])),
+                sub: '${formatMoney(number(forward['potentialPnl']))} model P/L',
+                icon: Icons.online_prediction_rounded,
+                tone: number(forward['expectedReturn']),
+                palette: palette,
+              ),
+              PortfolioAnalyticsMetricCard(
+                label: '未来情景 Sharpe',
+                value: formatSharpe(number(forward['sharpe'])),
+                sub:
+                    'rf ${formatReturn(riskFreeRate).replaceFirst('+', '')}',
+                icon: Icons.speed_rounded,
+                tone: number(forward['sharpe']) - 1,
+                palette: palette,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              InfoChip(
+                'FV coverage ${formatReturn(modelCoverage).replaceFirst('+', '')}',
+                palette: palette,
+              ),
+              InfoChip(
+                'price coverage ${formatReturn(priceCoverage).replaceFirst('+', '')}',
+                palette: palette,
+              ),
+              InfoChip(
+                'gap close ${formatReturn(number(assumptions['gapConvergenceOneYear'])).replaceFirst('+', '')}',
+                palette: palette,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (topRows.isEmpty)
+            EmptyState(
+              text: 'No portfolio holdings are available for valuation analysis.',
+              palette: palette,
+            )
+          else
+            PortfolioValuationGapList(rows: topRows, palette: palette),
+        ],
+      ),
+    );
+  }
+}
+
+class PortfolioAnalyticsMetricCard extends StatelessWidget {
+  const PortfolioAnalyticsMetricCard({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.sub,
+    required this.icon,
+    required this.palette,
+    this.tone,
+  });
+
+  final String label;
+  final String value;
+  final String sub;
+  final IconData icon;
+  final Palette palette;
+  final double? tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = tone == null
+        ? palette.secondary
+        : tone! >= 0
+            ? palette.positive
+            : palette.negative;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: palette.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 12),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: palette.muted,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: palette.text,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            sub,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: palette.faint, fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PortfolioValuationGapList extends StatelessWidget {
+  const PortfolioValuationGapList({
+    super.key,
+    required this.rows,
+    required this.palette,
+  });
+
+  final List<Map<String, dynamic>> rows;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 760;
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(compact ? 12 : 14),
+          decoration: BoxDecoration(
+            color: palette.card.withValues(alpha: .55),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: palette.border),
+          ),
+          child: Column(
+            children: [
+              if (!compact)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      _PortfolioAnalyticsHeader('Ticker', width: 150, palette: palette),
+                      Expanded(child: _PortfolioAnalyticsHeader('FV gap', palette: palette)),
+                      _PortfolioAnalyticsHeader('1Y / Vol', width: 120, alignEnd: true, palette: palette),
+                      _PortfolioAnalyticsHeader('Forward', width: 110, alignEnd: true, palette: palette),
+                      _PortfolioAnalyticsHeader('Weight', width: 90, alignEnd: true, palette: palette),
+                    ],
+                  ),
+                ),
+              for (final row in rows)
+                PortfolioValuationGapRow(
+                  row: row,
+                  compact: compact,
+                  palette: palette,
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PortfolioAnalyticsHeader extends StatelessWidget {
+  const _PortfolioAnalyticsHeader(
+    this.label, {
+    required this.palette,
+    this.width,
+    this.alignEnd = false,
+  });
+
+  final String label;
+  final Palette palette;
+  final double? width;
+  final bool alignEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Text(
+      label,
+      textAlign: alignEnd ? TextAlign.end : TextAlign.start,
+      style: TextStyle(
+        color: palette.faint,
+        fontSize: 11,
+        fontWeight: FontWeight.w900,
+      ),
+    );
+    return width == null ? child : SizedBox(width: width, child: child);
+  }
+}
+
+class PortfolioValuationGapRow extends StatelessWidget {
+  const PortfolioValuationGapRow({
+    super.key,
+    required this.row,
+    required this.compact,
+    required this.palette,
+  });
+
+  final Map<String, dynamic> row;
+  final bool compact;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final valuation = asMap(row['valuation']);
+    final gap = nullableNumber(valuation['gap']);
+    final gapAbs = gap?.abs().clamp(0.0, .8) ?? 0.0;
+    final tone = portfolioValuationTone(valuation, palette);
+    final ticker = text(row['ticker'], 'N/A');
+    final logoRow = {
+      'ticker': ticker,
+      'name': text(row['name'], ticker),
+      'logoUrl': text(row['logoUrl']),
+    };
+    final gapText = gap == null ? '-' : formatReturn(gap);
+    final price = nullableNumber(valuation['latestPrice']);
+    final fairValue = nullableNumber(valuation['fairValue']);
+    final currency = text(valuation['currency'], 'USD');
+    final priceText = price == null
+        ? 'No model price'
+        : '${formatCurrencyValue(price, currency)} price';
+    final fairText = fairValue == null
+        ? 'FV -'
+        : 'FV ${formatCurrencyValue(fairValue, currency)}';
+    final content = compact
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  PortfolioHoldingLogo(row: logoRow, palette: palette, size: 28),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      ticker,
+                      style: TextStyle(
+                        color: palette.text,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  PortfolioValuationChip(valuation: valuation, palette: palette),
+                ],
+              ),
+              const SizedBox(height: 9),
+              _PortfolioGapBar(value: gapAbs, color: tone, palette: palette),
+              const SizedBox(height: 7),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '$gapText · $fairText',
+                      style: TextStyle(color: palette.muted, fontSize: 12),
+                    ),
+                  ),
+                  Text(
+                    '1Y ${formatNullableReturn(row['trailingReturn'])}',
+                    style: TextStyle(color: palette.muted, fontSize: 12),
+                  ),
+                ],
+              ),
+            ],
+          )
+        : Row(
+            children: [
+              SizedBox(
+                width: 150,
+                child: Row(
+                  children: [
+                    PortfolioHoldingLogo(row: logoRow, palette: palette, size: 26),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            ticker,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: palette.text,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            formatReturn(number(row['weight'])).replaceFirst('+', ''),
+                            style: TextStyle(color: palette.faint, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 74,
+                          child: Text(
+                            gapText,
+                            style: TextStyle(
+                              color: tone,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: _PortfolioGapBar(
+                            value: gapAbs,
+                            color: tone,
+                            palette: palette,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        PortfolioValuationChip(
+                          valuation: valuation,
+                          palette: palette,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$priceText · $fairText',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: palette.faint, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 120,
+                child: Text(
+                  '${formatNullableReturn(row['trailingReturn'])} / ${formatNullableReturn(row['annualVolatility']).replaceFirst('+', '')}',
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    color: palette.muted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 110,
+                child: Text(
+                  formatNullableReturn(row['forwardExpectedReturn']),
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    color: nullableNumber(row['forwardExpectedReturn']) == null
+                        ? palette.muted
+                        : number(row['forwardExpectedReturn']) >= 0
+                            ? palette.positive
+                            : palette.negative,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 90,
+                child: Text(
+                  formatReturn(number(row['weight'])).replaceFirst('+', ''),
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    color: palette.text,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          );
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 9),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: palette.background.withValues(alpha: .24),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: palette.border.withValues(alpha: .72)),
+      ),
+      child: content,
+    );
+  }
+}
+
+class _PortfolioGapBar extends StatelessWidget {
+  const _PortfolioGapBar({
+    required this.value,
+    required this.color,
+    required this.palette,
+  });
+
+  final double value;
+  final Color color;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: LinearProgressIndicator(
+        value: math.max(.04, value / .8).clamp(0.0, 1.0),
+        minHeight: 8,
+        backgroundColor: palette.border,
+        color: color,
+      ),
+    );
+  }
+}
+
+class PortfolioValuationChip extends StatelessWidget {
+  const PortfolioValuationChip({
+    super.key,
+    required this.valuation,
+    required this.palette,
+  });
+
+  final Map<String, dynamic> valuation;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = portfolioValuationTone(valuation, palette);
+    final label = text(valuation['labelZh'], text(valuation['label'], '无估值'));
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .13),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: .35)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+Color portfolioValuationTone(Map<String, dynamic> valuation, Palette palette) {
+  final tone = text(valuation['tone']).toLowerCase();
+  if (tone == 'positive') return palette.positive;
+  if (tone == 'negative') return palette.negative;
+  final gap = nullableNumber(valuation['gap']);
+  if (gap == null) return palette.muted;
+  if (gap >= .18) return palette.positive;
+  if (gap <= -.18) return palette.negative;
+  return palette.secondary;
+}
+
+String formatNullableReturn(dynamic value) {
+  final parsed = nullableNumber(value);
+  if (parsed == null) return '-';
+  return formatReturn(parsed);
+}
+
+String formatSharpe(double value) {
+  if (!value.isFinite) return '-';
+  return value.toStringAsFixed(2);
 }
 
 class PortfolioDividendCalendarSection extends StatefulWidget {
@@ -11742,71 +12326,231 @@ class PortfolioHoldingRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final pnl = number(row['unrealizedPnl']);
     final tone = pnl >= 0 ? palette.positive : palette.negative;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 132,
-            child: Row(
+    final valuation = asMap(row['valuation']);
+    final analytics = asMap(row['analytics']);
+    final gap = nullableNumber(valuation['gap']);
+    final gapText = gap == null ? '-' : formatReturn(gap);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 720;
+        if (compact) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: palette.card.withValues(alpha: .52),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: palette.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                PortfolioHoldingLogo(row: row, palette: palette, size: 26),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    text(row['ticker'], 'N/A'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: palette.text,
-                      fontWeight: FontWeight.w900,
+                Row(
+                  children: [
+                    PortfolioHoldingLogo(row: row, palette: palette, size: 30),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            text(row['ticker'], 'N/A'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: palette.text,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            compactName(text(row['name'])),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: palette.muted, fontSize: 12),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                    PortfolioValuationChip(
+                      valuation: valuation,
+                      palette: palette,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _HoldingMiniLine(
+                        label: 'Weight',
+                        value: formatReturn(
+                          number(row['weight']),
+                        ).replaceFirst('+', ''),
+                        palette: palette,
+                      ),
+                    ),
+                    Expanded(
+                      child: _HoldingMiniLine(
+                        label: 'FV gap',
+                        value: gapText,
+                        palette: palette,
+                      ),
+                    ),
+                    Expanded(
+                      child: _HoldingMiniLine(
+                        label: '1Y',
+                        value: formatNullableReturn(analytics['trailingReturn']),
+                        palette: palette,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        formatMoney(number(row['value'])),
+                        style: TextStyle(
+                          color: palette.text,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      formatMoney(pnl),
+                      style: TextStyle(color: tone, fontWeight: FontWeight.w900),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ),
-          Expanded(
-            child: Text(
-              compactName(text(row['name'])),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: palette.muted),
-            ),
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 82,
-            child: Text(
-              formatReturn(number(row['weight'])).replaceFirst('+', ''),
-              textAlign: TextAlign.end,
-              style: TextStyle(
-                color: palette.text,
-                fontWeight: FontWeight.w800,
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 132,
+                child: Row(
+                  children: [
+                    PortfolioHoldingLogo(row: row, palette: palette, size: 26),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        text(row['ticker'], 'N/A'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: palette.text,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
-          SizedBox(
-            width: 100,
-            child: Text(
-              formatMoney(number(row['value'])),
-              textAlign: TextAlign.end,
-              style: TextStyle(
-                color: palette.text,
-                fontWeight: FontWeight.w900,
+              Expanded(
+                child: Text(
+                  compactName(text(row['name'])),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: palette.muted),
+                ),
               ),
-            ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 88,
+                child: PortfolioValuationChip(
+                  valuation: valuation,
+                  palette: palette,
+                ),
+              ),
+              SizedBox(
+                width: 78,
+                child: Text(
+                  gapText,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    color: portfolioValuationTone(valuation, palette),
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 82,
+                child: Text(
+                  formatReturn(number(row['weight'])).replaceFirst('+', ''),
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    color: palette.text,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 100,
+                child: Text(
+                  formatMoney(number(row['value'])),
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    color: palette.text,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 100,
+                child: Text(
+                  formatMoney(pnl),
+                  textAlign: TextAlign.end,
+                  style: TextStyle(color: tone, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
           ),
-          SizedBox(
-            width: 100,
-            child: Text(
-              formatMoney(pnl),
-              textAlign: TextAlign.end,
-              style: TextStyle(color: tone, fontWeight: FontWeight.w800),
-            ),
+        );
+      },
+    );
+  }
+}
+
+class _HoldingMiniLine extends StatelessWidget {
+  const _HoldingMiniLine({
+    required this.label,
+    required this.value,
+    required this.palette,
+  });
+
+  final String label;
+  final String value;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: palette.faint,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: palette.text, fontWeight: FontWeight.w900),
+        ),
+      ],
     );
   }
 }

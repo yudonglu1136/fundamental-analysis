@@ -1,10 +1,12 @@
 import { XMLParser } from "fast-xml-parser";
 import {
+  readPriceSeriesFromDb,
   readPortfolioNavPoints,
   writePortfolioNavPoint
 } from "./localDatabase.js";
 import { readDividendCalendarForTickers } from "./dividendClient.js";
 import { canonicalTicker, logoUrlForTicker } from "./logoClient.js";
+import { loadValuationDashboard } from "./valuationClient.js";
 import {
   markPortfolioConnectionSync,
   portfolioConnectionAccounts,
@@ -225,6 +227,345 @@ function portfolioSample() {
 
 function normalizeTicker(value) {
   return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.-]/g, "");
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function percentLabel(value) {
+  if (!Number.isFinite(value)) return "";
+  const sign = value >= 0 ? "+" : "";
+  return `${sign}${(value * 100).toFixed(1)}%`;
+}
+
+function clamp(value, min, max) {
+  if (!Number.isFinite(value)) return null;
+  return Math.max(min, Math.min(max, value));
+}
+
+function mean(values) {
+  const clean = values.filter(Number.isFinite);
+  if (!clean.length) return null;
+  return clean.reduce((sum, value) => sum + value, 0) / clean.length;
+}
+
+function standardDeviation(values) {
+  const avg = mean(values);
+  if (avg == null) return null;
+  const clean = values.filter(Number.isFinite);
+  if (clean.length < 2) return null;
+  const variance = clean.reduce((sum, value) => sum + (value - avg) ** 2, 0) / (clean.length - 1);
+  return Math.sqrt(variance);
+}
+
+function productReturn(returns) {
+  const clean = returns.filter(Number.isFinite);
+  if (!clean.length) return null;
+  return clean.reduce((value, dailyReturn) => value * (1 + dailyReturn), 1) - 1;
+}
+
+function annualizedReturn(totalReturn, dailyCount) {
+  if (!Number.isFinite(totalReturn) || !dailyCount || dailyCount <= 0 || totalReturn <= -0.999) return null;
+  return (1 + totalReturn) ** (252 / dailyCount) - 1;
+}
+
+function annualizedVolatility(returns) {
+  const stdev = standardDeviation(returns);
+  return stdev == null ? null : stdev * Math.sqrt(252);
+}
+
+function sharpeRatio(annualReturn, annualVolatility, riskFreeRate) {
+  if (!Number.isFinite(annualReturn) || !Number.isFinite(annualVolatility) || annualVolatility <= 0) return null;
+  return (annualReturn - riskFreeRate) / annualVolatility;
+}
+
+function trailingReturnFromPoints(points) {
+  if (!points.length) return null;
+  const first = points.find((point) => finiteNumber(point.close, NaN) > 0);
+  const last = [...points].reverse().find((point) => finiteNumber(point.close, NaN) > 0);
+  if (!first || !last || first === last) return null;
+  return finiteNumber(last.close) / finiteNumber(first.close) - 1;
+}
+
+function dailyReturnMap(points) {
+  const map = new Map();
+  const returns = [];
+  let previous = null;
+  for (const point of points) {
+    const close = finiteNumber(point.close, NaN);
+    if (!Number.isFinite(close) || close <= 0) continue;
+    if (previous?.close > 0) {
+      const dailyReturn = close / previous.close - 1;
+      if (Number.isFinite(dailyReturn)) {
+        map.set(point.date, dailyReturn);
+        returns.push(dailyReturn);
+      }
+    }
+    previous = { date: point.date, close };
+  }
+  return { map, returns };
+}
+
+function valuationLabel(gap) {
+  if (!Number.isFinite(gap)) {
+    return { key: "missing", label: "No model", labelZh: "无估值", tone: "neutral" };
+  }
+  if (gap >= 0.18) return { key: "cheap", label: "Undervalued", labelZh: "偏便宜", tone: "positive" };
+  if (gap <= -0.18) return { key: "expensive", label: "Expensive", labelZh: "偏贵", tone: "negative" };
+  return { key: "fair", label: "Fair range", labelZh: "接近公允", tone: "neutral" };
+}
+
+function valuationMapFromDashboard(dashboard) {
+  const map = new Map();
+  for (const row of dashboard?.tickers || []) {
+    const ticker = normalizeTicker(row.ticker || row.key);
+    if (!ticker) continue;
+    map.set(ticker, row);
+    if (row.key) map.set(normalizeTicker(row.key), row);
+  }
+  return map;
+}
+
+function portfolioPriceSymbol(ticker) {
+  const normalized = normalizeTicker(ticker);
+  if (!normalized || normalized.startsWith("CASH")) return "";
+  return normalized;
+}
+
+function buildValuationOverlay(holding, valuationRow) {
+  const latest = valuationRow?.latest || {};
+  const modelPrice = finiteNumber(latest.latestPrice, NaN);
+  const fairValue = finiteNumber(latest.baseFairValue, NaN);
+  const targetPrice3Y = finiteNumber(latest.targetPrice3Y, NaN);
+  const expectedReturn3Y = finiteNumber(latest.expectedReturn3Y, NaN);
+  const fallbackGap = finiteNumber(latest.upsideToBase, NaN);
+  const gap = Number.isFinite(modelPrice) && modelPrice > 0 && Number.isFinite(fairValue)
+    ? fairValue / modelPrice - 1
+    : fallbackGap;
+  const label = valuationLabel(gap);
+
+  if (!valuationRow || (!Number.isFinite(gap) && !Number.isFinite(fairValue))) {
+    return {
+      covered: false,
+      ticker: normalizeTicker(holding.ticker),
+      label: label.label,
+      labelZh: label.labelZh,
+      tone: label.tone
+    };
+  }
+
+  return {
+    covered: true,
+    ticker: normalizeTicker(valuationRow.ticker || holding.ticker),
+    name: valuationRow.name || valuationRow.companyName || holding.name,
+    currency: valuationRow.currency || holding.currency || "USD",
+    latestPrice: Number.isFinite(modelPrice) ? modelPrice : finiteNumber(holding.price, null),
+    latestPriceDate: latest.latestPriceDate || "",
+    fairValue: Number.isFinite(fairValue) ? fairValue : null,
+    gap: Number.isFinite(gap) ? gap : null,
+    targetPrice3Y: Number.isFinite(targetPrice3Y) ? targetPrice3Y : null,
+    expectedReturn3Y: Number.isFinite(expectedReturn3Y) ? expectedReturn3Y : null,
+    label: label.label,
+    labelZh: label.labelZh,
+    tone: label.tone,
+    coverageKind: valuationRow.dataQuality?.valuationCoverageKind || "",
+    auditStatus: valuationRow.dataQuality?.modelInputAudit?.status || ""
+  };
+}
+
+function modelImpliedForwardReturn({ valuation, trailingReturn }) {
+  const gap = finiteNumber(valuation?.gap, NaN);
+  const expectedReturn3Y = finiteNumber(valuation?.expectedReturn3Y, NaN);
+  const momentum = clamp(trailingReturn, -0.25, 0.35);
+  const oneYearGapConvergence = Number.isFinite(gap) ? clamp(gap * 0.55, -0.35, 0.65) : null;
+  const targetReturn = Number.isFinite(expectedReturn3Y) ? clamp(expectedReturn3Y, -0.25, 0.45) : null;
+  const components = [];
+  if (oneYearGapConvergence != null) components.push({ weight: 0.62, value: oneYearGapConvergence });
+  if (targetReturn != null) components.push({ weight: 0.28, value: targetReturn });
+  if (momentum != null) components.push({ weight: components.length ? 0.10 : 0.35, value: momentum });
+  if (!components.length) return null;
+  const weightSum = components.reduce((sum, item) => sum + item.weight, 0);
+  return components.reduce((sum, item) => sum + item.value * item.weight, 0) / weightSum;
+}
+
+async function attachPortfolioAnalytics(payload) {
+  try {
+    const riskFreeRate = finiteNumber(process.env.PORTFOLIO_ANALYTICS_RISK_FREE_RATE, 0.04);
+    const today = new Date();
+    const end = isoDate(today);
+    const start = isoDate(addDays(today, -400));
+    const valuationDashboard = await loadValuationDashboard();
+    const valuationMap = valuationMapFromDashboard(valuationDashboard);
+    const investableHoldings = (payload.holdings || [])
+      .filter((holding) => {
+        const ticker = normalizeTicker(holding.ticker);
+        return ticker && !ticker.startsWith("CASH") && finiteNumber(holding.value) > 0;
+      });
+
+    const analyticsRows = [];
+    const returnsByTicker = new Map();
+    const weightsByTicker = new Map();
+    let pricedWeight = 0;
+    let modelWeight = 0;
+    let weightedForwardReturn = 0;
+
+    for (const holding of investableHoldings) {
+      const ticker = normalizeTicker(holding.ticker);
+      const valuation = buildValuationOverlay(holding, valuationMap.get(ticker));
+      const priceSymbol = portfolioPriceSymbol(ticker);
+      const pricePoints = priceSymbol ? readPriceSeriesFromDb(priceSymbol, start, end) : [];
+      const { map, returns } = dailyReturnMap(pricePoints);
+      const trailingReturn = trailingReturnFromPoints(pricePoints);
+      const volatility = annualizedVolatility(returns);
+      const weight = finiteNumber(holding.weight);
+      const forwardReturn = modelImpliedForwardReturn({ valuation, trailingReturn });
+      const coverage = pricePoints.length >= 120 ? "full" : pricePoints.length >= 40 ? "partial" : "limited";
+
+      if (map.size) {
+        returnsByTicker.set(ticker, map);
+        weightsByTicker.set(ticker, weight);
+        pricedWeight += weight;
+      }
+      if (valuation.covered) modelWeight += weight;
+      if (Number.isFinite(forwardReturn)) weightedForwardReturn += weight * forwardReturn;
+
+      analyticsRows.push({
+        ticker,
+        name: holding.name || valuation.name || ticker,
+        logoUrl: holding.logoUrl || `/api/logo/${ticker}`,
+        value: finiteNumber(holding.value),
+        weight,
+        valuation,
+        trailingReturn,
+        annualVolatility: volatility,
+        forwardExpectedReturn: Number.isFinite(forwardReturn) ? forwardReturn : null,
+        expectedContribution: Number.isFinite(forwardReturn) ? weight * forwardReturn : null,
+        pricePointCount: pricePoints.length,
+        coverage
+      });
+    }
+
+    const allReturnDates = [...new Set(
+      [...returnsByTicker.values()].flatMap((map) => [...map.keys()])
+    )].sort();
+    const portfolioReturns = [];
+    const dailyCoverage = [];
+    for (const date of allReturnDates) {
+      let dailyReturn = 0;
+      let coverageWeight = 0;
+      for (const [ticker, map] of returnsByTicker.entries()) {
+        if (!map.has(date)) continue;
+        const weight = weightsByTicker.get(ticker) || 0;
+        dailyReturn += weight * map.get(date);
+        coverageWeight += weight;
+      }
+      if (coverageWeight >= 0.55) {
+        portfolioReturns.push(dailyReturn);
+        dailyCoverage.push(coverageWeight);
+      }
+    }
+
+    const historicalTotalReturn = productReturn(portfolioReturns);
+    const historicalAnnualReturn = annualizedReturn(historicalTotalReturn, portfolioReturns.length);
+    const historicalVolatility = annualizedVolatility(portfolioReturns);
+    const historicalSharpe = sharpeRatio(historicalAnnualReturn, historicalVolatility, riskFreeRate);
+    const forwardVolatility = Number.isFinite(historicalVolatility) ? historicalVolatility * 1.05 : null;
+    const forwardSharpe = sharpeRatio(weightedForwardReturn, forwardVolatility, riskFreeRate);
+    const averageCoverage = mean(dailyCoverage);
+
+    const enrichedHoldings = (payload.holdings || []).map((holding) => {
+      const ticker = normalizeTicker(holding.ticker);
+      const analytics = analyticsRows.find((row) => row.ticker === ticker);
+      if (!analytics) {
+        return {
+          ...holding,
+          valuation: buildValuationOverlay(holding, valuationMap.get(ticker)),
+          analytics: null
+        };
+      }
+      return {
+        ...holding,
+        valuation: analytics.valuation,
+        analytics: {
+          trailingReturn: analytics.trailingReturn,
+          annualVolatility: analytics.annualVolatility,
+          forwardExpectedReturn: analytics.forwardExpectedReturn,
+          expectedContribution: analytics.expectedContribution,
+          coverage: analytics.coverage,
+          pricePointCount: analytics.pricePointCount
+        }
+      };
+    });
+
+    return {
+      ...payload,
+      holdings: enrichedHoldings,
+      analytics: {
+        generatedAt: new Date().toISOString(),
+        source: {
+          valuation: valuationDashboard?.source?.label || "valuation dashboard",
+          prices: "local SQLite price_points",
+          methodology: "Current-weight reconstruction; historical risk from one-year daily returns; forward return from partial fair-value gap convergence, 3Y model IRR, and capped momentum."
+        },
+        assumptions: {
+          riskFreeRate,
+          tradingDays: 252,
+          gapConvergenceOneYear: 0.55,
+          forwardVolatilityStressMultiplier: 1.05
+        },
+        coverage: {
+          holdingCount: investableHoldings.length,
+          valuationCovered: analyticsRows.filter((row) => row.valuation?.covered).length,
+          valuationCoveredWeight: modelWeight,
+          priceCovered: analyticsRows.filter((row) => row.pricePointCount >= 120).length,
+          priceCoveredWeight: pricedWeight,
+          averageDailyWeightCoverage: averageCoverage
+        },
+        window: {
+          start,
+          end,
+          dailyReturnCount: portfolioReturns.length
+        },
+        historicalOneYear: {
+          totalReturn: historicalTotalReturn,
+          annualizedReturn: historicalAnnualReturn,
+          volatility: historicalVolatility,
+          sharpe: historicalSharpe,
+          riskFreeRate
+        },
+        forwardOneYear: {
+          expectedReturn: weightedForwardReturn,
+          volatility: forwardVolatility,
+          sharpe: forwardSharpe,
+          potentialPnl: finiteNumber(payload.summary?.totalValue) * weightedForwardReturn,
+          riskFreeRate
+        },
+        holdings: analyticsRows
+          .sort((left, right) => finiteNumber(right.value) - finiteNumber(left.value))
+          .map((row) => ({
+            ...row,
+            valuationGapLabel: row.valuation?.label || "No model",
+            valuationGapLabelZh: row.valuation?.labelZh || "无估值",
+            trailingReturnLabel: percentLabel(row.trailingReturn),
+            volatilityLabel: percentLabel(row.annualVolatility),
+            forwardExpectedReturnLabel: percentLabel(row.forwardExpectedReturn)
+          }))
+      }
+    };
+  } catch (error) {
+    return {
+      ...payload,
+      analytics: {
+        generatedAt: new Date().toISOString(),
+        status: "error",
+        message: error.message,
+        holdings: []
+      }
+    };
+  }
 }
 
 function isLondonPortfolioTicker(value) {
@@ -1327,7 +1668,7 @@ export async function loadPortfolioDashboard({ forceRefresh = false, user = null
   }
 
   try {
-    const payload = await loadFreshPortfolioDashboard({ user });
+    const payload = await attachPortfolioAnalytics(await loadFreshPortfolioDashboard({ user }));
     portfolioCache.set(cacheKey, {
       expiresAt: Date.now() + portfolioCacheTtlMs,
       payload
@@ -1338,7 +1679,7 @@ export async function loadPortfolioDashboard({ forceRefresh = false, user = null
       markPortfolioConnectionSync(user, { ok: false, error: error.message });
     }
     const status = isRealUser(user) ? readPortfolioConnection(user).status : {};
-    const payload = isRealUser(user)
+    const fallbackPayload = isRealUser(user)
       ? portfolioErrorPayload(user, error, status)
       : {
           ...portfolioSample(),
@@ -1356,6 +1697,7 @@ export async function loadPortfolioDashboard({ forceRefresh = false, user = null
             mode: "fallback"
           }
         };
+    const payload = await attachPortfolioAnalytics(fallbackPayload);
     portfolioCache.set(cacheKey, {
       expiresAt: Date.now() + Math.min(portfolioCacheTtlMs, 60_000),
       payload
