@@ -18,6 +18,15 @@ Local development uses `AUTH_DEV_BYPASS=true` and sends `Bearer local-dev-token`
 Frontend is owned by Vercel. AWS Elastic Beanstalk is backend/API only.
 Read [docs/deployment-contract.md](docs/deployment-contract.md) and [AGENTS.md](AGENTS.md) before changing deployment, DNS, or CI.
 
+## iOS / App Store Preparation
+
+The current codebase is Flutter Web first and does not yet include an `ios/`
+platform folder. Before building the App Store version, follow:
+
+- [docs/ios-app-store-readiness.md](docs/ios-app-store-readiness.md)
+- [docs/ios-product-design-brief.md](docs/ios-product-design-brief.md)
+- [docs/ios-asset-inventory.md](docs/ios-asset-inventory.md)
+
 ## Frontend Build
 
 ```bash
