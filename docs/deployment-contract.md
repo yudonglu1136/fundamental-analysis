@@ -47,6 +47,14 @@ AWS_API_ORIGIN=http://guru-analysis-api-prod-378477120101.us-east-1.elasticbeans
 
 `AWS_API_ORIGIN` is optional because `api/proxy.js` has the current EB CNAME as a fallback, but setting it in Vercel makes the runtime contract explicit.
 
+AWS backend production env must also include both frontend origins:
+
+```bash
+API_ALLOWED_ORIGINS=https://www.thesisforge.tech,https://thesisforge.tech
+```
+
+Do not omit the `www` origin. Stale or diagnostic frontend builds may call the AWS API directly, and Express will return an HTML 500 for a disallowed CORS origin before the JSON API handler runs.
+
 ## Frontend Deploy
 
 Preferred path:

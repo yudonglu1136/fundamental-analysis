@@ -9,6 +9,7 @@ This repository is the Guru Intelligence product. Follow this deployment split u
 - Browser traffic for `https://www.thesisforge.tech/` must resolve to Vercel, not Lightsail or Elastic Beanstalk.
 - Vercel serves the Flutter web build from `dist/`.
 - Vercel proxies only `/api/*` to the AWS Elastic Beanstalk API.
+- AWS API CORS must allow both `https://www.thesisforge.tech` and `https://thesisforge.tech`; stale or diagnostic frontend builds can otherwise receive an HTML 500 from Express instead of JSON.
 - Do not deploy the primary frontend by rsyncing `dist/` to Lightsail.
 - Do not add DNS `A` records for `www.thesisforge.tech` or `thesisforge.tech` that point to the Lightsail IP.
 - Keep `api.thesisforge.tech` or the EB CNAME available for backend diagnostics only.
