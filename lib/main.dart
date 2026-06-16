@@ -11,6 +11,7 @@ import 'browser_location.dart';
 const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 const _apiBaseUrl = String.fromEnvironment('API_BASE_URL');
+const _adminEmail = 'luyudong1136@gmail.com';
 const _authDevBypass = String.fromEnvironment(
   'AUTH_DEV_BYPASS',
   defaultValue: 'false',
@@ -19,6 +20,8 @@ const _localDevToken = 'local-dev-token';
 
 bool get _authConfigured =>
     _supabaseUrl.trim().isNotEmpty && _supabaseAnonKey.trim().isNotEmpty;
+
+bool isAdminEmail(String value) => value.trim().toLowerCase() == _adminEmail;
 
 bool _supabaseReady = false;
 Object? _supabaseInitError;
@@ -165,8 +168,16 @@ class _AuthGateState extends State<AuthGate> {
         : (_session?.user.userMetadata?['full_name']?.toString() ??
               _session?.user.email ??
               'Research user');
+    final userEmail = _localWorkspace
+        ? 'local-dev@guru-analysis.test'
+        : (_session?.user.email ?? '');
 
-    return TerminalHome(accessToken: token, userName: user, onLogout: _logout);
+    return TerminalHome(
+      accessToken: token,
+      userName: user,
+      userEmail: userEmail,
+      onLogout: _logout,
+    );
   }
 }
 
@@ -257,11 +268,13 @@ class TerminalHome extends StatefulWidget {
     super.key,
     required this.accessToken,
     required this.userName,
+    required this.userEmail,
     required this.onLogout,
   });
 
   final String accessToken;
   final String userName;
+  final String userEmail;
   final VoidCallback onLogout;
 
   @override
@@ -274,6 +287,7 @@ class _TerminalHomeState extends State<TerminalHome> {
   Map<String, dynamic>? _dbmfPayload;
   Map<String, dynamic>? _portfolioPayload;
   Map<String, dynamic>? _valuationPayload;
+  Map<String, dynamic>? _adminPayload;
   bool _loadingGurus = true;
   bool _loadingSecondary = false;
   String _mode = 'guru';
@@ -288,12 +302,14 @@ class _TerminalHomeState extends State<TerminalHome> {
   bool _colorBlind = false;
 
   Palette get palette => Palette(_colorBlind);
+  bool get _adminEnabled => isAdminEmail(widget.userEmail);
 
   @override
   void initState() {
     super.initState();
     final route = readBrowserQuery();
     _mode = normalizeRouteMode(route['view'] ?? route['mode']);
+    if (_mode == 'admin' && !_adminEnabled) _mode = 'guru';
     _selectedGuruId = cleanRouteValue(route['guru']);
     _guruModule = guruModuleIndex(route['module']);
     _guruTradeTicker = cleanRouteValue(route['trade'])?.toUpperCase() ?? '';
@@ -336,11 +352,14 @@ class _TerminalHomeState extends State<TerminalHome> {
     if (!refresh && mode == 'dbmf' && _dbmfPayload != null) return;
     if (!refresh && mode == 'portfolio' && _portfolioPayload != null) return;
     if (!refresh && mode == 'valuation' && _valuationPayload != null) return;
+    if (!refresh && mode == 'admin' && _adminPayload != null) return;
+    if (mode == 'admin' && !_adminEnabled) return;
     setState(() => _loadingSecondary = true);
     try {
       final basePath = switch (mode) {
         'dbmf' => '/api/dbmf',
         'portfolio' => '/api/portfolio',
+        'admin' => '/api/admin/portfolio-users',
         _ => '/api/valuation',
       };
       final path = refresh ? '$basePath?refresh=1' : basePath;
@@ -349,6 +368,7 @@ class _TerminalHomeState extends State<TerminalHome> {
         if (mode == 'dbmf') _dbmfPayload = payload;
         if (mode == 'portfolio') _portfolioPayload = payload;
         if (mode == 'valuation') _valuationPayload = payload;
+        if (mode == 'admin') _adminPayload = payload;
       });
     } catch (error) {
       setState(() => _error = error.toString());
@@ -358,6 +378,7 @@ class _TerminalHomeState extends State<TerminalHome> {
   }
 
   void _changeMode(String mode) {
+    if (mode == 'admin' && !_adminEnabled) return;
     setState(() => _mode = mode);
     _persistRouteState();
     if (mode != 'guru') unawaited(_loadSecondary(mode));
@@ -407,6 +428,7 @@ class _TerminalHomeState extends State<TerminalHome> {
               ),
               generatedAt: text(_guruPayload?['generatedAt']),
               colorBlind: _colorBlind,
+              showAdmin: _adminEnabled,
               onMode: _changeMode,
               onRefresh: () => _mode == 'guru'
                   ? _loadGurus(refresh: true)
@@ -427,6 +449,7 @@ class _TerminalHomeState extends State<TerminalHome> {
                         data: switch (_mode) {
                           'dbmf' => _dbmfPayload,
                           'portfolio' => _portfolioPayload,
+                          'admin' => _adminPayload,
                           _ => _valuationPayload,
                         },
                         loading: _loadingSecondary,
@@ -595,6 +618,7 @@ class TerminalHeader extends StatelessWidget {
     required this.sourceLabel,
     required this.generatedAt,
     required this.colorBlind,
+    required this.showAdmin,
     required this.onMode,
     required this.onRefresh,
     required this.onColorBlind,
@@ -607,6 +631,7 @@ class TerminalHeader extends StatelessWidget {
   final String sourceLabel;
   final String generatedAt;
   final bool colorBlind;
+  final bool showAdmin;
   final ValueChanged<String> onMode;
   final VoidCallback onRefresh;
   final ValueChanged<bool> onColorBlind;
@@ -758,6 +783,7 @@ class TerminalHeader extends StatelessWidget {
                               mode: mode,
                               onMode: onMode,
                               palette: palette,
+                              showAdmin: showAdmin,
                             ),
                             const SizedBox(width: 8),
                             refreshButton,
@@ -787,7 +813,12 @@ class TerminalHeader extends StatelessWidget {
                     const SizedBox(width: 18),
                     StatusDot(status: 'live', palette: palette),
                     const Spacer(),
-                    ModeSegment(mode: mode, onMode: onMode, palette: palette),
+                    ModeSegment(
+                      mode: mode,
+                      onMode: onMode,
+                      palette: palette,
+                      showAdmin: showAdmin,
+                    ),
                     const SizedBox(width: 10),
                     refreshButton,
                     const SizedBox(width: 6),
@@ -856,19 +887,22 @@ class ModeSegment extends StatelessWidget {
     required this.mode,
     required this.onMode,
     required this.palette,
+    required this.showAdmin,
   });
 
   final String mode;
   final ValueChanged<String> onMode;
   final Palette palette;
+  final bool showAdmin;
 
   @override
   Widget build(BuildContext context) {
-    final modes = const [
+    final modes = [
       ('guru', 'Guru'),
       ('dbmf', 'DBMF'),
       ('valuation', 'Valuation'),
       ('portfolio', 'Portfolio'),
+      if (showAdmin) ('admin', 'Admin'),
     ];
     return Container(
       padding: const EdgeInsets.all(4),
@@ -7060,6 +7094,12 @@ class SecondaryDashboard extends StatelessWidget {
                 palette: palette,
                 onRefresh: onRefresh,
               ),
+              'admin' => AdminPortfolioDashboard(
+                data: data!,
+                api: api,
+                palette: palette,
+                onRefresh: onRefresh,
+              ),
               _ => ValuationCompactDashboard(
                 data: data!,
                 api: api,
@@ -7213,8 +7253,8 @@ class SecondaryModeHeader extends StatelessWidget {
   }
 }
 
-class PortfolioDashboard extends StatelessWidget {
-  const PortfolioDashboard({
+class AdminPortfolioDashboard extends StatefulWidget {
+  const AdminPortfolioDashboard({
     super.key,
     required this.data,
     required this.api,
@@ -7226,6 +7266,572 @@ class PortfolioDashboard extends StatelessWidget {
   final ApiClient api;
   final Palette palette;
   final Future<void> Function() onRefresh;
+
+  @override
+  State<AdminPortfolioDashboard> createState() =>
+      _AdminPortfolioDashboardState();
+}
+
+class _AdminPortfolioDashboardState extends State<AdminPortfolioDashboard> {
+  String _selectedHash = '';
+  String _search = '';
+  bool _loadingDetail = false;
+  String? _detailError;
+  Map<String, dynamic>? _detail;
+
+  List<Map<String, dynamic>> get _users => asList(widget.data['users']);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncSelection(force: true);
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminPortfolioDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(widget.data, oldWidget.data)) {
+      _syncSelection();
+    }
+  }
+
+  void _syncSelection({bool force = false}) {
+    final users = _users;
+    if (users.isEmpty) {
+      setState(() {
+        _selectedHash = '';
+        _detail = null;
+        _detailError = null;
+      });
+      return;
+    }
+    final selectedExists = users.any(
+      (user) => text(user['userHash']) == _selectedHash,
+    );
+    if (!force && selectedExists && _selectedHash.isNotEmpty) return;
+    final nextHash = text(users.first['userHash']);
+    if (nextHash.isEmpty || nextHash == _selectedHash) return;
+    setState(() {
+      _selectedHash = nextHash;
+      _detail = null;
+      _detailError = null;
+    });
+    unawaited(_loadDetail(nextHash));
+  }
+
+  Future<void> _loadDetail([String? hash, bool refresh = false]) async {
+    final targetHash = hash ?? _selectedHash;
+    if (targetHash.isEmpty) return;
+    setState(() {
+      _loadingDetail = true;
+      _detailError = null;
+    });
+    try {
+      final payload = await widget.api.getJson(
+        '/api/admin/portfolio-users/$targetHash${refresh ? '?refresh=1' : ''}',
+      );
+      if (!mounted || targetHash != _selectedHash) return;
+      setState(() => _detail = payload);
+    } catch (error) {
+      if (!mounted || targetHash != _selectedHash) return;
+      setState(() => _detailError = error.toString());
+    } finally {
+      if (mounted && targetHash == _selectedHash) {
+        setState(() => _loadingDetail = false);
+      }
+    }
+  }
+
+  void _selectUser(String hash) {
+    if (hash.isEmpty || hash == _selectedHash) return;
+    setState(() {
+      _selectedHash = hash;
+      _detail = null;
+      _detailError = null;
+    });
+    unawaited(_loadDetail(hash));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = widget.palette;
+    final summary = asMap(widget.data['summary']);
+    final users = _users;
+    final needle = _search.trim().toLowerCase();
+    final filtered = needle.isEmpty
+        ? users
+        : users.where((user) {
+            final haystack = [
+              user['email'],
+              user['name'],
+              user['userHash'],
+              asMap(user['connection'])['status'],
+            ].map(text).join(' ').toLowerCase();
+            return haystack.contains(needle);
+          }).toList();
+
+    return Column(
+      children: [
+        SecondaryModeHeader(
+          icon: Icons.admin_panel_settings_rounded,
+          kicker: 'OWNER ADMIN',
+          title: 'Portfolio admin console',
+          subtitle:
+              'View all user-scoped IBKR/Yodlee portfolio databases in read-only mode.',
+          chips: const ['owner only', 'read-only detail', 'encrypted tokens hidden'],
+          metrics: [
+            _GuruHeaderMetric(
+              label: 'Users',
+              value: formatNumber(number(summary['users'])),
+              sub: '${formatNumber(number(summary['linked']))} linked',
+              palette: palette,
+            ),
+            _GuruHeaderMetric(
+              label: 'Accounts',
+              value: formatNumber(number(summary['accounts'])),
+              sub: 'IBKR/Yodlee saved',
+              palette: palette,
+            ),
+            _GuruHeaderMetric(
+              label: 'Latest NAV',
+              value: formatMoney(number(summary['latestNav'])),
+              sub: 'sum of latest stored NAV',
+              palette: palette,
+            ),
+            _GuruHeaderMetric(
+              label: 'Errors',
+              value: formatNumber(number(summary['errors'])),
+              sub: 'sync or decrypt issues',
+              palette: palette,
+            ),
+          ],
+          palette: palette,
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = constraints.maxWidth >= 1180;
+            final listPanel = _AdminUserListPanel(
+              users: filtered,
+              selectedHash: _selectedHash,
+              search: _search,
+              palette: palette,
+              onSearch: (value) => setState(() => _search = value),
+              onSelect: _selectUser,
+              onRefresh: () async {
+                await widget.onRefresh();
+                _syncSelection(force: _selectedHash.isEmpty);
+              },
+            );
+            final detailPanel = _AdminPortfolioDetailPanel(
+              detail: _detail,
+              loading: _loadingDetail,
+              error: _detailError,
+              selectedHash: _selectedHash,
+              api: widget.api,
+              palette: palette,
+              onRefresh: () => _loadDetail(_selectedHash, true),
+            );
+            if (!wide) {
+              return Column(
+                children: [
+                  listPanel,
+                  const SizedBox(height: 10),
+                  detailPanel,
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(width: 360, child: listPanel),
+                const SizedBox(width: 10),
+                Expanded(child: detailPanel),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _AdminUserListPanel extends StatelessWidget {
+  const _AdminUserListPanel({
+    required this.users,
+    required this.selectedHash,
+    required this.search,
+    required this.palette,
+    required this.onSearch,
+    required this.onSelect,
+    required this.onRefresh,
+  });
+
+  final List<Map<String, dynamic>> users;
+  final String selectedHash;
+  final String search;
+  final Palette palette;
+  final ValueChanged<String> onSearch;
+  final ValueChanged<String> onSelect;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Panel(
+      palette: palette,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PanelTitle(
+            icon: Icons.people_alt_rounded,
+            kicker: 'USER DATABASES',
+            title: '所有账户组合',
+            palette: palette,
+            trailing: IconButton(
+              tooltip: 'Refresh admin index',
+              onPressed: () => unawaited(onRefresh()),
+              icon: Icon(Icons.refresh_rounded, color: palette.accent),
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            initialValue: search,
+            onChanged: onSearch,
+            style: TextStyle(color: palette.text, fontWeight: FontWeight.w800),
+            decoration: InputDecoration(
+              prefixIcon: Icon(Icons.search_rounded, color: palette.muted),
+              hintText: 'Search email / name / hash',
+              hintStyle: TextStyle(color: palette.faint),
+              filled: true,
+              fillColor: palette.card,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: palette.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: palette.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: palette.accent),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (users.isEmpty)
+            EmptyState(text: 'No portfolio users found yet.', palette: palette)
+          else
+            ...[
+              for (final user in users) ...[
+                _AdminUserTile(
+                  user: user,
+                  selected: text(user['userHash']) == selectedHash,
+                  palette: palette,
+                  onTap: () => onSelect(text(user['userHash'])),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminUserTile extends StatelessWidget {
+  const _AdminUserTile({
+    required this.user,
+    required this.selected,
+    required this.palette,
+    required this.onTap,
+  });
+
+  final Map<String, dynamic> user;
+  final bool selected;
+  final Palette palette;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final connection = asMap(user['connection']);
+    final nav = asMap(user['nav']);
+    final status = text(connection['status'], 'not configured');
+    final email = text(user['email']);
+    final name = text(user['name'], email.isEmpty ? 'Unknown user' : email);
+    final hash = text(user['userHash']);
+    final tone = status == 'linked'
+        ? palette.positive
+        : status.contains('error')
+            ? palette.negative
+            : palette.secondary;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selected
+              ? palette.accent.withValues(alpha: .13)
+              : palette.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected
+                ? palette.accent.withValues(alpha: .5)
+                : palette.border,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: tone.withValues(alpha: .14),
+                shape: BoxShape.circle,
+                border: Border.all(color: tone.withValues(alpha: .36)),
+              ),
+              child: Icon(Icons.person_rounded, color: tone, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: palette.text,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    email.isEmpty ? 'hash ${shortText(hash, 10)}' : email,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: palette.muted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      _AdminTinyChip(status, tone, palette),
+                      _AdminTinyChip(
+                        '${formatNumber(number(connection['accountCount']))} accts',
+                        palette.secondary,
+                        palette,
+                      ),
+                      if (text(nav['latestDate']).isNotEmpty)
+                        _AdminTinyChip(
+                          formatDate(text(nav['latestDate'])),
+                          palette.muted,
+                          palette,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              formatMoney(number(nav['latestValue'])),
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: palette.text,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminTinyChip extends StatelessWidget {
+  const _AdminTinyChip(this.label, this.color, this.palette);
+
+  final String label;
+  final Color color;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: .28)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color == palette.muted ? palette.muted : color,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminPortfolioDetailPanel extends StatelessWidget {
+  const _AdminPortfolioDetailPanel({
+    required this.detail,
+    required this.loading,
+    required this.error,
+    required this.selectedHash,
+    required this.api,
+    required this.palette,
+    required this.onRefresh,
+  });
+
+  final Map<String, dynamic>? detail;
+  final bool loading;
+  final String? error;
+  final String selectedHash;
+  final ApiClient api;
+  final Palette palette;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    if (selectedHash.isEmpty) {
+      return Panel(
+        palette: palette,
+        child: EmptyState(text: 'Select a portfolio user to inspect.', palette: palette),
+      );
+    }
+    if (loading && detail == null) {
+      return Panel(
+        palette: palette,
+        child: const SizedBox(
+          height: 420,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+    if (error != null && detail == null) {
+      return ErrorCard(message: error!, onRetry: () => unawaited(onRefresh()));
+    }
+    if (detail == null) {
+      return Panel(
+        palette: palette,
+        child: EmptyState(text: 'Portfolio detail has not loaded yet.', palette: palette),
+      );
+    }
+
+    final user = asMap(detail!['user']);
+    final portfolio = asMap(detail!['portfolio']);
+    final summary = asMap(portfolio['summary']);
+    final connection = asMap(user['connection']);
+    final title = text(
+      user['name'],
+      text(user['email'], shortText(selectedHash, 10)),
+    );
+    return Column(
+      children: [
+        Panel(
+          palette: palette,
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PanelTitle(
+                icon: Icons.manage_accounts_rounded,
+                kicker: 'SELECTED USER',
+                title: title,
+                palette: palette,
+                trailing: FilledButton.icon(
+                  onPressed: loading ? null : () => unawaited(onRefresh()),
+                  icon: loading
+                      ? const SizedBox(
+                          width: 15,
+                          height: 15,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Refresh detail'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              GridWrap(
+                minTileWidth: 150,
+                spacing: 10,
+                children: [
+                  MiniMetric(
+                    'Email',
+                    text(user['email'], 'unknown'),
+                    Icons.alternate_email_rounded,
+                    palette,
+                  ),
+                  MiniMetric(
+                    'Latest NAV',
+                    formatMoney(number(summary['totalValue'])),
+                    Icons.account_balance_wallet_rounded,
+                    palette,
+                  ),
+                  MiniMetric(
+                    'Holdings',
+                    formatNumber(number(summary['holdings'])),
+                    Icons.table_rows_rounded,
+                    palette,
+                  ),
+                  MiniMetric(
+                    'Status',
+                    text(connection['status'], 'unknown'),
+                    Icons.shield_rounded,
+                    palette,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        PortfolioDashboard(
+          data: portfolio,
+          api: api,
+          palette: palette,
+          onRefresh: onRefresh,
+          readOnly: true,
+          readOnlyNotice:
+              'Admin read-only view for ${text(user['email'], selectedHash)}. Credentials remain encrypted in that user database.',
+        ),
+      ],
+    );
+  }
+}
+
+class PortfolioDashboard extends StatelessWidget {
+  const PortfolioDashboard({
+    super.key,
+    required this.data,
+    required this.api,
+    required this.palette,
+    required this.onRefresh,
+    this.readOnly = false,
+    this.readOnlyNotice,
+  });
+
+  final Map<String, dynamic> data;
+  final ApiClient api;
+  final Palette palette;
+  final Future<void> Function() onRefresh;
+  final bool readOnly;
+  final String? readOnlyNotice;
 
   @override
   Widget build(BuildContext context) {
@@ -7303,7 +7909,13 @@ class PortfolioDashboard extends StatelessWidget {
           palette: palette,
         ),
         const SizedBox(height: 10),
-        if (registered)
+        if (readOnly)
+          PortfolioAdminReadOnlyPanel(
+            connection: connection,
+            notice: readOnlyNotice,
+            palette: palette,
+          )
+        else if (registered)
           PortfolioConnectionStatusPanel(
             connection: connection,
             api: api,
@@ -7407,6 +8019,112 @@ class PortfolioDashboard extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class PortfolioAdminReadOnlyPanel extends StatelessWidget {
+  const PortfolioAdminReadOnlyPanel({
+    super.key,
+    required this.connection,
+    required this.palette,
+    this.notice,
+  });
+
+  final Map<String, dynamic> connection;
+  final Palette palette;
+  final String? notice;
+
+  @override
+  Widget build(BuildContext context) {
+    final accounts = asList(connection['accounts']);
+    final status = text(connection['status'], 'not configured');
+    final failed = status == 'error' || text(connection['lastError']).isNotEmpty;
+    return Panel(
+      palette: palette,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PanelTitle(
+            icon: failed
+                ? Icons.warning_amber_rounded
+                : Icons.visibility_rounded,
+            kicker: 'ADMIN READ-ONLY',
+            title: failed ? '用户连接有同步错误' : '用户组合只读快照',
+            palette: palette,
+            trailing: InfoChip(status, palette: palette),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            notice ??
+                'Admin view reads the selected user portfolio database without exposing saved credentials.',
+            style: TextStyle(color: palette.muted, height: 1.35),
+          ),
+          const SizedBox(height: 12),
+          if (accounts.isEmpty)
+            EmptyState(text: 'No linked accounts are visible yet.', palette: palette)
+          else
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final account in accounts)
+                  Container(
+                    width: 260,
+                    padding: const EdgeInsets.all(13),
+                    decoration: BoxDecoration(
+                      color: palette.card,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: palette.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.account_balance_rounded,
+                              color: palette.secondary,
+                              size: 17,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                text(account['label'], 'IBKR account'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: palette.text,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          [
+                            if (text(account['queryId']).isNotEmpty)
+                              'Query ${text(account['queryId'])}',
+                            if (text(account['tokenPreview']).isNotEmpty)
+                              text(account['tokenPreview']),
+                          ].join(' · '),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: palette.muted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+        ],
+      ),
     );
   }
 }
@@ -16840,9 +17558,15 @@ String? cleanRouteValue(String? value) {
   return cleaned.isEmpty ? null : cleaned;
 }
 
+String shortText(String value, [int length = 10]) {
+  final cleaned = value.trim();
+  if (cleaned.length <= length) return cleaned;
+  return cleaned.substring(0, length);
+}
+
 String normalizeRouteMode(String? value) {
   final mode = value?.trim().toLowerCase() ?? '';
-  return const {'guru', 'dbmf', 'valuation', 'portfolio'}.contains(mode)
+  return const {'guru', 'dbmf', 'valuation', 'portfolio', 'admin'}.contains(mode)
       ? mode
       : 'guru';
 }

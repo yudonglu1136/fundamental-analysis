@@ -63,10 +63,13 @@ function finiteNumber(value, fallback = 0) {
 
 function isRealUser(user) {
   const id = String(user?.id || "").trim();
-  return Boolean(id && id !== "local-dev-user");
+  const adminHash = String(user?.adminPortfolioHash || "").trim();
+  return Boolean((id && id !== "local-dev-user") || /^[a-f0-9]{40}$/i.test(adminHash));
 }
 
 function portfolioCacheKey(user) {
+  const adminHash = String(user?.adminPortfolioHash || "").trim().toLowerCase();
+  if (/^[a-f0-9]{40}$/.test(adminHash)) return `userhash:${adminHash}`;
   const id = String(user?.id || "").trim();
   return id ? `user:${id}` : "legacy";
 }

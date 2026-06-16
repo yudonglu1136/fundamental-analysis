@@ -21,7 +21,10 @@ import {
 import {
   addPortfolioAccount,
   deletePortfolioConnection,
+  listAdminPortfolioUsers,
+  portfolioUserForAdminHash,
   readPortfolioConnectionStatus,
+  recordPortfolioUser,
   savePortfolioConnection
 } from "./userPortfolioStore.js";
 
@@ -107,6 +110,33 @@ app.get("/api/logo/:ticker", async (request, response) => {
 
 app.use("/api", requireAuth);
 
+const adminEmails = new Set(
+  String(process.env.ADMIN_EMAILS || "luyudong1136@gmail.com")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean)
+);
+
+function isAdminRequest(request) {
+  return adminEmails.has(String(request.user?.email || "").trim().toLowerCase());
+}
+
+function requireAdmin(request, response, next) {
+  if (!isAdminRequest(request)) {
+    response.status(403).json({ error: "admin_forbidden", message: "Admin access is restricted." });
+    return;
+  }
+  next();
+}
+
+function recordPortfolioRequestUser(request) {
+  try {
+    recordPortfolioUser(request.user);
+  } catch (error) {
+    console.warn("Unable to record portfolio user", error.message);
+  }
+}
+
 app.get("/api/gurus/config", (_request, response) => {
   response.json({ gurus });
 });
@@ -133,6 +163,7 @@ app.get("/api/dbmf", async (request, response) => {
 
 app.get("/api/portfolio", async (request, response) => {
   try {
+    recordPortfolioRequestUser(request);
     const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
     const payload = await loadPortfolioDashboard({ forceRefresh, user: request.user });
     response.json(payload);
@@ -143,6 +174,7 @@ app.get("/api/portfolio", async (request, response) => {
 
 app.get("/api/portfolio/connection", async (request, response) => {
   try {
+    recordPortfolioRequestUser(request);
     response.json(readPortfolioConnectionStatus(request.user));
   } catch (error) {
     response.status(500).json({ error: error.message });
@@ -151,6 +183,7 @@ app.get("/api/portfolio/connection", async (request, response) => {
 
 app.post("/api/portfolio/connection", async (request, response) => {
   try {
+    recordPortfolioRequestUser(request);
     const status = savePortfolioConnection(request.user, request.body || {});
     clearPortfolioCache(request.user);
     const payload = await loadPortfolioDashboard({ forceRefresh: true, user: request.user });
@@ -166,6 +199,7 @@ app.post("/api/portfolio/connection", async (request, response) => {
 
 app.post("/api/portfolio/accounts", async (request, response) => {
   try {
+    recordPortfolioRequestUser(request);
     const status = addPortfolioAccount(request.user, request.body || {});
     clearPortfolioCache(request.user);
     const payload = await loadPortfolioDashboard({ forceRefresh: true, user: request.user });
@@ -181,6 +215,7 @@ app.post("/api/portfolio/accounts", async (request, response) => {
 
 app.post("/api/portfolio/sync", async (request, response) => {
   try {
+    recordPortfolioRequestUser(request);
     clearPortfolioCache(request.user);
     const payload = await loadPortfolioDashboard({ forceRefresh: true, user: request.user });
     response.json({
@@ -197,6 +232,7 @@ app.post("/api/portfolio/sync", async (request, response) => {
 
 app.delete("/api/portfolio/connection", async (request, response) => {
   try {
+    recordPortfolioRequestUser(request);
     deletePortfolioConnection(request.user);
     clearPortfolioCache(request.user);
     response.json({ ok: true, connection: readPortfolioConnectionStatus(request.user) });
@@ -207,11 +243,42 @@ app.delete("/api/portfolio/connection", async (request, response) => {
 
 app.post("/api/portfolio/dividends/refresh", async (_request, response) => {
   try {
+    recordPortfolioRequestUser(_request);
     const payload = await loadPortfolioDashboard({ forceRefresh: true, user: _request.user });
     const result = await refreshDividendCalendarForTickers(payload.holdings || [], { force: true });
     response.json(result);
   } catch (error) {
     response.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/admin/portfolio-users", requireAdmin, async (request, response) => {
+  try {
+    recordPortfolioRequestUser(request);
+    response.setHeader("Cache-Control", "private, max-age=30");
+    response.json(listAdminPortfolioUsers());
+  } catch (error) {
+    response.status(500).json({ error: "admin_portfolio_list_failed", message: error.message });
+  }
+});
+
+app.get("/api/admin/portfolio-users/:hash", requireAdmin, async (request, response) => {
+  try {
+    const target = portfolioUserForAdminHash(request.params.hash);
+    if (!target) {
+      response.status(404).json({ error: "portfolio_user_not_found" });
+      return;
+    }
+    const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
+    const portfolio = await loadPortfolioDashboard({ forceRefresh, user: target.user });
+    response.setHeader("Cache-Control", forceRefresh ? "no-store" : "private, max-age=30");
+    response.json({
+      generatedAt: new Date().toISOString(),
+      user: target.publicUser,
+      portfolio
+    });
+  } catch (error) {
+    response.status(500).json({ error: "admin_portfolio_detail_failed", message: error.message });
   }
 });
 

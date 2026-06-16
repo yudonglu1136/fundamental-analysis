@@ -8,9 +8,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const bundledDbPath = path.join(__dirname, "data", "guru-analysis.sqlite");
 const defaultDataDir = path.dirname(process.env.SQLITE_DB_PATH || bundledDbPath);
 const userPortfolioRoot = process.env.USER_PORTFOLIO_DATA_DIR || path.join(defaultDataDir, "user-portfolios");
+const adminRegistryDbPath = path.join(userPortfolioRoot, "portfolio-admin.sqlite");
 const encryptionAad = Buffer.from("thesisforge-portfolio-connection-v1");
 
 const dbCache = new Map();
+let adminRegistryDb = null;
 
 function encryptionSecret() {
   const secret = process.env.PORTFOLIO_CREDENTIALS_KEY || process.env.SUPABASE_JWT_SECRET || "";
@@ -35,6 +37,17 @@ function userIdFromUser(user) {
   return String(user?.id || user?.sub || "").trim();
 }
 
+function cleanPortfolioHash(value) {
+  const text = String(value || "").trim().toLowerCase();
+  return /^[a-f0-9]{40}$/.test(text) ? text : "";
+}
+
+function userHashFromUser(user) {
+  const adminHash = cleanPortfolioHash(user?.adminPortfolioHash);
+  if (adminHash) return adminHash;
+  return userHash(userIdFromUser(user));
+}
+
 function normalizeTicker(value) {
   return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.-]/g, "");
 }
@@ -48,8 +61,40 @@ function parsePayload(value) {
 }
 
 function userDbPath(user) {
-  const hash = userHash(userIdFromUser(user));
+  const hash = userHashFromUser(user);
   return path.join(userPortfolioRoot, hash, "portfolio.sqlite");
+}
+
+function userDbPathForHash(hash) {
+  const cleaned = cleanPortfolioHash(hash);
+  if (!cleaned) throw new Error("Portfolio user hash is invalid.");
+  return path.join(userPortfolioRoot, cleaned, "portfolio.sqlite");
+}
+
+function openAdminRegistryDb() {
+  if (adminRegistryDb) return adminRegistryDb;
+  fs.mkdirSync(userPortfolioRoot, { recursive: true, mode: 0o700 });
+  const db = new DatabaseSync(adminRegistryDbPath);
+  db.exec(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA busy_timeout = 5000;
+
+    CREATE TABLE IF NOT EXISTS portfolio_user_registry (
+      user_hash TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      email TEXT,
+      name TEXT,
+      avatar TEXT,
+      provider TEXT,
+      first_seen_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_portfolio_user_registry_email
+      ON portfolio_user_registry (email);
+  `);
+  adminRegistryDb = db;
+  return db;
 }
 
 function initUserDb(db) {
@@ -436,10 +481,202 @@ export function readUserPortfolioNavPoints(user, accountId = "portfolio", limit 
   }));
 }
 
+export function recordPortfolioUser(user) {
+  const userId = userIdFromUser(user);
+  if (!userId) return null;
+  const hash = userHash(userId);
+  const now = new Date().toISOString();
+  const email = cleanString(user?.email).toLowerCase();
+  const name = cleanString(user?.name || user?.fullName || user?.user_metadata?.full_name);
+  const avatar = cleanString(user?.avatar || user?.picture);
+  const provider = cleanString(user?.provider);
+  const db = openAdminRegistryDb();
+  db.prepare(`
+    INSERT INTO portfolio_user_registry (
+      user_hash,
+      user_id,
+      email,
+      name,
+      avatar,
+      provider,
+      first_seen_at,
+      last_seen_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_hash) DO UPDATE SET
+      user_id = excluded.user_id,
+      email = excluded.email,
+      name = excluded.name,
+      avatar = excluded.avatar,
+      provider = excluded.provider,
+      last_seen_at = excluded.last_seen_at
+  `).run(hash, userId, email, name, avatar, provider, now, now);
+  return { userHash: hash, userId, email, name, avatar, provider };
+}
+
+function readRegistryRows() {
+  const db = openAdminRegistryDb();
+  return db.prepare(`
+    SELECT user_hash, user_id, email, name, avatar, provider, first_seen_at, last_seen_at
+    FROM portfolio_user_registry
+    ORDER BY last_seen_at DESC
+  `).all();
+}
+
+function listPortfolioHashes() {
+  if (!fs.existsSync(userPortfolioRoot)) return [];
+  return fs.readdirSync(userPortfolioRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && cleanPortfolioHash(entry.name))
+    .map((entry) => entry.name.toLowerCase());
+}
+
+function readPortfolioSummaryForHash(hash, registryRow = null) {
+  const cleaned = cleanPortfolioHash(hash);
+  if (!cleaned) return null;
+  const dbPath = userDbPathForHash(cleaned);
+  const exists = fs.existsSync(dbPath);
+  const base = {
+    userHash: cleaned,
+    userId: cleanString(registryRow?.user_id),
+    email: cleanString(registryRow?.email),
+    name: cleanString(registryRow?.name),
+    avatar: cleanString(registryRow?.avatar),
+    provider: cleanString(registryRow?.provider),
+    firstSeenAt: cleanString(registryRow?.first_seen_at),
+    lastSeenAt: cleanString(registryRow?.last_seen_at),
+    databaseExists: exists,
+    databaseUpdatedAt: "",
+    connection: {
+      registered: false,
+      configured: false,
+      status: exists ? "not_configured" : "no_database",
+      message: exists ? "No saved IBKR/Yodlee connection." : "No user portfolio database yet.",
+      accountCount: 0,
+      accounts: []
+    },
+    nav: {
+      latestDate: "",
+      latestValue: 0,
+      pointCount: 0,
+      accountCount: 0
+    }
+  };
+
+  if (!exists) return base;
+
+  try {
+    const stats = fs.statSync(dbPath);
+    base.databaseUpdatedAt = stats.mtime.toISOString();
+  } catch {}
+
+  try {
+    const db = openUserDb({ adminPortfolioHash: cleaned });
+    const row = db.prepare(`
+      SELECT provider, status, encrypted_json, created_at, updated_at, last_connected_at, last_error
+      FROM portfolio_connections
+      WHERE provider = ?
+    `).get("ibkr_flex");
+    if (row) {
+      try {
+        const config = decryptJson(row.encrypted_json);
+        base.connection = publicConnectionStatus(row, config);
+      } catch (error) {
+        base.connection = {
+          registered: true,
+          configured: false,
+          status: "decrypt_error",
+          message: "Saved connection exists, but the admin key cannot decrypt it.",
+          lastError: error.message,
+          accountCount: 0,
+          accounts: []
+        };
+      }
+    }
+
+    const navLatest = db.prepare(`
+      SELECT account_id, date, nav, cash, updated_at
+      FROM portfolio_nav_points
+      ORDER BY date DESC, updated_at DESC
+      LIMIT 1
+    `).get();
+    const navStats = db.prepare(`
+      SELECT COUNT(*) AS point_count, COUNT(DISTINCT account_id) AS account_count
+      FROM portfolio_nav_points
+    `).get();
+    base.nav = {
+      latestDate: cleanString(navLatest?.date),
+      latestValue: Number(navLatest?.nav || 0),
+      cash: Number(navLatest?.cash || 0),
+      pointCount: Number(navStats?.point_count || 0),
+      accountCount: Number(navStats?.account_count || 0),
+      updatedAt: cleanString(navLatest?.updated_at)
+    };
+  } catch (error) {
+    base.connection = {
+      ...base.connection,
+      status: "read_error",
+      message: error.message
+    };
+  }
+
+  return base;
+}
+
+export function listAdminPortfolioUsers() {
+  const rows = readRegistryRows();
+  const rowsByHash = new Map(rows.map((row) => [cleanPortfolioHash(row.user_hash), row]));
+  const hashes = new Set([...rowsByHash.keys()].filter(Boolean));
+  for (const hash of listPortfolioHashes()) hashes.add(hash);
+  const users = [...hashes]
+    .map((hash) => readPortfolioSummaryForHash(hash, rowsByHash.get(hash)))
+    .filter(Boolean)
+    .sort((left, right) => {
+      const rightDate = right.nav.latestDate || right.databaseUpdatedAt || right.lastSeenAt || "";
+      const leftDate = left.nav.latestDate || left.databaseUpdatedAt || left.lastSeenAt || "";
+      return rightDate.localeCompare(leftDate);
+    });
+  const summary = users.reduce((acc, user) => {
+    const accountCount = Number(user.connection?.accountCount || 0);
+    const nav = Number(user.nav?.latestValue || 0);
+    acc.users += 1;
+    acc.accounts += accountCount;
+    acc.linked += user.connection?.status === "linked" ? 1 : 0;
+    acc.errors += String(user.connection?.status || "").includes("error") ? 1 : 0;
+    acc.latestNav += Number.isFinite(nav) ? nav : 0;
+    return acc;
+  }, { users: 0, accounts: 0, linked: 0, errors: 0, latestNav: 0 });
+  return {
+    generatedAt: new Date().toISOString(),
+    summary,
+    users
+  };
+}
+
+export function portfolioUserForAdminHash(hash) {
+  const cleaned = cleanPortfolioHash(hash);
+  if (!cleaned) return null;
+  const rowsByHash = new Map(readRegistryRows().map((row) => [cleanPortfolioHash(row.user_hash), row]));
+  const row = rowsByHash.get(cleaned) || null;
+  const summary = readPortfolioSummaryForHash(cleaned, row);
+  if (!summary) return null;
+  return {
+    publicUser: summary,
+    user: {
+      id: cleanString(row?.user_id) || `admin-portfolio-${cleaned}`,
+      email: cleanString(row?.email),
+      name: cleanString(row?.name) || cleanString(row?.email) || `Portfolio ${cleaned.slice(0, 8)}`,
+      avatar: cleanString(row?.avatar),
+      provider: cleanString(row?.provider),
+      adminPortfolioHash: cleaned
+    }
+  };
+}
+
 export function userPortfolioInfo(user) {
   const dbPath = userDbPath(user);
+  const hash = userHashFromUser(user);
   return {
-    userHash: userHash(userIdFromUser(user)),
+    userHash: hash,
     path: dbPath,
     exists: fs.existsSync(dbPath)
   };
