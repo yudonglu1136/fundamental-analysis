@@ -631,9 +631,12 @@ export function listAdminPortfolioUsers() {
     .map((hash) => readPortfolioSummaryForHash(hash, rowsByHash.get(hash)))
     .filter(Boolean)
     .sort((left, right) => {
-      const rightDate = right.nav.latestDate || right.databaseUpdatedAt || right.lastSeenAt || "";
-      const leftDate = left.nav.latestDate || left.databaseUpdatedAt || left.lastSeenAt || "";
-      return rightDate.localeCompare(leftDate);
+      const rankDiff = portfolioUserSortRank(right) - portfolioUserSortRank(left);
+      if (rankDiff !== 0) return rankDiff;
+      const timeDiff = portfolioUserSortTime(right) - portfolioUserSortTime(left);
+      if (timeDiff !== 0) return timeDiff;
+      return cleanString(left.email || left.name || left.userHash)
+        .localeCompare(cleanString(right.email || right.name || right.userHash));
     });
   const summary = users.reduce((acc, user) => {
     const accountCount = Number(user.connection?.accountCount || 0);
@@ -650,6 +653,33 @@ export function listAdminPortfolioUsers() {
     summary,
     users
   };
+}
+
+function portfolioUserSortRank(user) {
+  const connection = user?.connection || {};
+  const status = cleanString(connection.status);
+  const accountCount = Number(connection.accountCount || 0);
+  if (status === "linked" && accountCount > 0) return 4;
+  if (accountCount > 0) return 3;
+  if (connection.configured || connection.registered) return 2;
+  if (status.includes("error")) return 1;
+  return 0;
+}
+
+function portfolioUserSortTime(user) {
+  const candidates = [
+    user?.nav?.updatedAt,
+    user?.nav?.latestDate,
+    user?.connection?.lastConnectedAt,
+    user?.connection?.updatedAt,
+    user?.databaseUpdatedAt,
+    user?.lastSeenAt
+  ];
+  for (const value of candidates) {
+    const timestamp = Date.parse(cleanString(value));
+    if (Number.isFinite(timestamp)) return timestamp;
+  }
+  return 0;
 }
 
 export function portfolioUserForAdminHash(hash) {

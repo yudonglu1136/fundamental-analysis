@@ -137,6 +137,11 @@ function recordPortfolioRequestUser(request) {
   }
 }
 
+app.use("/api", (request, _response, next) => {
+  recordPortfolioRequestUser(request);
+  next();
+});
+
 app.get("/api/gurus/config", (_request, response) => {
   response.json({ gurus });
 });
