@@ -323,10 +323,22 @@ app.get("/api/gurus/:id/commentary", async (request, response) => {
 });
 
 if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(rootDir, "dist")));
-  app.use((_request, response) => {
-    response.sendFile(path.join(rootDir, "dist", "index.html"));
-  });
+  const distDir = path.join(rootDir, "dist");
+  const distIndexPath = path.join(distDir, "index.html");
+
+  if (fs.existsSync(distIndexPath)) {
+    app.use(express.static(distDir));
+    app.use((_request, response) => {
+      response.sendFile(distIndexPath);
+    });
+  } else {
+    app.use((_request, response) => {
+      response.status(404).json({
+        error: "not_found",
+        message: "This AWS service hosts API routes only. Use https://www.thesisforge.tech for the frontend."
+      });
+    });
+  }
 }
 
 app.listen(port, () => {
