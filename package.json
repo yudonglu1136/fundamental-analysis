@@ -10,6 +10,7 @@
     "hydrate:db": "node server/hydrateDatabase.js",
     "install:avatars": "node server/installGuruAvatars.js",
     "import:youtube-valuations": "node server/importYoutubeEarningsValuations.js",
+    "import:stockinsights-transcripts": "node server/importStockInsightsTranscripts.js",
     "import:sec-quarterly-valuations": "node server/importSecQuarterlyValuations.js",
     "import:derived-valuations": "node server/importDerivedValuationTickers.js",
     "enrich:valuation-transcript-qa": "node server/enrichValuationTranscriptQa.js",

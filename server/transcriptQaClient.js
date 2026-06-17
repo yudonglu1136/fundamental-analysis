@@ -46,7 +46,11 @@ function splitSegmentText(value) {
     .map((line) => line.trim())
     .filter(Boolean);
   const first = lines[0] || "";
-  const hasSpeakerHeader = first.length <= 140 && /(?:\s[—-]\s|Operator|Analyst|CEO|CFO|Investor Relations)/i.test(first);
+  const looksLikePersonName = /^[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,4}$/.test(first);
+  const hasSpeakerHeader = first.length <= 140 && (
+    /(?:\s[—-]\s|Operator|Analyst|CEO|CFO|Investor Relations)/i.test(first) ||
+    (lines.length > 1 && looksLikePersonName)
+  );
   if (!hasSpeakerHeader) {
     return { speaker: "", body: cleanText(value) };
   }
@@ -57,7 +61,11 @@ function splitSegmentText(value) {
 }
 
 function speakerRole(speaker, body = "") {
+  const speakerText = String(speaker || "").toLowerCase();
   const text = `${speaker} ${body}`.toLowerCase();
+  if (/\boperator\b/.test(speakerText)) {
+    return "operator";
+  }
   if (/\bceo\b|\bcfo\b|\bcoo\b|\bcto\b|chief|president|founder|chairman|management/.test(text)) {
     return "management";
   }
@@ -68,6 +76,47 @@ function speakerRole(speaker, body = "") {
     return "ir";
   }
   return "unknown";
+}
+
+function speakerKey(speaker) {
+  return cleanText(speaker)
+    .replace(/\s[—-]\s.+$/, "")
+    .replace(/\b(analyst|research analyst|senior research analyst)\b.*/i, "")
+    .toLowerCase();
+}
+
+function buildCallContext(segments) {
+  const parsedSegments = segments.map((segment) => ({
+    ...segment,
+    parsed: splitSegmentText(segment.text)
+  }));
+  let qaStartIndex = Infinity;
+  for (let index = 0; index < parsedSegments.length; index += 1) {
+    const { speaker, body } = parsedSegments[index].parsed;
+    const role = speakerRole(speaker, body);
+    if (
+      role === "operator" &&
+      /question[-\s]?and[-\s]?answer|operator instructions|first question|next question|we(?:'|’)ll go to|we will go to|line of/i.test(body)
+    ) {
+      qaStartIndex = index;
+      break;
+    }
+  }
+
+  const managementSpeakers = new Set();
+  for (let index = 0; index < Math.min(qaStartIndex, parsedSegments.length); index += 1) {
+    const { speaker, body } = parsedSegments[index].parsed;
+    const role = speakerRole(speaker, body);
+    const key = speakerKey(speaker);
+    if (!key || role === "operator" || role === "analyst" || role === "ir") continue;
+    managementSpeakers.add(key);
+  }
+
+  return {
+    parsedSegments,
+    qaStartIndex,
+    managementSpeakers
+  };
 }
 
 function questionIntroIndex(body) {
@@ -113,7 +162,7 @@ function extractQuestion(body) {
   return cleanText(question, MAX_QUESTION_CHARS);
 }
 
-function isQuestionSegment(segment) {
+function isQuestionSegment(segment, context = null, segmentIndex = -1) {
   if (isTranscriptPlaceholderText(segment.text)) return false;
   const parsed = splitSegmentText(segment.text);
   if (isTranscriptPlaceholderText(parsed.speaker) || isTranscriptPlaceholderText(parsed.body)) return false;
@@ -121,14 +170,19 @@ function isQuestionSegment(segment) {
   const role = speakerRole(parsed.speaker, parsed.body);
   if (role === "analyst") return true;
   if (role === "ir" && /asks?|question from|received a question/i.test(parsed.body)) return true;
+  if (role === "operator" || role === "management") return false;
+  if (context && segmentIndex > context.qaStartIndex) {
+    const key = speakerKey(parsed.speaker);
+    if (key && !context.managementSpeakers.has(key)) return true;
+  }
   return false;
 }
 
-function answerContextAfter(segments, questionIndex) {
+function answerContextAfter(segments, questionIndex, context = null) {
   const pieces = [];
   for (let index = questionIndex + 1; index < segments.length; index += 1) {
     const segment = segments[index];
-    if (isQuestionSegment(segment)) break;
+    if (isQuestionSegment(segment, context, index)) break;
     if (isTranscriptPlaceholderText(segment.text)) break;
     const parsed = splitSegmentText(segment.text);
     if (isTranscriptPlaceholderText(parsed.speaker) || isTranscriptPlaceholderText(parsed.body)) break;
@@ -237,18 +291,19 @@ export function readTranscriptQaBundleByTickerPeriod(db, tickerSet, { limitPerPe
   const seenQuestions = new Set();
   for (const call of calls) {
     const segments = segmentsByVideo.get(call.id) || [];
+    const context = buildCallContext(segments);
     const key = `${call.parsed.ticker}::${call.parsed.period}`;
     const existing = qaByPeriod.get(key) || [];
     for (let index = 0; index < segments.length && existing.length < limitPerPeriod; index += 1) {
       const segment = segments[index];
-      if (!isQuestionSegment(segment)) continue;
+      if (!isQuestionSegment(segment, context, index)) continue;
       const parsed = splitSegmentText(segment.text);
       const question = extractQuestion(parsed.body);
       if (isTranscriptPlaceholderText(question)) continue;
       if (!question) continue;
       const questionKey = `${key}::${question.toLowerCase()}`;
       if (seenQuestions.has(questionKey)) continue;
-      const answer = answerContextAfter(segments, index);
+      const answer = answerContextAfter(segments, index, context);
       if (!answer || isTranscriptPlaceholderText(answer)) continue;
       seenQuestions.add(questionKey);
       existing.push({
