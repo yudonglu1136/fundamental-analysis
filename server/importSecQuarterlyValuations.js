@@ -136,14 +136,17 @@ const VALUATION_PROFILES = {
   META: "mega_cap_platform",
   MRVL: "semiconductor_growth",
   MSFT: "mega_cap_platform",
+  MSTR: "bitcoin_treasury_software",
   MU: "semiconductor_cyclical",
   NOC: "defense_prime",
   NOW: "software_growth",
   NVDA: "semiconductor_growth",
   PLTR: "hypergrowth_ai_software",
   QCOM: "semiconductor_value",
+  RKLB: "space_launch_growth",
   RTX: "defense_prime",
   SE: "platform_marketplace_reinvestment",
+  SPCX: "space_platform_ipo",
   TEM: "emerging_health_ai",
   TRI: "information_services",
   TRV: "insurance",
@@ -218,6 +221,93 @@ function secCompanyFactsUrl(cik) {
   return SEC_FACTS_URL.replace("{cik}", normalizeCik(cik));
 }
 
+function sumFiniteValues(rows, key) {
+  const values = rows
+    .map((row) => finiteNumber(row?.[key]))
+    .filter((value) => value != null);
+  return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+}
+
+function buildSpacexTrinityModel(trinity) {
+  const spacex = trinity?.spacex || {};
+  const ipo = spacex.ipo_terms || {};
+  const companyRow = (trinity?.companies || []).find((row) => String(row?.ticker || "").toUpperCase() === "SPCX") || {};
+  const research = trinity?.investment_research || {};
+  const quarterlyRows = (research.quarterly_financials || []).filter((row) => String(row?.company || "").toUpperCase() === "SPCX");
+  const segmentRows = (research.segment_financials || []).filter((row) => String(row?.company || "").toUpperCase() === "SPCX");
+  const sourceUrl = ipo.source_url || companyRow.source_url || quarterlyRows[0]?.source || null;
+  const sharesM = finiteNumber(ipo.total_shares_post_offering) != null
+    ? finiteNumber(ipo.total_shares_post_offering) / 1_000_000
+    : null;
+  if (!(sharesM > 0) || !sourceUrl) return null;
+
+  const annualSegments = segmentRows.filter((row) =>
+    Number(row?.fiscal_year) === 2025 &&
+    String(row?.fiscal_quarter || "").trim() === "2025" &&
+    String(row?.data_type || "").includes("reported")
+  );
+  const latestSegments = segmentRows.filter((row) =>
+    Number(row?.fiscal_year) === 2026 &&
+    /^Q1\b/i.test(String(row?.fiscal_quarter || "")) &&
+    String(row?.data_type || "").includes("reported")
+  );
+  const latestReported = quarterlyRows.find((row) => Number(row?.fiscal_year) === 2026) || quarterlyRows[0] || {};
+  const latestGrossProfit = sumFiniteValues(latestSegments, "gross_profit");
+  const annualGrossProfit = sumFiniteValues(annualSegments, "gross_profit");
+  const annualAdjustedEbitda = sumFiniteValues(annualSegments, "adjusted_ebitda");
+  const annualCapex = sumFiniteValues(annualSegments, "capex");
+
+  const annualFinancials = annualSegments.length ? [{
+    period: "FY2025",
+    source_url: sourceUrl,
+    data_type: "SpaceX S-1/A reported segment total",
+    revenue_m: sumFiniteValues(annualSegments, "revenue"),
+    revenue_growth_pct: null,
+    gross_profit_m: annualGrossProfit,
+    gross_margin_pct: margin(annualGrossProfit, sumFiniteValues(annualSegments, "revenue")),
+    operating_income_m: sumFiniteValues(annualSegments, "operating_income"),
+    operating_margin_pct: margin(sumFiniteValues(annualSegments, "operating_income"), sumFiniteValues(annualSegments, "revenue")),
+    net_income_m: null,
+    cfo_m: null,
+    capex_m: annualCapex,
+    fcf_after_capex_m: annualAdjustedEbitda != null && annualCapex != null ? annualAdjustedEbitda - annualCapex : null,
+    cash_m: finiteNumber(ipo.actual_cash_m_at_2026_03_31),
+    debt_m: finiteNumber(ipo.total_long_term_debt_m)
+  }] : [];
+
+  const latestRevenue = finiteNumber(latestReported.revenue);
+  const latestOperatingIncome = finiteNumber(latestReported.operating_income);
+  return {
+    ticker: "SPCX",
+    cik: normalizeCik(ipo.cik || "1181412"),
+    company: companyRow.company || ipo.issuer || "SpaceX",
+    category: companyRow.category || "space / connectivity / AI data center",
+    sector: "Space platform IPO",
+    latest_reported_period: "Q1 2026 S-1/A",
+    diluted_or_outstanding_shares_m: sharesM,
+    sources: [{ label: ipo.filing || "SpaceX S-1/A", url: sourceUrl }],
+    annual_financials: annualFinancials,
+    latest_quarter: {
+      period: "Q1 FY2026",
+      end_date: "2026-03-31",
+      source_url: sourceUrl,
+      data_type: latestReported.data_type || "SpaceX S-1/A reported latest quarter",
+      revenue_m: latestRevenue,
+      revenue_growth_pct: finiteNumber(latestReported.revenue_growth_pct ?? companyRow.latest_revenue_growth_pct),
+      gross_profit_m: latestGrossProfit,
+      gross_margin_pct: margin(latestGrossProfit, latestRevenue),
+      operating_income_m: latestOperatingIncome,
+      operating_margin_pct: finiteNumber(latestReported.operating_margin_pct) ?? margin(latestOperatingIncome, latestRevenue),
+      net_income_m: finiteNumber(latestReported.net_income),
+      cfo_m: null,
+      capex_m: sumFiniteValues(latestSegments, "capex"),
+      fcf_after_capex_m: finiteNumber(latestReported.fcf),
+      cash_m: finiteNumber(ipo.pro_forma_as_adjusted_cash_m) ?? finiteNumber(ipo.actual_cash_m_at_2026_03_31),
+      debt_m: finiteNumber(ipo.total_long_term_debt_m)
+    }
+  };
+}
+
 function readTrinityCompanyModels(trinity) {
   const models = new Map();
   for (const [sourceTicker, model] of Object.entries(trinity.public_company_models || {})) {
@@ -237,6 +327,12 @@ function readTrinityCompanyModels(trinity) {
     models.set(dashboardTicker, { ...model, ticker });
     models.set(ticker, { ...model, ticker });
   }
+
+  const spacexModel = buildSpacexTrinityModel(trinity);
+  if (spacexModel?.ticker) {
+    models.set(spacexModel.ticker, spacexModel);
+  }
+
   return models;
 }
 
@@ -734,6 +830,81 @@ function buildQuarterlyFinancials(facts) {
     }));
 }
 
+function attachMstrCryptoMetrics(facts, rows) {
+  const fiscalYearEnd = inferFiscalYearEnd(facts);
+  const cryptoMetricMap = ({ tag, unit, scale }) => {
+    const points = new Map();
+    for (const row of unitsFor(facts, tag, unit)) {
+      const rawValue = finiteNumber(row?.val);
+      const period = fiscalPeriodFromEnd(row?.end, fiscalYearEnd);
+      if (rawValue == null || !period || period.fiscalQuarter === "FY" || !row?.filed || !row?.form) continue;
+      const key = `${period.fiscalYear}::${period.fiscalQuarter}`;
+      const value = rawValue / scale;
+      const candidate = {
+        value,
+        filed: row.filed,
+        form: row.form,
+        end: row.end,
+        tag,
+        derived: false
+      };
+      const existing = points.get(key);
+      if (!existing || String(candidate.filed).localeCompare(String(existing.filed)) > 0) {
+        points.set(key, candidate);
+      }
+    }
+    return points;
+  };
+  const fairValueMap = cryptoMetricMap({ tag: "CryptoAssetFairValue", unit: "USD", scale: 1_000_000 });
+  const costMap = cryptoMetricMap({ tag: "CryptoAssetCost", unit: "USD", scale: 1_000_000 });
+  const unitMap = cryptoMetricMap({ tag: "CryptoAssetNumberOfUnits", unit: "Bitcoin", scale: 1 });
+
+  return rows.map((row) => {
+    const key = `${row.fiscalYear}::${row.fiscalQuarter}`;
+    const fairValue = fairValueMap.get(key);
+    const cost = costMap.get(key);
+    const units = unitMap.get(key);
+    if (!fairValue && !cost && !units) return row;
+    return {
+      ...row,
+      crypto_asset_fair_value_m: fairValue?.value ?? row.crypto_asset_fair_value_m,
+      crypto_asset_cost_m: cost?.value ?? row.crypto_asset_cost_m,
+      crypto_asset_units: units?.value ?? row.crypto_asset_units,
+      sources: {
+        ...(row.sources || {}),
+        ...(fairValue ? {
+          crypto_asset_fair_value_m: {
+            tag: fairValue.tag,
+            filed: fairValue.filed,
+            form: fairValue.form,
+            end: fairValue.end,
+            derived: false
+          }
+        } : {}),
+        ...(cost ? {
+          crypto_asset_cost_m: {
+            tag: cost.tag,
+            filed: cost.filed,
+            form: cost.form,
+            end: cost.end,
+            derived: false
+          }
+        } : {}),
+        ...(units ? {
+          crypto_asset_units: {
+            tag: units.tag,
+            filed: units.filed,
+            form: units.form,
+            end: units.end,
+            derived: false,
+            unit: "Bitcoin"
+          }
+        } : {})
+      }
+    };
+  });
+}
+
 function pricePointAtOrBefore(points = [], date) {
   const target = Date.parse(date);
   if (!Number.isFinite(target)) return null;
@@ -1187,6 +1358,76 @@ const PROFILE_SETTINGS = {
     salesWeight: 0.55,
     earningsWeight: 0.30,
     defaultGrossMarginPct: 36
+  },
+  space_launch_growth: {
+    label: "Space launch growth",
+    method: "Launch cadence EV/sales + normalized margin earnings power",
+    allowLossMakingStage: true,
+    forwardRevenueYears: 1,
+    forwardFcfScaleCap: 1.25,
+    forwardScaleCap: 1.8,
+    normalizedGrowthWindow: 6,
+    normalizedGrowthCapPct: 70,
+    peRange: [22, 52],
+    peBase: 30,
+    peGrowthCoefficient: 0.28,
+    peMarginCoefficient: 0.14,
+    fcfYieldRange: [0.04, 0.09],
+    fcfYieldBase: 0.06,
+    evSalesRange: [2.5, 16.0],
+    evSalesBase: 5.2,
+    evSalesGrowthCoefficient: 0.12,
+    evSalesGrossMarginCoefficient: 0.035,
+    evSalesFcfMarginCoefficient: 0.025,
+    targetMargin: 0.16,
+    marginActualWeight: 0.45,
+    fcfWeight: 0.10,
+    salesWeight: 0.64,
+    earningsWeight: 0.26,
+    defaultGrossMarginPct: 32,
+    cycleHaircut: 0.93
+  },
+  space_platform_ipo: {
+    label: "Space platform IPO",
+    method: "S-1/A revenue-stage SOTP proxy + post-IPO net cash bridge",
+    allowLossMakingStage: true,
+    forwardRevenueYears: 1,
+    forwardFcfScaleCap: 1.2,
+    forwardScaleCap: 1.75,
+    normalizedGrowthCapPct: 60,
+    peRange: [28, 72],
+    peBase: 38,
+    peGrowthCoefficient: 0.34,
+    peMarginCoefficient: 0.16,
+    fcfYieldRange: [0.03, 0.08],
+    fcfYieldBase: 0.052,
+    evSalesRange: [8.0, 45.0],
+    evSalesBase: 16.0,
+    evSalesGrowthCoefficient: 0.18,
+    evSalesGrossMarginCoefficient: 0.055,
+    evSalesFcfMarginCoefficient: 0.025,
+    targetMargin: 0.18,
+    marginActualWeight: 0.35,
+    fcfWeight: 0.08,
+    salesWeight: 0.72,
+    earningsWeight: 0.20,
+    defaultGrossMarginPct: 50,
+    optionalityMultiplier: 1.08
+  },
+  bitcoin_treasury_software: {
+    label: "Bitcoin treasury / software",
+    method: "BTC treasury NAV + software business value",
+    allowLossMakingStage: true,
+    treasuryHaircut: 0.98,
+    softwareRevenueMultiple: 2.2,
+    longRunGrowth: 0.08,
+    peRange: [10, 26],
+    peBase: 16,
+    fcfYieldRange: [0.05, 0.11],
+    fcfYieldBase: 0.075,
+    targetMargin: 0.24,
+    marginActualWeight: 0.35,
+    fcfWeight: 0.20
   },
   energy_e_and_p: {
     label: "Natural gas E&P",
@@ -1725,11 +1966,92 @@ function buildRevenueStageModel({ row, ttm, settings, youtubeEvidence }) {
   };
 }
 
+function buildBitcoinTreasuryModel({ row, ttm, settings }) {
+  const sharesM = finiteNumber(ttm.shares_m);
+  const cryptoFairValueM = finiteNumber(row.crypto_asset_fair_value_m) ?? finiteNumber(ttm.crypto_asset_fair_value_m);
+  const cryptoCostM = finiteNumber(row.crypto_asset_cost_m) ?? finiteNumber(ttm.crypto_asset_cost_m);
+  const cryptoUnits = finiteNumber(row.crypto_asset_units) ?? finiteNumber(ttm.crypto_asset_units);
+  if (!(sharesM > 0) || !(cryptoFairValueM > 0)) return null;
+
+  const ttmRevenue = finiteNumber(ttm.revenue_m);
+  const cashM = finiteNumber(ttm.cash_m) || 0;
+  const debtM = finiteNumber(ttm.debt_m) || 0;
+  const softwareRevenueMultiple = settings.softwareRevenueMultiple || 2.2;
+  const treasuryHaircut = settings.treasuryHaircut || 0.98;
+  const softwareValueM = ttmRevenue && ttmRevenue > 0 ? ttmRevenue * softwareRevenueMultiple : 0;
+  const treasuryValueM = cryptoFairValueM * treasuryHaircut;
+  const netCashMValue = cashM - debtM;
+  const equityValueM = treasuryValueM + softwareValueM + netCashMValue;
+  const fairValue = equityValueM / sharesM;
+  if (!(fairValue > 0)) return null;
+
+  const btcPerShare = cryptoUnits && sharesM ? cryptoUnits / (sharesM * 1_000_000) : null;
+  const impliedBtcPrice = cryptoUnits && cryptoUnits > 0 ? cryptoFairValueM * 1_000_000 / cryptoUnits : null;
+  const longRunGrowth = settings.longRunGrowth || 0.08;
+  return {
+    fairValue,
+    targetPrice3Y: fairValue * (1 + longRunGrowth) ** 3,
+    method: settings.method,
+    longRunGrowth,
+    methodOutputs: [
+      {
+        key: "btc-treasury-nav",
+        label: "BTC treasury NAV",
+        value: treasuryValueM / sharesM,
+        format: "currency",
+        description: `SEC reported crypto asset fair value x ${(treasuryHaircut * 100).toFixed(0)}% treasury haircut, divided by diluted shares.`
+      },
+      {
+        key: "software-business-value",
+        label: "Software business value",
+        value: softwareValueM / sharesM,
+        format: "currency",
+        description: `${ttmRevenue ? "TTM" : "Reported"} software revenue x ${softwareRevenueMultiple.toFixed(1)}x EV/sales.`
+      },
+      {
+        key: "net-cash-debt-bridge",
+        label: "Net cash / debt bridge",
+        value: netCashMValue / sharesM,
+        format: "currency",
+        description: "Reported cash less debt, divided by diluted shares."
+      },
+      {
+        key: "btc-per-share",
+        label: "BTC per share",
+        value: btcPerShare,
+        format: "number",
+        description: "Reported BTC units divided by diluted share count."
+      }
+    ],
+    scoreInputs: {
+      profile: settings.profile,
+      cryptoFairValueM,
+      cryptoCostM,
+      cryptoUnits,
+      impliedBtcPrice,
+      btcPerShare,
+      ttmRevenue,
+      softwareRevenueMultiple,
+      softwareValueM,
+      treasuryHaircut,
+      treasuryValueM,
+      cashM,
+      debtM,
+      netCashM: netCashMValue,
+      sharesM
+    },
+    formula: "SEC reported BTC fair value x treasury haircut + software EV/sales value + cash - debt, divided by shares; no market price input"
+  };
+}
+
 function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidence }) {
   const sharesM = finiteNumber(ttm.shares_m);
   const ttmRevenue = finiteNumber(ttm.revenue_m);
   const ttmNetIncome = finiteNumber(ttm.net_income_m);
   if (!(sharesM > 0) || !(ttmRevenue > 0)) return null;
+  if (settings.profile === "bitcoin_treasury_software") {
+    return buildBitcoinTreasuryModel({ row, ttm, settings });
+  }
   if (["emerging_biotech", "emerging_health_ai"].includes(settings.profile)) {
     return buildRevenueStageModel({ row, ttm, settings, youtubeEvidence });
   }
@@ -1737,6 +2059,8 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
     "software_growth",
     "hypergrowth_ai_software",
     "defense_growth",
+    "space_launch_growth",
+    "space_platform_ipo",
     "semiconductor_growth",
     "energy_technology",
     "ev_autonomy_platform",
@@ -1953,6 +2277,9 @@ function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, fac
     const ttmAssets = latestKnownValue(quarterlyRows, index, "assets_m");
     const ttmCash = latestKnownValue(quarterlyRows, index, "cash_m");
     const ttmDebt = latestKnownValue(quarterlyRows, index, "debt_m");
+    const ttmCryptoFairValue = latestKnownValue(quarterlyRows, index, "crypto_asset_fair_value_m");
+    const ttmCryptoCost = latestKnownValue(quarterlyRows, index, "crypto_asset_cost_m");
+    const ttmCryptoUnits = latestKnownValue(quarterlyRows, index, "crypto_asset_units");
     if (!allowsLossMakingStage && !(ttmNetIncome > 0)) return;
     const shareOverride = SHARE_COUNT_OVERRIDES[ticker];
     const sharesM = finiteNumber(row.shares_m) ??
@@ -1973,6 +2300,9 @@ function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, fac
       assets_m: ttmAssets,
       cash_m: ttmCash,
       debt_m: ttmDebt,
+      crypto_asset_fair_value_m: ttmCryptoFairValue,
+      crypto_asset_cost_m: ttmCryptoCost,
+      crypto_asset_units: ttmCryptoUnits,
       fcf_after_capex_m: ttmFcf,
       gross_margin_pct: margin(ttmGrossProfit, ttmRevenue),
       operating_margin_pct: margin(ttmOperatingIncome, ttmRevenue),
@@ -2048,6 +2378,9 @@ function buildValuationRows({ ticker, trinityTicker, snapshot, companyModel, fac
           assets_m: row.assets_m,
           cash_m: row.cash_m,
           debt_m: row.debt_m,
+          crypto_asset_fair_value_m: row.crypto_asset_fair_value_m,
+          crypto_asset_cost_m: row.crypto_asset_cost_m,
+          crypto_asset_units: row.crypto_asset_units,
           fcf_after_capex_m: row.fcf_after_capex_m
         },
         trailingTwelveMonths: ttm,
@@ -2853,6 +3186,9 @@ async function main() {
         await sleep(140);
         const facts = factsPayload?.facts || {};
         quarterlyRows = buildQuarterlyFinancials(facts);
+        if (ticker === "MSTR") {
+          quarterlyRows = attachMstrCryptoMetrics(facts, quarterlyRows);
+        }
         if (process.env.DEBUG_SEC_VALUATION_TICKER === ticker) {
           console.error(JSON.stringify({
             ticker,
@@ -2862,6 +3198,8 @@ async function main() {
               asOfDate: row.asOfDate,
               revenue_m: row.revenue_m,
               net_income_m: row.net_income_m,
+              crypto_asset_fair_value_m: row.crypto_asset_fair_value_m,
+              crypto_asset_units: row.crypto_asset_units,
               shares_m: row.shares_m,
               sources: row.sources
             }))
