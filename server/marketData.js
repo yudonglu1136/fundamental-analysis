@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readPriceSeriesFromDb, writePriceSeriesToDb } from "./localDatabase.js";
+import { yahooChartSymbol } from "./tickerAliases.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const priceCacheDir = path.join(__dirname, "cache", "prices");
@@ -9,7 +10,7 @@ const localPriceDir = path.resolve(__dirname, "..", "..", "market-intel-dashboar
 const priceCacheTtlMs = 1000 * 60 * 60 * 6;
 
 function yahooSymbol(symbol) {
-  return String(symbol || "").trim().toUpperCase().replace(/\./g, "-");
+  return yahooChartSymbol(symbol);
 }
 
 function cacheKey(symbol, start, end) {

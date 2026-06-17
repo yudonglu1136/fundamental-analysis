@@ -1,0 +1,48 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  londonMarketTicker,
+  marketTickerCandidates,
+  portfolioDisplayTicker,
+  valuationTickerCandidates,
+  valuationLookupKeysForSnapshot,
+  yahooChartSymbol
+} from "./tickerAliases.js";
+
+test("IBKR-style London tickers normalize to dot-L display symbols", () => {
+  assert.equal(portfolioDisplayTicker("LSEGL"), "LSEG.L");
+  assert.equal(portfolioDisplayTicker("AZNL"), "AZN.L");
+  assert.equal(portfolioDisplayTicker("DGEL", { currency: "GBP" }), "DGE.L");
+  assert.equal(portfolioDisplayTicker("HSBA", { currency: "GBP" }), "HSBA.L");
+  assert.equal(portfolioDisplayTicker("GOOGL", { currency: "USD" }), "GOOGL");
+  assert.deepEqual(marketTickerCandidates("GOOGL", { currency: "USD" }), ["GOOGL"]);
+});
+
+test("London aliases resolve to local valuation snapshot keys", () => {
+  assert.deepEqual(valuationTickerCandidates("LSEGL").slice(0, 3), [
+    "LSEGL",
+    "LSEG",
+    "LSEG.L"
+  ]);
+  assert.deepEqual(valuationTickerCandidates("LSEG.L").slice(0, 2), ["LSEG.L", "LSEG"]);
+  assert.deepEqual(valuationTickerCandidates("AZNL").slice(0, 3), ["AZNL", "AZN", "AZN.L"]);
+});
+
+test("GBP valuation snapshots expose London aliases without mapping US names accidentally", () => {
+  assert.deepEqual(
+    valuationLookupKeysForSnapshot({ ticker: "LSEG", currency: "GBP", name: "London Stock Exchange Group" }),
+    ["LSEG", "LSEG.L", "LSEGL"]
+  );
+  assert.deepEqual(
+    valuationLookupKeysForSnapshot({ ticker: "GOOGL", currency: "USD", name: "Alphabet" }),
+    ["GOOGL"]
+  );
+});
+
+test("market data keeps Yahoo London suffix but converts US share-class dots", () => {
+  assert.equal(londonMarketTicker("LSEGL"), "LSEG.L");
+  assert.equal(yahooChartSymbol("LSEG.L"), "LSEG.L");
+  assert.equal(yahooChartSymbol("BRK.B"), "BRK-B");
+  assert.deepEqual(marketTickerCandidates("AZNL"), ["AZN.L", "AZNL", "AZN"]);
+});

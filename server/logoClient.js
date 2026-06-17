@@ -1,3 +1,7 @@
+import { normalizeTicker, portfolioDisplayTicker } from "./tickerAliases.js";
+
+export { normalizeTicker };
+
 const logoDomains = new Map(
   [
     ["AAPL", "apple.com"],
@@ -9,6 +13,7 @@ const logoDomains = new Map(
     ["AXP", "americanexpress.com"],
     ["AZN", "astrazeneca.com"],
     ["AZNL", "astrazeneca.com"],
+    ["AZN.L", "astrazeneca.com"],
     ["BAC", "bankofamerica.com"],
     ["BRK.B", "berkshirehathaway.com"],
     ["CRDO", "credosemi.com"],
@@ -22,6 +27,8 @@ const logoDomains = new Map(
     ["KO", "coca-colacompany.com"],
     ["LIN", "linde.com"],
     ["LSEGL", "lseg.com"],
+    ["LSEG", "lseg.com"],
+    ["LSEG.L", "lseg.com"],
     ["META", "meta.com"],
     ["MSFT", "microsoft.com"],
     ["NVDA", "nvidia.com"],
@@ -43,12 +50,8 @@ const logoDomains = new Map(
 const logoCache = new Map();
 const logoCacheTtlMs = 7 * 24 * 60 * 60 * 1000;
 
-export function normalizeTicker(value) {
-  return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.-]/g, "");
-}
-
 export function canonicalTicker(value) {
-  const ticker = normalizeTicker(value);
+  const ticker = portfolioDisplayTicker(value) || normalizeTicker(value);
   if (!ticker) return "";
   if (/^[A-Z]{1,5}\d{6}[CP]\d+/.test(ticker)) return ticker.slice(0, ticker.search(/\d/));
   return ticker.replace(/\.(L|LN|US|N|O|A)$/i, "");

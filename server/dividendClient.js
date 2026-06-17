@@ -12,6 +12,11 @@ import {
   logoUrlForTicker,
   normalizeTicker
 } from "./logoClient.js";
+import {
+  isSterlingCurrency as isSterlingCurrencyAlias,
+  londonMarketTicker,
+  portfolioDisplayTicker
+} from "./tickerAliases.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const dividendJobId = "portfolio_dividend_calendar";
@@ -21,7 +26,7 @@ const yahooTickerOverrides = new Map([
   ["AZNL", "AZN.L"],
   ["LSEGL", "LSEG.L"]
 ]);
-const londonDividendTickers = new Set(["AZN", "AZNL", "LSEG", "LSEGL"]);
+const londonDividendTickers = new Set(["AZN", "AZNL", "AZN.L", "LSEG", "LSEGL", "LSEG.L"]);
 
 let dividendCalendarRefresherStarted = false;
 let refreshInFlight = null;
@@ -101,23 +106,25 @@ function normalizeTickerInputs(items = []) {
       ? item
       : item?.ticker || item?.symbol || item?.underlyingSymbol;
     const normalizedRawTicker = normalizeTicker(rawTicker);
-    const ticker = canonicalTicker(rawTicker) || normalizeTicker(rawTicker);
-    if (!ticker || ticker === "N/A" || ticker.startsWith("CASH")) continue;
     const assetClass = typeof item === "string"
       ? ""
       : String(item?.sector || item?.assetCategory || item?.category || item?.type || "").toLowerCase();
-    if (/option|^opt$|future|futures|cash|forex|currency/.test(assetClass)) continue;
     const companyName = typeof item === "string"
-      ? ticker
-      : String(item?.companyName || item?.name || item?.description || ticker).trim();
+      ? normalizedRawTicker
+      : String(item?.companyName || item?.name || item?.description || normalizedRawTicker).trim();
+    const currency = typeof item === "string" ? "USD" : String(item?.currency || "USD").trim() || "USD";
+    const displayTicker = portfolioDisplayTicker(rawTicker, { currency, companyName });
+    const ticker = canonicalTicker(displayTicker || rawTicker) || normalizeTicker(displayTicker || rawTicker);
+    if (!ticker || ticker === "N/A" || ticker.startsWith("CASH")) continue;
+    if (/option|^opt$|future|futures|cash|forex|currency/.test(assetClass)) continue;
     const quantity = typeof item === "string" ? 0 : safeHoldingQuantity(item);
     const price = typeof item === "string" ? 0 : finiteNumber(item?.price ?? item?.markPrice, 0);
     const fxRateToBase = typeof item === "string" ? 1 : finiteNumber(item?.fxRateToBase ?? item?.fxRate, 1);
-    const currency = typeof item === "string" ? "USD" : String(item?.currency || "USD").trim() || "USD";
     const baseCurrency = typeof item === "string" ? "USD" : String(item?.baseCurrency || "USD").trim() || "USD";
     const londonListed =
+      displayTicker.endsWith(".L") ||
       normalizedRawTicker.endsWith(".L") ||
-      currency.toUpperCase() === "GBP" ||
+      isSterlingCurrency(currency) ||
       isLondonDividendTicker(ticker);
     const value = typeof item === "string"
       ? 0
@@ -186,7 +193,7 @@ function yahooTicker(ticker, { londonListed = false } = {}) {
   const normalized = normalizeTicker(ticker);
   const override = yahooTickerOverrides.get(normalized);
   if (override) return override;
-  if (londonListed && normalized && !normalized.endsWith(".L")) return `${normalized}.L`;
+  if (londonListed && normalized) return londonMarketTicker(normalized, { currency: "GBP" });
   return String(normalized || ticker || "").replace(/\./g, "-");
 }
 
@@ -203,9 +210,7 @@ function isPenceCurrency(currency) {
 }
 
 function isSterlingCurrency(currency) {
-  const raw = String(currency || "").trim();
-  const compact = raw.replace(/[^A-Za-z]/g, "").toUpperCase();
-  return compact === "GBP" || isPenceCurrency(raw);
+  return isSterlingCurrencyAlias(currency) || isPenceCurrency(currency);
 }
 
 function isLondonDividendTicker(ticker) {

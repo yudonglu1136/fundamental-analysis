@@ -8,6 +8,14 @@ import { readDividendCalendarForTickers } from "./dividendClient.js";
 import { canonicalTicker, logoUrlForTicker } from "./logoClient.js";
 import { loadValuationDashboard } from "./valuationClient.js";
 import {
+  isSterlingCurrency,
+  marketTickerCandidates,
+  normalizeTicker,
+  portfolioDisplayTicker,
+  valuationLookupKeysForSnapshot,
+  valuationTickerCandidates
+} from "./tickerAliases.js";
+import {
   markPortfolioConnectionSync,
   portfolioConnectionAccounts,
   readPortfolioConnection,
@@ -228,10 +236,6 @@ function portfolioSample() {
   }));
 }
 
-function normalizeTicker(value) {
-  return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.-]/g, "");
-}
-
 function addDays(date, days) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
@@ -324,18 +328,39 @@ function valuationLabel(gap) {
 function valuationMapFromDashboard(dashboard) {
   const map = new Map();
   for (const row of dashboard?.tickers || []) {
-    const ticker = normalizeTicker(row.ticker || row.key);
-    if (!ticker) continue;
-    map.set(ticker, row);
-    if (row.key) map.set(normalizeTicker(row.key), row);
+    for (const key of valuationLookupKeysForSnapshot(row)) {
+      map.set(key, row);
+    }
+    if (row.key) {
+      for (const key of valuationTickerCandidates(row.key, {
+        currency: row.currency,
+        companyName: row.companyName || row.name
+      })) {
+        map.set(key, row);
+      }
+    }
   }
   return map;
 }
 
-function portfolioPriceSymbol(ticker) {
-  const normalized = normalizeTicker(ticker);
-  if (!normalized || normalized.startsWith("CASH")) return "";
-  return normalized;
+function portfolioPriceSymbols(holding = {}) {
+  const normalized = normalizeTicker(holding.ticker);
+  if (!normalized || normalized.startsWith("CASH")) return [];
+  return marketTickerCandidates(normalized, {
+    currency: holding.currency,
+    companyName: holding.name || holding.companyName
+  });
+}
+
+function valuationForHolding(valuationMap, holding = {}) {
+  for (const candidate of valuationTickerCandidates(holding.ticker, {
+    currency: holding.currency,
+    companyName: holding.name || holding.companyName
+  })) {
+    const valuation = valuationMap.get(candidate);
+    if (valuation) return valuation;
+  }
+  return null;
 }
 
 function buildValuationOverlay(holding, valuationRow) {
@@ -417,9 +442,17 @@ async function attachPortfolioAnalytics(payload) {
 
     for (const holding of investableHoldings) {
       const ticker = normalizeTicker(holding.ticker);
-      const valuation = buildValuationOverlay(holding, valuationMap.get(ticker));
-      const priceSymbol = portfolioPriceSymbol(ticker);
-      const pricePoints = priceSymbol ? readPriceSeriesFromDb(priceSymbol, start, end) : [];
+      const valuation = buildValuationOverlay(holding, valuationForHolding(valuationMap, holding));
+      let priceSymbol = "";
+      let pricePoints = [];
+      for (const candidate of portfolioPriceSymbols(holding)) {
+        const candidatePoints = readPriceSeriesFromDb(candidate, start, end);
+        if (candidatePoints.length > pricePoints.length) {
+          priceSymbol = candidate;
+          pricePoints = candidatePoints;
+        }
+        if (candidatePoints.length >= 120) break;
+      }
       const { map, returns } = dailyReturnMap(pricePoints);
       const trailingReturn = trailingReturnFromPoints(pricePoints);
       const volatility = annualizedVolatility(returns);
@@ -485,7 +518,7 @@ async function attachPortfolioAnalytics(payload) {
       if (!analytics) {
         return {
           ...holding,
-          valuation: buildValuationOverlay(holding, valuationMap.get(ticker)),
+          valuation: buildValuationOverlay(holding, valuationForHolding(valuationMap, holding)),
           analytics: null
         };
       }
@@ -573,12 +606,11 @@ async function attachPortfolioAnalytics(payload) {
 
 function isLondonPortfolioTicker(value) {
   const ticker = normalizeTicker(value);
-  return ticker === "AZN" || ticker === "AZNL" || ticker === "LSEG" || ticker === "LSEGL" || ticker.endsWith(".L");
+  return marketTickerCandidates(ticker).some((candidate) => candidate.endsWith(".L"));
 }
 
 function isSterlingPortfolioCurrency(value) {
-  const compact = textValue(value, "").replace(/[^A-Za-z]/g, "").toUpperCase();
-  return compact === "GBP" || compact === "GBX" || compact === "GBPENCE" || compact === "PENCE" || compact === "PENNY";
+  return isSterlingCurrency(value);
 }
 
 function asArray(value) {
@@ -638,15 +670,19 @@ function normalizeYodleeHolding(holding) {
     quantity * price
   );
   const costBasis = finiteNumber(holding.costBasis?.amount ?? holding.costBasis);
+  const rawTicker = security.symbol || holding.symbol || holding.ticker;
+  const currency = String(holding.currency || security.currency || "USD").trim() || "USD";
+  const companyName = security.description || security.name || holding.description || holding.name || "Security";
   return {
-    ticker: normalizeTicker(security.symbol || holding.symbol || holding.ticker),
-    name: security.description || security.name || holding.description || holding.name || "Security",
+    ticker: portfolioDisplayTicker(rawTicker, { currency, companyName }),
+    name: companyName,
     sector: security.sector || holding.sector || "Unclassified",
     quantity,
     price,
     value,
     costBasis,
     unrealizedPnl: costBasis ? value - costBasis : finiteNumber(holding.unrealizedPnl),
+    currency,
     dayChange: finiteNumber(holding.dayChangePercent ?? holding.changePercent)
   };
 }
@@ -843,10 +879,13 @@ function normalizeIbkrPosition(row) {
     rawSymbol
   );
   if (!symbol) return null;
+  const name = textValue(pick(row, ["description", "name", "issuer"], symbol), symbol);
+  const currency = textValue(pick(row, ["currency", "currencyPrimary"], "USD"), "USD");
+  const displayTicker = portfolioDisplayTicker(symbol, { currency, companyName: name });
   const underlyingTicker = normalizeTicker(
     pick(row, ["underlyingSymbol", "underlying", "rootSymbol"], "")
   );
-  const logoTicker = underlyingTicker || canonicalTicker(symbol) || symbol;
+  const logoTicker = underlyingTicker || canonicalTicker(displayTicker) || displayTicker || symbol;
   const quantity = finiteNumber(pick(row, ["quantity", "position", "shares", "units"]));
   const price = finiteNumber(pick(row, ["markPrice", "price", "closePrice", "reportDatePrice"]));
   const fxRateToBase = finiteNumber(pick(row, ["fxRateToBase", "fxRate"], 1), 1);
@@ -865,8 +904,8 @@ function normalizeIbkrPosition(row) {
   const costBasis = localCostBasis * fxRateToBase;
   const unrealizedPnl = localUnrealizedPnl * fxRateToBase;
   return {
-    ticker: symbol,
-    name: textValue(pick(row, ["description", "name", "issuer"], symbol), symbol),
+    ticker: displayTicker,
+    name,
     sector: assetCategory,
     quantity,
     price,
@@ -874,8 +913,8 @@ function normalizeIbkrPosition(row) {
     costBasis,
     unrealizedPnl,
     fxRateToBase,
-    currency: textValue(pick(row, ["currency", "currencyPrimary"], "USD"), "USD"),
-    logoUrl: logoUrlForTicker(logoTicker, pick(row, ["description", "name", "issuer"], symbol)),
+    currency,
+    logoUrl: logoUrlForTicker(logoTicker, name),
     dayChange: 0
   };
 }
@@ -1355,11 +1394,15 @@ function normalizePortfolio({
   const normalizedHoldings = holdings
     .map((holding) => {
       const cleanQuantity = safeHoldingQuantity(holding);
+      const displayTicker = portfolioDisplayTicker(holding.ticker, {
+        currency: holding.currency,
+        companyName: holding.name || holding.companyName
+      }) || "N/A";
       return {
         ...holding,
         quantity: cleanQuantity,
-        ticker: normalizeTicker(holding.ticker) || "N/A",
-        logoUrl: holding.logoUrl || logoUrlForTicker(holding.ticker, holding.name),
+        ticker: displayTicker,
+        logoUrl: holding.logoUrl || logoUrlForTicker(displayTicker, holding.name),
         weight: totalValue > 0 ? finiteNumber(holding.value) / totalValue : 0
       };
     })

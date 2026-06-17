@@ -1,5 +1,6 @@
 import { databaseInfo, readValuationSnapshot, readValuationTickerSnapshot } from "./localDatabase.js";
 import { applyAznValuationOverlay } from "./aznValuationOverlay.js";
+import { normalizeTicker, valuationLookupKeysForSnapshot, valuationTickerCandidates } from "./tickerAliases.js";
 import fs from "node:fs";
 
 const dashboardCache = {
@@ -167,7 +168,7 @@ export async function loadValuationDashboard() {
 }
 
 export async function loadValuationTicker(ticker, options = {}) {
-  const normalized = String(ticker || "").trim().toUpperCase();
+  const normalized = normalizeTicker(ticker);
   const pricePoints = Math.max(120, Math.min(5000, Number(options.pricePoints) || 900));
   const dbMtimeMs = databaseMtimeMs();
   const cacheKey = `${normalized}:${pricePoints}:${dbMtimeMs}`;
@@ -177,7 +178,15 @@ export async function loadValuationTicker(ticker, options = {}) {
   for (const key of tickerCache.keys()) {
     if (!key.endsWith(`:${dbMtimeMs}`)) tickerCache.delete(key);
   }
-  const tickerSnapshot = readValuationTickerSnapshot(normalized);
+  let tickerSnapshot = null;
+  let resolvedTicker = normalized;
+  for (const candidate of valuationTickerCandidates(normalized)) {
+    tickerSnapshot = readValuationTickerSnapshot(candidate);
+    if (tickerSnapshot) {
+      resolvedTicker = candidate;
+      break;
+    }
+  }
   if (tickerSnapshot) {
     const ticker = compactTickerDetail(applyAznValuationOverlay(tickerSnapshot), { pricePoints });
     const payload = {
@@ -191,11 +200,16 @@ export async function loadValuationTicker(ticker, options = {}) {
       cache: { status: "local-db", source: "sqlite" }
     };
     tickerCache.set(cacheKey, payload);
+    if (resolvedTicker !== normalized) tickerCache.set(`${resolvedTicker}:${pricePoints}:${dbMtimeMs}`, payload);
     return payload;
   }
 
   const dashboard = await loadValuationDashboard();
-  const fromDashboard = (dashboard.tickers || []).find((item) => item.ticker === normalized || item.key === normalized);
+  const candidates = valuationTickerCandidates(normalized);
+  const fromDashboard = (dashboard.tickers || []).find((item) => {
+    const itemKeys = valuationLookupKeysForSnapshot(item);
+    return candidates.some((candidate) => itemKeys.includes(candidate));
+  });
   if (!fromDashboard) {
     throw new Error(`Valuation ticker not found: ${ticker}`);
   }
