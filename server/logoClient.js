@@ -5,6 +5,7 @@ export { normalizeTicker };
 const logoDomains = new Map(
   [
     ["AAPL", "apple.com"],
+    ["AAOI", "ao-inc.com"],
     ["AB", "alliancebernstein.com"],
     ["AKAM", "akamai.com"],
     ["AMZN", "amazon.com"],
@@ -31,6 +32,7 @@ const logoDomains = new Map(
     ["LSEG.L", "lseg.com"],
     ["META", "meta.com"],
     ["MSFT", "microsoft.com"],
+    ["MRVL", "marvell.com"],
     ["NVDA", "nvidia.com"],
     ["OXY", "oxy.com"],
     ["PANW", "paloaltonetworks.com"],
@@ -38,6 +40,7 @@ const logoDomains = new Map(
     ["QSR", "rbi.com"],
     ["RBLX", "roblox.com"],
     ["SE", "sea.com"],
+    ["SNDK", "sandisk.com"],
     ["SPCX", "spacex.com"],
     ["TEM", "tempus.com"],
     ["TSM", "tsmc.com"],

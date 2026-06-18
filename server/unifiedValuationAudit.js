@@ -11,6 +11,7 @@ const GOOGLE_FINANCE_URL = "https://www.google.com/finance/quote/{symbol}:{excha
 
 const GOOGLE_FINANCE_LISTINGS = {
   AAPL: ["AAPL", "NASDAQ"],
+  AAOI: ["AAOI", "NASDAQ"],
   AMZN: ["AMZN", "NASDAQ"],
   ANET: ["ANET", "NYSE"],
   ASML: ["ASML", "NASDAQ"],
@@ -47,6 +48,7 @@ const GOOGLE_FINANCE_LISTINGS = {
   PLTR: ["PLTR", "NASDAQ"],
   QCOM: ["QCOM", "NASDAQ"],
   RTX: ["RTX", "NYSE"],
+  SNDK: ["SNDK", "NASDAQ"],
   TEM: ["TEM", "NASDAQ"],
   TRI: ["TRI", "NYSE"],
   TRV: ["TRV", "NYSE"],

@@ -106,6 +106,7 @@ const TRINITY_TO_DASHBOARD_TICKER = {
 
 const VALUATION_PROFILES = {
   AAPL: "mega_cap_platform",
+  AAOI: "optical_networking_turnaround",
   AMZN: "platform_reinvestment",
   ANET: "networking_hardware",
   ASML: "semiconductor_equipment",
@@ -147,6 +148,7 @@ const VALUATION_PROFILES = {
   RKLB: "space_launch_growth",
   RTX: "defense_prime",
   SE: "platform_marketplace_reinvestment",
+  SNDK: "semiconductor_storage_cycle",
   SPCX: "space_platform_ipo",
   TEM: "emerging_health_ai",
   TRI: "information_services",
@@ -403,6 +405,27 @@ function inferFiscalYearEnd(facts) {
 function fiscalPeriodFromEnd(endDate, fiscalYearEnd) {
   const [calendarYear, month, day] = String(endDate || "").split("-").map(Number);
   if (!calendarYear || !month || !day) return null;
+  const rowEnd = dateUtc(endDate);
+  let nearest = null;
+  if (rowEnd != null) {
+    for (const candidateYear of [calendarYear - 1, calendarYear, calendarYear + 1]) {
+      for (const fiscalQuarter of ["Q1", "Q2", "Q3", "Q4"]) {
+        const expectedEnd = expectedFiscalPeriodEndDate(candidateYear, fiscalQuarter, fiscalYearEnd);
+        if (expectedEnd == null) continue;
+        const diffDays = Math.abs(rowEnd - expectedEnd) / 86_400_000;
+        if (diffDays > 45) continue;
+        if (!nearest || diffDays < nearest.diffDays) {
+          nearest = { fiscalYear: candidateYear, fiscalQuarter, diffDays };
+        }
+      }
+    }
+  }
+  if (nearest) {
+    return {
+      fiscalYear: nearest.fiscalYear,
+      fiscalQuarter: nearest.fiscalQuarter
+    };
+  }
   const fiscalYear = (month > fiscalYearEnd.month || (month === fiscalYearEnd.month && day > fiscalYearEnd.day))
     ? calendarYear + 1
     : calendarYear;
@@ -1216,6 +1239,36 @@ const PROFILE_SETTINGS = {
     fcfWeight: 0.25,
     cycleHaircut: 0.95
   },
+  semiconductor_storage_cycle: {
+    label: "Storage semiconductor cycle",
+    method: "NAND/storage cycle EV/sales + normalized earnings path",
+    allowLossMakingStage: true,
+    forwardRevenueYears: 0.75,
+    forwardFcfScaleCap: 1.35,
+    forwardScaleCap: 1.6,
+    normalizedGrowthWindow: 6,
+    normalizedGrowthCapPct: 85,
+    peRange: [12, 30],
+    peBase: 17,
+    peGrowthCoefficient: 0.18,
+    peMarginCoefficient: 0.11,
+    fcfYieldRange: [0.04, 0.095],
+    fcfYieldBase: 0.062,
+    fcfYieldGrowthCoefficient: 0.0002,
+    fcfYieldMarginCoefficient: 0.00012,
+    evSalesRange: [1.0, 8.0],
+    evSalesBase: 2.2,
+    evSalesGrowthCoefficient: 0.08,
+    evSalesGrossMarginCoefficient: 0.028,
+    evSalesFcfMarginCoefficient: 0.02,
+    targetMargin: 0.2,
+    marginActualWeight: 0.42,
+    fcfWeight: 0.16,
+    salesWeight: 0.58,
+    earningsWeight: 0.26,
+    defaultGrossMarginPct: 38,
+    cycleHaircut: 0.9
+  },
   semiconductor_value: {
     label: "Semiconductor value",
     method: "Normalized EPS + FCF yield",
@@ -1257,6 +1310,36 @@ const PROFILE_SETTINGS = {
     fcfYieldBase: 0.045,
     targetMargin: 0.32,
     fcfWeight: 0.36
+  },
+  optical_networking_turnaround: {
+    label: "Optical networking turnaround",
+    method: "AI optical networking EV/sales + normalized margin path",
+    allowLossMakingStage: true,
+    forwardRevenueYears: 1,
+    forwardFcfScaleCap: 1.25,
+    forwardScaleCap: 1.75,
+    normalizedGrowthWindow: 6,
+    normalizedGrowthCapPct: 70,
+    peRange: [18, 42],
+    peBase: 24,
+    peGrowthCoefficient: 0.24,
+    peMarginCoefficient: 0.12,
+    fcfYieldRange: [0.04, 0.095],
+    fcfYieldBase: 0.064,
+    fcfYieldGrowthCoefficient: 0.00022,
+    fcfYieldMarginCoefficient: 0.00012,
+    evSalesRange: [1.5, 12.0],
+    evSalesBase: 3.6,
+    evSalesGrowthCoefficient: 0.10,
+    evSalesGrossMarginCoefficient: 0.035,
+    evSalesFcfMarginCoefficient: 0.025,
+    targetMargin: 0.16,
+    marginActualWeight: 0.45,
+    fcfWeight: 0.10,
+    salesWeight: 0.64,
+    earningsWeight: 0.26,
+    defaultGrossMarginPct: 34,
+    cycleHaircut: 0.92
   },
   bank: {
     label: "Large-cap bank",
@@ -2094,6 +2177,8 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
     "space_platform_ipo",
     "genetic_diagnostics_growth",
     "semiconductor_growth",
+    "semiconductor_storage_cycle",
+    "optical_networking_turnaround",
     "energy_technology",
     "ev_autonomy_platform",
     "platform_marketplace_reinvestment"
