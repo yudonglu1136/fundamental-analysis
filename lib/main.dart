@@ -281,8 +281,9 @@ class TerminalHome extends StatefulWidget {
   State<TerminalHome> createState() => _TerminalHomeState();
 }
 
-class _TerminalHomeState extends State<TerminalHome> {
-  late final ApiClient _api = ApiClient(widget.accessToken);
+class _TerminalHomeState extends State<TerminalHome>
+    with WidgetsBindingObserver {
+  late final ApiClient _api = ApiClient(() => widget.accessToken);
   Map<String, dynamic>? _guruPayload;
   Map<String, dynamic>? _dbmfPayload;
   Map<String, dynamic>? _portfolioPayload;
@@ -299,7 +300,9 @@ class _TerminalHomeState extends State<TerminalHome> {
   String _guruQuarterId = '';
   String _valuationTicker = '';
   String? _error;
+  String? _secondaryError;
   bool _colorBlind = false;
+  Timer? _secondaryRecoveryTimer;
 
   Palette get palette => Palette(_colorBlind);
   bool get _adminEnabled => isAdminEmail(widget.userEmail);
@@ -307,6 +310,11 @@ class _TerminalHomeState extends State<TerminalHome> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _secondaryRecoveryTimer = Timer.periodic(
+      const Duration(minutes: 2),
+      (_) => _recoverSecondaryIfNeeded(),
+    );
     final route = readBrowserQuery();
     _mode = normalizeRouteMode(route['view'] ?? route['mode']);
     if (_mode == 'admin' && !_adminEnabled) _mode = 'guru';
@@ -321,6 +329,28 @@ class _TerminalHomeState extends State<TerminalHome> {
     }
   }
 
+  @override
+  void didUpdateWidget(covariant TerminalHome oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.accessToken != widget.accessToken) {
+      _recoverSecondaryIfNeeded(forceWhenEmpty: true);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _recoverSecondaryIfNeeded(forceWhenEmpty: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _secondaryRecoveryTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
   Future<void> _loadGurus({bool refresh = false}) async {
     setState(() {
       _loadingGurus = true;
@@ -331,6 +361,7 @@ class _TerminalHomeState extends State<TerminalHome> {
         '/api/gurus${refresh ? '?refresh=1' : ''}',
       );
       final gurus = asList(payload['gurus']);
+      if (!mounted) return;
       setState(() {
         _guruPayload = payload;
         final selectedExists = gurus.any(
@@ -342,9 +373,24 @@ class _TerminalHomeState extends State<TerminalHome> {
       });
       _persistRouteState();
     } catch (error) {
-      setState(() => _error = error.toString());
+      if (mounted) setState(() => _error = error.toString());
     } finally {
       if (mounted) setState(() => _loadingGurus = false);
+    }
+  }
+
+  Map<String, dynamic>? _secondaryPayloadFor(String mode) => switch (mode) {
+    'dbmf' => _dbmfPayload,
+    'portfolio' => _portfolioPayload,
+    'admin' => _adminPayload,
+    _ => _valuationPayload,
+  };
+
+  void _recoverSecondaryIfNeeded({bool forceWhenEmpty = false}) {
+    if (!mounted || _mode == 'guru' || _loadingSecondary) return;
+    final payload = _secondaryPayloadFor(_mode);
+    if (payload == null || _secondaryError != null || forceWhenEmpty) {
+      unawaited(_loadSecondary(_mode, refresh: payload != null));
     }
   }
 
@@ -354,7 +400,10 @@ class _TerminalHomeState extends State<TerminalHome> {
     if (!refresh && mode == 'valuation' && _valuationPayload != null) return;
     if (!refresh && mode == 'admin' && _adminPayload != null) return;
     if (mode == 'admin' && !_adminEnabled) return;
-    setState(() => _loadingSecondary = true);
+    setState(() {
+      _loadingSecondary = true;
+      _secondaryError = null;
+    });
     try {
       final basePath = switch (mode) {
         'dbmf' => '/api/dbmf',
@@ -364,14 +413,18 @@ class _TerminalHomeState extends State<TerminalHome> {
       };
       final path = refresh ? '$basePath?refresh=1' : basePath;
       final payload = await _api.getJson(path);
+      if (!mounted) return;
       setState(() {
         if (mode == 'dbmf') _dbmfPayload = payload;
         if (mode == 'portfolio') _portfolioPayload = payload;
         if (mode == 'valuation') _valuationPayload = payload;
         if (mode == 'admin') _adminPayload = payload;
+        _secondaryError = null;
       });
     } catch (error) {
-      setState(() => _error = error.toString());
+      if (mounted) {
+        setState(() => _secondaryError = error.toString());
+      }
     } finally {
       if (mounted) setState(() => _loadingSecondary = false);
     }
@@ -379,7 +432,10 @@ class _TerminalHomeState extends State<TerminalHome> {
 
   void _changeMode(String mode) {
     if (mode == 'admin' && !_adminEnabled) return;
-    setState(() => _mode = mode);
+    setState(() {
+      _mode = mode;
+      _secondaryError = null;
+    });
     _persistRouteState();
     if (mode != 'guru') unawaited(_loadSecondary(mode));
   }
@@ -453,6 +509,7 @@ class _TerminalHomeState extends State<TerminalHome> {
                           _ => _valuationPayload,
                         },
                         loading: _loadingSecondary,
+                        error: _secondaryError,
                         palette: palette,
                         onRefresh: () => _loadSecondary(_mode, refresh: true),
                         initialValuationTicker: _valuationTicker,
@@ -7047,6 +7104,7 @@ class SecondaryDashboard extends StatelessWidget {
     required this.api,
     required this.data,
     required this.loading,
+    required this.error,
     required this.palette,
     required this.onRefresh,
     required this.initialValuationTicker,
@@ -7057,6 +7115,7 @@ class SecondaryDashboard extends StatelessWidget {
   final ApiClient api;
   final Map<String, dynamic>? data;
   final bool loading;
+  final String? error;
   final Palette palette;
   final Future<void> Function() onRefresh;
   final String initialValuationTicker;
@@ -7080,10 +7139,15 @@ class SecondaryDashboard extends StatelessWidget {
           else if (data == null)
             Panel(
               palette: palette,
-              child: EmptyState(
-                text: 'Data has not loaded yet.',
-                palette: palette,
-              ),
+              child: error == null
+                  ? EmptyState(
+                      text: 'Data has not loaded yet.',
+                      palette: palette,
+                    )
+                  : ErrorCard(
+                      message: error!.replaceFirst('Exception: ', ''),
+                      onRetry: () => unawaited(onRefresh()),
+                    ),
             )
           else
             switch (mode) {
@@ -16887,20 +16951,47 @@ class ValuationSourceNote extends StatelessWidget {
 }
 
 class ApiClient {
-  ApiClient(this.accessToken);
+  ApiClient(this._accessTokenProvider);
 
-  final String accessToken;
+  final String Function() _accessTokenProvider;
 
-  Map<String, String> get _headers => {
-    'authorization': 'Bearer $accessToken',
+  String get accessToken {
+    if (_authConfigured && _supabaseReady) {
+      final token = Supabase.instance.client.auth.currentSession?.accessToken;
+      if (token != null && token.isNotEmpty) return token;
+    }
+    return _accessTokenProvider();
+  }
+
+  Map<String, String> _headersFor(String token) => {
+    'authorization': 'Bearer $token',
     'content-type': 'application/json',
   };
 
+  Future<http.Response> _sendWithAuthRetry(
+    Future<http.Response> Function(String token) send,
+  ) async {
+    var response = await send(accessToken);
+    if (response.statusCode == 401 && await _refreshSession()) {
+      response = await send(accessToken);
+    }
+    return response;
+  }
+
+  Future<bool> _refreshSession() async {
+    if (!_authConfigured || !_supabaseReady) return false;
+    try {
+      final response = await Supabase.instance.client.auth.refreshSession();
+      return response.session?.accessToken.isNotEmpty == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<Map<String, dynamic>> getJson(String path) async {
     final uri = apiUri(path);
-    final response = await http.get(
-      uri,
-      headers: {'authorization': 'Bearer $accessToken'},
+    final response = await _sendWithAuthRetry(
+      (token) => http.get(uri, headers: {'authorization': 'Bearer $token'}),
     );
     return _decodeObject(response);
   }
@@ -16909,16 +17000,20 @@ class ApiClient {
     String path,
     Map<String, dynamic> body,
   ) async {
-    final response = await http.post(
-      apiUri(path),
-      headers: _headers,
-      body: jsonEncode(body),
+    final response = await _sendWithAuthRetry(
+      (token) => http.post(
+        apiUri(path),
+        headers: _headersFor(token),
+        body: jsonEncode(body),
+      ),
     );
     return _decodeObject(response);
   }
 
   Future<Map<String, dynamic>> deleteJson(String path) async {
-    final response = await http.delete(apiUri(path), headers: _headers);
+    final response = await _sendWithAuthRetry(
+      (token) => http.delete(apiUri(path), headers: _headersFor(token)),
+    );
     return _decodeObject(response);
   }
 
