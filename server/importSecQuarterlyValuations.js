@@ -120,6 +120,7 @@ const VALUATION_PROFILES = {
   CB: "insurance",
   CEG: "power_utility",
   COST: "quality_consumer",
+  CRM: "software_growth",
   DDOG: "software_growth",
   EQT: "energy_e_and_p",
   GILD: "biopharma",
@@ -141,6 +142,7 @@ const VALUATION_PROFILES = {
   MU: "semiconductor_cyclical",
   NOC: "defense_prime",
   NOW: "software_growth",
+  NFLX: "subscription_streaming_platform",
   NTRA: "genetic_diagnostics_growth",
   NVDA: "semiconductor_growth",
   PLTR: "hypergrowth_ai_software",
@@ -1134,6 +1136,34 @@ const PROFILE_SETTINGS = {
     earningsWeight: 0.30,
     fcfWeight: 0.22,
     defaultGrossMarginPct: 42
+  },
+  subscription_streaming_platform: {
+    label: "Subscription streaming platform",
+    method: "Paid-membership media platform EV/sales + normalized earnings + FCF yield",
+    forwardRevenueYears: 1,
+    forwardFcfScaleCap: 1.45,
+    normalizedGrowthWindow: 8,
+    normalizedGrowthCapPct: 40,
+    peRange: [24, 48],
+    peBase: 31,
+    peGrowthCoefficient: 0.24,
+    peMarginCoefficient: 0.18,
+    fcfYieldRange: [0.026, 0.058],
+    fcfYieldBase: 0.038,
+    fcfYieldGrowthCoefficient: 0.00022,
+    fcfYieldMarginCoefficient: 0.00016,
+    evSalesRange: [4.0, 13.0],
+    evSalesBase: 6.2,
+    evSalesGrowthCoefficient: 0.11,
+    evSalesGrossMarginCoefficient: 0.04,
+    evSalesFcfMarginCoefficient: 0.035,
+    targetMargin: 0.28,
+    marginActualWeight: 0.52,
+    fcfWeight: 0.34,
+    salesWeight: 0.34,
+    earningsWeight: 0.32,
+    defaultGrossMarginPct: 43,
+    maintenanceCapexIntensityPct: 0.05
   },
   payments_network: {
     label: "Payments network",
@@ -2181,7 +2211,8 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
     "optical_networking_turnaround",
     "energy_technology",
     "ev_autonomy_platform",
-    "platform_marketplace_reinvestment"
+    "platform_marketplace_reinvestment",
+    "subscription_streaming_platform"
   ].includes(settings.profile)) {
     return buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence });
   }
