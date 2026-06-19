@@ -30,8 +30,18 @@ const TAGS = {
     "Revenue"
   ],
   gross_profit_m: ["GrossProfit"],
-  operating_income_m: ["OperatingIncomeLoss", "ProfitLossFromOperatingActivities"],
-  net_income_m: ["NetIncomeLoss", "ProfitLoss"],
+  operating_income_m: [
+    "OperatingIncomeLoss",
+    "ProfitLossFromOperatingActivities",
+    "OperatingProfitLossOperating"
+  ],
+  net_income_m: [
+    "NetIncomeLoss",
+    "NetIncomeLossAvailableToCommonStockholdersBasic",
+    "ProfitLoss",
+    "ProfitLossAttributableToOwnersOfParent",
+    "ProfitLossAttributableToOrdinaryEquityHoldersOfParentEntity"
+  ],
   cfo_m: ["NetCashProvidedByUsedInOperatingActivities", "CashFlowsFromUsedInOperatingActivities"],
   capex_m: [
     "PaymentsToAcquirePropertyPlantAndEquipment",
@@ -42,7 +52,10 @@ const TAGS = {
 const SHARE_TAGS = [
   "WeightedAverageNumberOfDilutedSharesOutstanding",
   "WeightedAverageNumberOfSharesOutstandingBasic",
-  "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"
+  "WeightedAverageNumberOfShareOutstandingBasicAndDiluted",
+  "WeightedAverageShares",
+  "AdjustedWeightedAverageShares",
+  "DilutedWeightedAverageShares"
 ];
 
 const SHARE_POINT_TAGS = [
@@ -55,7 +68,9 @@ const POINT_TAGS = {
   equity_m: [
     "StockholdersEquity",
     "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
-    "PartnersCapital"
+    "PartnersCapital",
+    "Equity",
+    "EquityAttributableToOwnersOfParent"
   ],
   assets_m: ["Assets"],
   cash_m: [
@@ -97,7 +112,8 @@ const DEBT_COMPONENT_TAGS = [
   "LongTermDebt",
   "CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings",
   "CurrentPortionOfLongtermBorrowings",
-  "LongtermBorrowings"
+  "LongtermBorrowings",
+  "NoncurrentPortionOfOtherNoncurrentBorrowings"
 ];
 
 const TRINITY_TO_DASHBOARD_TICKER = {
@@ -107,35 +123,86 @@ const TRINITY_TO_DASHBOARD_TICKER = {
 const VALUATION_PROFILES = {
   AAPL: "mega_cap_platform",
   AAOI: "optical_networking_turnaround",
+  ABNB: "platform_marketplace_reinvestment",
+  ADBE: "software_growth",
+  ADI: "semiconductor_value",
+  ADP: "information_services",
+  ADSK: "software_growth",
+  AEP: "power_utility",
+  ALNY: "emerging_biotech",
   AMZN: "platform_reinvestment",
+  AMAT: "semiconductor_equipment",
+  AMD: "semiconductor_growth",
+  AMGN: "biopharma",
   ANET: "networking_hardware",
+  APP: "hypergrowth_ai_software",
+  ARM: "semiconductor_growth",
   ASML: "semiconductor_equipment",
   AUTL: "emerging_biotech",
   AVAV: "defense_growth",
+  AVGO: "semiconductor_growth",
+  AXON: "defense_growth",
   AXP: "card_network_lender",
   AZN: "biopharma",
   BAC: "bank",
   BE: "energy_technology",
+  BKNG: "platform_marketplace_reinvestment",
+  BKR: "industrial_growth",
   BMY: "biopharma",
   CB: "insurance",
+  CCEP: "quality_consumer",
+  CDNS: "software_growth",
   CEG: "power_utility",
+  CHTR: "media_telecom",
+  CMCSA: "media_telecom",
   COST: "quality_consumer",
+  CPRT: "information_services",
   CRM: "software_growth",
+  CRWD: "software_growth",
+  CSCO: "networking_hardware",
+  CSX: "industrial_growth",
+  CTAS: "industrial_growth",
+  CTSH: "information_services",
+  DASH: "platform_marketplace_reinvestment",
   DDOG: "software_growth",
+  DXCM: "medtech_platform",
+  EA: "interactive_entertainment",
   EQT: "energy_e_and_p",
+  EXC: "power_utility",
+  FANG: "energy_e_and_p",
+  FAST: "industrial_growth",
+  FER: "industrial_growth",
+  FTNT: "software_growth",
+  GEHC: "medtech_platform",
   GILD: "biopharma",
   GOOGL: "ads_ai_platform",
+  HON: "industrial_growth",
+  IDXX: "medtech_platform",
+  INSM: "emerging_biotech",
+  INTC: "semiconductor_cyclical",
+  INTU: "software_growth",
   ISRG: "medtech_platform",
   JPM: "bank",
+  KDP: "quality_consumer",
+  KHC: "quality_consumer",
+  KLAC: "semiconductor_equipment",
   KTOS: "defense_growth",
   LEGN: "emerging_biotech",
+  LITE: "optical_networking_turnaround",
   LLY: "biopharma_growth",
   LIN: "industrial_gases_compounder",
   LMT: "defense_prime",
+  LRCX: "semiconductor_equipment",
   LSEG: "information_services",
   MA: "payments_network",
+  MAR: "quality_consumer",
   MCK: "healthcare_distribution",
+  MCHP: "semiconductor_value",
+  MDLZ: "quality_consumer",
+  MELI: "platform_marketplace_reinvestment",
   META: "mega_cap_platform",
+  MNST: "quality_consumer",
+  MPWR: "semiconductor_growth",
   MRVL: "semiconductor_growth",
   MSFT: "mega_cap_platform",
   MSTR: "bitcoin_treasury_software",
@@ -143,22 +210,54 @@ const VALUATION_PROFILES = {
   NOC: "defense_prime",
   NOW: "software_growth",
   NFLX: "subscription_streaming_platform",
+  NXPI: "semiconductor_value",
   NTRA: "genetic_diagnostics_growth",
   NVDA: "semiconductor_growth",
+  ODFL: "industrial_growth",
+  ORLY: "quality_consumer",
+  PANW: "software_growth",
+  PAYX: "information_services",
+  PCAR: "industrial_growth",
+  PEP: "quality_consumer",
+  PDD: "platform_marketplace_reinvestment",
   PLTR: "hypergrowth_ai_software",
+  PYPL: "payments_network",
   QCOM: "semiconductor_value",
+  REGN: "biopharma_growth",
   RKLB: "space_launch_growth",
+  ROP: "industrial_growth",
+  ROST: "quality_consumer",
   RTX: "defense_prime",
+  SBUX: "quality_consumer",
   SE: "platform_marketplace_reinvestment",
+  SHOP: "platform_marketplace_reinvestment",
   SNDK: "semiconductor_storage_cycle",
   SPCX: "space_platform_ipo",
+  STX: "semiconductor_storage_cycle",
+  SNPS: "software_growth",
   TEM: "emerging_health_ai",
+  TMUS: "media_telecom",
+  TTWO: "interactive_entertainment",
+  TXN: "semiconductor_value",
   TRI: "information_services",
   TRV: "insurance",
   TSLA: "ev_autonomy_platform",
   TSM: "semiconductor_foundry",
   UNH: "managed_care",
-  V: "payments_network"
+  V: "payments_network",
+  VRSK: "information_services",
+  VRTX: "biopharma_growth",
+  WBD: "media_telecom",
+  WDAY: "software_growth",
+  WDC: "semiconductor_storage_cycle",
+  WMT: "quality_consumer",
+  XEL: "power_utility",
+  ZS: "hypergrowth_ai_software"
+};
+
+const SEC_FACT_UNIT_OVERRIDES = {
+  CCEP: "EUR",
+  FER: "EUR"
 };
 
 const SHARE_COUNT_OVERRIDES = {
@@ -380,6 +479,10 @@ function unitsFor(facts, tag, unit = "USD") {
   return [];
 }
 
+function secFactUnitForTicker(ticker) {
+  return SEC_FACT_UNIT_OVERRIDES[String(ticker || "").toUpperCase()] || "USD";
+}
+
 function rowValueM(row) {
   const value = finiteNumber(row?.val);
   return value == null ? null : value / 1_000_000;
@@ -393,9 +496,9 @@ function shareValueM(row) {
   return value / 1_000_000;
 }
 
-function inferFiscalYearEnd(facts) {
+function inferFiscalYearEnd(facts, unit = "USD") {
   const annualRows = Object.values(TAGS).flat()
-    .flatMap((tag) => unitsFor(facts, tag, "USD"))
+    .flatMap((tag) => unitsFor(facts, tag, unit))
     .filter((row) => ["10-K", "20-F", "40-F"].includes(row?.form) && days(row) >= 300 && row.end)
     .sort((left, right) => String(left.end).localeCompare(String(right.end)) || String(left.filed).localeCompare(String(right.filed)));
   const latest = annualRows.at(-1);
@@ -720,9 +823,10 @@ function sumPointMaps(maps, key) {
   };
 }
 
-function buildDebtMetricMap(facts, fiscalYearEnd) {
-  const totalMap = buildPointMetricMap(facts, "debt_m", fiscalYearEnd, { tags: DEBT_TOTAL_TAGS });
-  const componentMaps = DEBT_COMPONENT_TAGS.map((tag) => buildPointMetricMap(facts, "debt_m", fiscalYearEnd, { tags: [tag] }));
+function buildDebtMetricMap(facts, fiscalYearEnd, options = {}) {
+  const unit = options.unit || "USD";
+  const totalMap = buildPointMetricMap(facts, "debt_m", fiscalYearEnd, { tags: DEBT_TOTAL_TAGS, unit });
+  const componentMaps = DEBT_COMPONENT_TAGS.map((tag) => buildPointMetricMap(facts, "debt_m", fiscalYearEnd, { tags: [tag], unit }));
   const keys = new Set([
     ...totalMap.keys(),
     ...componentMaps.flatMap((map) => [...map.keys()])
@@ -737,11 +841,18 @@ function buildDebtMetricMap(facts, fiscalYearEnd) {
   return debt;
 }
 
-function buildQuarterlyFinancials(facts) {
-  const fiscalYearEnd = inferFiscalYearEnd(facts);
-  const metricMaps = Object.fromEntries(Object.keys(TAGS).map((metric) => [metric, buildMetricQuarterMap(facts, metric, fiscalYearEnd)]));
-  const pointMaps = Object.fromEntries(Object.keys(POINT_TAGS).map((metric) => [metric, buildPointMetricMap(facts, metric, fiscalYearEnd)]));
-  const debtMap = buildDebtMetricMap(facts, fiscalYearEnd);
+function buildQuarterlyFinancials(facts, ticker = "") {
+  const financialStatementCurrency = secFactUnitForTicker(ticker);
+  const fiscalYearEnd = inferFiscalYearEnd(facts, financialStatementCurrency);
+  const metricMaps = Object.fromEntries(Object.keys(TAGS).map((metric) => [
+    metric,
+    buildMetricQuarterMap(facts, metric, fiscalYearEnd, { unit: financialStatementCurrency })
+  ]));
+  const pointMaps = Object.fromEntries(Object.keys(POINT_TAGS).map((metric) => [
+    metric,
+    buildPointMetricMap(facts, metric, fiscalYearEnd, { unit: financialStatementCurrency })
+  ]));
+  const debtMap = buildDebtMetricMap(facts, fiscalYearEnd, { unit: financialStatementCurrency });
   const sharesFlowMap = buildMetricQuarterMap(facts, "shares_m", fiscalYearEnd, {
     tags: SHARE_TAGS,
     unit: "shares",
@@ -829,6 +940,7 @@ function buildQuarterlyFinancials(facts) {
       label: `FY${fy} ${fp}`,
       asOfDate: coreFiledDates.at(-1) || filedDates.at(-1) || null,
       periodEndDate: endDates.at(-1) || null,
+      financialStatementCurrency,
       ...metricData,
       sources
     };
@@ -1615,6 +1727,30 @@ const PROFILE_SETTINGS = {
     fcfYieldBase: 0.048,
     targetMargin: 0.26,
     fcfWeight: 0.44
+  },
+  media_telecom: {
+    label: "Media / telecom network",
+    method: "Subscriber/network earnings power + FCF yield",
+    normalizedGrowthWindow: 8,
+    peRange: [10, 24],
+    peBase: 15,
+    fcfYieldRange: [0.045, 0.085],
+    fcfYieldBase: 0.06,
+    targetMargin: 0.21,
+    marginActualWeight: 0.62,
+    fcfWeight: 0.44
+  },
+  interactive_entertainment: {
+    label: "Interactive entertainment",
+    method: "Content-cycle earnings power + FCF yield",
+    normalizedGrowthWindow: 8,
+    peRange: [18, 34],
+    peBase: 23,
+    fcfYieldRange: [0.035, 0.065],
+    fcfYieldBase: 0.048,
+    targetMargin: 0.24,
+    marginActualWeight: 0.6,
+    fcfWeight: 0.38
   },
   industrial_growth: {
     label: "Industrial growth",
@@ -3333,7 +3469,7 @@ async function main() {
         const factsPayload = await fetchJsonWithCache(factsUrl, cachePath);
         await sleep(140);
         const facts = factsPayload?.facts || {};
-        quarterlyRows = buildQuarterlyFinancials(facts);
+        quarterlyRows = buildQuarterlyFinancials(facts, ticker);
         if (ticker === "MSTR") {
           quarterlyRows = attachMstrCryptoMetrics(facts, quarterlyRows);
         }
