@@ -16604,6 +16604,7 @@ class ValuationPodcastInsightCard extends StatelessWidget {
     );
     final theme = text(insight['theme'], 'Forward-looking debate');
     final channel = text(insight['channel'], 'Podcast');
+    final speaker = text(insight['speaker'], channel);
     final observedAt = formatDate(text(insight['observedAt']));
     final videoTitle = text(insight['videoTitle']);
     final excerpt = text(insight['evidenceExcerpt']);
@@ -16656,6 +16657,18 @@ class ValuationPodcastInsightCard extends StatelessWidget {
             ),
             const SizedBox(height: 9),
             Text(
+              '谁说：$speaker',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: palette.secondary,
+                fontSize: 12,
+                height: 1.25,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
               summary,
               maxLines: expanded ? null : 3,
               overflow: expanded ? null : TextOverflow.ellipsis,
@@ -16672,6 +16685,7 @@ class ValuationPodcastInsightCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _PodcastSourceLine(
+                        speaker: speaker,
                         channel: channel,
                         observedAt: observedAt,
                         title: videoTitle,
@@ -16690,6 +16704,7 @@ class ValuationPodcastInsightCard extends StatelessWidget {
                       Expanded(
                         child: _PodcastSourceLine(
                           channel: channel,
+                          speaker: speaker,
                           observedAt: observedAt,
                           title: videoTitle,
                           palette: palette,
@@ -16720,7 +16735,7 @@ class ValuationPodcastInsightCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Transcript excerpt',
+                      '原文证据',
                       style: TextStyle(
                         color: palette.secondary,
                         fontSize: 11,
@@ -16749,12 +16764,14 @@ class ValuationPodcastInsightCard extends StatelessWidget {
 
 class _PodcastSourceLine extends StatelessWidget {
   const _PodcastSourceLine({
+    required this.speaker,
     required this.channel,
     required this.observedAt,
     required this.title,
     required this.palette,
   });
 
+  final String speaker;
   final String channel;
   final String observedAt;
   final String title;
@@ -16763,6 +16780,7 @@ class _PodcastSourceLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subtitle = [
+      if (speaker.isNotEmpty && speaker != channel) speaker,
       channel,
       if (observedAt.isNotEmpty) observedAt,
       if (title.isNotEmpty) title,

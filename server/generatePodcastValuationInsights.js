@@ -82,6 +82,63 @@ const POSITIVE_KEYWORDS = [
   "pricing power"
 ];
 
+const CLAIM_KEYWORDS = [
+  "argue",
+  "believe",
+  "benefit",
+  "because",
+  "cannot",
+  "can't",
+  "could",
+  "doesn't work",
+  "going to",
+  "i think",
+  "impossibility",
+  "important",
+  "led to",
+  "mean",
+  "means",
+  "missing",
+  "need",
+  "opportunity",
+  "risk",
+  "should",
+  "will",
+  "would"
+];
+
+const QUESTION_START_PATTERN = /^(what|why|how|when|where|who|can you|could you|do you|does|did|is|are|should we|would you)\b/i;
+const NOISE_PATTERN = /\b(subscribe|youtube channel|our faces|check them out|sponsor|sponsored|advertis|promo code|like and subscribe|thanks for watching|welcome back|core buddy|for the love of the game)\b/i;
+const BROKEN_START_PATTERN = /^(and|or|but|so|um|uh|like|lic|he|she|they|we|you|i)\s/i;
+const BUSINESS_KEYWORDS = [
+  "adoption",
+  "arpu",
+  "capex",
+  "cash flow",
+  "cloud",
+  "competition",
+  "compute",
+  "cost",
+  "customer",
+  "data center",
+  "demand",
+  "efficiency",
+  "growth",
+  "inference",
+  "infrastructure",
+  "investing",
+  "margin",
+  "market",
+  "monetization",
+  "pricing",
+  "product",
+  "profit",
+  "revenue",
+  "risk",
+  "supply",
+  "trillion"
+];
+
 const MANUAL_ALIASES = {
   AAPL: ["apple", "iphone", "app store", "vision pro", "siri"],
   AAOI: ["applied optoelectronics", "aaoi", "optical transceiver"],
@@ -239,9 +296,11 @@ function stanceFor(textLower) {
 
 function scoreSegment(textLower, matchedAliases) {
   const forwardHits = FORWARD_KEYWORDS.filter((word) => textLower.includes(word)).length;
+  const claimHits = CLAIM_KEYWORDS.filter((word) => textLower.includes(word)).length;
   const aliasBoost = Math.min(0.42, matchedAliases.length * 0.12);
   const forwardBoost = Math.min(0.32, forwardHits * 0.035);
-  return Math.min(0.98, 0.36 + aliasBoost + forwardBoost);
+  const claimBoost = Math.min(0.16, claimHits * 0.035);
+  return Math.min(0.98, 0.34 + aliasBoost + forwardBoost + claimBoost);
 }
 
 function hasForwardSignal(textLower) {
@@ -249,58 +308,45 @@ function hasForwardSignal(textLower) {
 }
 
 function buildSummary(ticker, theme, stance, excerpt) {
-  const lead = stance === "risk"
-    ? "The discussion frames a potential risk to watch"
-    : stance === "positive"
-      ? "The discussion highlights a constructive forward indicator"
-      : "The discussion surfaces a mixed forward indicator";
-  return `${lead} for ${ticker}: ${theme.toLowerCase()}. Evidence should be tracked against upcoming guidance, margins, and order/customer signals.`;
+  return `View on ${ticker}: ${excerpt}`;
 }
 
-function buildChineseSummary(ticker, theme, stance, excerptLower) {
-  if (["GOOG", "GOOGL"].includes(ticker) && /(tpu|gemini|deepmind|google cloud|inference|compute|data center|gigawatt|power)/.test(excerptLower)) {
-    return "频道重点讨论了 Google/Alphabet 在 TPU、自研算力、Gemini/DeepMind 与云生态上的端到端优化。研究看点是：如果训练和推理成本继续下降，Google Cloud 毛利率、AI 产品定价能力和搜索/广告侧的 AI 变现可能被市场重新定价。";
+function buildChineseSummary(ticker, speaker, pointText) {
+  const lower = pointText.toLowerCase();
+  if (/(amazon|microsoft|google).{0,120}spent decades investing trillions|spent decades investing trillions/.test(lower) && /impossibility/.test(lower)) {
+    return "观点：Amazon、Microsoft、Google 这类 hyperscaler 用几十年和万亿级投入建立了云基础设施、VPC/KYC/数据中心能力；新进入者想复制这套基础设施几乎不可能。这是对大型云厂商基础设施护城河的正面判断。";
   }
-  if (["GOOG", "GOOGL"].includes(ticker) && /(alphabet|drug|therapeutic|isomorphic|pipeline)/.test(excerptLower)) {
-    return "频道讨论了 Alphabet 在 AI 药物发现、Other Bets 或新业务上的可选价值。研究看点是：这些项目是否仍只是长期期权，还是开始对估值中的 SOTP/长期增长假设产生贡献。";
+  if (/microsoft only compute|diversify beyond.*stargate|starved of microsoft/.test(lower)) {
+    return "观点：OpenAI 不想只依赖 Microsoft 提供算力，正在寻求更分散的基础设施来源。对 MSFT 来说，这是 Azure/OpenAI 绑定关系和长期议价权需要跟踪的风险点。";
   }
-  if (["GOOG", "GOOGL"].includes(ticker) && /(youtube|search|ads|advertising)/.test(excerptLower)) {
-    return "频道讨论了 Google/Alphabet 的 YouTube、搜索和广告分发。研究看点是：AI 搜索形态变化会不会压低广告点击经济性，或反过来通过更强的投放效果提高商业化效率。";
+  if (/openai and anthropic exceed.*arr|frontier token pricing|enterprise models/.test(lower)) {
+    return "观点：OpenAI/Anthropic 的企业化收入和 token 定价仍可能继续扩张，AI 工作负载会拉动更多算力上线。对云厂商和 AI 基建链条来说，这是需求端的正面读数。";
   }
-  if (ticker === "NVDA" && /(blackwell|gpu|cuda|inference|data center)/.test(excerptLower)) {
-    return "频道把 NVIDIA 的 GPU 需求、Blackwell 供给和推理算力放在一起讨论。研究看点是：数据中心订单、客户资本开支和推理成本曲线是否继续支撑高毛利与高增长。";
+  if (/compute spend.*billion.*gigawatt|billion.*gigawatt/.test(lower)) {
+    return "观点：AI 模型公司的算力开支正在以“每 GW 数十亿美元”的量级扩张，短期需求不是单纯训练模型，而是持续购买电力、数据中心和加速卡容量。对云厂商、GPU、网络和电力链条是正面需求读数。";
   }
-  if (ticker === "MSFT" && /(azure|copilot|github|openai|agent)/.test(excerptLower)) {
-    return "频道关注 Microsoft 在 Azure、Copilot、GitHub 和 OpenAI 生态中的分发优势。研究看点是：AI 功能能否转化为席位渗透、云消费和更高的软件 ARPU。";
+  if (/(aws or azure|aws.*azure|azure.*aws).*(not worth|switch|durable)|durable businesses.*aws.*azure/.test(lower)) {
+    return "观点：AI/云工作负载即使技术上可以迁移，企业通常也不愿频繁切换 AWS/Azure 这类平台；切换成本和生态差异让云业务更像耐久型基础设施，而不是完全同质化算力。";
   }
-  if (ticker === "AMZN" && /(aws|anthropic|cloud|bedrock|data center)/.test(excerptLower)) {
-    return "频道讨论 AWS、Anthropic/Bedrock 和云端 AI 工作负载。研究看点是：AWS 能否用模型选择、芯片和基础设施效率把 AI 需求转化为收入增速和利润率改善。";
+  if (/azure revenue/.test(lower)) {
+    return "观点：讨论把 Azure 收入作为判断 AI 基建景气度的重要指标。对 MSFT 来说，市场会把 AI 工作负载能否持续转化为 Azure 增量收入作为核心验证点。";
   }
-  if (ticker === "META" && /(llama|instagram|facebook|ads|reality labs)/.test(excerptLower)) {
-    return "频道讨论 Meta 的开源模型、广告系统和消费端分发。研究看点是：Llama/AI 推荐能否继续提升广告 ROI，同时 Reality Labs 投入是否拖累自由现金流。";
+  if (ticker === "MSFT" && /coding agent|cursor|codex/.test(lower) && /(revenue|opportunity|model|agent)/.test(lower)) {
+    return "观点：代码 agent 正在从实验工具变成可商业化产品，Cursor/Codex 这类产品说明开发者工作流可能成为 AI 付费的重要入口。需要跟踪 GitHub/Copilot/Codex 对 MSFT 软件 ARPU 的贡献。";
   }
-  if (ticker === "CRM" && /(salesforce|agentforce|data cloud|enterprise)/.test(excerptLower)) {
-    return "频道讨论 Salesforce 的企业 AI agent、Data Cloud 和应用层落地。研究看点是：Agentforce 能否带来新增模块收入，而不是只变成销售话术。";
+  if (/anthropic could surpass alphabet/.test(lower)) {
+    return "观点：外部讨论认为 Anthropic 的收入增长速度可能挑战 Alphabet 现有业务规模，这不是基准情景，但提示 Google 在模型层竞争和 AI 商业化上不能只靠存量搜索优势。";
   }
-  if (ticker === "NFLX" && /(netflix|streaming|ads|content)/.test(excerptLower)) {
-    return "频道讨论 Netflix 的广告层、内容效率和流媒体竞争。研究看点是：广告库存、会员套餐组合和内容投入回报是否继续推高经营杠杆。";
+  if (/orbital compute|data centers in space|power and data centers|powered land/.test(lower)) {
+    return "观点：AI 算力瓶颈正在从芯片扩展到电力、土地和数据中心选址；orbital compute 属于远期可选项，但它反映了数据中心供给约束可能继续影响云厂商和 AI 基建公司的估值。";
   }
-  if (ticker === "ARM" && /(arm|cpu|architecture|chip)/.test(excerptLower)) {
-    return "频道讨论 Arm 架构在 AI 终端、服务器和定制芯片中的位置。研究看点是：授权费率、版税结构和新市场渗透是否能支撑高估值。";
+  if (/internal infrastructure|guaranteed capacity|spike up on research|scheduler/.test(lower) && /google/.test(lower)) {
+    return "观点：Google 早期内部基础设施强调基础工作负载的保底容量，以及研究高峰期的弹性调度。这个观点提示 GOOG 的 TPU/调度/集群管理能力是 AI 成本端优化的重要资产。";
   }
-  if (theme.includes("Pipeline")) {
-    return `${ticker} 的 podcast 看点集中在医疗/产品管线和临床催化剂。需要跟踪下一次财报中管理层对上市节奏、适应症扩展和利润率的指引变化。`;
+  if (/google.*missing gpt|led to google missing gpt/.test(lower)) {
+    return "观点：嘉宾认为 Google 的内部组织和资源配置方式曾导致它错失 GPT 式产品窗口。对 GOOG 来说，关键不是有没有技术储备，而是 Gemini/DeepMind 能否更快产品化和商业化。";
   }
-  if (theme.includes("Regulation")) {
-    return `${ticker} 的外部讨论包含监管、地缘或政策变量。这个信号不直接进入估值，但应该作为下个季度风险折现和情景分析的观察项。`;
-  }
-  if (stance === "risk") {
-    return `${ticker} 的 podcast 信号偏风险：讨论集中在${theme}。需要验证这些担忧是否会反映到收入增速、毛利率、资本开支或订单节奏。`;
-  }
-  if (stance === "positive") {
-    return `${ticker} 的 podcast 信号偏正面：讨论集中在${theme}。关键是看这些定性观点能否在下一季财务数据、指引或管理层表述里得到确认。`;
-  }
-  return `${ticker} 的 podcast 信号偏混合：讨论集中在${theme}。它适合作为财报前的前瞻观察项，后续要和实际收入、利润率、订单和指引交叉验证。`;
+  return "";
 }
 
 function excerptAroundAlias(contextText, matchedAliases) {
@@ -317,6 +363,117 @@ function excerptAroundAlias(contextText, matchedAliases) {
   const prefix = start > 0 ? "... " : "";
   const suffix = end < normalized.length ? " ..." : "";
   return `${prefix}${normalized.slice(start, end)}${suffix}`;
+}
+
+function videoSpeakerLabel(row) {
+  const channel = cleanText(row.channel || "Podcast");
+  const title = cleanText(row.title || "");
+  const dashGuest = title.match(/[—-]\s*([^|]+)$/);
+  if (dashGuest?.[1]) {
+    return `${cleanText(dashGuest[1].replace(/\s*\|\s*\d+\s*$/, ""))} (${channel})`;
+  }
+  const withGuest = title.match(/\bwith\s+([^|,]+(?:,\s*[^|]+)?)/i);
+  if (withGuest?.[1]) return `${cleanText(withGuest[1])} (${channel})`;
+  if (/all-in/i.test(channel)) return "All-In hosts";
+  if (/latent space/i.test(channel)) return "Latent Space hosts/guest";
+  if (/no priors/i.test(channel)) return "No Priors hosts/guest";
+  if (/invest like the best/i.test(channel)) return "Invest Like The Best guest";
+  if (/core memory/i.test(channel)) return "Core Memory hosts";
+  return channel;
+}
+
+function sentenceUnits(text) {
+  const normalized = cleanText(text)
+    .replace(/\[music\]/gi, "")
+    .replace(/>>\s*/g, "")
+    .trim();
+  if (!normalized) return [];
+  const withSentenceBreaks = normalized
+    .replace(/([.!?])\s+(?=[A-Z0-9])/g, "$1\n")
+    .replace(/\s+(?=(?:So|But|And|Because|If|The|This|That|It|We|I|You|They|Amazon|Microsoft|Google|Nvidia|OpenAI)\b)/g, "\n");
+  return withSentenceBreaks
+    .split(/\n+/)
+    .map(cleanText)
+    .filter((unit) => unit.length >= 28);
+}
+
+function unitHasAlias(unitLower, aliases) {
+  return aliases.some((alias) => includesAlias(unitLower, alias));
+}
+
+function unitClaimScore(unit, aliases) {
+  const lower = unit.toLowerCase();
+  let score = 0;
+  if (unitHasAlias(lower, aliases)) score += 5;
+  score += FORWARD_KEYWORDS.filter((keyword) => lower.includes(keyword)).length;
+  score += BUSINESS_KEYWORDS.filter((keyword) => lower.includes(keyword)).length * 1.2;
+  score += CLAIM_KEYWORDS.filter((keyword) => lower.includes(keyword)).length * 1.5;
+  if (QUESTION_START_PATTERN.test(lower) || lower.endsWith("?")) score -= 4;
+  if (NOISE_PATTERN.test(lower)) score -= 10;
+  if (BROKEN_START_PATTERN.test(lower)) score -= 1.5;
+  if (unit.length < 55) score -= 1;
+  if (unit.length > 420) score -= 1;
+  return score;
+}
+
+function isUsablePoint(unit, aliases) {
+  const lower = unit.toLowerCase();
+  if (!unitHasAlias(lower, aliases)) return false;
+  if (NOISE_PATTERN.test(lower)) return false;
+  if (QUESTION_START_PATTERN.test(lower) || lower.endsWith("?")) return false;
+  if (unit.length < 60 || unit.length > 520) return false;
+  const hasBusinessMeaning = BUSINESS_KEYWORDS.some((keyword) => lower.includes(keyword));
+  const hasClaimMeaning = CLAIM_KEYWORDS.some((keyword) => lower.includes(keyword));
+  return hasBusinessMeaning && hasClaimMeaning;
+}
+
+function trimPoint(text, maxLength = 420) {
+  const normalized = cleanText(text).replace(/^\.\.\.\s*/, "").replace(/\s*\.\.\.$/, "");
+  if (normalized.length <= maxLength) return normalized;
+  const truncated = normalized.slice(0, maxLength);
+  const lastSpace = truncated.lastIndexOf(" ");
+  return `${truncated.slice(0, Math.max(120, lastSpace)).trim()} ...`;
+}
+
+function extractPointText(evidenceExcerpt, matchedAliases) {
+  const units = sentenceUnits(evidenceExcerpt);
+  if (!units.length) return trimPoint(evidenceExcerpt, 360);
+  let best = { text: "", score: -Infinity, index: -1 };
+  for (let index = 0; index < units.length; index += 1) {
+    const current = units[index];
+    const next = units[index + 1] || "";
+    const currentLower = current.toLowerCase();
+    const nextLower = next.toLowerCase();
+    const shouldAddNext =
+      unitHasAlias(currentLower, matchedAliases) &&
+      /(impossib|therefore|so|means|led to|that's why|this is why|cannot|can't|will|going to)/i.test(nextLower);
+    const candidate = shouldAddNext ? `${current} ${next}` : current;
+    if (!isUsablePoint(candidate, matchedAliases)) continue;
+    let score = unitClaimScore(candidate, matchedAliases);
+    if (score > best.score) best = { text: candidate, score, index };
+  }
+  if (!best.text) return "";
+  return trimPoint(best.text);
+}
+
+function pointTitleFor(theme) {
+  if (theme.includes("AI infrastructure")) return "AI infrastructure conclusion";
+  if (theme.includes("Monetization")) return "Monetization conclusion";
+  if (theme.includes("Enterprise")) return "Enterprise AI conclusion";
+  if (theme.includes("Regulation")) return "Risk conclusion";
+  if (theme.includes("Pipeline")) return "Pipeline conclusion";
+  if (theme.includes("Consumer")) return "Platform conclusion";
+  return "Podcast view";
+}
+
+function aliasSignalAllowed(ticker, matchedAliases, textLower) {
+  if (ticker === "MSFT") {
+    const direct = matchedAliases.some((alias) => /^(microsoft|azure|copilot|github)$/.test(alias));
+    if (!direct && matchedAliases.includes("openai")) {
+      return /(microsoft|azure|copilot|github|codex|stargate)/i.test(textLower);
+    }
+  }
+  return true;
 }
 
 function videoRows(db, channels, sinceDate) {
@@ -349,9 +506,13 @@ function createInsight(row, segment, contextText, tickerRow, matchedAliases, sco
   const theme = themeFor(textLower);
   const stance = stanceFor(textLower);
   const evidenceExcerpt = excerptAroundAlias(contextText, matchedAliases);
-  const evidenceLower = evidenceExcerpt.toLowerCase();
+  const pointText = extractPointText(evidenceExcerpt, matchedAliases);
+  if (!pointText) return null;
+  const speaker = videoSpeakerLabel(row);
+  const summaryZh = buildChineseSummary(ticker, speaker, pointText);
+  if (!summaryZh) return null;
   return {
-    id: hashId([ticker, row.source_id || row.id, segment.segment_index, theme]),
+    id: hashId([ticker, row.source_id || row.id, segment.segment_index, pointText]),
     ticker,
     generatedAt: new Date().toISOString(),
     observedAt: row.upload_date || "",
@@ -359,18 +520,22 @@ function createInsight(row, segment, contextText, tickerRow, matchedAliases, sco
     videoId: row.source_id || "",
     videoTitle: row.title || "",
     videoUrl: row.url || (row.source_id ? `https://www.youtube.com/watch?v=${row.source_id}` : ""),
-    speaker: "",
-    theme,
+    speaker,
+    theme: pointTitleFor(theme),
     stance,
     horizon: "next 1-4 quarters",
     confidence: Number(score.toFixed(2)),
     relevanceScore: Number((score * 100).toFixed(1)),
-    summary: buildSummary(ticker, theme, stance, evidenceExcerpt),
-    summaryZh: buildChineseSummary(ticker, theme, stance, evidenceLower),
+    summary: buildSummary(ticker, theme, stance, pointText),
+    summaryZh,
     evidenceExcerpt,
     evidenceExcerptZh: "",
     payload: {
       matchedAliases,
+      pointText,
+      pointTheme: theme,
+      speakerLabel: speaker,
+      isPolishedTakeaway: true,
       segmentIndex: segment.segment_index,
       startSeconds: segment.start_seconds,
       sourceDatabase: cliValue("youtube-db", DEFAULT_YOUTUBE_DB)
@@ -410,17 +575,20 @@ function generateInsights() {
       if (!segments.length) continue;
       for (let index = 0; index < segments.length; index += 1) {
         const current = segments[index];
-        const contextText = cleanText([
-          segments[index - 1]?.text,
-          current.text,
-          segments[index + 1]?.text
-        ].filter(Boolean).join(" "));
+        const contextText = cleanText(
+          segments
+            .slice(Math.max(0, index - 5), Math.min(segments.length, index + 6))
+            .map((part) => part.text)
+            .filter(Boolean)
+            .join(" ")
+        );
         if (!contextText) continue;
         const textLower = contextText.toLowerCase();
         if (!hasForwardSignal(textLower)) continue;
         for (const tickerRow of tickers) {
           const matchedAliases = tickerRow.aliases.filter((alias) => includesAlias(textLower, alias));
           if (!matchedAliases.length) continue;
+          if (!aliasSignalAllowed(tickerRow.ticker, matchedAliases, textLower)) continue;
           const centeredTextLower = excerptAroundAlias(contextText, matchedAliases).toLowerCase();
           if (!hasForwardSignal(centeredTextLower)) continue;
           const score = scoreSegment(textLower, matchedAliases);
@@ -428,9 +596,11 @@ function generateInsights() {
           const key = `${tickerRow.ticker}:${video.source_id || video.id}`;
           const previous = bestByTickerVideo.get(key);
           if (!previous || score > previous.confidence) {
+            const insight = createInsight(video, current, contextText, tickerRow, matchedAliases.slice(0, 6), score);
+            if (!insight) continue;
             bestByTickerVideo.set(
               key,
-              createInsight(video, current, contextText, tickerRow, matchedAliases.slice(0, 6), score)
+              insight
             );
           }
         }
@@ -453,7 +623,16 @@ function generateInsights() {
       if (dateCompare !== 0) return dateCompare;
       return Number(right.relevanceScore) - Number(left.relevanceScore);
     });
-    insights.push(...rows.slice(0, 12));
+    const seenSummaries = new Set();
+    const uniqueRows = [];
+    for (const row of rows) {
+      const summaryKey = cleanText(row.summaryZh || row.summary).toLowerCase();
+      if (!summaryKey || seenSummaries.has(summaryKey)) continue;
+      seenSummaries.add(summaryKey);
+      uniqueRows.push(row);
+      if (uniqueRows.length >= 12) break;
+    }
+    insights.push(...uniqueRows);
   }
 
   const written = replaceValuationPodcastInsights(insights);
