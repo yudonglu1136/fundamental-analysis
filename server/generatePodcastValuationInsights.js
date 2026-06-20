@@ -528,7 +528,7 @@ function createInsight(row, segment, contextText, tickerRow, matchedAliases, sco
     relevanceScore: Number((score * 100).toFixed(1)),
     summary: buildSummary(ticker, theme, stance, pointText),
     summaryZh,
-    evidenceExcerpt,
+    evidenceExcerpt: pointText,
     evidenceExcerptZh: "",
     payload: {
       matchedAliases,
