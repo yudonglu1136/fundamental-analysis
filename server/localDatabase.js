@@ -89,6 +89,31 @@ db.exec(`
     payload_json TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS valuation_podcast_insights (
+    id TEXT PRIMARY KEY,
+    ticker TEXT NOT NULL,
+    generated_at TEXT NOT NULL,
+    observed_at TEXT,
+    channel TEXT,
+    video_id TEXT,
+    video_title TEXT,
+    video_url TEXT,
+    speaker TEXT,
+    theme TEXT,
+    stance TEXT,
+    horizon TEXT,
+    confidence REAL,
+    relevance_score REAL,
+    summary TEXT,
+    summary_zh TEXT,
+    evidence_excerpt TEXT,
+    evidence_excerpt_zh TEXT,
+    payload_json TEXT
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_valuation_podcast_insights_ticker_observed_at
+    ON valuation_podcast_insights (ticker, observed_at DESC);
+
   CREATE TABLE IF NOT EXISTS portfolio_nav_points (
     account_id TEXT NOT NULL,
     date TEXT NOT NULL,
@@ -383,8 +408,141 @@ function syncBundledDividendCalendar() {
   }
 }
 
+function syncBundledPodcastInsights() {
+  if (process.env.SYNC_BUNDLED_PODCAST_INSIGHTS === "false") return;
+  if (dbPath === bundledDbPath || !fs.existsSync(bundledDbPath)) return;
+
+  let bundledDb;
+  try {
+    bundledDb = new DatabaseSync(bundledDbPath, { readOnly: true });
+    const rows = bundledDb.prepare(`
+      SELECT
+        id,
+        ticker,
+        generated_at,
+        observed_at,
+        channel,
+        video_id,
+        video_title,
+        video_url,
+        speaker,
+        theme,
+        stance,
+        horizon,
+        confidence,
+        relevance_score,
+        summary,
+        summary_zh,
+        evidence_excerpt,
+        evidence_excerpt_zh,
+        payload_json
+      FROM valuation_podcast_insights
+    `).all();
+    if (!rows.length) return;
+
+    const jobRows = bundledDb.prepare(`
+      SELECT job_id, started_at, finished_at, status, payload_json
+      FROM background_job_runs
+      WHERE job_id = 'valuation_podcast_insights'
+    `).all();
+    const writeInsight = db.prepare(`
+      INSERT INTO valuation_podcast_insights (
+        id,
+        ticker,
+        generated_at,
+        observed_at,
+        channel,
+        video_id,
+        video_title,
+        video_url,
+        speaker,
+        theme,
+        stance,
+        horizon,
+        confidence,
+        relevance_score,
+        summary,
+        summary_zh,
+        evidence_excerpt,
+        evidence_excerpt_zh,
+        payload_json
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        ticker = excluded.ticker,
+        generated_at = excluded.generated_at,
+        observed_at = excluded.observed_at,
+        channel = excluded.channel,
+        video_id = excluded.video_id,
+        video_title = excluded.video_title,
+        video_url = excluded.video_url,
+        speaker = excluded.speaker,
+        theme = excluded.theme,
+        stance = excluded.stance,
+        horizon = excluded.horizon,
+        confidence = excluded.confidence,
+        relevance_score = excluded.relevance_score,
+        summary = excluded.summary,
+        summary_zh = excluded.summary_zh,
+        evidence_excerpt = excluded.evidence_excerpt,
+        evidence_excerpt_zh = excluded.evidence_excerpt_zh,
+        payload_json = excluded.payload_json
+    `);
+    const writeJob = db.prepare(`
+      INSERT INTO background_job_runs (job_id, started_at, finished_at, status, payload_json)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(job_id) DO UPDATE SET
+        started_at = excluded.started_at,
+        finished_at = excluded.finished_at,
+        status = excluded.status,
+        payload_json = excluded.payload_json
+    `);
+
+    db.exec("BEGIN");
+    try {
+      db.prepare("DELETE FROM valuation_podcast_insights").run();
+      for (const row of rows) {
+        writeInsight.run(
+          row.id,
+          row.ticker,
+          row.generated_at,
+          row.observed_at,
+          row.channel,
+          row.video_id,
+          row.video_title,
+          row.video_url,
+          row.speaker,
+          row.theme,
+          row.stance,
+          row.horizon,
+          row.confidence,
+          row.relevance_score,
+          row.summary,
+          row.summary_zh,
+          row.evidence_excerpt,
+          row.evidence_excerpt_zh,
+          row.payload_json
+        );
+      }
+      for (const row of jobRows) {
+        writeJob.run(row.job_id, row.started_at, row.finished_at, row.status, row.payload_json);
+      }
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+    console.info(`[database] synced bundled podcast insights into ${dbPath}: ${rows.length} rows`);
+  } catch (error) {
+    console.warn(`[database] bundled podcast insight sync skipped: ${error.message}`);
+  } finally {
+    bundledDb?.close();
+  }
+}
+
 syncBundledValuationSnapshots();
 syncBundledDividendCalendar();
+syncBundledPodcastInsights();
 
 function parsePayload(value) {
   try {
@@ -568,6 +726,207 @@ export function writeValuationTickerSnapshot(ticker, payload) {
       generated_at = excluded.generated_at,
       payload_json = excluded.payload_json
   `).run(normalized, payload.generatedAt || new Date().toISOString(), JSON.stringify(payload));
+}
+
+function mapPodcastInsight(row) {
+  return {
+    id: row.id,
+    ticker: row.ticker,
+    generatedAt: row.generated_at,
+    observedAt: row.observed_at || "",
+    channel: row.channel || "",
+    videoId: row.video_id || "",
+    videoTitle: row.video_title || "",
+    videoUrl: row.video_url || "",
+    speaker: row.speaker || "",
+    theme: row.theme || "",
+    stance: row.stance || "",
+    horizon: row.horizon || "",
+    confidence: row.confidence,
+    relevanceScore: row.relevance_score,
+    summary: row.summary || "",
+    summaryZh: row.summary_zh || "",
+    evidenceExcerpt: row.evidence_excerpt || "",
+    evidenceExcerptZh: row.evidence_excerpt_zh || "",
+    payload: parsePayload(row.payload_json) || {}
+  };
+}
+
+export function writeValuationPodcastInsights(insights = []) {
+  if (!insights.length) return 0;
+  const statement = db.prepare(`
+    INSERT INTO valuation_podcast_insights (
+      id,
+      ticker,
+      generated_at,
+      observed_at,
+      channel,
+      video_id,
+      video_title,
+      video_url,
+      speaker,
+      theme,
+      stance,
+      horizon,
+      confidence,
+      relevance_score,
+      summary,
+      summary_zh,
+      evidence_excerpt,
+      evidence_excerpt_zh,
+      payload_json
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      ticker = excluded.ticker,
+      generated_at = excluded.generated_at,
+      observed_at = excluded.observed_at,
+      channel = excluded.channel,
+      video_id = excluded.video_id,
+      video_title = excluded.video_title,
+      video_url = excluded.video_url,
+      speaker = excluded.speaker,
+      theme = excluded.theme,
+      stance = excluded.stance,
+      horizon = excluded.horizon,
+      confidence = excluded.confidence,
+      relevance_score = excluded.relevance_score,
+      summary = excluded.summary,
+      summary_zh = excluded.summary_zh,
+      evidence_excerpt = excluded.evidence_excerpt,
+      evidence_excerpt_zh = excluded.evidence_excerpt_zh,
+      payload_json = excluded.payload_json
+  `);
+  const generatedAt = new Date().toISOString();
+  let count = 0;
+  db.exec("BEGIN");
+  try {
+    for (const insight of insights) {
+      const ticker = normalizeTickerKey(insight.ticker);
+      const id = String(insight.id || "").trim();
+      if (!id || !ticker) continue;
+      statement.run(
+        id,
+        ticker,
+        String(insight.generatedAt || generatedAt),
+        String(insight.observedAt || ""),
+        String(insight.channel || ""),
+        String(insight.videoId || ""),
+        String(insight.videoTitle || ""),
+        String(insight.videoUrl || ""),
+        String(insight.speaker || ""),
+        String(insight.theme || ""),
+        String(insight.stance || ""),
+        String(insight.horizon || ""),
+        Number.isFinite(Number(insight.confidence)) ? Number(insight.confidence) : null,
+        Number.isFinite(Number(insight.relevanceScore)) ? Number(insight.relevanceScore) : null,
+        String(insight.summary || ""),
+        String(insight.summaryZh || ""),
+        String(insight.evidenceExcerpt || ""),
+        String(insight.evidenceExcerptZh || ""),
+        JSON.stringify(insight.payload || {})
+      );
+      count += 1;
+    }
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+  return count;
+}
+
+export function replaceValuationPodcastInsights(insights = []) {
+  db.exec("BEGIN");
+  try {
+    db.prepare("DELETE FROM valuation_podcast_insights").run();
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+  return writeValuationPodcastInsights(insights);
+}
+
+export function readValuationPodcastInsights(ticker, limit = 12) {
+  const normalized = normalizeTickerKey(ticker);
+  if (!normalized) return [];
+  const rowLimit = Math.max(1, Math.min(50, Number(limit) || 12));
+  return db.prepare(`
+    SELECT
+      id,
+      ticker,
+      generated_at,
+      observed_at,
+      channel,
+      video_id,
+      video_title,
+      video_url,
+      speaker,
+      theme,
+      stance,
+      horizon,
+      confidence,
+      relevance_score,
+      summary,
+      summary_zh,
+      evidence_excerpt,
+      evidence_excerpt_zh,
+      payload_json
+    FROM valuation_podcast_insights
+    WHERE ticker = ?
+    ORDER BY observed_at DESC, relevance_score DESC, generated_at DESC
+    LIMIT ?
+  `).all(normalized, rowLimit).map(mapPodcastInsight);
+}
+
+export function readValuationPodcastInsightSummary(limit = 500) {
+  const rowLimit = Math.max(1, Math.min(5000, Number(limit) || 500));
+  const summary = db.prepare(`
+    SELECT
+      COUNT(*) AS insight_count,
+      COUNT(DISTINCT ticker) AS ticker_count,
+      COUNT(DISTINCT channel) AS source_count,
+      MAX(observed_at) AS latest_observed_at
+    FROM valuation_podcast_insights
+  `).get();
+  const rows = db.prepare(`
+    SELECT
+      id,
+      ticker,
+      generated_at,
+      observed_at,
+      channel,
+      video_id,
+      video_title,
+      video_url,
+      speaker,
+      theme,
+      stance,
+      horizon,
+      confidence,
+      relevance_score,
+      summary,
+      summary_zh,
+      evidence_excerpt,
+      evidence_excerpt_zh,
+      payload_json
+    FROM valuation_podcast_insights
+    ORDER BY observed_at DESC, relevance_score DESC, generated_at DESC
+    LIMIT ?
+  `).all(rowLimit).map(mapPodcastInsight);
+  const tickers = new Set();
+  for (const row of rows) {
+    if (row.ticker) tickers.add(row.ticker);
+  }
+  return {
+    insightCount: Number(summary?.insight_count) || 0,
+    tickerCount: Number(summary?.ticker_count) || 0,
+    sourceCount: Number(summary?.source_count) || 0,
+    latestObservedAt: summary?.latest_observed_at || "",
+    topTickers: [...tickers].slice(0, 20),
+    latest: rows.slice(0, 8)
+  };
 }
 
 export function writeGuruBacktest(guruId, years, payload) {

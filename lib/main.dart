@@ -7444,7 +7444,11 @@ class _AdminPortfolioDashboardState extends State<AdminPortfolioDashboard> {
           title: 'Portfolio admin console',
           subtitle:
               'View all user-scoped IBKR/Yodlee portfolio databases in read-only mode.',
-          chips: const ['owner only', 'read-only detail', 'encrypted tokens hidden'],
+          chips: const [
+            'owner only',
+            'read-only detail',
+            'encrypted tokens hidden',
+          ],
           metrics: [
             _GuruHeaderMetric(
               label: 'Users',
@@ -7500,11 +7504,7 @@ class _AdminPortfolioDashboardState extends State<AdminPortfolioDashboard> {
             );
             if (!wide) {
               return Column(
-                children: [
-                  listPanel,
-                  const SizedBox(height: 10),
-                  detailPanel,
-                ],
+                children: [listPanel, const SizedBox(height: 10), detailPanel],
               );
             }
             return Row(
@@ -7587,18 +7587,17 @@ class _AdminUserListPanel extends StatelessWidget {
           const SizedBox(height: 12),
           if (users.isEmpty)
             EmptyState(text: 'No portfolio users found yet.', palette: palette)
-          else
-            ...[
-              for (final user in users) ...[
-                _AdminUserTile(
-                  user: user,
-                  selected: text(user['userHash']) == selectedHash,
-                  palette: palette,
-                  onTap: () => onSelect(text(user['userHash'])),
-                ),
-                const SizedBox(height: 8),
-              ],
+          else ...[
+            for (final user in users) ...[
+              _AdminUserTile(
+                user: user,
+                selected: text(user['userHash']) == selectedHash,
+                palette: palette,
+                onTap: () => onSelect(text(user['userHash'])),
+              ),
+              const SizedBox(height: 8),
             ],
+          ],
         ],
       ),
     );
@@ -7629,8 +7628,8 @@ class _AdminUserTile extends StatelessWidget {
     final tone = status == 'linked'
         ? palette.positive
         : status.contains('error')
-            ? palette.negative
-            : palette.secondary;
+        ? palette.negative
+        : palette.secondary;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -7775,7 +7774,10 @@ class _AdminPortfolioDetailPanel extends StatelessWidget {
     if (selectedHash.isEmpty) {
       return Panel(
         palette: palette,
-        child: EmptyState(text: 'Select a portfolio user to inspect.', palette: palette),
+        child: EmptyState(
+          text: 'Select a portfolio user to inspect.',
+          palette: palette,
+        ),
       );
     }
     if (loading && detail == null) {
@@ -7793,7 +7795,10 @@ class _AdminPortfolioDetailPanel extends StatelessWidget {
     if (detail == null) {
       return Panel(
         palette: palette,
-        child: EmptyState(text: 'Portfolio detail has not loaded yet.', palette: palette),
+        child: EmptyState(
+          text: 'Portfolio detail has not loaded yet.',
+          palette: palette,
+        ),
       );
     }
 
@@ -8103,7 +8108,8 @@ class PortfolioAdminReadOnlyPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final accounts = asList(connection['accounts']);
     final status = text(connection['status'], 'not configured');
-    final failed = status == 'error' || text(connection['lastError']).isNotEmpty;
+    final failed =
+        status == 'error' || text(connection['lastError']).isNotEmpty;
     return Panel(
       palette: palette,
       padding: const EdgeInsets.all(18),
@@ -8127,7 +8133,10 @@ class PortfolioAdminReadOnlyPanel extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (accounts.isEmpty)
-            EmptyState(text: 'No linked accounts are visible yet.', palette: palette)
+            EmptyState(
+              text: 'No linked accounts are visible yet.',
+              palette: palette,
+            )
           else
             Wrap(
               spacing: 10,
@@ -9656,8 +9665,7 @@ class PortfolioAnalyticsPanel extends StatelessWidget {
               PortfolioAnalyticsMetricCard(
                 label: '过去一年收益',
                 value: formatReturn(number(historical['totalReturn'])),
-                sub:
-                    'Sharpe ${formatSharpe(number(historical['sharpe']))}',
+                sub: 'Sharpe ${formatSharpe(number(historical['sharpe']))}',
                 icon: Icons.history_rounded,
                 tone: number(historical['totalReturn']),
                 palette: palette,
@@ -9674,7 +9682,8 @@ class PortfolioAnalyticsPanel extends StatelessWidget {
               PortfolioAnalyticsMetricCard(
                 label: '未来一年情景回报',
                 value: formatReturn(number(forward['expectedReturn'])),
-                sub: '${formatMoney(number(forward['potentialPnl']))} model P/L',
+                sub:
+                    '${formatMoney(number(forward['potentialPnl']))} model P/L',
                 icon: Icons.online_prediction_rounded,
                 tone: number(forward['expectedReturn']),
                 palette: palette,
@@ -9682,8 +9691,7 @@ class PortfolioAnalyticsPanel extends StatelessWidget {
               PortfolioAnalyticsMetricCard(
                 label: '未来情景 Sharpe',
                 value: formatSharpe(number(forward['sharpe'])),
-                sub:
-                    'rf ${formatReturn(riskFreeRate).replaceFirst('+', '')}',
+                sub: 'rf ${formatReturn(riskFreeRate).replaceFirst('+', '')}',
                 icon: Icons.speed_rounded,
                 tone: number(forward['sharpe']) - 1,
                 palette: palette,
@@ -9712,7 +9720,8 @@ class PortfolioAnalyticsPanel extends StatelessWidget {
           const SizedBox(height: 14),
           if (topRows.isEmpty)
             EmptyState(
-              text: 'No portfolio holdings are available for valuation analysis.',
+              text:
+                  'No portfolio holdings are available for valuation analysis.',
               palette: palette,
             )
           else
@@ -9746,8 +9755,8 @@ class PortfolioAnalyticsMetricCard extends StatelessWidget {
     final color = tone == null
         ? palette.secondary
         : tone! >= 0
-            ? palette.positive
-            : palette.negative;
+        ? palette.positive
+        : palette.negative;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -9824,11 +9833,35 @@ class PortfolioValuationGapList extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Row(
                     children: [
-                      _PortfolioAnalyticsHeader('Ticker', width: 150, palette: palette),
-                      Expanded(child: _PortfolioAnalyticsHeader('FV gap', palette: palette)),
-                      _PortfolioAnalyticsHeader('1Y / Vol', width: 120, alignEnd: true, palette: palette),
-                      _PortfolioAnalyticsHeader('Forward', width: 110, alignEnd: true, palette: palette),
-                      _PortfolioAnalyticsHeader('Weight', width: 90, alignEnd: true, palette: palette),
+                      _PortfolioAnalyticsHeader(
+                        'Ticker',
+                        width: 150,
+                        palette: palette,
+                      ),
+                      Expanded(
+                        child: _PortfolioAnalyticsHeader(
+                          'FV gap',
+                          palette: palette,
+                        ),
+                      ),
+                      _PortfolioAnalyticsHeader(
+                        '1Y / Vol',
+                        width: 120,
+                        alignEnd: true,
+                        palette: palette,
+                      ),
+                      _PortfolioAnalyticsHeader(
+                        'Forward',
+                        width: 110,
+                        alignEnd: true,
+                        palette: palette,
+                      ),
+                      _PortfolioAnalyticsHeader(
+                        'Weight',
+                        width: 90,
+                        alignEnd: true,
+                        palette: palette,
+                      ),
                     ],
                   ),
                 ),
@@ -9914,7 +9947,11 @@ class PortfolioValuationGapRow extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  PortfolioHoldingLogo(row: logoRow, palette: palette, size: 28),
+                  PortfolioHoldingLogo(
+                    row: logoRow,
+                    palette: palette,
+                    size: 28,
+                  ),
                   const SizedBox(width: 9),
                   Expanded(
                     child: Text(
@@ -9925,7 +9962,10 @@ class PortfolioValuationGapRow extends StatelessWidget {
                       ),
                     ),
                   ),
-                  PortfolioValuationChip(valuation: valuation, palette: palette),
+                  PortfolioValuationChip(
+                    valuation: valuation,
+                    palette: palette,
+                  ),
                 ],
               ),
               const SizedBox(height: 9),
@@ -9953,7 +9993,11 @@ class PortfolioValuationGapRow extends StatelessWidget {
                 width: 150,
                 child: Row(
                   children: [
-                    PortfolioHoldingLogo(row: logoRow, palette: palette, size: 26),
+                    PortfolioHoldingLogo(
+                      row: logoRow,
+                      palette: palette,
+                      size: 26,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
@@ -9969,8 +10013,13 @@ class PortfolioValuationGapRow extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            formatReturn(number(row['weight'])).replaceFirst('+', ''),
-                            style: TextStyle(color: palette.faint, fontSize: 11),
+                            formatReturn(
+                              number(row['weight']),
+                            ).replaceFirst('+', ''),
+                            style: TextStyle(
+                              color: palette.faint,
+                              fontSize: 11,
+                            ),
                           ),
                         ],
                       ),
@@ -10039,8 +10088,8 @@ class PortfolioValuationGapRow extends StatelessWidget {
                     color: nullableNumber(row['forwardExpectedReturn']) == null
                         ? palette.muted
                         : number(row['forwardExpectedReturn']) >= 0
-                            ? palette.positive
-                            : palette.negative,
+                        ? palette.positive
+                        : palette.negative,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -13150,7 +13199,10 @@ class PortfolioHoldingRow extends StatelessWidget {
                             compactName(text(row['name'])),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: palette.muted, fontSize: 12),
+                            style: TextStyle(
+                              color: palette.muted,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -13183,7 +13235,9 @@ class PortfolioHoldingRow extends StatelessWidget {
                     Expanded(
                       child: _HoldingMiniLine(
                         label: '1Y',
-                        value: formatNullableReturn(analytics['trailingReturn']),
+                        value: formatNullableReturn(
+                          analytics['trailingReturn'],
+                        ),
                         palette: palette,
                       ),
                     ),
@@ -13203,7 +13257,10 @@ class PortfolioHoldingRow extends StatelessWidget {
                     ),
                     Text(
                       formatMoney(pnl),
-                      style: TextStyle(color: tone, fontWeight: FontWeight.w900),
+                      style: TextStyle(
+                        color: tone,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ],
                 ),
@@ -14849,6 +14906,7 @@ class ValuationTickerDetailPanel extends StatelessWidget {
     final history = asList(tickerPayload['history']);
     final priceHistory = asList(tickerPayload['priceHistory']);
     final methodCards = asList(tickerPayload['methodCards']).take(3).toList();
+    final podcastInsights = asList(tickerPayload['podcastInsights']);
     final latestPrice =
         firstNumber([latest['latestPrice'], selectedRow.latestPrice]) ?? 0;
     final fairValue =
@@ -14955,6 +15013,12 @@ class ValuationTickerDetailPanel extends StatelessWidget {
               priceHistory: priceHistory,
               fallbackMethodCards: methodCards,
               currency: currency,
+              palette: palette,
+            ),
+            const SizedBox(height: 12),
+            ValuationPodcastInsightsSection(
+              ticker: ticker,
+              insights: podcastInsights,
               palette: palette,
             ),
           ],
@@ -16403,6 +16467,396 @@ class ValuationEvidenceSnippet extends StatelessWidget {
   }
 }
 
+class ValuationPodcastInsightsSection extends StatefulWidget {
+  const ValuationPodcastInsightsSection({
+    super.key,
+    required this.ticker,
+    required this.insights,
+    required this.palette,
+  });
+
+  final String ticker;
+  final List<Map<String, dynamic>> insights;
+  final Palette palette;
+
+  @override
+  State<ValuationPodcastInsightsSection> createState() =>
+      _ValuationPodcastInsightsSectionState();
+}
+
+class _ValuationPodcastInsightsSectionState
+    extends State<ValuationPodcastInsightsSection> {
+  int _expandedIndex = 0;
+
+  @override
+  void didUpdateWidget(covariant ValuationPodcastInsightsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.ticker != widget.ticker) _expandedIndex = 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final insights = widget.insights.take(8).toList();
+    final channels = <String>{
+      for (final item in insights)
+        if (text(item['channel']).isNotEmpty) text(item['channel']),
+    };
+    final latestDate = insights
+        .map((item) => text(item['observedAt']))
+        .where((value) => value.isNotEmpty)
+        .fold<String>(
+          '',
+          (latest, value) => value.compareTo(latest) > 0 ? value : latest,
+        );
+
+    return ValuationResearchCard(
+      palette: widget.palette,
+      icon: Icons.podcasts_rounded,
+      kicker: 'PODCAST RADAR',
+      title: '频道前瞻看点',
+      trailing: insights.isEmpty
+          ? null
+          : InfoChip('${insights.length} notes', palette: widget.palette),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              InfoChip('${channels.length} channels', palette: widget.palette),
+              if (latestDate.isNotEmpty)
+                InfoChip(
+                  'latest ${formatDate(latestDate)}',
+                  palette: widget.palette,
+                ),
+              InfoChip('not an FV input', palette: widget.palette),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (insights.isEmpty)
+            EmptyState(
+              text: '还没有为 ${widget.ticker} 生成 podcast 前瞻看点。',
+              palette: widget.palette,
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 720;
+                return Column(
+                  children: [
+                    for (var index = 0; index < insights.length; index += 1)
+                      Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index == insights.length - 1 ? 0 : 8,
+                        ),
+                        child: ValuationPodcastInsightCard(
+                          insight: insights[index],
+                          index: index,
+                          compact: compact,
+                          expanded: _expandedIndex == index,
+                          palette: widget.palette,
+                          onTap: () {
+                            setState(() {
+                              _expandedIndex = _expandedIndex == index
+                                  ? -1
+                                  : index;
+                            });
+                          },
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class ValuationPodcastInsightCard extends StatelessWidget {
+  const ValuationPodcastInsightCard({
+    super.key,
+    required this.insight,
+    required this.index,
+    required this.compact,
+    required this.expanded,
+    required this.palette,
+    required this.onTap,
+  });
+
+  final Map<String, dynamic> insight;
+  final int index;
+  final bool compact;
+  final bool expanded;
+  final Palette palette;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final stance = text(insight['stance'], 'mixed');
+    final tone = stanceTone(stance, palette);
+    final confidence = number(insight['confidence']).clamp(0, 1).toDouble();
+    final summary = text(
+      insight['summaryZh'],
+      text(insight['summary'], 'No summary available.'),
+    );
+    final theme = text(insight['theme'], 'Forward-looking debate');
+    final channel = text(insight['channel'], 'Podcast');
+    final observedAt = formatDate(text(insight['observedAt']));
+    final videoTitle = text(insight['videoTitle']);
+    final excerpt = text(insight['evidenceExcerpt']);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: expanded
+              ? palette.accent.withValues(alpha: .08)
+              : palette.card.withValues(alpha: .62),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: expanded
+                ? palette.accent.withValues(alpha: .46)
+                : palette.border,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                BadgeLabel(text: stanceLabel(stance), color: tone),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    theme,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: palette.text,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Icon(
+                  expanded
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  color: palette.muted,
+                ),
+              ],
+            ),
+            const SizedBox(height: 9),
+            Text(
+              summary,
+              maxLines: expanded ? null : 3,
+              overflow: expanded ? null : TextOverflow.ellipsis,
+              style: TextStyle(
+                color: palette.text,
+                fontSize: 13,
+                height: 1.42,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 10),
+            compact
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _PodcastSourceLine(
+                        channel: channel,
+                        observedAt: observedAt,
+                        title: videoTitle,
+                        palette: palette,
+                      ),
+                      const SizedBox(height: 8),
+                      _PodcastConfidenceBar(
+                        confidence: confidence,
+                        color: tone,
+                        palette: palette,
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        child: _PodcastSourceLine(
+                          channel: channel,
+                          observedAt: observedAt,
+                          title: videoTitle,
+                          palette: palette,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      SizedBox(
+                        width: 180,
+                        child: _PodcastConfidenceBar(
+                          confidence: confidence,
+                          color: tone,
+                          palette: palette,
+                        ),
+                      ),
+                    ],
+                  ),
+            if (expanded && excerpt.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  color: palette.panel.withValues(alpha: .70),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: palette.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Transcript excerpt',
+                      style: TextStyle(
+                        color: palette.secondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      excerpt,
+                      style: TextStyle(
+                        color: palette.muted,
+                        fontSize: 12,
+                        height: 1.38,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PodcastSourceLine extends StatelessWidget {
+  const _PodcastSourceLine({
+    required this.channel,
+    required this.observedAt,
+    required this.title,
+    required this.palette,
+  });
+
+  final String channel;
+  final String observedAt;
+  final String title;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = [
+      channel,
+      if (observedAt.isNotEmpty) observedAt,
+      if (title.isNotEmpty) title,
+    ].join(' · ');
+    return Text(
+      subtitle,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: palette.faint,
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+        height: 1.3,
+      ),
+    );
+  }
+}
+
+class _PodcastConfidenceBar extends StatelessWidget {
+  const _PodcastConfidenceBar({
+    required this.confidence,
+    required this.color,
+    required this.palette,
+  });
+
+  final double confidence;
+  final Color color;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: confidence <= 0 ? .08 : confidence,
+                  minHeight: 6,
+                  backgroundColor: palette.border,
+                  color: color,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${(confidence * 100).round()}%',
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'evidence strength',
+          style: TextStyle(
+            color: palette.faint,
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+Color stanceTone(String stance, Palette palette) {
+  final normalized = stance.toLowerCase();
+  if (normalized.contains('risk') || normalized.contains('negative')) {
+    return palette.negative;
+  }
+  if (normalized.contains('positive') || normalized.contains('bull')) {
+    return palette.accent;
+  }
+  return palette.secondary;
+}
+
+String stanceLabel(String stance) {
+  final normalized = stance.toLowerCase();
+  if (normalized.contains('risk') || normalized.contains('negative')) {
+    return '风险';
+  }
+  if (normalized.contains('positive') || normalized.contains('bull')) {
+    return '正面';
+  }
+  return '混合';
+}
+
 class ValuationQuarterQaList extends StatefulWidget {
   const ValuationQuarterQaList({
     super.key,
@@ -17661,7 +18115,13 @@ String shortText(String value, [int length = 10]) {
 
 String normalizeRouteMode(String? value) {
   final mode = value?.trim().toLowerCase() ?? '';
-  return const {'guru', 'dbmf', 'valuation', 'portfolio', 'admin'}.contains(mode)
+  return const {
+        'guru',
+        'dbmf',
+        'valuation',
+        'portfolio',
+        'admin',
+      }.contains(mode)
       ? mode
       : 'guru';
 }

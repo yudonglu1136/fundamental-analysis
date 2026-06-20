@@ -15,6 +15,8 @@
     "import:derived-valuations": "node server/importDerivedValuationTickers.js",
     "enrich:valuation-transcript-qa": "node server/enrichValuationTranscriptQa.js",
     "refresh:dividends": "node server/refreshDividendCalendar.js",
+    "sync:youtube-transcripts": "python3 scripts/sync_youtube_transcripts.py",
+    "refresh:podcast-insights": "node server/generatePodcastValuationInsights.js",
     "audit:valuation": "node server/unifiedValuationAudit.js",
     "audit:valuation:qa": "node server/valuationQaReport.js",
     "audit:valuation:refresh": "VALUATION_CONSENSUS_REFRESH=1 node server/unifiedValuationAudit.js",

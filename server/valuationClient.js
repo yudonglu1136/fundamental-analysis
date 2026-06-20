@@ -1,4 +1,10 @@
-import { databaseInfo, readValuationSnapshot, readValuationTickerSnapshot } from "./localDatabase.js";
+import {
+  databaseInfo,
+  readValuationPodcastInsights,
+  readValuationPodcastInsightSummary,
+  readValuationSnapshot,
+  readValuationTickerSnapshot
+} from "./localDatabase.js";
 import { applyAznValuationOverlay } from "./aznValuationOverlay.js";
 import { normalizeTicker, valuationLookupKeysForSnapshot, valuationTickerCandidates } from "./tickerAliases.js";
 import fs from "node:fs";
@@ -132,6 +138,23 @@ function compactTickerDetail(ticker, { pricePoints = 900 } = {}) {
   };
 }
 
+function attachPodcastInsights(ticker, requestedTicker) {
+  const lookupKeys = [
+    ticker?.ticker,
+    ticker?.key,
+    requestedTicker
+  ].filter(Boolean);
+  let insights = [];
+  for (const key of lookupKeys) {
+    insights = readValuationPodcastInsights(key, 12);
+    if (insights.length) break;
+  }
+  return {
+    ...ticker,
+    podcastInsights: insights
+  };
+}
+
 export async function loadValuationDashboard() {
   const dbMtimeMs = databaseMtimeMs();
   if (dashboardCache.payload && dashboardCache.dbMtimeMs === dbMtimeMs) {
@@ -159,6 +182,7 @@ export async function loadValuationDashboard() {
       label: "Local SQLite valuation database",
       localDatabase: databaseInfo().path
     },
+    podcastInsights: readValuationPodcastInsightSummary(),
     tickers,
     cache: { status: "local-db", source: "sqlite" }
   };
@@ -188,7 +212,10 @@ export async function loadValuationTicker(ticker, options = {}) {
     }
   }
   if (tickerSnapshot) {
-    const ticker = compactTickerDetail(applyAznValuationOverlay(tickerSnapshot), { pricePoints });
+    const ticker = attachPodcastInsights(
+      compactTickerDetail(applyAznValuationOverlay(tickerSnapshot), { pricePoints }),
+      resolvedTicker
+    );
     const payload = {
       generatedAt: ticker.generatedAt || new Date().toISOString(),
       source: {
@@ -216,7 +243,7 @@ export async function loadValuationTicker(ticker, options = {}) {
   const payload = {
     generatedAt: dashboard.generatedAt,
     source: dashboard.source,
-    ticker: fromDashboard,
+    ticker: attachPodcastInsights(fromDashboard, normalized),
     cache: dashboard.cache
   };
   tickerCache.set(cacheKey, payload);
