@@ -225,6 +225,82 @@ function syncBundledValuationSnapshots() {
   }
 }
 
+function syncBundledGuruBacktests() {
+  if (process.env.SYNC_BUNDLED_GURU_BACKTESTS === "false") return;
+  if (dbPath === bundledDbPath || !fs.existsSync(bundledDbPath)) return;
+
+  let bundledDb;
+  try {
+    bundledDb = new DatabaseSync(bundledDbPath, { readOnly: true });
+    const bundledSummary = bundledDb.prepare(`
+      SELECT
+        COUNT(*) AS count,
+        MAX(generated_at) AS generated_at,
+        MAX(end_date) AS end_date
+      FROM guru_backtests
+    `).get();
+    if (!bundledSummary?.count) return;
+
+    const currentSummary = db.prepare(`
+      SELECT
+        COUNT(*) AS count,
+        MAX(generated_at) AS generated_at,
+        MAX(end_date) AS end_date
+      FROM guru_backtests
+    `).get();
+    const shouldSync =
+      Number(bundledSummary.count || 0) > Number(currentSummary?.count || 0) ||
+      (bundledSummary.generated_at &&
+        (!currentSummary?.generated_at || bundledSummary.generated_at > currentSummary.generated_at)) ||
+      (bundledSummary.end_date &&
+        (!currentSummary?.end_date || bundledSummary.end_date > currentSummary.end_date));
+    if (!shouldSync) return;
+
+    const rows = bundledDb.prepare(`
+      SELECT guru_id, years, generated_at, start_date, end_date, payload_json
+      FROM guru_backtests
+    `).all();
+    if (!rows.length) return;
+
+    const writeBacktest = db.prepare(`
+      INSERT INTO guru_backtests (guru_id, years, generated_at, start_date, end_date, payload_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(guru_id, years) DO UPDATE SET
+        generated_at = excluded.generated_at,
+        start_date = excluded.start_date,
+        end_date = excluded.end_date,
+        payload_json = excluded.payload_json
+      WHERE
+        guru_backtests.generated_at IS NULL OR
+        excluded.generated_at > guru_backtests.generated_at OR
+        excluded.end_date > guru_backtests.end_date
+    `);
+
+    db.exec("BEGIN");
+    try {
+      for (const row of rows) {
+        writeBacktest.run(
+          row.guru_id,
+          row.years,
+          row.generated_at,
+          row.start_date,
+          row.end_date,
+          row.payload_json
+        );
+      }
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+    console.info(`[database] synced bundled guru backtests into ${dbPath}: ${rows.length} rows`);
+  } catch (error) {
+    console.warn(`[database] bundled guru backtest sync skipped: ${error.message}`);
+  } finally {
+    bundledDb?.close();
+  }
+}
+
 function syncBundledDividendCalendar() {
   if (process.env.SYNC_BUNDLED_DIVIDEND_CALENDAR === "false") return;
   if (dbPath === bundledDbPath || !fs.existsSync(bundledDbPath)) return;
@@ -541,6 +617,7 @@ function syncBundledPodcastInsights() {
 }
 
 syncBundledValuationSnapshots();
+syncBundledGuruBacktests();
 syncBundledDividendCalendar();
 syncBundledPodcastInsights();
 
