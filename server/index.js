@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,7 +10,13 @@ import { gurus } from "./gurus.js";
 import { loadDbmfDashboard } from "./dbmfClient.js";
 import { clearPortfolioCache, loadPortfolioDashboard, startPortfolioNavRecorder } from "./portfolioClient.js";
 import { requireAuth } from "./auth/requireAuth.js";
-import { loadGuruBacktest, loadGuruBacktests } from "./backtest.js";
+import {
+  guruBacktestRefreshStatus,
+  loadGuruBacktest,
+  loadGuruBacktests,
+  refreshGuruBacktestCache,
+  startGuruBacktestRefresher
+} from "./backtest.js";
 import { loadValuationDashboard, loadValuationTicker } from "./valuationClient.js";
 import { translateTextsToChinese } from "./translationClient.js";
 import { databaseInfo } from "./localDatabase.js";
@@ -105,6 +112,58 @@ app.get("/api/logo/:ticker", async (request, response) => {
     response.send(asset.body);
   } catch {
     response.status(404).json({ error: "logo_not_found" });
+  }
+});
+
+function secureCompare(left, right) {
+  const leftBuffer = Buffer.from(String(left || ""));
+  const rightBuffer = Buffer.from(String(right || ""));
+  if (!leftBuffer.length || leftBuffer.length !== rightBuffer.length) return false;
+  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function internalCronAuthorized(request) {
+  const secret = process.env.INTERNAL_CRON_SECRET || process.env.CRON_SECRET || "";
+  if (!secret) return false;
+  const authorization = String(request.headers.authorization || "");
+  const bearer = authorization.toLowerCase().startsWith("bearer ")
+    ? authorization.slice(7).trim()
+    : "";
+  const provided =
+    String(request.headers["x-cron-secret"] || "") ||
+    bearer ||
+    String(request.query.secret || "");
+  return secureCompare(provided, secret);
+}
+
+function requireInternalCron(request, response, next) {
+  if (!internalCronAuthorized(request)) {
+    response.status(403).json({
+      error: "cron_forbidden",
+      message: "Internal refresh endpoint requires a configured cron secret."
+    });
+    return;
+  }
+  next();
+}
+
+app.get("/api/internal/backtests/status", requireInternalCron, (_request, response) => {
+  response.json(guruBacktestRefreshStatus());
+});
+
+app.post("/api/internal/backtests/refresh", requireInternalCron, async (request, response) => {
+  try {
+    const payload = await refreshGuruBacktestCache({
+      years: request.query.years || request.body?.years || "all",
+      detail: request.query.detail || request.body?.detail || "compact",
+      reason: "internal-api"
+    });
+    response.json(payload);
+  } catch (error) {
+    response.status(500).json({
+      error: "backtest_refresh_failed",
+      message: error.message
+    });
   }
 });
 
@@ -287,6 +346,26 @@ app.get("/api/admin/portfolio-users/:hash", requireAdmin, async (request, respon
   }
 });
 
+app.get("/api/admin/backtests/status", requireAdmin, (_request, response) => {
+  response.json(guruBacktestRefreshStatus());
+});
+
+app.post("/api/admin/backtests/refresh", requireAdmin, async (request, response) => {
+  try {
+    const payload = await refreshGuruBacktestCache({
+      years: request.query.years || request.body?.years || "all",
+      detail: request.query.detail || request.body?.detail || "compact",
+      reason: "admin-api"
+    });
+    response.json(payload);
+  } catch (error) {
+    response.status(500).json({
+      error: "admin_backtest_refresh_failed",
+      message: error.message
+    });
+  }
+});
+
 app.get("/api/valuation", async (_request, response) => {
   try {
     const payload = await loadValuationDashboard();
@@ -426,4 +505,8 @@ if (process.env.DIVIDEND_CALENDAR_AUTO_REFRESH !== "false") {
     const payload = await loadPortfolioDashboard({ forceRefresh: false });
     return payload.holdings || [];
   });
+}
+
+if (process.env.GURU_BACKTEST_AUTO_REFRESH !== "false") {
+  startGuruBacktestRefresher();
 }

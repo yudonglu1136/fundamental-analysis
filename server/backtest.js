@@ -8,6 +8,36 @@ const allYearsCacheKey = 0;
 const maxHoldingsPerFiling = Number(process.env.BACKTEST_MAX_HOLDINGS || 60);
 const priceConcurrency = Math.max(1, Math.min(12, Number(process.env.BACKTEST_PRICE_CONCURRENCY || 6)));
 const responseMaxEquityPoints = Math.max(120, Number(process.env.BACKTEST_RESPONSE_MAX_POINTS || 520));
+const dayMs = 1000 * 60 * 60 * 24;
+const backtestCacheTtlMs = Math.max(
+  1000 * 60 * 60,
+  Number(process.env.BACKTEST_CACHE_TTL_HOURS || 20) * 1000 * 60 * 60
+);
+const backtestEndGraceMs = Math.max(
+  dayMs,
+  Number(process.env.BACKTEST_CACHE_END_GRACE_DAYS || 5) * dayMs
+);
+const backtestAutoRefreshIntervalMs = Math.max(
+  1000 * 60 * 60,
+  Number(process.env.BACKTEST_AUTO_REFRESH_INTERVAL_HOURS || 24) * 1000 * 60 * 60
+);
+const backtestAutoRefreshInitialDelayMs = Math.max(
+  0,
+  Number(process.env.BACKTEST_AUTO_REFRESH_INITIAL_DELAY_MS ?? 45000)
+);
+
+let backtestAutoRefreshTimer = null;
+let backtestAutoRefreshKickoffTimer = null;
+let backtestRefreshInFlight = null;
+let lastBacktestRefreshStatus = {
+  running: false,
+  startedAt: null,
+  finishedAt: null,
+  reason: "",
+  ok: 0,
+  failed: 0,
+  errors: []
+};
 
 function isoDate(value) {
   return new Date(value).toISOString().slice(0, 10);
@@ -65,6 +95,26 @@ async function mapWithConcurrency(items, concurrency, worker) {
 function dateMs(value) {
   const time = value ? new Date(value).getTime() : 0;
   return Number.isFinite(time) ? time : 0;
+}
+
+function cachedBacktestIsFresh(cached) {
+  if (!cached) return false;
+  if (process.env.BACKTEST_CACHE_TTL_HOURS === "0") return true;
+
+  const generatedAt = dateMs(cached.generatedAt);
+  if (!generatedAt || Date.now() - generatedAt > backtestCacheTtlMs) return false;
+
+  const windowEnd = dateMs(cached.window?.end || cached.endDate);
+  if (!windowEnd || Date.now() - windowEnd > backtestEndGraceMs) return false;
+
+  return true;
+}
+
+function cachedBacktestWithHit(cached) {
+  return {
+    ...cached,
+    cache: { status: "sqlite-hit", source: "sqlite" }
+  };
 }
 
 function isTicker(value) {
@@ -643,11 +693,8 @@ async function loadDisclosureBacktest(guru, window, { refresh, includeAttributio
   if (guru.disableSimulation) return unsupportedBacktest(guru, window);
 
   const cached = readGuruBacktest(guru.id, window.cacheKey);
-  if (cached && !refresh) {
-    return compactBacktestPayload({
-      ...cached,
-      cache: { status: "sqlite-hit", source: "sqlite" }
-    }, { includeAttribution });
+  if (!refresh && cachedBacktestIsFresh(cached)) {
+    return compactBacktestPayload(cachedBacktestWithHit(cached), { includeAttribution });
   }
 
   const dashboard = await loadGuruDashboard({ forceRefresh: false });
@@ -878,11 +925,8 @@ export async function loadGuruBacktest(
   }
 
   const cached = readGuruBacktest(guruId, window.cacheKey);
-  if (cached && !refresh) {
-    return compactBacktestPayload({
-      ...cached,
-      cache: { status: "sqlite-hit", source: "sqlite" }
-    }, { includeAttribution });
+  if (!refresh && cachedBacktestIsFresh(cached)) {
+    return compactBacktestPayload(cachedBacktestWithHit(cached), { includeAttribution });
   }
 
   const end = today();
@@ -1126,4 +1170,103 @@ export async function loadGuruBacktests({ refresh = false, years = defaultYears,
     benchmark: "SPY",
     backtests: results
   };
+}
+
+export function guruBacktestRefreshStatus() {
+  return {
+    ...lastBacktestRefreshStatus,
+    running: Boolean(backtestRefreshInFlight)
+  };
+}
+
+export async function refreshGuruBacktestCache({
+  years = "all",
+  detail = "compact",
+  reason = "manual"
+} = {}) {
+  if (backtestRefreshInFlight) {
+    return {
+      ...guruBacktestRefreshStatus(),
+      alreadyRunning: true
+    };
+  }
+
+  backtestRefreshInFlight = (async () => {
+    const startedAt = new Date().toISOString();
+    const status = {
+      running: true,
+      startedAt,
+      finishedAt: null,
+      reason,
+      ok: 0,
+      failed: 0,
+      errors: []
+    };
+    lastBacktestRefreshStatus = status;
+
+    for (const guru of gurus.filter((item) => item.type === "manager13f" || item.type === "congress")) {
+      try {
+        const payload = await loadGuruBacktest(guru.id, {
+          refresh: true,
+          years,
+          detail
+        });
+        status.ok += 1;
+        console.log("[backtest-refresh] refreshed", {
+          guru: guru.id,
+          status: payload.status,
+          start: payload.window?.start || "",
+          end: payload.window?.end || ""
+        });
+      } catch (error) {
+        status.failed += 1;
+        status.errors.push({
+          guru: guru.id,
+          message: error.message
+        });
+        console.warn("[backtest-refresh] failed", {
+          guru: guru.id,
+          reason: error.message
+        });
+      }
+    }
+
+    status.running = false;
+    status.finishedAt = new Date().toISOString();
+    lastBacktestRefreshStatus = status;
+    return status;
+  })();
+
+  try {
+    return await backtestRefreshInFlight;
+  } finally {
+    backtestRefreshInFlight = null;
+  }
+}
+
+export function startGuruBacktestRefresher() {
+  if (process.env.GURU_BACKTEST_AUTO_REFRESH === "false") return null;
+  if (backtestAutoRefreshTimer) return backtestAutoRefreshTimer;
+
+  const run = () => {
+    refreshGuruBacktestCache({ reason: "scheduled" }).catch((error) => {
+      lastBacktestRefreshStatus = {
+        ...lastBacktestRefreshStatus,
+        running: false,
+        finishedAt: new Date().toISOString(),
+        failed: Math.max(1, lastBacktestRefreshStatus.failed || 0),
+        errors: [
+          ...(lastBacktestRefreshStatus.errors || []),
+          { guru: "scheduler", message: error.message }
+        ]
+      };
+      console.warn("[backtest-refresh] scheduled refresh failed", error.message);
+    });
+  };
+
+  backtestAutoRefreshKickoffTimer = setTimeout(run, backtestAutoRefreshInitialDelayMs);
+  backtestAutoRefreshTimer = setInterval(run, backtestAutoRefreshIntervalMs);
+  if (backtestAutoRefreshKickoffTimer.unref) backtestAutoRefreshKickoffTimer.unref();
+  if (backtestAutoRefreshTimer.unref) backtestAutoRefreshTimer.unref();
+  return backtestAutoRefreshTimer;
 }
