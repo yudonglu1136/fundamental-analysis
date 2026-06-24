@@ -339,6 +339,8 @@ class _TerminalHomeState extends State<TerminalHome>
   bool _colorBlind = false;
   AppLanguage _language = AppLanguage.zh;
   Timer? _secondaryRecoveryTimer;
+  int _guruRequestSerial = 0;
+  int _secondaryRequestSerial = 0;
 
   Palette get palette => Palette(_colorBlind);
   bool get _adminEnabled => isAdminEmail(widget.userEmail);
@@ -389,6 +391,7 @@ class _TerminalHomeState extends State<TerminalHome>
   }
 
   Future<void> _loadGurus({bool refresh = false}) async {
+    final requestId = ++_guruRequestSerial;
     setState(() {
       _loadingGurus = true;
       _error = null;
@@ -398,7 +401,7 @@ class _TerminalHomeState extends State<TerminalHome>
         '/api/gurus${refresh ? '?refresh=1' : ''}',
       );
       final gurus = asList(payload['gurus']);
-      if (!mounted) return;
+      if (!mounted || requestId != _guruRequestSerial) return;
       setState(() {
         _guruPayload = payload;
         final selectedExists = gurus.any(
@@ -410,9 +413,13 @@ class _TerminalHomeState extends State<TerminalHome>
       });
       _persistRouteState();
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted && requestId == _guruRequestSerial) {
+        setState(() => _error = error.toString());
+      }
     } finally {
-      if (mounted) setState(() => _loadingGurus = false);
+      if (mounted && requestId == _guruRequestSerial) {
+        setState(() => _loadingGurus = false);
+      }
     }
   }
 
@@ -437,6 +444,7 @@ class _TerminalHomeState extends State<TerminalHome>
     if (!refresh && mode == 'valuation' && _valuationPayload != null) return;
     if (!refresh && mode == 'admin' && _adminPayload != null) return;
     if (mode == 'admin' && !_adminEnabled) return;
+    final requestId = ++_secondaryRequestSerial;
     setState(() {
       _loadingSecondary = true;
       _secondaryError = null;
@@ -450,7 +458,7 @@ class _TerminalHomeState extends State<TerminalHome>
       };
       final path = refresh ? '$basePath?refresh=1' : basePath;
       final payload = await _api.getJson(path);
-      if (!mounted) return;
+      if (!mounted || requestId != _secondaryRequestSerial) return;
       setState(() {
         if (mode == 'dbmf') _dbmfPayload = payload;
         if (mode == 'portfolio') _portfolioPayload = payload;
@@ -459,11 +467,13 @@ class _TerminalHomeState extends State<TerminalHome>
         _secondaryError = null;
       });
     } catch (error) {
-      if (mounted) {
+      if (mounted && requestId == _secondaryRequestSerial) {
         setState(() => _secondaryError = error.toString());
       }
     } finally {
-      if (mounted) setState(() => _loadingSecondary = false);
+      if (mounted && requestId == _secondaryRequestSerial) {
+        setState(() => _loadingSecondary = false);
+      }
     }
   }
 
@@ -7331,9 +7341,25 @@ class SecondaryDashboard extends StatelessWidget {
             Panel(
               palette: palette,
               child: error == null
-                  ? EmptyState(
-                      text: 'Data has not loaded yet.',
-                      palette: palette,
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        EmptyState(
+                          text: context.tr(
+                            '当前页面数据还没有载入。',
+                            'Data has not loaded yet.',
+                          ),
+                          palette: palette,
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          onPressed: () => unawaited(onRefresh()),
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: Text(
+                            context.tr('重新载入当前页面数据', 'Load current page data'),
+                          ),
+                        ),
+                      ],
                     )
                   : ErrorCard(
                       message: error!.replaceFirst('Exception: ', ''),
@@ -17628,6 +17654,9 @@ class ValuationSourceNote extends StatelessWidget {
 class ApiClient {
   ApiClient(this._accessTokenProvider);
 
+  static const Duration _requestTimeout = Duration(seconds: 25);
+  static const Duration _retryDelay = Duration(milliseconds: 450);
+
   final String Function() _accessTokenProvider;
 
   String get accessToken {
@@ -17644,14 +17673,39 @@ class ApiClient {
   };
 
   Future<http.Response> _sendWithAuthRetry(
-    Future<http.Response> Function(String token) send,
-  ) async {
-    var response = await send(accessToken);
+    Future<http.Response> Function(String token) send, {
+    bool retryTransient = false,
+  }) async {
+    var response = await _sendOnce(send, retryTransient: retryTransient);
     if (response.statusCode == 401 && await _refreshSession()) {
-      response = await send(accessToken);
+      response = await _sendOnce(send, retryTransient: retryTransient);
+    }
+    if (retryTransient && _isTransientStatus(response.statusCode)) {
+      await Future<void>.delayed(_retryDelay);
+      response = await _sendOnce(send, retryTransient: false);
     }
     return response;
   }
+
+  Future<http.Response> _sendOnce(
+    Future<http.Response> Function(String token) send, {
+    required bool retryTransient,
+  }) async {
+    try {
+      return await send(accessToken).timeout(_requestTimeout);
+    } on TimeoutException {
+      throw Exception(
+        'API request timed out after ${_requestTimeout.inSeconds}s. Please retry.',
+      );
+    } on http.ClientException {
+      if (!retryTransient) rethrow;
+      await Future<void>.delayed(_retryDelay);
+      return send(accessToken).timeout(_requestTimeout);
+    }
+  }
+
+  bool _isTransientStatus(int statusCode) =>
+      statusCode == 502 || statusCode == 503 || statusCode == 504;
 
   Future<bool> _refreshSession() async {
     if (!_authConfigured || !_supabaseReady) return false;
@@ -17667,6 +17721,7 @@ class ApiClient {
     final uri = apiUri(path);
     final response = await _sendWithAuthRetry(
       (token) => http.get(uri, headers: {'authorization': 'Bearer $token'}),
+      retryTransient: true,
     );
     return _decodeObject(response);
   }
