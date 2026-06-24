@@ -29,6 +29,8 @@ const backtestAutoRefreshInitialDelayMs = Math.max(
 let backtestAutoRefreshTimer = null;
 let backtestAutoRefreshKickoffTimer = null;
 let backtestRefreshInFlight = null;
+let staleBacktestRefreshInFlight = null;
+const staleBacktestRefreshKeys = new Set();
 let lastBacktestRefreshStatus = {
   running: false,
   startedAt: null,
@@ -110,11 +112,53 @@ function cachedBacktestIsFresh(cached) {
   return true;
 }
 
-function cachedBacktestWithHit(cached) {
+function cachedBacktestIsUsable(cached) {
+  if (!cached || typeof cached !== "object") return false;
+  if (Array.isArray(cached.equity)) return true;
+  return Boolean(cached.status || cached.window || cached.summary);
+}
+
+function cachedBacktestWithHit(cached, { status = "sqlite-hit", stale = false } = {}) {
   return {
     ...cached,
-    cache: { status: "sqlite-hit", source: "sqlite" }
+    historyWarming: stale ? true : Boolean(cached.historyWarming),
+    cache: {
+      ...(cached.cache || {}),
+      status,
+      source: "sqlite",
+      stale
+    }
   };
+}
+
+function scheduleStaleBacktestRefresh(guruId, { years, detail }) {
+  if (process.env.BACKTEST_STALE_BACKGROUND_REFRESH === "false") return;
+  if (backtestRefreshInFlight || staleBacktestRefreshInFlight) return;
+  const window = normalizeBacktestWindow(years);
+  const key = `${guruId}:${window.cacheKey}:${detail || "compact"}`;
+  if (staleBacktestRefreshKeys.has(key)) return;
+
+  staleBacktestRefreshKeys.add(key);
+  staleBacktestRefreshInFlight = loadGuruBacktest(guruId, {
+    refresh: true,
+    years,
+    detail
+  }).then((payload) => {
+    console.log("[backtest-refresh] refreshed stale cache", {
+      guru: guruId,
+      status: payload.status,
+      start: payload.window?.start || "",
+      end: payload.window?.end || ""
+    });
+  }).catch((error) => {
+    console.warn("[backtest-refresh] stale cache refresh failed", {
+      guru: guruId,
+      reason: error.message
+    });
+  }).finally(() => {
+    staleBacktestRefreshKeys.delete(key);
+    staleBacktestRefreshInFlight = null;
+  });
 }
 
 function isTicker(value) {
@@ -927,6 +971,13 @@ export async function loadGuruBacktest(
   const cached = readGuruBacktest(guruId, window.cacheKey);
   if (!refresh && cachedBacktestIsFresh(cached)) {
     return compactBacktestPayload(cachedBacktestWithHit(cached), { includeAttribution });
+  }
+  if (!refresh && cachedBacktestIsUsable(cached)) {
+    scheduleStaleBacktestRefresh(guruId, { years, detail });
+    return compactBacktestPayload(cachedBacktestWithHit(cached, {
+      status: "sqlite-stale",
+      stale: true
+    }), { includeAttribution });
   }
 
   const end = today();
