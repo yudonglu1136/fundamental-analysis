@@ -7581,14 +7581,18 @@ class _AdminPortfolioDashboardState extends State<AdminPortfolioDashboard> {
   String _selectedHash = '';
   String _search = '';
   bool _loadingDetail = false;
+  bool _loadingHealth = false;
   String? _detailError;
+  String? _healthError;
   Map<String, dynamic>? _detail;
+  Map<String, dynamic>? _health;
 
   List<Map<String, dynamic>> get _users => asList(widget.data['users']);
 
   @override
   void initState() {
     super.initState();
+    unawaited(_loadHealth());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _syncSelection(force: true);
     });
@@ -7646,6 +7650,23 @@ class _AdminPortfolioDashboardState extends State<AdminPortfolioDashboard> {
       if (mounted && targetHash == _selectedHash) {
         setState(() => _loadingDetail = false);
       }
+    }
+  }
+
+  Future<void> _loadHealth() async {
+    setState(() {
+      _loadingHealth = true;
+      _healthError = null;
+    });
+    try {
+      final payload = await widget.api.getJson('/api/admin/system-health');
+      if (!mounted) return;
+      setState(() => _health = payload);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _healthError = error.toString());
+    } finally {
+      if (mounted) setState(() => _loadingHealth = false);
     }
   }
 
@@ -7719,6 +7740,14 @@ class _AdminPortfolioDashboardState extends State<AdminPortfolioDashboard> {
           palette: palette,
         ),
         const SizedBox(height: 10),
+        _AdminSystemHealthPanel(
+          data: _health,
+          loading: _loadingHealth,
+          error: _healthError,
+          palette: palette,
+          onRefresh: _loadHealth,
+        ),
+        const SizedBox(height: 10),
         LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 1180;
@@ -7730,7 +7759,7 @@ class _AdminPortfolioDashboardState extends State<AdminPortfolioDashboard> {
               onSearch: (value) => setState(() => _search = value),
               onSelect: _selectUser,
               onRefresh: () async {
-                await widget.onRefresh();
+                await Future.wait([widget.onRefresh(), _loadHealth()]);
                 _syncSelection(force: _selectedHash.isEmpty);
               },
             );
@@ -7761,6 +7790,310 @@ class _AdminPortfolioDashboardState extends State<AdminPortfolioDashboard> {
       ],
     );
   }
+}
+
+class _AdminSystemHealthPanel extends StatelessWidget {
+  const _AdminSystemHealthPanel({
+    required this.data,
+    required this.loading,
+    required this.error,
+    required this.palette,
+    required this.onRefresh,
+  });
+
+  final Map<String, dynamic>? data;
+  final bool loading;
+  final String? error;
+  final Palette palette;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final payload = data ?? const <String, dynamic>{};
+    final status = text(payload['status'], loading ? 'running' : 'unknown');
+    final database = asMap(payload['database']);
+    final service = asMap(payload['service']);
+    final auth = asMap(payload['auth']);
+    final portfolio = asMap(payload['portfolio']);
+    final portfolioSummary = asMap(portfolio['summary']);
+    final jobs = asList(payload['jobs']);
+    final issueCount = jobs
+        .where(
+          (job) =>
+              {'failed', 'warning', 'unknown'}.contains(text(job['status'])),
+        )
+        .length;
+    final statusColor = _adminHealthColor(status, palette);
+
+    return Panel(
+      palette: palette,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PanelTitle(
+            icon: Icons.monitor_heart_rounded,
+            kicker: 'SYSTEM HEALTH',
+            title: context.tr('系统健康与数据任务', 'System Health'),
+            palette: palette,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                BadgeLabel(text: _adminHealthLabel(status), color: statusColor),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Refresh health',
+                  onPressed: loading ? null : () => unawaited(onRefresh()),
+                  icon: loading
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: palette.accent,
+                          ),
+                        )
+                      : Icon(Icons.refresh_rounded, color: palette.accent),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (error != null && data == null)
+            PortfolioDataNotice(
+              icon: Icons.warning_amber_rounded,
+              text: error!,
+              palette: palette,
+            )
+          else ...[
+            GridWrap(
+              minTileWidth: 150,
+              spacing: 10,
+              children: [
+                MiniMetric(
+                  'API',
+                  _adminHealthLabel(status),
+                  Icons.cloud_done_rounded,
+                  palette,
+                ),
+                MiniMetric(
+                  'SQLite',
+                  _formatBytes(number(database['sizeBytes'])),
+                  Icons.storage_rounded,
+                  palette,
+                ),
+                MiniMetric(
+                  'Data jobs',
+                  issueCount == 0 ? '${jobs.length} OK' : '$issueCount issue',
+                  Icons.task_alt_rounded,
+                  palette,
+                ),
+                MiniMetric(
+                  'Users',
+                  formatNumber(number(portfolioSummary['users'])),
+                  Icons.people_alt_rounded,
+                  palette,
+                ),
+                MiniMetric(
+                  'Uptime',
+                  _formatDuration(number(service['uptimeSeconds'])),
+                  Icons.av_timer_rounded,
+                  palette,
+                ),
+                MiniMetric(
+                  'Origins',
+                  formatNumber(number(auth['allowedOriginCount'])),
+                  Icons.public_rounded,
+                  palette,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (text(database['updatedAt']).isNotEmpty)
+              Text(
+                'DB updated ${_formatAdminDateTime(text(database['updatedAt']))} · '
+                '${text(service['environment'], 'env unknown')} · '
+                '${text(auth['apiCorsConfigured']) == 'true' ? 'CORS ok' : 'check CORS'}',
+                style: TextStyle(
+                  color: palette.muted,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            const SizedBox(height: 12),
+            if (jobs.isEmpty)
+              EmptyState(
+                text: loading
+                    ? 'Loading system health...'
+                    : 'No background jobs were reported yet.',
+                palette: palette,
+              )
+            else
+              GridWrap(
+                minTileWidth: 260,
+                spacing: 10,
+                children: [
+                  for (final job in jobs)
+                    _AdminJobHealthTile(job: job, palette: palette),
+                ],
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminJobHealthTile extends StatelessWidget {
+  const _AdminJobHealthTile({required this.job, required this.palette});
+
+  final Map<String, dynamic> job;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = text(job['status'], 'unknown');
+    final color = _adminHealthColor(status, palette);
+    final details = asMap(job['details']);
+    final detailPieces = <String>[
+      if (number(details['rows']) > 0)
+        '${formatNumber(number(details['rows']))} rows',
+      if (number(details['tickerRows']) > 0)
+        '${formatNumber(number(details['tickerRows']))} tickers',
+      if (number(details['eventCount']) > 0)
+        '${formatNumber(number(details['eventCount']))} events',
+      if (number(details['holdings']) > 0)
+        '${formatNumber(number(details['holdings']))} holdings',
+      if (text(details['latestBacktestEndDate']).isNotEmpty)
+        'through ${formatDate(text(details['latestBacktestEndDate']))}',
+      if (text(details['maxExDate']).isNotEmpty)
+        'through ${formatDate(text(details['maxExDate']))}',
+      if (text(details['observedThrough']).isNotEmpty)
+        'through ${formatDate(text(details['observedThrough']))}',
+    ];
+    final message = text(job['message']);
+    final finishedAt = text(job['finishedAt']);
+
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: palette.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: .28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  text(job['label'], text(job['id'], 'Job')),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: palette.text,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _AdminTinyChip(_adminHealthLabel(status), color, palette),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            finishedAt.isEmpty
+                ? 'No completed run'
+                : 'Last ${_formatAdminDateTime(finishedAt)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: palette.muted,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+          ),
+          if (detailPieces.isNotEmpty) ...[
+            const SizedBox(height: 7),
+            Text(
+              detailPieces.take(3).join(' · '),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: palette.secondary,
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+              ),
+            ),
+          ],
+          if (message.isNotEmpty) ...[
+            const SizedBox(height: 7),
+            Text(
+              message,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: status == 'failed' ? palette.negative : palette.muted,
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+Color _adminHealthColor(String status, Palette palette) {
+  final normalized = status.toLowerCase();
+  if (normalized == 'success' || normalized == 'ok') return palette.positive;
+  if (normalized == 'running') return palette.accent;
+  if (normalized == 'warning' || normalized == 'unknown') {
+    return palette.secondary;
+  }
+  return palette.negative;
+}
+
+String _adminHealthLabel(String status) {
+  final normalized = status.toLowerCase();
+  if (normalized == 'success' || normalized == 'ok') return 'healthy';
+  if (normalized == 'running') return 'running';
+  if (normalized == 'warning') return 'watch';
+  if (normalized == 'failed' || normalized == 'error') return 'failed';
+  return 'unknown';
+}
+
+String _formatBytes(double bytes) {
+  if (!bytes.isFinite || bytes <= 0) return '0 B';
+  if (bytes >= 1e9) return '${(bytes / 1e9).toStringAsFixed(2)} GB';
+  if (bytes >= 1e6) return '${(bytes / 1e6).toStringAsFixed(1)} MB';
+  if (bytes >= 1e3) return '${(bytes / 1e3).toStringAsFixed(1)} KB';
+  return '${bytes.toStringAsFixed(0)} B';
+}
+
+String _formatDuration(double seconds) {
+  if (!seconds.isFinite || seconds <= 0) return '-';
+  final duration = Duration(seconds: seconds.round());
+  if (duration.inDays > 0) return '${duration.inDays}d';
+  if (duration.inHours > 0) return '${duration.inHours}h';
+  if (duration.inMinutes > 0) return '${duration.inMinutes}m';
+  return '${duration.inSeconds}s';
+}
+
+String _formatAdminDateTime(String value) {
+  final date = DateTime.tryParse(value);
+  if (date == null) return formatDate(value);
+  final local = date.toLocal();
+  return '${formatDate(local.toIso8601String())} '
+      '${local.hour.toString().padLeft(2, '0')}:'
+      '${local.minute.toString().padLeft(2, '0')}';
 }
 
 class _AdminUserListPanel extends StatelessWidget {

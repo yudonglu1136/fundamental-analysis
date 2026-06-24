@@ -1,7 +1,7 @@
 import { gurus } from "./gurus.js";
 import { load13fHoldingHistory, loadGuruDashboard } from "./secClient.js";
 import { loadPriceSeries } from "./marketData.js";
-import { readGuruBacktest, writeGuruBacktest } from "./localDatabase.js";
+import { readGuruBacktest, writeBackgroundJobRun, writeGuruBacktest } from "./localDatabase.js";
 
 const defaultYears = "all";
 const allYearsCacheKey = 0;
@@ -1203,6 +1203,15 @@ export async function refreshGuruBacktestCache({
       errors: []
     };
     lastBacktestRefreshStatus = status;
+    writeBackgroundJobRun("guru_backtest_refresh", {
+      startedAt,
+      status: "running",
+      payload: {
+        reason,
+        years,
+        detail
+      }
+    });
 
     for (const guru of gurus.filter((item) => item.type === "manager13f" || item.type === "congress")) {
       try {
@@ -1234,6 +1243,12 @@ export async function refreshGuruBacktestCache({
     status.running = false;
     status.finishedAt = new Date().toISOString();
     lastBacktestRefreshStatus = status;
+    writeBackgroundJobRun("guru_backtest_refresh", {
+      startedAt,
+      finishedAt: status.finishedAt,
+      status: status.failed > 0 ? "failed" : "success",
+      payload: status
+    });
     return status;
   })();
 

@@ -2,6 +2,7 @@ import { XMLParser } from "fast-xml-parser";
 import {
   readPriceSeriesFromDb,
   readPortfolioNavPoints,
+  writeBackgroundJobRun,
   writePortfolioNavPoint
 } from "./localDatabase.js";
 import { readDividendCalendarForTickers } from "./dividendClient.js";
@@ -1764,13 +1765,39 @@ export function startPortfolioNavRecorder({
   portfolioNavRecorderStarted = true;
 
   const capture = async () => {
+    const startedAt = new Date().toISOString();
+    writeBackgroundJobRun("portfolio_nav_capture", {
+      startedAt,
+      status: "running",
+      payload: { source: "scheduled-recorder" }
+    });
     try {
       const payload = await loadPortfolioDashboard({ forceRefresh: true });
       const status = payload.performanceStatus || {};
+      writeBackgroundJobRun("portfolio_nav_capture", {
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        status: "success",
+        payload: {
+          source: "scheduled-recorder",
+          navSource: status.source || "",
+          pointCount: status.pointCount || 0,
+          latestDate: status.latestDate || ""
+        }
+      });
       console.log(
         `Portfolio NAV capture complete: ${status.source || "unknown"} ${status.pointCount || 0} point(s).`
       );
     } catch (error) {
+      writeBackgroundJobRun("portfolio_nav_capture", {
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        status: "failed",
+        payload: {
+          source: "scheduled-recorder",
+          error: error.message
+        }
+      });
       console.warn(`Portfolio NAV capture failed: ${error.message}`);
     }
   };

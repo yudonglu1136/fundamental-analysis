@@ -19,12 +19,13 @@ import {
 } from "./backtest.js";
 import { loadValuationDashboard, loadValuationTicker } from "./valuationClient.js";
 import { translateTextsToChinese } from "./translationClient.js";
-import { databaseInfo } from "./localDatabase.js";
+import { databaseInfo, writeBackgroundJobRun } from "./localDatabase.js";
 import { loadTickerLogo } from "./logoClient.js";
 import {
   refreshDividendCalendarForTickers,
   startDividendCalendarRefresher
 } from "./dividendClient.js";
+import { buildAdminSystemHealth } from "./systemHealth.js";
 import {
   addPortfolioAccount,
   deletePortfolioConnection,
@@ -278,10 +279,35 @@ app.post("/api/portfolio/accounts", async (request, response) => {
 });
 
 app.post("/api/portfolio/sync", async (request, response) => {
+  const startedAt = new Date().toISOString();
+  const userHash = String(request.user?.adminPortfolioHash || "").trim();
+  writeBackgroundJobRun("portfolio_sync", {
+    startedAt,
+    status: "running",
+    payload: {
+      userHash,
+      email: request.user?.email || "",
+      source: "user-api"
+    }
+  });
   try {
     recordPortfolioRequestUser(request);
     clearPortfolioCache(request.user);
     const payload = await loadPortfolioDashboard({ forceRefresh: true, user: request.user });
+    writeBackgroundJobRun("portfolio_sync", {
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      status: "success",
+      payload: {
+        userHash,
+        email: request.user?.email || "",
+        source: "user-api",
+        accounts: payload.summary?.accounts || 0,
+        holdings: payload.summary?.holdings || 0,
+        totalValue: payload.summary?.totalValue || 0,
+        connectionStatus: payload.connection?.status || ""
+      }
+    });
     response.json({
       ok: true,
       syncedAt: new Date().toISOString(),
@@ -290,6 +316,17 @@ app.post("/api/portfolio/sync", async (request, response) => {
       portfolio: payload
     });
   } catch (error) {
+    writeBackgroundJobRun("portfolio_sync", {
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      status: "failed",
+      payload: {
+        userHash,
+        email: request.user?.email || "",
+        source: "user-api",
+        error: error.message
+      }
+    });
     response.status(500).json({ error: "portfolio_sync_failed", message: error.message });
   }
 });
@@ -323,6 +360,21 @@ app.get("/api/admin/portfolio-users", requireAdmin, async (request, response) =>
     response.json(listAdminPortfolioUsers());
   } catch (error) {
     response.status(500).json({ error: "admin_portfolio_list_failed", message: error.message });
+  }
+});
+
+app.get("/api/admin/system-health", requireAdmin, async (_request, response) => {
+  try {
+    response.setHeader("Cache-Control", "private, max-age=10");
+    response.json(buildAdminSystemHealth({
+      allowedOrigins,
+      adminEmails: [...adminEmails]
+    }));
+  } catch (error) {
+    response.status(500).json({
+      error: "admin_system_health_failed",
+      message: error.message
+    });
   }
 });
 

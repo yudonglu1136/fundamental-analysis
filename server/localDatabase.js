@@ -1351,6 +1351,20 @@ export function readBackgroundJobRun(jobId) {
   };
 }
 
+export function readBackgroundJobRuns() {
+  return db.prepare(`
+    SELECT job_id, started_at, finished_at, status, payload_json
+    FROM background_job_runs
+    ORDER BY COALESCE(finished_at, started_at, '') DESC, job_id ASC
+  `).all().map((row) => ({
+    jobId: row.job_id,
+    startedAt: row.started_at || "",
+    finishedAt: row.finished_at || "",
+    status: row.status || "",
+    payload: parsePayload(row.payload_json) || {}
+  }));
+}
+
 export function writeBackgroundJobRun(jobId, run = {}) {
   const normalized = String(jobId || "").trim();
   if (!normalized) return;
@@ -1369,4 +1383,54 @@ export function writeBackgroundJobRun(jobId, run = {}) {
     String(run.status || "").trim(),
     JSON.stringify(run.payload || {})
   );
+}
+
+const tableSummarySpecs = [
+  { table: "dashboard_snapshots", label: "Guru dashboard", latest: "generated_at" },
+  { table: "guru_snapshots", label: "Guru snapshots", latest: "generated_at" },
+  { table: "guru_assets", label: "Guru avatars", latest: "generated_at" },
+  { table: "guru_backtests", label: "Guru backtests", latest: "generated_at", maxDate: "end_date" },
+  { table: "valuation_snapshots", label: "Valuation dashboard", latest: "generated_at" },
+  { table: "valuation_ticker_snapshots", label: "Valuation tickers", latest: "generated_at" },
+  { table: "valuation_podcast_insights", label: "Podcast insights", latest: "generated_at", maxDate: "observed_at" },
+  { table: "price_points", label: "Market prices", latest: "updated_at", maxDate: "date" },
+  { table: "dbmf_snapshots", label: "DBMF snapshots", latest: "generated_at", maxDate: "latest_date" },
+  { table: "portfolio_nav_points", label: "Local NAV history", latest: "updated_at", maxDate: "date" },
+  { table: "ticker_assets", label: "Ticker logos", latest: "updated_at" },
+  { table: "dividend_events", label: "Dividend calendar", latest: "updated_at", minDate: "ex_date", maxDate: "ex_date" },
+  { table: "background_job_runs", label: "Background jobs", latest: "finished_at" }
+];
+
+export function readDatabaseTableSummaries() {
+  return tableSummarySpecs.map((spec) => {
+    const selects = [
+      "COUNT(*) AS row_count",
+      spec.latest ? `MAX(${spec.latest}) AS latest_at` : "NULL AS latest_at",
+      spec.minDate ? `MIN(${spec.minDate}) AS min_date` : "NULL AS min_date",
+      spec.maxDate ? `MAX(${spec.maxDate}) AS max_date` : "NULL AS max_date"
+    ];
+    try {
+      const row = db.prepare(`SELECT ${selects.join(", ")} FROM ${spec.table}`).get();
+      return {
+        table: spec.table,
+        label: spec.label,
+        rowCount: Number(row?.row_count) || 0,
+        latestAt: row?.latest_at || "",
+        minDate: row?.min_date || "",
+        maxDate: row?.max_date || "",
+        status: "ok"
+      };
+    } catch (error) {
+      return {
+        table: spec.table,
+        label: spec.label,
+        rowCount: 0,
+        latestAt: "",
+        minDate: "",
+        maxDate: "",
+        status: "error",
+        message: error.message
+      };
+    }
+  });
 }
