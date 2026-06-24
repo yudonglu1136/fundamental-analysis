@@ -339,6 +339,7 @@ class _TerminalHomeState extends State<TerminalHome>
   bool _colorBlind = false;
   AppLanguage _language = AppLanguage.zh;
   Timer? _secondaryRecoveryTimer;
+  bool _secondaryRecoveryScheduled = false;
   int _guruRequestSerial = 0;
   int _secondaryRequestSerial = 0;
 
@@ -438,6 +439,28 @@ class _TerminalHomeState extends State<TerminalHome>
     }
   }
 
+  void _scheduleSecondaryRecoveryIfStale() {
+    if (_secondaryRecoveryScheduled ||
+        _mode == 'guru' ||
+        _loadingSecondary ||
+        _secondaryError != null ||
+        _secondaryPayloadFor(_mode) != null) {
+      return;
+    }
+    _secondaryRecoveryScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _secondaryRecoveryScheduled = false;
+      if (!mounted ||
+          _mode == 'guru' ||
+          _loadingSecondary ||
+          _secondaryError != null ||
+          _secondaryPayloadFor(_mode) != null) {
+        return;
+      }
+      _recoverSecondaryIfNeeded(forceWhenEmpty: true);
+    });
+  }
+
   Future<void> _loadSecondary(String mode, {bool refresh = false}) async {
     if (!refresh && mode == 'dbmf' && _dbmfPayload != null) return;
     if (!refresh && mode == 'portfolio' && _portfolioPayload != null) return;
@@ -525,6 +548,7 @@ class _TerminalHomeState extends State<TerminalHome>
 
   @override
   Widget build(BuildContext context) {
+    _scheduleSecondaryRecoveryIfStale();
     return LanguageScope(
       language: _language,
       child: Scaffold(
