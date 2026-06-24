@@ -14439,9 +14439,11 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
   String _selectedTicker = '';
   String _tickerSearch = '';
   final TextEditingController _tickerSearchController = TextEditingController();
+  final Map<String, Map<String, dynamic>> _detailCache = {};
   Map<String, dynamic>? _detailPayload;
   bool _detailLoading = false;
   String? _detailError;
+  int _detailRequestSerial = 0;
 
   @override
   void initState() {
@@ -14474,6 +14476,7 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
     final nextTicker = hasCurrent
         ? _selectedTicker
         : _defaultTicker(widget.data, preferred: widget.initialTicker);
+    _detailCache.clear();
     setState(() {
       _selectedTicker = nextTicker;
       _detailPayload = null;
@@ -14496,28 +14499,42 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
     return rows.isEmpty ? '' : rows.first.ticker;
   }
 
-  Future<void> _loadTicker(String ticker) async {
+  Future<void> _loadTicker(String ticker, {bool refresh = false}) async {
     if (ticker.isEmpty) return;
     final normalizedTicker = ticker.toUpperCase();
+    final cachedPayload = refresh ? null : _detailCache[normalizedTicker];
+    final requestId = ++_detailRequestSerial;
     setState(() {
       _selectedTicker = normalizedTicker;
-      _detailPayload = null;
+      _detailPayload = cachedPayload;
       _detailError = null;
-      _detailLoading = true;
+      _detailLoading = cachedPayload == null;
     });
     widget.onTickerChanged(normalizedTicker);
+    if (cachedPayload != null) return;
     try {
       final encodedTicker = Uri.encodeComponent(normalizedTicker);
       final payload = await widget.api.getJson(
         '/api/valuation/$encodedTicker?pricePoints=900',
       );
-      if (!mounted || normalizedTicker != _selectedTicker) return;
+      if (!mounted ||
+          requestId != _detailRequestSerial ||
+          normalizedTicker != _selectedTicker) {
+        return;
+      }
+      _detailCache[normalizedTicker] = payload;
       setState(() => _detailPayload = payload);
     } catch (error) {
-      if (!mounted || normalizedTicker != _selectedTicker) return;
+      if (!mounted ||
+          requestId != _detailRequestSerial ||
+          normalizedTicker != _selectedTicker) {
+        return;
+      }
       setState(() => _detailError = error.toString());
     } finally {
-      if (mounted && normalizedTicker == _selectedTicker) {
+      if (mounted &&
+          requestId == _detailRequestSerial &&
+          normalizedTicker == _selectedTicker) {
         setState(() => _detailLoading = false);
       }
     }
@@ -14733,7 +14750,7 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
       loading: _detailLoading,
       error: _detailError,
       palette: widget.palette,
-      onRetry: () => _loadTicker(_selectedTicker),
+      onRetry: () => _loadTicker(_selectedTicker, refresh: true),
     );
 
     Widget rightRail() => Column(
