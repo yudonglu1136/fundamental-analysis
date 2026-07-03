@@ -14773,8 +14773,10 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
   String _tickerSearch = '';
   final TextEditingController _tickerSearchController = TextEditingController();
   final Map<String, Map<String, dynamic>> _detailCache = {};
+  Map<String, dynamic>? _localDashboard;
   Map<String, dynamic>? _detailPayload;
   bool _detailLoading = false;
+  bool _importingTicker = false;
   String? _detailError;
   int _detailRequestSerial = 0;
 
@@ -14800,6 +14802,7 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
   void didUpdateWidget(covariant ValuationCompactDashboard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data == widget.data) return;
+    _localDashboard = null;
     final rows = valuationRowsFromTickers(
       asList(widget.data['tickers']).isNotEmpty
           ? asList(widget.data['tickers'])
@@ -14818,6 +14821,11 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
     });
     if (nextTicker.isNotEmpty) _loadTicker(nextTicker);
   }
+
+  Map<String, dynamic> get _dashboardData => _localDashboard ?? widget.data;
+
+  String _normalizeTickerInput(String value) =>
+      value.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9.-]'), '');
 
   String _defaultTicker(Map<String, dynamic> data, {String preferred = ''}) {
     final tickers = asList(data['tickers']).isNotEmpty
@@ -14873,19 +14881,69 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
     }
   }
 
+  Future<void> _importTicker(String ticker) async {
+    final normalizedTicker = _normalizeTickerInput(ticker);
+    if (normalizedTicker.isEmpty || _importingTicker) return;
+    final requestId = ++_detailRequestSerial;
+    setState(() {
+      _selectedTicker = normalizedTicker;
+      _detailPayload = null;
+      _detailError = null;
+      _detailLoading = true;
+      _importingTicker = true;
+    });
+    widget.onTickerChanged(normalizedTicker);
+    try {
+      final encodedTicker = Uri.encodeComponent(normalizedTicker);
+      final payload = await widget.api.postJson(
+        '/api/valuation/$encodedTicker/import?pricePoints=900',
+        {'pricePoints': 900},
+      );
+      final dashboard = await widget.api.getJson('/api/valuation');
+      if (!mounted || requestId != _detailRequestSerial) return;
+      final importedTicker = text(
+        asMap(payload['ticker'])['ticker'],
+        normalizedTicker,
+      ).toUpperCase();
+      _detailCache
+        ..clear()
+        ..[importedTicker] = payload;
+      setState(() {
+        _localDashboard = dashboard;
+        _selectedTicker = importedTicker;
+        _detailPayload = payload;
+        _tickerSearch = importedTicker;
+        _tickerSearchController.text = importedTicker;
+      });
+      widget.onTickerChanged(importedTicker);
+    } catch (error) {
+      if (!mounted || requestId != _detailRequestSerial) return;
+      setState(() => _detailError = error.toString());
+    } finally {
+      if (mounted && requestId == _detailRequestSerial) {
+        setState(() {
+          _detailLoading = false;
+          _importingTicker = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final tickers = asList(widget.data['tickers']).isNotEmpty
-        ? asList(widget.data['tickers'])
-        : asList(widget.data['stocks']);
-    final summary = asMap(widget.data['summary']);
-    final source = asMap(widget.data['source']);
+    final data = _dashboardData;
+    final tickers = asList(data['tickers']).isNotEmpty
+        ? asList(data['tickers'])
+        : asList(data['stocks']);
+    final summary = asMap(data['summary']);
+    final source = asMap(data['source']);
     final rows = valuationRowsFromTickers(tickers);
     final selectedRow = rows.firstWhere(
       (row) => row.ticker == _selectedTicker,
       orElse: () => rows.isNotEmpty ? rows.first : ValuationRow.empty(),
     );
     final tickerQuery = _tickerSearch.trim().toUpperCase();
+    final normalizedTickerQuery = _normalizeTickerInput(_tickerSearch);
     final filteredRows = tickerQuery.isEmpty
         ? rows
         : rows.where((row) {
@@ -14921,7 +14979,7 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
       style: TextStyle(color: widget.palette.text, fontWeight: FontWeight.w800),
       onChanged: (value) {
         setState(() => _tickerSearch = value);
-        final normalized = value.trim().toUpperCase();
+        final normalized = _normalizeTickerInput(value);
         final exactMatch = rows
             .where((row) => row.ticker == normalized)
             .toList();
@@ -14933,6 +14991,8 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
       onSubmitted: (_) {
         if (filteredRows.isNotEmpty) {
           _loadTicker(filteredRows.first.ticker);
+        } else if (normalizedTickerQuery.isNotEmpty) {
+          _importTicker(normalizedTickerQuery);
         }
       },
       decoration: InputDecoration(
@@ -14966,6 +15026,66 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
       ),
     );
 
+    Widget buildImportPrompt() {
+      final exactMatch = rows.any((row) => row.ticker == normalizedTickerQuery);
+      if (normalizedTickerQuery.isEmpty || exactMatch) {
+        return const SizedBox.shrink();
+      }
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: widget.palette.panel,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: widget.palette.border),
+        ),
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          runSpacing: 10,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$normalizedTickerQuery is not in the valuation library yet.',
+                  style: TextStyle(
+                    color: widget.palette.text,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Fetch SEC financials, price history, and rebuild the valuation snapshot.',
+                  style: TextStyle(color: widget.palette.muted, fontSize: 12),
+                ),
+              ],
+            ),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: widget.palette.accent,
+                foregroundColor: widget.palette.background,
+              ),
+              onPressed: _importingTicker
+                  ? null
+                  : () => _importTicker(normalizedTickerQuery),
+              icon: _importingTicker
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: widget.palette.background,
+                      ),
+                    )
+                  : const Icon(Icons.download_rounded),
+              label: Text(_importingTicker ? 'Fetching' : 'Add & fetch'),
+            ),
+          ],
+        ),
+      );
+    }
+
     Widget buildTickerPickerPanel() {
       final quickRows = filteredRows.take(16).toList();
       return Panel(
@@ -14994,7 +15114,16 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
             buildTickerSearchField(hintText: 'Search ticker, company, sector'),
             const SizedBox(height: 12),
             if (quickRows.isEmpty)
-              EmptyState(text: 'No matching tickers.', palette: widget.palette)
+              Column(
+                children: [
+                  EmptyState(
+                    text: 'No matching tickers.',
+                    palette: widget.palette,
+                  ),
+                  const SizedBox(height: 10),
+                  buildImportPrompt(),
+                ],
+              )
             else
               SizedBox(
                 height: 104,
@@ -15058,7 +15187,16 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
                 palette: widget.palette,
               )
             else if (visibleRows.isEmpty)
-              EmptyState(text: 'No matching tickers.', palette: widget.palette)
+              Column(
+                children: [
+                  EmptyState(
+                    text: 'No matching tickers.',
+                    palette: widget.palette,
+                  ),
+                  const SizedBox(height: 10),
+                  buildImportPrompt(),
+                ],
+              )
             else ...[
               ValuationWatchlistHeader(palette: widget.palette),
               const SizedBox(height: 8),
@@ -18028,7 +18166,7 @@ class ValuationSourceNote extends StatelessWidget {
 class ApiClient {
   ApiClient(this._accessTokenProvider);
 
-  static const Duration _requestTimeout = Duration(seconds: 25);
+  static const Duration _requestTimeout = Duration(seconds: 95);
   static const Duration _retryDelay = Duration(milliseconds: 450);
 
   final String Function() _accessTokenProvider;

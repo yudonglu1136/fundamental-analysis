@@ -18,6 +18,7 @@ import {
   startGuruBacktestRefresher
 } from "./backtest.js";
 import { loadValuationDashboard, loadValuationTicker } from "./valuationClient.js";
+import { importValuationTicker } from "./valuationImporter.js";
 import { translateTextsToChinese } from "./translationClient.js";
 import { databaseInfo, writeBackgroundJobRun } from "./localDatabase.js";
 import { loadTickerLogo } from "./logoClient.js";
@@ -425,6 +426,21 @@ app.get("/api/valuation", async (_request, response) => {
     response.json(payload);
   } catch (error) {
     response.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/valuation/:ticker/import", async (request, response) => {
+  try {
+    const payload = await importValuationTicker(request.params.ticker, {
+      pricePoints: request.query.pricePoints || request.body?.pricePoints
+    });
+    response.setHeader("Cache-Control", "no-store");
+    response.json(payload);
+  } catch (error) {
+    response.status(error.statusCode || 502).json({
+      error: "valuation_import_failed",
+      message: error.message
+    });
   }
 });
 
