@@ -134,7 +134,7 @@ function tableByName(tables, name) {
   return tables.find((table) => table.table === name) || {};
 }
 
-function portfolioSummary() {
+function portfolioSummary({ authUsers = [] } = {}) {
   return safeRead("portfolio registry", {
     users: [],
     summary: {
@@ -145,22 +145,23 @@ function portfolioSummary() {
       latestNav: 0
     }
   }, () => {
-    const payload = listAdminPortfolioUsers();
+    const payload = listAdminPortfolioUsers({ authUsers });
     return {
       users: Array.isArray(payload.users) ? payload.users.slice(0, 12) : [],
-      summary: payload.summary || {}
+      summary: payload.summary || {},
+      sources: payload.sources || {}
     };
   });
 }
 
-export function buildAdminSystemHealth({ allowedOrigins = [], adminEmails = [] } = {}) {
+export function buildAdminSystemHealth({ allowedOrigins = [], adminEmails = [], authUsers = [] } = {}) {
   const database = databaseHealth();
   const tables = safeRead("database tables", [], () => readDatabaseTableSummaries());
   const runs = safeRead("job runs", [], () => readBackgroundJobRuns());
   const runById = new Map((Array.isArray(runs) ? runs : []).map((run) => [run.jobId, run]));
   const backtestStatus = safeRead("backtest status", {}, () => guruBacktestRefreshStatus());
   const podcastSummary = safeRead("podcast summary", {}, () => readValuationPodcastInsightSummary(25));
-  const portfolio = portfolioSummary();
+  const portfolio = portfolioSummary({ authUsers });
 
   const backtestTable = tableByName(tables, "guru_backtests");
   const valuationTable = tableByName(tables, "valuation_ticker_snapshots");

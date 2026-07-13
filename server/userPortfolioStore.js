@@ -170,6 +170,67 @@ function cleanString(value) {
   return String(value || "").trim();
 }
 
+function normalizeAdminAuthUser(authUser = {}) {
+  const id = cleanString(authUser.id || authUser.user_id || authUser.userId);
+  if (!id) return null;
+  const hash = userHash(id);
+  const createdAt = cleanString(authUser.createdAt || authUser.created_at);
+  const lastSeenAt = cleanString(
+    authUser.lastSignInAt ||
+    authUser.last_sign_in_at ||
+    authUser.lastSeenAt ||
+    authUser.last_seen_at ||
+    createdAt
+  );
+  return {
+    user_hash: hash,
+    user_id: id,
+    email: cleanString(authUser.email).toLowerCase(),
+    name: cleanString(authUser.name || authUser.fullName || authUser.full_name),
+    avatar: cleanString(authUser.avatar || authUser.picture || authUser.avatar_url),
+    provider: cleanString(authUser.provider),
+    first_seen_at: createdAt || new Date(0).toISOString(),
+    last_seen_at: lastSeenAt || createdAt || new Date(0).toISOString()
+  };
+}
+
+function newerTimestamp(left, right) {
+  const leftTime = Date.parse(cleanString(left));
+  const rightTime = Date.parse(cleanString(right));
+  if (!Number.isFinite(leftTime)) return cleanString(right);
+  if (!Number.isFinite(rightTime)) return cleanString(left);
+  return leftTime >= rightTime ? cleanString(left) : cleanString(right);
+}
+
+function olderTimestamp(left, right) {
+  const leftTime = Date.parse(cleanString(left));
+  const rightTime = Date.parse(cleanString(right));
+  if (!Number.isFinite(leftTime)) return cleanString(right);
+  if (!Number.isFinite(rightTime)) return cleanString(left);
+  return leftTime <= rightTime ? cleanString(left) : cleanString(right);
+}
+
+function mergeRegistryRow(existing = {}, incoming = {}) {
+  return {
+    ...existing,
+    ...incoming,
+    user_hash: cleanPortfolioHash(incoming.user_hash) || cleanPortfolioHash(existing.user_hash),
+    user_id: cleanString(existing.user_id) || cleanString(incoming.user_id),
+    email: cleanString(existing.email) || cleanString(incoming.email),
+    name: cleanString(existing.name) || cleanString(incoming.name),
+    avatar: cleanString(existing.avatar) || cleanString(incoming.avatar),
+    provider: cleanString(existing.provider) || cleanString(incoming.provider),
+    first_seen_at: olderTimestamp(existing.first_seen_at, incoming.first_seen_at),
+    last_seen_at: newerTimestamp(existing.last_seen_at, incoming.last_seen_at)
+  };
+}
+
+function adminAuthUserRows(authUsers = []) {
+  return (Array.isArray(authUsers) ? authUsers : [])
+    .map(normalizeAdminAuthUser)
+    .filter((row) => row && cleanPortfolioHash(row.user_hash));
+}
+
 function cleanToken(value) {
   return cleanString(value).replace(/\s+/g, "");
 }
@@ -622,11 +683,28 @@ function readPortfolioSummaryForHash(hash, registryRow = null) {
   return base;
 }
 
-export function listAdminPortfolioUsers() {
+function adminRegistryRowsWithAuthUsers(authUsers = []) {
   const rows = readRegistryRows();
-  const rowsByHash = new Map(rows.map((row) => [cleanPortfolioHash(row.user_hash), row]));
+  const authRows = adminAuthUserRows(authUsers);
+  const rowsByHash = new Map();
+
+  for (const row of authRows) {
+    rowsByHash.set(cleanPortfolioHash(row.user_hash), row);
+  }
+  for (const row of rows) {
+    const hash = cleanPortfolioHash(row.user_hash);
+    if (!hash) continue;
+    rowsByHash.set(hash, mergeRegistryRow(rowsByHash.get(hash), row));
+  }
+
+  return { rows, authRows, rowsByHash };
+}
+
+export function listAdminPortfolioUsers({ authUsers = [] } = {}) {
+  const { rows, authRows, rowsByHash } = adminRegistryRowsWithAuthUsers(authUsers);
   const hashes = new Set([...rowsByHash.keys()].filter(Boolean));
-  for (const hash of listPortfolioHashes()) hashes.add(hash);
+  const folderHashes = listPortfolioHashes();
+  for (const hash of folderHashes) hashes.add(hash);
   const users = [...hashes]
     .map((hash) => readPortfolioSummaryForHash(hash, rowsByHash.get(hash)))
     .filter(Boolean)
@@ -651,6 +729,11 @@ export function listAdminPortfolioUsers() {
   return {
     generatedAt: new Date().toISOString(),
     summary,
+    sources: {
+      registry: rows.length,
+      auth: authRows.length,
+      folders: folderHashes.length
+    },
     users
   };
 }
@@ -682,10 +765,10 @@ function portfolioUserSortTime(user) {
   return 0;
 }
 
-export function portfolioUserForAdminHash(hash) {
+export function portfolioUserForAdminHash(hash, { authUsers = [] } = {}) {
   const cleaned = cleanPortfolioHash(hash);
   if (!cleaned) return null;
-  const rowsByHash = new Map(readRegistryRows().map((row) => [cleanPortfolioHash(row.user_hash), row]));
+  const { rowsByHash } = adminRegistryRowsWithAuthUsers(authUsers);
   const row = rowsByHash.get(cleaned) || null;
   const summary = readPortfolioSummaryForHash(cleaned, row);
   if (!summary) return null;

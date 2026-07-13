@@ -27,6 +27,7 @@ import {
   startDividendCalendarRefresher
 } from "./dividendClient.js";
 import { buildAdminSystemHealth } from "./systemHealth.js";
+import { listSupabaseAuthUsersForAdmin } from "./adminSupabaseUsers.js";
 import {
   addPortfolioAccount,
   deletePortfolioConnection,
@@ -357,19 +358,29 @@ app.post("/api/portfolio/dividends/refresh", async (_request, response) => {
 app.get("/api/admin/portfolio-users", requireAdmin, async (request, response) => {
   try {
     recordPortfolioRequestUser(request);
+    const authDirectory = await listSupabaseAuthUsersForAdmin(request.auth?.token);
+    const payload = listAdminPortfolioUsers({ authUsers: authDirectory.users });
+    payload.sources = {
+      ...(payload.sources || {}),
+      authStatus: authDirectory.error ? "error" : authDirectory.source,
+      authHttpStatus: authDirectory.status,
+      authError: authDirectory.error ? "Supabase Auth directory unavailable; showing local registry fallback." : ""
+    };
     response.setHeader("Cache-Control", "private, max-age=30");
-    response.json(listAdminPortfolioUsers());
+    response.json(payload);
   } catch (error) {
     response.status(500).json({ error: "admin_portfolio_list_failed", message: error.message });
   }
 });
 
-app.get("/api/admin/system-health", requireAdmin, async (_request, response) => {
+app.get("/api/admin/system-health", requireAdmin, async (request, response) => {
   try {
+    const authDirectory = await listSupabaseAuthUsersForAdmin(request.auth?.token);
     response.setHeader("Cache-Control", "private, max-age=10");
     response.json(buildAdminSystemHealth({
       allowedOrigins,
-      adminEmails: [...adminEmails]
+      adminEmails: [...adminEmails],
+      authUsers: authDirectory.users
     }));
   } catch (error) {
     response.status(500).json({
@@ -381,7 +392,8 @@ app.get("/api/admin/system-health", requireAdmin, async (_request, response) => 
 
 app.get("/api/admin/portfolio-users/:hash", requireAdmin, async (request, response) => {
   try {
-    const target = portfolioUserForAdminHash(request.params.hash);
+    const authDirectory = await listSupabaseAuthUsersForAdmin(request.auth?.token);
+    const target = portfolioUserForAdminHash(request.params.hash, { authUsers: authDirectory.users });
     if (!target) {
       response.status(404).json({ error: "portfolio_user_not_found" });
       return;

@@ -21,6 +21,7 @@ export async function requireAuth(request, response, next) {
       name: "Local Development",
       provider: "local-dev"
     };
+    request.auth = { user: request.user, claims: { sub: request.user.id, email: request.user.email }, token: match[1] };
     next();
     return;
   }
@@ -32,6 +33,6 @@ export async function requireAuth(request, response, next) {
   }
 
   request.user = result.user;
-  request.auth = { user: result.user, claims: result.claims };
+  request.auth = { user: result.user, claims: result.claims, token: match[1] };
   next();
 }
