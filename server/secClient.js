@@ -8,10 +8,12 @@ import { loadPriceSeries, nearestPoint } from "./marketData.js";
 import {
   databaseInfo,
   readDashboardSnapshot,
+  readGuruExposureSnapshot,
   readGuruAsset,
   readGuruAssets,
   readGuruSnapshot,
   writeDashboardSnapshot,
+  writeGuruExposureSnapshot,
   writeGuruSnapshot
 } from "./localDatabase.js";
 
@@ -23,6 +25,14 @@ const cacheTtlMs = 1000 * 60 * 30;
 const insiderForm4FilingLimit = Math.max(10, Math.min(80, Number(process.env.INSIDER_FORM4_FILINGS || 30)));
 const secUserAgent =
   process.env.SEC_USER_AGENT || "guru-analysis-dashboard/0.1 contact@example.com";
+const secRequestTimeoutMs = Math.max(
+  5000,
+  Math.min(120000, Number(process.env.SEC_REQUEST_TIMEOUT_MS || 30000))
+);
+const publicRequestTimeoutMs = Math.max(
+  5000,
+  Math.min(120000, Number(process.env.PUBLIC_REQUEST_TIMEOUT_MS || 30000))
+);
 
 const xmlParser = new XMLParser({
   ignoreAttributes: false,
@@ -40,6 +50,41 @@ class SecRequestError extends Error {
     this.name = "SecRequestError";
     this.status = status;
     this.url = url;
+  }
+}
+
+function requestTimeoutError(url, timeoutMs) {
+  const error = new Error(`Request timed out after ${timeoutMs}ms: ${url}`);
+  error.name = "RequestTimeoutError";
+  error.url = url;
+  return error;
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = secRequestTimeoutMs) {
+  const externalSignal = options.signal;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(requestTimeoutError(url, timeoutMs)), timeoutMs);
+  const abortFromExternal = () => controller.abort(externalSignal.reason);
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort(externalSignal.reason);
+    else externalSignal.addEventListener("abort", abortFromExternal, { once: true });
+  }
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (controller.signal.aborted && controller.signal.reason) {
+      throw controller.signal.reason instanceof Error
+        ? controller.signal.reason
+        : requestTimeoutError(url, timeoutMs);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    if (externalSignal) externalSignal.removeEventListener("abort", abortFromExternal);
   }
 }
 
@@ -77,14 +122,14 @@ function archiveBaseUrl(cik, accessionNumber) {
 }
 
 async function secFetch(url, options = {}) {
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     ...options,
     headers: {
       "User-Agent": secUserAgent,
       "Accept": options.accept || "application/json, text/xml, text/plain, */*",
       ...options.headers
     }
-  });
+  }, Number(options.timeoutMs) || secRequestTimeoutMs);
 
   if (!response.ok) {
     throw new SecRequestError(`SEC request failed ${response.status}: ${url}`, {
@@ -108,12 +153,12 @@ async function getText(url) {
 }
 
 async function getPublicText(url) {
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     headers: {
       "User-Agent": "guru-analysis-dashboard/0.1",
       "Accept": "text/html, application/json, text/plain, */*"
     }
-  });
+  }, publicRequestTimeoutMs);
 
   if (!response.ok) {
     throw new Error(`Public source request failed ${response.status}: ${url}`);
@@ -159,6 +204,16 @@ async function allSubmissionFilings(submission) {
     if (key) byAccession.set(key, filing);
   }
   return [...byAccession.values()];
+}
+
+async function recentOrArchivedFilings(submission, {
+  formPattern = null,
+  minimum = 0
+} = {}) {
+  const recent = recentFilings(submission);
+  const matches = (filing) => !formPattern || formPattern.test(filing.form || "");
+  if (!minimum || recent.filter(matches).length >= minimum) return recent;
+  return allSubmissionFilings(submission);
 }
 
 async function getSubmission(cik) {
@@ -346,6 +401,116 @@ function compare13fHoldings(currentHoldings, previousHoldings) {
     .sort((a, b) => Math.abs(b.changeShares) - Math.abs(a.changeShares));
 }
 
+function quarterLabel(reportDate) {
+  const date = new Date(reportDate);
+  if (!Number.isFinite(date.getTime())) return reportDate || "";
+  return `${date.getUTCFullYear()} Q${Math.floor(date.getUTCMonth() / 3) + 1}`;
+}
+
+function concentrationStats(holdings, totalValue) {
+  const positive = holdings
+    .filter((holding) => (holding.value || 0) > 0)
+    .sort((a, b) => (b.value || 0) - (a.value || 0));
+  const denominator = totalValue || positive.reduce((sum, holding) => sum + (holding.value || 0), 0);
+  const topHoldings = positive.slice(0, 10).map((holding) => ({
+    id: holding.id,
+    issuer: holding.issuer,
+    ticker: holding.ticker,
+    cusip: holding.cusip,
+    value: holding.value || 0,
+    shares: holding.shares || 0,
+    pctPortfolio: denominator ? (holding.value || 0) / denominator : 0
+  }));
+  const hhi = denominator
+    ? positive.reduce((sum, holding) => {
+        const weight = (holding.value || 0) / denominator;
+        return sum + weight * weight;
+      }, 0)
+    : 0;
+
+  return {
+    topHoldings,
+    top10Weight: denominator ? topHoldings.reduce((sum, holding) => sum + holding.value, 0) / denominator : 0,
+    topHoldingWeight: topHoldings[0]?.pctPortfolio || 0,
+    hhi
+  };
+}
+
+function changeStats(currentHoldings, previousHoldings, totalValue, previousValue) {
+  const changes = compare13fHoldings(currentHoldings, previousHoldings);
+  const averageBook = (Math.abs(totalValue || 0) + Math.abs(previousValue || 0)) / 2;
+  const grossChange = changes.reduce(
+    (sum, change) => sum + Math.abs((change.value || 0) - (change.previousValue || 0)),
+    0
+  );
+
+  return {
+    changes,
+    newPositions: changes.filter((item) => item.action === "new").length,
+    increasedPositions: changes.filter((item) => item.action === "increased").length,
+    reducedPositions: changes.filter((item) => item.action === "reduced").length,
+    soldOutPositions: changes.filter((item) => item.action === "sold_out").length,
+    turnoverProxy: averageBook ? grossChange / (2 * averageBook) : 0,
+    largestChanges: changes
+      .filter((item) => item.action !== "unchanged")
+      .sort(
+        (a, b) =>
+          Math.abs((b.value || 0) - (b.previousValue || 0)) -
+          Math.abs((a.value || 0) - (a.previousValue || 0))
+      )
+      .slice(0, 12)
+      .map((change) => ({
+        id: change.id,
+        issuer: change.issuer,
+        ticker: change.ticker,
+        cusip: change.cusip,
+        action: change.action,
+        value: change.value || 0,
+        previousValue: change.previousValue || 0,
+        valueChange: (change.value || 0) - (change.previousValue || 0),
+        shares: change.shares || 0,
+        prevShares: change.prevShares || 0,
+        changeShares: change.changeShares || 0,
+        changePct: change.changePct
+      }))
+  };
+}
+
+function summarize13fExposureQuarter(guru, filing, filingUrl, holdings, previousHoldings = []) {
+  const totalValue = holdings.reduce((sum, holding) => sum + (holding.value || 0), 0);
+  const previousValue = previousHoldings.reduce((sum, holding) => sum + (holding.value || 0), 0);
+  const concentration = concentrationStats(holdings, totalValue);
+  const movement = changeStats(holdings, previousHoldings, totalValue, previousValue);
+
+  return {
+    accessionNumber: filing.accessionNumber,
+    reportDate: filing.reportDate,
+    filingDate: filing.filingDate,
+    quarterLabel: quarterLabel(filing.reportDate),
+    reported13fValue: totalValue,
+    previous13fValue: previousValue,
+    valueChange: totalValue - previousValue,
+    valueChangePct: previousValue ? (totalValue - previousValue) / Math.abs(previousValue) : null,
+    positionCount: holdings.length,
+    newPositions: movement.newPositions,
+    increasedPositions: movement.increasedPositions,
+    reducedPositions: movement.reducedPositions,
+    soldOutPositions: movement.soldOutPositions,
+    turnoverProxy: movement.turnoverProxy,
+    top10Weight: concentration.top10Weight,
+    topHoldingWeight: concentration.topHoldingWeight,
+    concentrationHhi: concentration.hhi,
+    topHoldings: concentration.topHoldings,
+    largestChanges: movement.largestChanges,
+    filing: decorateFiling(guru, filing, filingUrl)
+  };
+}
+
+function exposureCacheIsFresh(payload) {
+  const generatedAt = payload?.generatedAt ? new Date(payload.generatedAt).getTime() : 0;
+  return Number.isFinite(generatedAt) && Date.now() - generatedAt < 1000 * 60 * 60 * 24;
+}
+
 async function loadLatest13fHoldings(guru, filings) {
   if (!guru.preferLatestNonZero13f) {
     const latest = filings[0];
@@ -406,6 +571,8 @@ async function load13fGuru(guru) {
   const changes = compare13fHoldings(currentHoldings, previousHoldings);
   const totalValue = currentHoldings.reduce((sum, holding) => sum + holding.value, 0);
   const previousValue = previousHoldings.reduce((sum, holding) => sum + holding.value, 0);
+  const concentration = concentrationStats(currentHoldings, totalValue);
+  const movement = changeStats(currentHoldings, previousHoldings, totalValue, previousValue);
 
   const holdings = currentHoldings
     .map((holding) => ({
@@ -444,7 +611,11 @@ async function load13fGuru(guru) {
       newPositions: activity.filter((item) => item.action === "new").length,
       increasedPositions: activity.filter((item) => item.action === "increased").length,
       reducedPositions: activity.filter((item) => item.action === "reduced").length,
-      soldOutPositions: activity.filter((item) => item.action === "sold_out").length
+      soldOutPositions: activity.filter((item) => item.action === "sold_out").length,
+      top10Weight: concentration.top10Weight,
+      topHoldingWeight: concentration.topHoldingWeight,
+      concentrationHhi: concentration.hhi,
+      turnoverProxy: movement.turnoverProxy
     },
     holdings: holdings.slice(0, 80),
     activity: activity.slice(0, 80)
@@ -1615,6 +1786,183 @@ async function loadGuru(guru) {
       transactions: []
     });
   }
+}
+
+export async function loadGuruExposureHistory(
+  guruId,
+  { forceRefresh = false, limit = 24 } = {}
+) {
+  const guru = gurus.find((item) => item.id === guruId);
+  if (!guru) {
+    const error = new Error(`Guru not found: ${guruId}`);
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const cached = readGuruExposureSnapshot(guruId);
+  if (cached && !forceRefresh) {
+    return {
+      ...cached,
+      cache: {
+        status: exposureCacheIsFresh(cached) ? "hit" : "local-db",
+        ttlHours: 24,
+        lastUpdated: cached.generatedAt || null
+      }
+    };
+  }
+
+  if (guru.type !== "manager13f") {
+    return {
+      generatedAt: new Date().toISOString(),
+      status: "unsupported",
+      guru: withGuruShell(guru, { disclosureKind: guruDisclosureKind(guru) }),
+      history: [],
+      latest: null,
+      message: "Exposure timeline is available for 13F managers only.",
+      cache: { status: "unsupported" }
+    };
+  }
+
+  if (cached && forceRefresh) {
+    scheduleGuruExposureRefresh(guruId, { limit, reason: "user-refresh" });
+    return {
+      ...cached,
+      cache: {
+        status: "refreshing",
+        ttlHours: 24,
+        lastUpdated: cached.generatedAt || null,
+        message: "Showing the cached exposure book while a background refresh runs."
+      }
+    };
+  }
+
+  try {
+    return await refreshGuruExposureSnapshot(guruId, { limit });
+  } catch (error) {
+    if (cached) {
+      return {
+        ...cached,
+        cache: {
+          status: "stale",
+          reason: error.message,
+          ttlHours: 24,
+          lastUpdated: cached.generatedAt || null
+        }
+      };
+    }
+    throw error;
+  }
+}
+
+const guruExposureRefreshes = new Map();
+
+function exposureRefreshKey(guruId, limit) {
+  return `${guruId}:${Math.max(4, Math.min(40, Number(limit) || 24))}`;
+}
+
+export function scheduleGuruExposureRefresh(guruId, { limit = 24, reason = "background" } = {}) {
+  const key = exposureRefreshKey(guruId, limit);
+  if (guruExposureRefreshes.has(key)) return guruExposureRefreshes.get(key);
+  const promise = refreshGuruExposureSnapshot(guruId, { limit, reason })
+    .catch((error) => {
+      console.warn(`Guru exposure refresh failed for ${guruId}: ${error.message}`);
+      return null;
+    })
+    .finally(() => guruExposureRefreshes.delete(key));
+  guruExposureRefreshes.set(key, promise);
+  return promise;
+}
+
+export async function refreshGuruExposureSnapshot(
+  guruId,
+  { limit = 24, reason = "direct" } = {}
+) {
+  const key = exposureRefreshKey(guruId, limit);
+  if (guruExposureRefreshes.has(key)) return guruExposureRefreshes.get(key);
+  const promise = refreshGuruExposureSnapshotNow(guruId, { limit, reason })
+    .finally(() => guruExposureRefreshes.delete(key));
+  guruExposureRefreshes.set(key, promise);
+  return promise;
+}
+
+async function refreshGuruExposureSnapshotNow(guruId, { limit = 24 } = {}) {
+  const guru = gurus.find((item) => item.id === guruId);
+  if (!guru) {
+    const error = new Error(`Guru not found: ${guruId}`);
+    error.statusCode = 404;
+    throw error;
+  }
+  if (guru.type !== "manager13f") {
+    return {
+      generatedAt: new Date().toISOString(),
+      status: "unsupported",
+      guru: withGuruShell(guru, { disclosureKind: guruDisclosureKind(guru) }),
+      history: [],
+      latest: null,
+      message: "Exposure timeline is available for 13F managers only.",
+      cache: { status: "unsupported" }
+    };
+  }
+
+  const maxQuarters = Math.max(4, Math.min(40, Number(limit) || 24));
+  const submission = await getSubmission(guru.cik);
+  const filings = (await recentOrArchivedFilings(submission, {
+    formPattern: /^13F-HR/,
+    minimum: maxQuarters
+  }))
+    .filter((filing) => /^13F-HR/.test(filing.form))
+    .filter((filing) => filing.accessionNumber)
+    .sort((a, b) => {
+      const dateCompare = String(b.reportDate || "").localeCompare(String(a.reportDate || ""));
+      return dateCompare || String(b.filingDate || "").localeCompare(String(a.filingDate || ""));
+    })
+    .slice(0, maxQuarters)
+    .reverse();
+
+  const history = [];
+  const errors = [];
+  let previousHoldings = [];
+
+  for (const filing of filings) {
+    try {
+      const doc = await getFilingDocument(guru.cik, filing);
+      const holdings = parse13fInfoTable(doc.text);
+      history.push(summarize13fExposureQuarter(guru, filing, doc.url, holdings, previousHoldings));
+      previousHoldings = holdings;
+      await wait(60);
+    } catch (error) {
+      errors.push({
+        accessionNumber: filing.accessionNumber,
+        reportDate: filing.reportDate,
+        message: error.message
+      });
+    }
+  }
+
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    status: history.length ? "live" : "missing",
+    guru: withGuruShell(guru, { disclosureKind: guruDisclosureKind(guru) }),
+    source: {
+      label: "SEC EDGAR 13F-HR history",
+      submissionsApi: "https://data.sec.gov/submissions/",
+      archives: "https://www.sec.gov/Archives/edgar/data/",
+      localDatabase: databaseInfo().path
+    },
+    history,
+    latest: history.at(-1) || null,
+    meta: {
+      requestedQuarters: maxQuarters,
+      returnedQuarters: history.length,
+      errors
+    }
+  };
+
+  if (history.length) {
+    writeGuruExposureSnapshot(guruId, payload);
+  }
+
+  return { ...payload, cache: { status: "refreshed", ttlHours: 24 } };
 }
 
 export async function loadGuruDashboard({ forceRefresh = false } = {}) {

@@ -33,6 +33,12 @@ db.exec(`
 	    payload_json TEXT NOT NULL
 	  );
 
+	  CREATE TABLE IF NOT EXISTS guru_exposure_snapshots (
+	    guru_id TEXT PRIMARY KEY,
+	    generated_at TEXT NOT NULL,
+	    payload_json TEXT NOT NULL
+	  );
+
 	  CREATE TABLE IF NOT EXISTS guru_assets (
 	    guru_id TEXT NOT NULL,
 	    asset_type TEXT NOT NULL,
@@ -57,8 +63,8 @@ db.exec(`
     PRIMARY KEY (symbol, date)
   );
 
-  CREATE INDEX IF NOT EXISTS idx_price_points_symbol_date
-    ON price_points (symbol, date);
+  -- The PRIMARY KEY already creates sqlite_autoindex_price_points_1 on
+  -- (symbol, date). A second identical index wastes about 50 MB.
 
   CREATE TABLE IF NOT EXISTS dbmf_snapshots (
     id TEXT PRIMARY KEY,
@@ -673,6 +679,21 @@ export function writeGuruSnapshot(guruId, payload) {
     payload.generatedAt || new Date().toISOString(),
     JSON.stringify(payload)
   );
+}
+
+export function readGuruExposureSnapshot(guruId) {
+  const row = db.prepare("SELECT payload_json FROM guru_exposure_snapshots WHERE guru_id = ?").get(guruId);
+  return parsePayload(row?.payload_json);
+}
+
+export function writeGuruExposureSnapshot(guruId, payload) {
+  db.prepare(`
+    INSERT INTO guru_exposure_snapshots (guru_id, generated_at, payload_json)
+    VALUES (?, ?, ?)
+    ON CONFLICT(guru_id) DO UPDATE SET
+      generated_at = excluded.generated_at,
+      payload_json = excluded.payload_json
+  `).run(guruId, payload.generatedAt || new Date().toISOString(), JSON.stringify(payload));
 }
 
 export function readGuruAssets() {
@@ -1388,6 +1409,7 @@ export function writeBackgroundJobRun(jobId, run = {}) {
 const tableSummarySpecs = [
   { table: "dashboard_snapshots", label: "Guru dashboard", latest: "generated_at" },
   { table: "guru_snapshots", label: "Guru snapshots", latest: "generated_at" },
+  { table: "guru_exposure_snapshots", label: "Guru exposure snapshots", latest: "generated_at" },
   { table: "guru_assets", label: "Guru avatars", latest: "generated_at" },
   { table: "guru_backtests", label: "Guru backtests", latest: "generated_at", maxDate: "end_date" },
   { table: "valuation_snapshots", label: "Valuation dashboard", latest: "generated_at" },
