@@ -137,6 +137,11 @@ export function ontologySnapshotInfo() {
   };
 }
 
+export function publicOntologySnapshotInfo() {
+  const { path: _path, ...info } = ontologySnapshotInfo();
+  return info;
+}
+
 export function loadOntologyOverview() {
   return loadPayload("fixed:decision_overview");
 }

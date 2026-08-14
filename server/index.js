@@ -8,7 +8,7 @@ import { loadGuruDashboard, loadGuruMarketContext } from "./secClient.js";
 import { loadOperationCommentary } from "./commentarySearch.js";
 import { gurus } from "./gurus.js";
 import { loadDbmfDashboard } from "./dbmfClient.js";
-import { registerOntologyRoutes } from "./ontologyClient.js";
+import { publicOntologySnapshotInfo, registerOntologyRoutes } from "./ontologyClient.js";
 import { clearPortfolioCache, loadPortfolioDashboard, startPortfolioNavRecorder } from "./portfolioClient.js";
 import { requireAuth } from "./auth/requireAuth.js";
 import {
@@ -102,7 +102,8 @@ app.get("/api/health", (_request, response) => {
   response.json({
     ok: true,
     service: "guru-analysis-dashboard",
-    database: databaseHealth()
+    database: databaseHealth(),
+    ontology: publicOntologySnapshotInfo()
   });
 });
 
