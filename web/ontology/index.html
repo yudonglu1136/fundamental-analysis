@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ontology Intelligence</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css?v=1" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand-block">
+        <div class="product-mark">OI</div>
+        <div>
+          <h1>Ontology Intelligence</h1>
+          <span class="brand-subtitle">Fundamental Signal Graph</span>
+          <p id="data-status">正在连接本地 Sharadar 数据库…</p>
+        </div>
+        <a class="guru-back-link" href="/" title="返回 Guru Intelligence">← Guru</a>
+      </div>
+
+      <label class="search-box">
+        <span class="sr-only">搜索公司</span>
+        <input id="search-input" type="search" placeholder="搜索全市场 ticker 或公司" autocomplete="off" />
+        <div id="global-search-results" class="global-search-results" hidden></div>
+      </label>
+
+      <div class="top-controls">
+        <button id="mobile-filter-toggle" class="mobile-filter-button" aria-expanded="false" aria-controls="filter-rail">筛选</button>
+        <div class="segmented ai-only-control" aria-label="价值流方向">
+          <button class="segment active" data-flow="product">产品流</button>
+          <button class="segment" data-flow="capital">资金流</button>
+        </div>
+        <nav class="view-tabs" aria-label="视图">
+          <button class="view-tab active" data-view="decision">Ontology</button>
+          <button class="view-tab" data-view="market">全市场</button>
+          <button class="view-tab" data-view="graph">行业图谱</button>
+          <button class="view-tab" data-view="ranking">信号排行</button>
+          <button class="view-tab" data-view="methodology">方法</button>
+        </nav>
+      </div>
+    </header>
+
+    <div class="app-shell decision-mode">
+      <aside id="filter-rail" class="filter-rail" aria-label="筛选">
+        <section>
+          <div class="rail-heading">
+            <h2>产业层</h2>
+            <button id="select-all-layers" class="text-button">清空</button>
+          </div>
+          <div id="layer-filters" class="filter-list"></div>
+        </section>
+
+        <section>
+          <h2>财务状态</h2>
+          <div class="filter-list state-filters">
+            <label><input type="checkbox" value="surging" checked /><span class="state-dot surging"></span>爆发</label>
+            <label><input type="checkbox" value="improving" checked /><span class="state-dot improving"></span>改善</label>
+            <label><input type="checkbox" value="mixed" checked /><span class="state-dot mixed"></span>中性/混合</label>
+            <label><input type="checkbox" value="cooling" checked /><span class="state-dot cooling"></span>降温/风险</label>
+          </div>
+        </section>
+
+        <section>
+          <h2>节点显示</h2>
+          <label class="field-label" for="node-metric">右侧指标</label>
+          <select id="node-metric">
+            <option value="revenue_yoy">收入同比</option>
+            <option value="revenue_acceleration">收入加速度</option>
+            <option value="operating_income_yoy">营业利润同比</option>
+            <option value="operating_margin_delta_yoy">营业利润率变化</option>
+            <option value="capex_yoy">资本开支同比</option>
+            <option value="heat_score">综合热度</option>
+          </select>
+          <label class="toggle-row">
+            <input id="show-relations" type="checkbox" checked />
+            <span>显示公司关系</span>
+          </label>
+          <label class="toggle-row">
+            <input id="include-delisted" type="checkbox" />
+            <span>显示已退市历史节点</span>
+          </label>
+        </section>
+
+        <section class="legend-section">
+          <h2>阅读图谱</h2>
+          <p><strong>产品流：</strong>上游能力如何进入下游产品。</p>
+          <p><strong>资金流：</strong>下游付款方如何向供应商传导资本开支。</p>
+          <p>颜色代表财务变化，不等于投资评级。</p>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <section id="decision-view" class="view-panel active">
+          <div class="decision-shell">
+            <header class="decision-hero">
+              <div>
+                <span class="terminal-kicker"><i></i> EVENT ONTOLOGY V2</span>
+                <h2>从财报事件到可执行决策</h2>
+                <p>公司基本面是主信号；同行价值捕获与上下游图谱只负责确认、否决和调整仓位。</p>
+              </div>
+              <div class="decision-asof">
+                <span>最新可用信息</span>
+                <strong id="decision-asof">--</strong>
+                <small><i></i> PIT 数据已冻结</small>
+              </div>
+            </header>
+
+            <section class="decision-command-deck">
+              <div class="decision-deck-heading">
+                <div><span>SIGNAL COCKPIT</span><h3>当前信号与组合状态</h3></div>
+                <span id="decision-bias" class="decision-bias">载入中</span>
+              </div>
+              <div class="decision-command-grid">
+                <section class="terminal-panel coverage-panel">
+                  <div class="terminal-panel-title"><span>覆盖与合规</span><small id="decision-version">--</small></div>
+                  <div id="decision-stats" class="decision-stats"></div>
+                </section>
+                <section class="terminal-panel tape-panel">
+                  <div class="terminal-panel-title"><span>最新事件信号</span><small>按公开时间</small></div>
+                  <div id="decision-signal-tape" class="decision-signal-tape"></div>
+                </section>
+                <section class="terminal-panel holdings-panel">
+                  <div class="terminal-panel-title"><span>当前模拟持仓</span><small>100K · 6M</small></div>
+                  <div id="decision-holdings" class="decision-holdings"></div>
+                </section>
+              </div>
+            </section>
+
+            <section class="decision-main-grid">
+              <aside class="decision-filter-panel">
+                <div class="decision-filter-header">
+                  <span>UNIVERSE</span>
+                  <button id="decision-clear-filters" class="compact-text-button">重置</button>
+                </div>
+                <label class="decision-search">
+                  <span class="sr-only">筛选公司</span>
+                  <input id="decision-search-input" type="search" placeholder="搜索 ticker / 公司" />
+                </label>
+                <div class="decision-filter-group">
+                  <strong>信号层级</strong>
+                  <div id="decision-state-filters" class="decision-filter-list">
+                    <button class="active" data-decision-state="all"><i class="signal-dot all"></i><span>全部可交易</span><b>--</b></button>
+                    <button data-decision-state="green_graph_confirmed"><i class="signal-dot graph"></i><span>图谱确认</span><b>--</b></button>
+                    <button data-decision-state="green_peer_capture"><i class="signal-dot peer"></i><span>同行确认</span><b>--</b></button>
+                    <button data-decision-state="blue_company_event"><i class="signal-dot company"></i><span>公司改善</span><b>--</b></button>
+                  </div>
+                </div>
+                <div class="decision-filter-group">
+                  <strong>行业</strong>
+                  <div id="decision-sector-filters" class="decision-filter-list sector-list"></div>
+                </div>
+                <div class="decision-rule-note">
+                  <span>执行规则</span>
+                  <p>信息公开后下一交易日开盘。价格、ADV、市值与历史长度必须全部通过。</p>
+                </div>
+              </aside>
+
+              <section class="decision-table-panel">
+                <header class="decision-panel-header">
+                  <div>
+                    <span>DECISION BOARD</span>
+                    <h3>事件候选与分数桥</h3>
+                    <p id="decision-table-status">按最终 ontology score 排序</p>
+                  </div>
+                  <label class="decision-sort-control">
+                    排序
+                    <select id="decision-sort">
+                      <option value="ontology_score">Ontology</option>
+                      <option value="company_score">公司事件</option>
+                      <option value="peer_context">同行确认</option>
+                      <option value="graph_context">图谱确认</option>
+                      <option value="information_date">最新事件</option>
+                    </select>
+                  </label>
+                </header>
+                <div class="decision-table-wrap">
+                  <table class="decision-table">
+                    <thead>
+                      <tr>
+                        <th>公司 / 事件</th>
+                        <th>状态</th>
+                        <th>公司</th>
+                        <th>同行</th>
+                        <th>图谱</th>
+                        <th>最终分</th>
+                        <th>仓位倍率</th>
+                      </tr>
+                    </thead>
+                    <tbody id="decision-table-body"></tbody>
+                  </table>
+                </div>
+              </section>
+
+              <aside id="decision-detail" class="decision-detail-panel">
+                <div class="decision-detail-empty">
+                  <span>选择一个信号</span>
+                  <p>检查公司事件、同行价值捕获、图谱确认与可交易性。</p>
+                </div>
+              </aside>
+            </section>
+
+            <section class="decision-timeline-panel">
+              <header class="decision-panel-header timeline-heading">
+                <div>
+                  <span>PIT EVENT REPLAY</span>
+                  <h3>2020 至今的真实信息时间轴</h3>
+                  <p id="decision-timeline-copy">拖动后，决策板只使用观察日当时已经公开的财务事件。</p>
+                </div>
+                <div class="decision-timeline-actions">
+                  <strong id="decision-timeline-date">最新</strong>
+                  <button id="decision-timeline-latest" class="terminal-icon-button" title="回到最新" aria-label="回到最新">↻</button>
+                </div>
+              </header>
+              <div id="decision-timeline-bars" class="decision-timeline-bars" aria-hidden="true"></div>
+              <input id="decision-timeline-range" type="range" min="0" max="0" value="0" step="1" aria-label="选择历史观察月" />
+              <div id="decision-timeline-years" class="decision-timeline-years"></div>
+            </section>
+
+            <section class="decision-validation-grid">
+              <section class="terminal-panel">
+                <div class="terminal-panel-title"><span>样本外表现</span><small>2018–2026</small></div>
+                <div id="decision-performance" class="decision-performance"></div>
+              </section>
+              <section class="terminal-panel">
+                <div class="terminal-panel-title"><span>解释边界</span><small>RESEARCH STATUS</small></div>
+                <div class="decision-caveat">
+                  <strong>规则有效，不代表 ontology 增量稳健</strong>
+                  <p>开发期 ontology 版本落后公司规则；样本外增量的 bootstrap 区间跨零。界面必须同时显示收益、回撤、换手和验证状态。</p>
+                </div>
+              </section>
+            </section>
+          </div>
+        </section>
+
+        <section id="market-view" class="view-panel">
+          <div id="market-home" class="market-home">
+            <header class="market-overview-header">
+              <div>
+                <span class="section-kicker">US LISTED EQUITIES</span>
+                <h2>全市场行业与公司图谱</h2>
+                <p id="market-home-note">按行业、主题和市场分组检查收入、利润与 margin 的变化。</p>
+              </div>
+              <div class="market-asof"><span>财务数据截至</span><strong id="market-asof">--</strong></div>
+            </header>
+
+            <section class="market-section market-universe-section">
+              <div class="market-section-heading">
+                <div><span>市场分组</span><h3>按资金覆盖范围进入</h3></div>
+                <p>当前成员视图，历史趋势只使用观察日之前公开的 ART 报表。</p>
+              </div>
+              <div id="market-universe-grid" class="market-universe-grid"></div>
+            </section>
+
+            <section class="market-section">
+              <div class="market-section-heading">
+                <div><span>重点行业与主题</span><h3>产业变化最活跃的观察入口</h3></div>
+              </div>
+              <div id="market-theme-grid" class="market-theme-grid"></div>
+            </section>
+
+            <section class="market-section">
+              <div class="market-section-heading">
+                <div><span>全行业</span><h3>Sharadar sector 覆盖</h3></div>
+              </div>
+              <div id="market-sector-grid" class="market-sector-grid"></div>
+            </section>
+
+            <section class="market-section market-leaders-section">
+              <div class="market-section-heading">
+                <div><span>市场锚点</span><h3>按市值排列的公司</h3></div>
+              </div>
+              <div class="market-table-wrap compact-market-table">
+                <table>
+                  <thead><tr><th>公司</th><th>行业</th><th>市值</th><th>收入同比</th><th>营业利润率</th><th>报告公开日</th></tr></thead>
+                  <tbody id="market-leaders-body"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+
+          <div id="market-group-detail" class="market-group-detail" hidden>
+            <header class="group-detail-header">
+              <button id="market-back" class="back-button" aria-label="返回市场首页" title="返回市场首页">←</button>
+              <div class="group-title-block">
+                <span id="group-type-label" class="section-kicker">INDUSTRY</span>
+                <h2 id="group-title">--</h2>
+                <p id="group-description">--</p>
+              </div>
+              <button id="open-ai-ontology" class="primary-command" hidden>进入 AI 深层价值链</button>
+            </header>
+
+            <div id="group-summary-band" class="group-summary-band"></div>
+
+            <section class="group-analysis-layout">
+              <div class="group-trend-section">
+                <div class="market-section-heading compact-heading">
+                  <div><span>财务趋势</span><h3>当前成员的 PIT 季度快照</h3></div>
+                  <div class="trend-tabs" aria-label="趋势指标">
+                    <button class="trend-tab active" data-trend="revenue">收入</button>
+                    <button class="trend-tab" data-trend="profit">利润</button>
+                    <button class="trend-tab" data-trend="margin">Margin</button>
+                  </div>
+                </div>
+                <div id="market-trend-chart" class="market-trend-chart" role="img" aria-label="行业财务趋势图"></div>
+                <div id="market-trend-legend" class="market-trend-legend"></div>
+              </div>
+
+              <aside class="group-cap-section">
+                <div class="market-section-heading compact-heading"><div><span>规模结构</span><h3>公司数量与市值</h3></div></div>
+                <div id="group-cap-mix" class="group-cap-mix"></div>
+              </aside>
+            </section>
+
+            <section class="deep-ontology-section">
+              <div class="market-section-heading deep-ontology-heading">
+                <div>
+                  <span>深层行业 Ontology</span>
+                  <h3 id="value-chain-title">价值链阶段与公司</h3>
+                </div>
+                <div class="ontology-controls">
+                  <div class="trend-tabs" aria-label="价值流方向">
+                    <button class="ontology-flow-tab active" data-market-flow="product">产品/服务流</button>
+                    <button class="ontology-flow-tab" data-market-flow="capital">资金/需求流</button>
+                  </div>
+                  <label class="market-node-metric-control">
+                    节点指标
+                    <select id="market-node-metric" aria-label="行业图谱节点指标">
+                      <option value="revenue_yoy">收入同比</option>
+                      <option value="revenue_acceleration">收入加速度</option>
+                      <option value="operating_income_yoy">营业利润同比</option>
+                      <option value="operating_margin_delta_yoy">营业率变化</option>
+                      <option value="heat_score">综合热度</option>
+                    </select>
+                  </label>
+                  <button id="clear-value-chain-filter" class="text-button" hidden>显示全部阶段</button>
+                </div>
+              </div>
+              <div id="market-ontology-scroll" class="market-ontology-scroll">
+                <svg id="market-ontology-graph" role="img" aria-label="行业价值链公司图谱"></svg>
+              </div>
+              <div class="market-state-legend">
+                <span><i class="state-dot surging"></i><b><strong>绿色 · 财务爆发</strong><small>热度 ≥ 75，至少 2 项正向，且无负向标签</small></b></span>
+                <span><i class="state-dot improving"></i><b><strong>蓝色 · 财务改善</strong><small>热度 ≥ 60，正向信号不少于负向信号</small></b></span>
+                <span><i class="state-dot mixed"></i><b><strong>黄色 · 中性/混合</strong><small>方向不一致，未达到改善或降温阈值</small></b></span>
+                <span><i class="state-dot cooling"></i><b><strong>红色 · 降温/风险</strong><small>热度 &lt; 35，或至少 3 项负向标签</small></b></span>
+              </div>
+              <p id="market-value-chain-policy" class="ontology-policy"></p>
+              <section class="market-timeline-panel" aria-label="行业历史信号时间轴">
+                <div class="timeline-header">
+                  <div>
+                    <div class="timeline-title-row">
+                      <h3>PIT 历史信号回放</h3>
+                      <strong id="market-timeline-date">载入中</strong>
+                    </div>
+                    <p id="market-timeline-status">正在载入 2020 至今的季度财务状态…</p>
+                  </div>
+                  <div class="timeline-controls">
+                    <button id="market-timeline-play" class="icon-button" title="播放历史" aria-label="播放历史">▶</button>
+                    <button id="market-timeline-latest" class="command-button">回到最新</button>
+                  </div>
+                </div>
+                <div class="timeline-track-shell">
+                  <div id="market-timeline-bars" class="timeline-bars" aria-hidden="true"></div>
+                  <input id="market-timeline-range" type="range" min="0" max="0" value="0" step="1" aria-label="选择行业历史观察日" />
+                  <div id="market-timeline-years" class="timeline-years"></div>
+                </div>
+              </section>
+            </section>
+
+            <section class="industry-structure-section">
+              <div class="market-section-heading compact-heading">
+                <div><span>行业结构</span><h3>子行业收入与利润率</h3></div>
+                <button id="clear-industry-filter" class="text-button" hidden>显示全部</button>
+              </div>
+              <div id="industry-structure" class="industry-structure"></div>
+            </section>
+
+            <section class="company-ontology-section">
+              <div class="market-section-heading company-heading">
+                <div><span>公司 Ontology</span><h3 id="company-ontology-title">行业 → 子行业 → 公司</h3></div>
+                <div class="company-controls">
+                  <input id="market-company-search" type="search" placeholder="筛选公司" />
+                  <select id="market-company-sort" aria-label="公司排序">
+                    <option value="marketcap">市值</option>
+                    <option value="revenue_yoy">收入增速</option>
+                    <option value="operating_income_yoy">营业利润增速</option>
+                    <option value="operating_margin">营业利润率</option>
+                    <option value="net_margin">净利率</option>
+                  </select>
+                </div>
+              </div>
+              <div id="company-ontology" class="company-ontology"></div>
+              <div class="market-table-wrap">
+                <table>
+                  <thead><tr><th>公司</th><th>子行业</th><th>规模</th><th>市值</th><th>收入同比</th><th>营业利润同比</th><th>毛利率</th><th>营业利润率</th><th>净利率</th></tr></thead>
+                  <tbody id="market-companies-body"></tbody>
+                </table>
+              </div>
+              <button id="market-load-more" class="load-more-button" hidden>载入更多公司</button>
+            </section>
+          </div>
+        </section>
+
+        <section class="summary-band ai-only" aria-label="概要">
+          <div class="summary-item">
+            <span>图谱公司</span>
+            <strong id="summary-companies">--</strong>
+          </div>
+          <div class="summary-item hot">
+            <span>财务爆发</span>
+            <strong id="summary-surging">--</strong>
+          </div>
+          <div class="summary-item">
+            <span>收入中位增速</span>
+            <strong id="summary-revenue">--</strong>
+          </div>
+          <div class="summary-item">
+            <span>利润率中位变化</span>
+            <strong id="summary-margin">--</strong>
+          </div>
+          <div class="summary-note">
+            <span>信号口径</span>
+            <strong>TTM + 历史质量</strong>
+          </div>
+        </section>
+
+        <section id="graph-view" class="view-panel">
+          <div class="workspace-toolbar">
+            <div>
+              <h2 id="flow-title">AI 产品能力从上游向下游传导</h2>
+              <p id="flow-subtitle">箭头表示产品、产能与服务进入下一层；点击公司查看财务变化原因。</p>
+            </div>
+            <div class="zoom-controls" aria-label="图谱缩放">
+              <button id="zoom-out" title="缩小" aria-label="缩小">−</button>
+              <button id="zoom-reset" title="恢复100%">100%</button>
+              <button id="zoom-in" title="放大" aria-label="放大">+</button>
+            </div>
+          </div>
+          <div id="graph-scroll" class="graph-scroll">
+            <svg id="ontology-graph" role="img" aria-label="AI产业链公司图谱"></svg>
+          </div>
+          <div class="graph-legend">
+            <span><i class="state-dot surging"></i>财务爆发</span>
+            <span><i class="state-dot improving"></i>改善</span>
+            <span><i class="state-dot mixed"></i>中性/混合</span>
+            <span><i class="state-dot cooling"></i>降温/风险</span>
+            <span class="evidence-note">虚线公司关系包含行业结构推断，请在详情中检查证据等级。</span>
+          </div>
+          <section class="timeline-panel" aria-label="历史信号时间轴">
+            <div class="timeline-header">
+              <div>
+                <div class="timeline-title-row">
+                  <h3>历史信号回放</h3>
+                  <strong id="timeline-date">载入中</strong>
+                </div>
+                <p id="timeline-status">正在载入 2020 至今的真实财报触发事件…</p>
+              </div>
+              <div class="timeline-controls">
+                <button id="timeline-play" class="icon-button" title="播放历史" aria-label="播放历史" disabled>▶</button>
+                <button id="timeline-latest" class="command-button" disabled>回到最新</button>
+              </div>
+            </div>
+            <div class="timeline-track-shell">
+              <div id="timeline-bars" class="timeline-bars" aria-hidden="true"></div>
+              <input id="timeline-range" type="range" min="0" max="0" value="0" step="1" aria-label="选择历史财报事件日" disabled />
+              <div id="timeline-years" class="timeline-years"></div>
+            </div>
+          </section>
+        </section>
+
+        <section id="ranking-view" class="view-panel">
+          <div class="workspace-toolbar ranking-toolbar">
+            <div>
+              <h2>AI 产业链财务变化排行</h2>
+              <p>只比较本图谱内公司；热度是横截面变化强度，不是估值或买卖建议。</p>
+            </div>
+            <label>
+              排序
+              <select id="ranking-sort">
+                <option value="heat_score">综合热度</option>
+                <option value="revenue_yoy">收入同比</option>
+                <option value="revenue_acceleration">收入加速度</option>
+                <option value="operating_income_yoy">营业利润同比</option>
+                <option value="operating_margin_delta">营业利润率变化</option>
+                <option value="gross_margin_delta">毛利率变化</option>
+                <option value="fcf_yoy">FCF同比</option>
+                <option value="capex_yoy">Capex同比</option>
+                <option value="marketcap">市值</option>
+              </select>
+            </label>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>公司</th>
+                  <th>产业层</th>
+                  <th>热度</th>
+                  <th>收入同比</th>
+                  <th>收入加速</th>
+                  <th>营业利润同比</th>
+                  <th>毛利率变化</th>
+                  <th>营业率变化</th>
+                  <th>Capex同比</th>
+                </tr>
+              </thead>
+              <tbody id="ranking-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="methodology-view" class="view-panel">
+          <div class="methodology-layout">
+            <section>
+              <h2>数据与计算口径</h2>
+              <div id="methodology-content" class="methodology-content"></div>
+            </section>
+            <section>
+              <h2>官方研究来源</h2>
+              <div id="source-list" class="source-list"></div>
+            </section>
+          </div>
+        </section>
+      </main>
+
+      <aside id="detail-panel" class="detail-panel" aria-label="公司详情">
+        <div class="detail-empty">
+          <span>选择一家公司</span>
+          <p>查看收入、利润、margin、现金流、资本开支及变化原因。</p>
+        </div>
+      </aside>
+    </div>
+
+    <dialog id="market-company-dialog" class="market-company-dialog">
+      <div id="market-company-dialog-content"></div>
+    </dialog>
+
+    <div id="loading" class="loading-state">载入本地 ontology…</div>
+    <script src="./app.js?v=1" defer></script>
+  </body>
+</html>

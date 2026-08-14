@@ -26,3 +26,7 @@ void replaceBrowserQuery(Map<String, String?> updates) {
   if (next == currentRelative) return;
   web.window.history.replaceState(null, web.document.title, next);
 }
+
+void openBrowserPath(String path) {
+  web.window.location.href = path;
+}

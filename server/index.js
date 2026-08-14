@@ -8,6 +8,7 @@ import { loadGuruDashboard, loadGuruMarketContext } from "./secClient.js";
 import { loadOperationCommentary } from "./commentarySearch.js";
 import { gurus } from "./gurus.js";
 import { loadDbmfDashboard } from "./dbmfClient.js";
+import { registerOntologyRoutes } from "./ontologyClient.js";
 import { clearPortfolioCache, loadPortfolioDashboard, startPortfolioNavRecorder } from "./portfolioClient.js";
 import { requireAuth } from "./auth/requireAuth.js";
 import {
@@ -202,6 +203,8 @@ app.use("/api", (request, _response, next) => {
   recordPortfolioRequestUser(request);
   next();
 });
+
+registerOntologyRoutes(app);
 
 app.get("/api/gurus/config", (_request, response) => {
   response.json({ gurus });
@@ -541,7 +544,7 @@ app.get("/api/gurus/:id/commentary", async (request, response) => {
   }
 });
 
-if (process.env.NODE_ENV === "production") {
+if (process.env.NODE_ENV === "production" || process.env.SERVE_FRONTEND_DIST === "1") {
   const distDir = path.join(rootDir, "dist");
   const distIndexPath = path.join(distDir, "index.html");
 

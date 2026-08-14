@@ -320,7 +320,7 @@ class _TerminalHomeState extends State<TerminalHome>
     with WidgetsBindingObserver {
   late final ApiClient _api = ApiClient(() => widget.accessToken);
   Map<String, dynamic>? _guruPayload;
-  Map<String, dynamic>? _dbmfPayload;
+  Map<String, dynamic>? _ontologyPayload;
   Map<String, dynamic>? _portfolioPayload;
   Map<String, dynamic>? _valuationPayload;
   Map<String, dynamic>? _adminPayload;
@@ -425,7 +425,7 @@ class _TerminalHomeState extends State<TerminalHome>
   }
 
   Map<String, dynamic>? _secondaryPayloadFor(String mode) => switch (mode) {
-    'dbmf' => _dbmfPayload,
+    'ontology' => _ontologyPayload,
     'portfolio' => _portfolioPayload,
     'admin' => _adminPayload,
     _ => _valuationPayload,
@@ -462,7 +462,7 @@ class _TerminalHomeState extends State<TerminalHome>
   }
 
   Future<void> _loadSecondary(String mode, {bool refresh = false}) async {
-    if (!refresh && mode == 'dbmf' && _dbmfPayload != null) return;
+    if (!refresh && mode == 'ontology' && _ontologyPayload != null) return;
     if (!refresh && mode == 'portfolio' && _portfolioPayload != null) return;
     if (!refresh && mode == 'valuation' && _valuationPayload != null) return;
     if (!refresh && mode == 'admin' && _adminPayload != null) return;
@@ -474,7 +474,7 @@ class _TerminalHomeState extends State<TerminalHome>
     });
     try {
       final basePath = switch (mode) {
-        'dbmf' => '/api/dbmf',
+        'ontology' => '/api/ontology/overview',
         'portfolio' => '/api/portfolio',
         'admin' => '/api/admin/portfolio-users',
         _ => '/api/valuation',
@@ -483,7 +483,7 @@ class _TerminalHomeState extends State<TerminalHome>
       final payload = await _api.getJson(path);
       if (!mounted || requestId != _secondaryRequestSerial) return;
       setState(() {
-        if (mode == 'dbmf') _dbmfPayload = payload;
+        if (mode == 'ontology') _ontologyPayload = payload;
         if (mode == 'portfolio') _portfolioPayload = payload;
         if (mode == 'valuation') _valuationPayload = payload;
         if (mode == 'admin') _adminPayload = payload;
@@ -585,7 +585,7 @@ class _TerminalHomeState extends State<TerminalHome>
                           mode: _mode,
                           api: _api,
                           data: switch (_mode) {
-                            'dbmf' => _dbmfPayload,
+                            'ontology' => _ontologyPayload,
                             'portfolio' => _portfolioPayload,
                             'admin' => _adminPayload,
                             _ => _valuationPayload,
@@ -1055,7 +1055,7 @@ class ModeSegment extends StatelessWidget {
   Widget build(BuildContext context) {
     final modes = [
       ('guru', 'Guru'),
-      ('dbmf', 'DBMF'),
+      ('ontology', 'Ontology'),
       ('valuation', 'Valuation'),
       ('portfolio', 'Portfolio'),
       if (showAdmin) ('admin', 'Admin'),
@@ -4985,7 +4985,7 @@ class QuickLinksPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final links = const [
-      ('DBMF Exposure Book', 'dbmf', Icons.account_balance_rounded),
+      ('Ontology Intelligence', 'ontology', Icons.hub_rounded),
       ('Fair Value Matrix', 'valuation', Icons.query_stats_rounded),
     ];
     return Panel(
@@ -7392,7 +7392,10 @@ class SecondaryDashboard extends StatelessWidget {
             )
           else
             switch (mode) {
-              'dbmf' => DbmfCompactDashboard(data: data!, palette: palette),
+              'ontology' => OntologyCompactDashboard(
+                data: data!,
+                palette: palette,
+              ),
               'portfolio' => PortfolioDashboard(
                 data: data!,
                 api: api,
@@ -14054,6 +14057,382 @@ class _HoldingMiniLine extends StatelessWidget {
   }
 }
 
+class OntologyCompactDashboard extends StatelessWidget {
+  const OntologyCompactDashboard({
+    super.key,
+    required this.data,
+    required this.palette,
+  });
+
+  final Map<String, dynamic> data;
+  final Palette palette;
+
+  Color _stateColor(String state) => switch (state) {
+    'green_graph_confirmed' => palette.accent,
+    'green_peer_capture' => palette.positive,
+    _ => palette.secondary,
+  };
+
+  String _stateLabel(String state) => switch (state) {
+    'green_graph_confirmed' => '图谱确认',
+    'green_peer_capture' => '同行确认',
+    _ => state.isEmpty ? '观察' : state,
+  };
+
+  Widget _signalRow(Map<String, dynamic> signal) {
+    final state = text(signal['signal_state']);
+    final color = _stateColor(state);
+    return Container(
+      constraints: const BoxConstraints(minHeight: 54),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      decoration: BoxDecoration(
+        color: palette.card.withValues(alpha: .68),
+        border: Border(bottom: BorderSide(color: palette.border)),
+      ),
+      child: Row(
+        children: [
+          Container(width: 4, height: 32, color: color),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 66,
+            child: Text(
+              text(signal['ticker']),
+              style: TextStyle(
+                color: palette.text,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  text(signal['name'], text(signal['industry'], '-')),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: palette.muted, fontSize: 11),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${_stateLabel(state)} · ${text(signal['stage_name'], text(signal['sector'], '-'))}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                number(signal['ontology_score']).toStringAsFixed(2),
+                style: TextStyle(
+                  color: palette.text,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                '${number(signal['context_position_multiplier']).toStringAsFixed(2)}x',
+                style: TextStyle(color: palette.faint, fontSize: 9),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _holdingRow(Map<String, dynamic> holding) {
+    final weight = number(holding['weight']);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 58,
+            child: Text(
+              text(holding['ticker']),
+              style: TextStyle(
+                color: palette.text,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: (weight / .12).clamp(0.0, 1.0).toDouble(),
+                minHeight: 5,
+                backgroundColor: palette.border,
+                valueColor: AlwaysStoppedAnimation(palette.accent),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 48,
+            child: Text(
+              formatReturn(weight),
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                color: palette.accent,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _performanceRow(String label, Map<String, dynamic> result) {
+    final cagr = number(result['cagr']);
+    final spyCagr = number(result['spy_cagr']);
+    final excess = number(result['excess_cagr_vs_spy']);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: palette.border)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: palette.muted,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              formatReturn(cagr),
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                color: palette.text,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              formatReturn(spyCagr),
+              textAlign: TextAlign.end,
+              style: TextStyle(color: palette.muted),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              formatReturn(excess),
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                color: excess >= 0 ? palette.accent : palette.negative,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final stats = asMap(data['stats']);
+    final signals = asList(data['current_signals']);
+    final holdings = asList(data['holdings']);
+    final performance = asMap(data['performance']);
+    final development = asMap(performance['development']);
+    final evaluation = asMap(performance['evaluation']);
+    final asOf = text(stats['latest_information_date']).split('T').first;
+
+    final header = SecondaryModeHeader(
+      icon: Icons.hub_rounded,
+      kicker: 'EVENT ONTOLOGY V2',
+      title: 'Ontology Intelligence',
+      subtitle:
+          'PIT fundamentals, peer value capture, and graph-confirmed decisions.',
+      chips: [
+        'PIT as of ${formatDate(asOf)}',
+        '${(number(stats['tickers'])).round()} companies',
+      ],
+      metrics: [
+        _GuruHeaderMetric(
+          label: 'Current Signals',
+          value: '${signals.length}',
+          sub: 'tradable candidates',
+          palette: palette,
+        ),
+        _GuruHeaderMetric(
+          label: 'Model Holdings',
+          value: '${holdings.length}',
+          sub: 'current 12M book',
+          palette: palette,
+        ),
+        _GuruHeaderMetric(
+          label: 'Evaluation CAGR',
+          value: formatReturn(number(evaluation['cagr'])),
+          sub: 'SPY ${formatReturn(number(evaluation['spy_cagr']))}',
+          palette: palette,
+        ),
+        _GuruHeaderMetric(
+          label: 'Max Drawdown',
+          value: formatReturn(number(evaluation['max_drawdown'])),
+          sub: 'evaluation period',
+          palette: palette,
+        ),
+      ],
+      palette: palette,
+    );
+
+    final signalPanel = Panel(
+      palette: palette,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PanelTitle(
+            icon: Icons.bolt_rounded,
+            kicker: 'DECISION BOARD',
+            title: 'Latest PIT signals',
+            trailing: Text(
+              '${signals.length} candidates',
+              style: TextStyle(
+                color: palette.accent,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            palette: palette,
+          ),
+          const SizedBox(height: 10),
+          for (final signal in signals.take(12)) _signalRow(signal),
+        ],
+      ),
+    );
+
+    final rightRail = Column(
+      children: [
+        Panel(
+          palette: palette,
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PanelTitle(
+                icon: Icons.pie_chart_outline_rounded,
+                kicker: 'CURRENT BOOK',
+                title: 'Model holdings',
+                palette: palette,
+              ),
+              const SizedBox(height: 8),
+              for (final holding in holdings.take(10)) _holdingRow(holding),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Panel(
+          palette: palette,
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PanelTitle(
+                icon: Icons.query_stats_rounded,
+                kicker: 'VALIDATION',
+                title: 'Strategy vs SPY',
+                palette: palette,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      'Period',
+                      style: TextStyle(color: palette.faint, fontSize: 9),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Model',
+                      textAlign: TextAlign.end,
+                      style: TextStyle(color: palette.faint, fontSize: 9),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'SPY',
+                      textAlign: TextAlign.end,
+                      style: TextStyle(color: palette.faint, fontSize: 9),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Alpha',
+                      textAlign: TextAlign.end,
+                      style: TextStyle(color: palette.faint, fontSize: 9),
+                    ),
+                  ),
+                ],
+              ),
+              _performanceRow('2010-2016', development),
+              _performanceRow('2018-2026', evaluation),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => openBrowserPath('/ontology/'),
+                  icon: const Icon(Icons.open_in_new_rounded),
+                  label: Text(
+                    context.tr('打开完整行业图谱', 'Open full ontology explorer'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        header,
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 1080) {
+              return Column(
+                children: [signalPanel, const SizedBox(height: 10), rightRail],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: signalPanel),
+                const SizedBox(width: 10),
+                SizedBox(width: 340, child: rightRail),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
 class DbmfCompactDashboard extends StatelessWidget {
   const DbmfCompactDashboard({
     super.key,
@@ -18903,9 +19282,10 @@ String shortText(String value, [int length = 10]) {
 
 String normalizeRouteMode(String? value) {
   final mode = value?.trim().toLowerCase() ?? '';
+  if (mode == 'dbmf') return 'ontology';
   return const {
         'guru',
-        'dbmf',
+        'ontology',
         'valuation',
         'portfolio',
         'admin',
