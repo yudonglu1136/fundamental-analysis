@@ -886,7 +886,7 @@ class TerminalHeader extends StatelessWidget {
         );
 
         return Container(
-          height: compact ? 112 : 66,
+          height: compact ? 113 : 66,
           padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 14),
           decoration: BoxDecoration(
             color: palette.background.withValues(alpha: .96),
@@ -6838,10 +6838,16 @@ class _BacktestPreviewState extends State<BacktestPreview> {
 }
 
 class EquityChart extends StatefulWidget {
-  const EquityChart({super.key, required this.equity, required this.palette});
+  const EquityChart({
+    super.key,
+    required this.equity,
+    required this.palette,
+    this.onPointSelected,
+  });
 
   final List<Map<String, dynamic>> equity;
   final Palette palette;
+  final ValueChanged<Map<String, dynamic>>? onPointSelected;
 
   @override
   State<EquityChart> createState() => _EquityChartState();
@@ -6849,6 +6855,7 @@ class EquityChart extends StatefulWidget {
 
 class _EquityChartState extends State<EquityChart> {
   int? _hoverIndex;
+  int? _selectedIndex;
 
   @override
   void didUpdateWidget(covariant EquityChart oldWidget) {
@@ -6856,16 +6863,31 @@ class _EquityChartState extends State<EquityChart> {
     if (_hoverIndex != null && _hoverIndex! >= widget.equity.length) {
       _hoverIndex = null;
     }
+    if (_selectedIndex != null && _selectedIndex! >= widget.equity.length) {
+      _selectedIndex = null;
+    }
   }
 
-  void _updateHover(Offset position, double width) {
-    if (widget.equity.length < 2 || width <= 0) return;
+  int? _indexForPosition(Offset position, double width) {
+    if (widget.equity.length < 2 || width <= 0) return null;
     final left = EquityPainter.horizontalInset;
     final right = math.max(left + 1, width - EquityPainter.horizontalInset);
     final ratio = ((position.dx - left) / (right - left)).clamp(0.0, 1.0);
-    final next = (ratio * (widget.equity.length - 1)).round();
+    return (ratio * (widget.equity.length - 1)).round();
+  }
+
+  void _updateHover(Offset position, double width) {
+    final next = _indexForPosition(position, width);
+    if (next == null) return;
     if (next == _hoverIndex) return;
     setState(() => _hoverIndex = next);
+  }
+
+  void _selectPoint(Offset position, double width) {
+    final next = _indexForPosition(position, width);
+    if (next == null) return;
+    setState(() => _selectedIndex = next);
+    widget.onPointSelected?.call(widget.equity[next]);
   }
 
   @override
@@ -6888,7 +6910,7 @@ class _EquityChartState extends State<EquityChart> {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTapDown: (details) =>
-                _updateHover(details.localPosition, constraints.maxWidth),
+                _selectPoint(details.localPosition, constraints.maxWidth),
             onPanDown: (details) =>
                 _updateHover(details.localPosition, constraints.maxWidth),
             onPanUpdate: (details) =>
@@ -6897,7 +6919,7 @@ class _EquityChartState extends State<EquityChart> {
               painter: EquityPainter(
                 equity: widget.equity,
                 palette: widget.palette,
-                hoverIndex: _hoverIndex,
+                hoverIndex: _hoverIndex ?? _selectedIndex,
               ),
               size: Size.infinite,
             ),
@@ -14082,6 +14104,8 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
   String? _snapshotError;
   String _navPeriod = 'evaluation';
   List<Map<String, dynamic>> _historicalSignals = const [];
+  Map<String, dynamic> _historicalPortfolio = const {};
+  String _selectedNavDate = '';
 
   Map<String, dynamic> get data => widget.data;
   Palette get palette => widget.palette;
@@ -14093,6 +14117,9 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
 
   List<Map<String, dynamic>> get _visibleSignals =>
       _showingLatest ? asList(data['current_signals']) : _historicalSignals;
+
+  Map<String, dynamic> get _visiblePortfolio =>
+      _showingLatest ? asMap(data['portfolio']) : _historicalPortfolio;
 
   @override
   void initState() {
@@ -14107,12 +14134,17 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
       _snapshotRequest += 1;
       _timelineIndex = math.max(0, _timeline.length - 1).toInt();
       _historicalSignals = const [];
+      _historicalPortfolio = const {};
+      _selectedNavDate = '';
       _snapshotLoading = false;
       _snapshotError = null;
     }
   }
 
-  Future<void> _selectTimeline(int requestedIndex) async {
+  Future<void> _selectTimeline(
+    int requestedIndex, {
+    String selectedNavDate = '',
+  }) async {
     if (_timeline.isEmpty) return;
     final index = requestedIndex.clamp(0, _timeline.length - 1).toInt();
     final requestId = ++_snapshotRequest;
@@ -14120,6 +14152,10 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
       setState(() {
         _timelineIndex = index;
         _historicalSignals = const [];
+        _historicalPortfolio = const {};
+        _selectedNavDate = selectedNavDate.isEmpty
+            ? text(_timeline[index]['month']).split('T').first
+            : selectedNavDate;
         _snapshotLoading = false;
         _snapshotError = null;
       });
@@ -14129,6 +14165,8 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
     final asOf = text(_timeline[index]['month']).split('T').first;
     setState(() {
       _timelineIndex = index;
+      _selectedNavDate = selectedNavDate.isEmpty ? asOf : selectedNavDate;
+      _historicalPortfolio = const {};
       _snapshotLoading = true;
       _snapshotError = null;
     });
@@ -14139,16 +14177,52 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
       if (!mounted || requestId != _snapshotRequest) return;
       setState(() {
         _historicalSignals = asList(payload['signals']);
+        _historicalPortfolio = asMap(payload['portfolio']);
         _snapshotLoading = false;
       });
     } catch (error) {
       if (!mounted || requestId != _snapshotRequest) return;
       setState(() {
         _historicalSignals = const [];
+        _historicalPortfolio = const {};
         _snapshotLoading = false;
         _snapshotError = error.toString().replaceFirst('Exception: ', '');
       });
     }
+  }
+
+  bool _timelineDateInPeriod(String value, String period) {
+    final year = value.length >= 4 ? int.tryParse(value.substring(0, 4)) : null;
+    if (year == null) return false;
+    return period == 'development' ? year <= 2016 : year >= 2018;
+  }
+
+  int? _timelineAtOrBefore(String date, String period) {
+    int? selected;
+    for (var index = 0; index < _timeline.length; index += 1) {
+      final candidate = text(_timeline[index]['month']).split('T').first;
+      if (!_timelineDateInPeriod(candidate, period)) continue;
+      if (candidate.compareTo(date) <= 0) selected = index;
+    }
+    return selected;
+  }
+
+  void _selectNavPoint(Map<String, dynamic> point) {
+    final date = text(point['date']).split('T').first;
+    final index = _timelineAtOrBefore(date, _navPeriod);
+    if (index == null) return;
+    unawaited(_selectTimeline(index, selectedNavDate: date));
+  }
+
+  void _selectNavPeriod(String period) {
+    if (_navPeriod == period) return;
+    setState(() => _navPeriod = period);
+    int? index;
+    for (var candidate = 0; candidate < _timeline.length; candidate += 1) {
+      final date = text(_timeline[candidate]['month']).split('T').first;
+      if (_timelineDateInPeriod(date, period)) index = candidate;
+    }
+    if (index != null) unawaited(_selectTimeline(index));
   }
 
   Color _stateColor(String state) => switch (state) {
@@ -14353,7 +14427,7 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
     final active = _navPeriod == value;
     return InkWell(
       borderRadius: BorderRadius.circular(6),
-      onTap: () => setState(() => _navPeriod = value),
+      onTap: () => _selectNavPeriod(value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -14375,11 +14449,151 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
     );
   }
 
+  void _showStrategyHelp(
+    BuildContext context,
+    Map<String, dynamic> development,
+    Map<String, dynamic> evaluation,
+  ) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        Widget point(IconData icon, String title, String body, Color color) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: color, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: palette.text,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        body,
+                        style: TextStyle(
+                          color: palette.muted,
+                          height: 1.45,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return AlertDialog(
+          backgroundColor: palette.panel,
+          surfaceTintColor: Colors.transparent,
+          title: Row(
+            children: [
+              Icon(Icons.hub_rounded, color: palette.accent),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  dialogContext.tr('Ontology 6M 策略说明', 'Ontology 6M strategy'),
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 650,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  point(
+                    Icons.account_tree_rounded,
+                    dialogContext.tr('信号在做什么', 'What the signal does'),
+                    dialogContext.tr(
+                      '它只使用当时已经公开的财报和价格，先识别经营、现金流、质量和估值改善，再检查同行价值捕获与上下游图谱是否确认。信息公开后的下一交易日开盘执行，最多20只股票，最长持有126个交易日。',
+                      'It uses only then-public filings and prices, scores operating, cash-flow, quality, and valuation improvement, then asks whether peers and adjacent value-chain stages confirm it. Trades execute at the next market open, with at most 20 names and a 126-trading-day maximum life.',
+                    ),
+                    palette.accent,
+                  ),
+                  point(
+                    Icons.calculate_rounded,
+                    dialogContext.tr('分数如何形成', 'How the score is built'),
+                    dialogContext.tr(
+                      '公司分 = 50%经营超预期 + 20%现金确认 + 20%持续质量 + 5%估值 + 5%资产负债/稀释安全；同行分再加入25%同行上下文；最终 Ontology 分再加入15%上下游图谱确认。',
+                      'Company score = 50% operating surprise + 20% cash confirmation + 20% durable quality + 5% valuation + 5% balance-sheet/dilution safety. Peer score adds 25% peer context; final Ontology score adds 15% graph confirmation.',
+                    ),
+                    palette.secondary,
+                  ),
+                  point(
+                    Icons.verified_rounded,
+                    dialogContext.tr(
+                      '历史证据支持它具有长期信息价值',
+                      'Historical evidence supports durable information value',
+                    ),
+                    dialogContext.tr(
+                      '开发段 2010–2016 年化 ${formatReturn(number(development['cagr']))}，同期 SPY ${formatReturn(number(development['spy_cagr']))}：策略赚钱但没有跑赢。独立评估段 2018–2026 年化 ${formatReturn(number(evaluation['cagr']))}，同期 SPY ${formatReturn(number(evaluation['spy_cagr']))}。这说明信号在长样本中有经济价值，并不要求每个阶段都超过 SPY。',
+                      'The 2010–2016 development CAGR was ${formatReturn(number(development['cagr']))} versus ${formatReturn(number(development['spy_cagr']))} for SPY: positive, but behind the benchmark. The separate 2018–2026 evaluation CAGR was ${formatReturn(number(evaluation['cagr']))} versus ${formatReturn(number(evaluation['spy_cagr']))} for SPY. This supports economic value over long samples without requiring outperformance in every regime.',
+                    ),
+                    palette.positive,
+                  ),
+                  point(
+                    Icons.tune_rounded,
+                    dialogContext.tr('怎样更好地利用', 'How to use it better'),
+                    dialogContext.tr(
+                      '可在不改动 PIT 信号定义的前提下研究集中度、持有缓冲、仓位上限、市场风险预算或与指数底仓组合。微调必须使用新的滚动验证，不能根据已经看过的 2018–2026 结果反向挑参数。',
+                      'Without changing the PIT signal definition, research can adjust concentration, holding buffers, position caps, market-risk budgets, or combine it with an index core. Tuning should use new rolling validation rather than selecting parameters after seeing 2018–2026.',
+                    ),
+                    palette.accent,
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: palette.secondary.withValues(alpha: .08),
+                      border: Border.all(
+                        color: palette.secondary.withValues(alpha: .35),
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      dialogContext.tr(
+                        '重要：历史长期为正和独立样本超额是有效性证据，不是未来收益保证。当前评估最大回撤为 ${formatReturn(number(evaluation['max_drawdown']))}，仍需真实风险控制。',
+                        'Important: positive long-run returns and separate-sample excess are evidence, not a guarantee of future returns. Evaluation max drawdown was ${formatReturn(number(evaluation['max_drawdown']))}, so real risk control remains necessary.',
+                      ),
+                      style: TextStyle(
+                        color: palette.secondary,
+                        fontWeight: FontWeight.w800,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(dialogContext.tr('关闭', 'Close')),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final stats = asMap(data['stats']);
     final currentSignals = asList(data['current_signals']);
     final signals = _visibleSignals;
+    final portfolio = _visiblePortfolio;
     final holdings = asList(data['holdings']);
     final performance = asMap(data['performance']);
     final development = asMap(performance['development']);
@@ -14624,11 +14838,28 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
             const SizedBox(height: 12),
             SizedBox(
               height: 300,
-              child: EquityChart(equity: navPoints, palette: palette),
+              child: EquityChart(
+                equity: navPoints,
+                palette: palette,
+                onPointSelected: _selectNavPoint,
+              ),
             ),
           ],
         ],
       ),
+    );
+
+    final positionSnapshot = OntologyPositionSnapshot(
+      portfolio: portfolio,
+      selectedNavDate: _selectedNavDate.isEmpty
+          ? selectedMonth
+          : _selectedNavDate,
+      development: development,
+      evaluation: evaluation,
+      loading: _snapshotLoading,
+      error: _snapshotError,
+      palette: palette,
+      onHelp: () => _showStrategyHelp(context, development, evaluation),
     );
 
     final signalPanel = Panel(
@@ -14763,6 +14994,8 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
         const SizedBox(height: 10),
         navPanel,
         const SizedBox(height: 10),
+        positionSnapshot,
+        const SizedBox(height: 10),
         LayoutBuilder(
           builder: (context, constraints) {
             if (constraints.maxWidth < 1080) {
@@ -14781,6 +15014,608 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
           },
         ),
       ],
+    );
+  }
+}
+
+class OntologyPositionSnapshot extends StatelessWidget {
+  const OntologyPositionSnapshot({
+    super.key,
+    required this.portfolio,
+    required this.selectedNavDate,
+    required this.development,
+    required this.evaluation,
+    required this.loading,
+    required this.error,
+    required this.palette,
+    required this.onHelp,
+  });
+
+  final Map<String, dynamic> portfolio;
+  final String selectedNavDate;
+  final Map<String, dynamic> development;
+  final Map<String, dynamic> evaluation;
+  final bool loading;
+  final String? error;
+  final Palette palette;
+  final VoidCallback onHelp;
+
+  Color _actionColor(String action) => switch (action) {
+    'BUY' => palette.accent,
+    'SELL' => palette.negative,
+    _ => palette.secondary,
+  };
+
+  String _actionLabel(BuildContext context, String action) => switch (action) {
+    'BUY' => context.tr('买入', 'BUY'),
+    'SELL' => context.tr('卖出', 'SELL'),
+    _ => context.tr('持有', 'HOLD'),
+  };
+
+  String _signalLabel(BuildContext context, String state) => switch (state) {
+    'green_graph_confirmed' => context.tr('图谱确认', 'Graph confirmed'),
+    'green_peer_capture' => context.tr('同行确认', 'Peer confirmed'),
+    'blue_company_event' => context.tr('公司改善', 'Company event'),
+    _ => context.tr('观察', 'Watch'),
+  };
+
+  Color _signalColor(String state) => switch (state) {
+    'green_graph_confirmed' => palette.accent,
+    'green_peer_capture' => palette.positive,
+    'blue_company_event' => palette.secondary,
+    _ => palette.muted,
+  };
+
+  String _price(dynamic value) {
+    final parsed = firstNumber([value]);
+    return parsed == null ? '-' : '\$${parsed.toStringAsFixed(2)}';
+  }
+
+  String _score(dynamic value) {
+    final parsed = firstNumber([value]);
+    return parsed == null ? '-' : parsed.toStringAsFixed(2);
+  }
+
+  String _decisionReason(BuildContext context, Map<String, dynamic> row) {
+    return switch (text(row['action_reason'], text(row['decision_reason']))) {
+      'new_top_ranked_eligible_signal' => context.tr(
+        '当期通过 PIT、价格和流动性门槛，并在可用名额中按 Ontology 分数进入；仓位再由同行与图谱上下文调整。',
+        'Passed PIT, price, and liquidity gates and entered an available slot by Ontology rank; peer and graph context then sized the position.',
+      ),
+      'signal_invalidated' => context.tr(
+        '最新公开信息使基础资格或可交易条件失效，策略按下一交易日开盘退出。',
+        'New public information invalidated base eligibility or tradability, so the strategy exited at the next market open.',
+      ),
+      'max_life_or_rank_buffer_exit' => context.tr(
+        '达到126个交易日持有上限，或排名跌出 Rank-40 缓冲区，按规则退出。',
+        'Exited after reaching the 126-trading-day life or falling outside the Rank-40 buffer.',
+      ),
+      _ => context.tr(
+        '信号仍有效，未触发失效、126交易日上限或 Rank-40 缓冲退出条件，因此继续持有。',
+        'The signal remains active and has not hit invalidation, the 126-day life, or the Rank-40 exit buffer, so the position remains held.',
+      ),
+    };
+  }
+
+  Widget _badge(BuildContext context, String action) {
+    final color = _actionColor(action);
+    return Container(
+      width: 58,
+      height: 24,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .13),
+        border: Border.all(color: color.withValues(alpha: .42)),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        _actionLabel(context, action),
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+
+  Widget _tableCell(
+    String value,
+    double width, {
+    Color? color,
+    FontWeight weight = FontWeight.w700,
+    TextAlign align = TextAlign.left,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: align,
+        style: TextStyle(color: color ?? palette.muted, fontWeight: weight),
+      ),
+    );
+  }
+
+  Widget _scoreDetails(BuildContext context, Map<String, dynamic> row) {
+    final signal = text(row['signal_state']);
+    final action = text(row['action'], 'HOLD');
+    final daysHeld = number(row['trading_days_held']).round();
+    final daysRemaining = number(row['days_to_max_exit']).round();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      color: palette.card.withValues(alpha: .45),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _decisionReason(context, row),
+            style: TextStyle(
+              color: _actionColor(action),
+              fontWeight: FontWeight.w800,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              InfoChip(
+                '${context.tr('经营', 'Operating')} ${_score(row['operating_surprise'])}',
+                palette: palette,
+              ),
+              InfoChip(
+                '${context.tr('现金', 'Cash')} ${_score(row['cash_confirmation'])}',
+                palette: palette,
+              ),
+              InfoChip(
+                '${context.tr('持续质量', 'Durable quality')} ${_score(row['durable_quality'])}',
+                palette: palette,
+              ),
+              InfoChip(
+                '${context.tr('估值', 'Valuation')} ${_score(row['valuation_support'])}',
+                palette: palette,
+              ),
+              InfoChip(
+                '${context.tr('负债/稀释', 'Balance/dilution')} ${_score(row['balance_dilution_safety'])}',
+                palette: palette,
+              ),
+              InfoChip(
+                '${context.tr('同行上下文', 'Peer context')} ${_score(row['peer_context'])}',
+                palette: palette,
+              ),
+              InfoChip(
+                '${context.tr('图谱上下文', 'Graph context')} ${_score(row['graph_context'])}',
+                palette: palette,
+              ),
+              InfoChip(
+                '${context.tr('仓位倍数', 'Sizing')} ${_score(row['context_position_multiplier'])}x',
+                palette: palette,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            context.tr(
+              '公司分 ${_score(row['company_score'])} = 50%经营 + 20%现金 + 20%持续质量 + 5%估值 + 5%负债/稀释；同行分 ${_score(row['peer_score'])} 再加入25%同行上下文；最终 Ontology 分 ${_score(row['ontology_score'])} 再加入15%上下游图谱确认。',
+              'Company ${_score(row['company_score'])} = 50% operating + 20% cash + 20% durable quality + 5% valuation + 5% balance/dilution; peer ${_score(row['peer_score'])} adds 25% peer context; final Ontology ${_score(row['ontology_score'])} adds 15% graph confirmation.',
+            ),
+            style: TextStyle(color: palette.muted, height: 1.4, fontSize: 12),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            context.tr(
+              '${_signalLabel(context, signal)} · 已持有 $daysHeld 个交易日 · 距最大持有期约 $daysRemaining 个交易日 · 财报信息日 ${formatDate(text(row['information_date']))}',
+              '${_signalLabel(context, signal)} · held $daysHeld trading days · about $daysRemaining days to maximum life · filing information date ${formatDate(text(row['information_date']))}',
+            ),
+            style: TextStyle(color: _signalColor(signal), fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _positionRow(
+    BuildContext context,
+    Map<String, dynamic> row,
+    bool compact,
+  ) {
+    final action = text(row['action'], 'HOLD');
+    final signal = text(row['signal_state']);
+    final pnl = firstNumber([row['unrealized_pnl']]);
+    final pnlPct = firstNumber([row['unrealized_pnl_pct']]);
+    final pnlColor = (pnl ?? 0) >= 0 ? palette.positive : palette.negative;
+    final ticker = text(row['ticker']);
+    final company = text(row['name'], text(row['sector'], '-'));
+
+    final title = compact
+        ? Row(
+            children: [
+              _badge(context, action),
+              const SizedBox(width: 10),
+              SizedBox(
+                width: 62,
+                child: Text(
+                  ticker,
+                  style: TextStyle(
+                    color: palette.text,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  company,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: palette.muted, fontSize: 11),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                pnlPct == null ? '-' : formatReturn(pnlPct),
+                style: TextStyle(color: pnlColor, fontWeight: FontWeight.w900),
+              ),
+            ],
+          )
+        : Row(
+            children: [
+              SizedBox(width: 70, child: _badge(context, action)),
+              SizedBox(
+                width: 165,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ticker,
+                      style: TextStyle(
+                        color: palette.text,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      company,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: palette.faint, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+              _tableCell(
+                formatReturn(number(row['weight'])),
+                70,
+                color: palette.accent,
+                weight: FontWeight.w900,
+              ),
+              _tableCell('${number(row['shares']).round()}', 65),
+              _tableCell(formatDate(text(row['entry_date'])), 98),
+              _tableCell(_price(row['cost_basis']), 86),
+              _tableCell(_price(row['current_price']), 86),
+              _tableCell(
+                pnl == null ? '-' : formatMoney(pnl),
+                98,
+                color: pnlColor,
+                weight: FontWeight.w900,
+              ),
+              _tableCell(
+                _signalLabel(context, signal),
+                120,
+                color: _signalColor(signal),
+                weight: FontWeight.w900,
+              ),
+              _tableCell(
+                '#${number(row['book_score_rank']).round()} · ${_score(row['ontology_score'])}',
+                88,
+                color: palette.text,
+                weight: FontWeight.w900,
+              ),
+            ],
+          );
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: palette.border)),
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        childrenPadding: EdgeInsets.zero,
+        iconColor: palette.accent,
+        collapsedIconColor: palette.faint,
+        shape: const Border(),
+        collapsedShape: const Border(),
+        title: title,
+        subtitle: compact
+            ? Text(
+                '${formatDate(text(row['entry_date']))} · ${_price(row['cost_basis'])} → ${_price(row['current_price'])} · ${formatReturn(number(row['weight']))}',
+                style: TextStyle(color: palette.faint, fontSize: 10),
+              )
+            : null,
+        children: [_scoreDetails(context, row)],
+      ),
+    );
+  }
+
+  Widget _positionsTable(
+    BuildContext context,
+    List<Map<String, dynamic>> positions,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 800;
+        if (compact) {
+          return Column(
+            children: [
+              for (final position in positions)
+                _positionRow(context, position, true),
+            ],
+          );
+        }
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: 1090,
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 9,
+                  ),
+                  color: palette.card.withValues(alpha: .72),
+                  child: Row(
+                    children: [
+                      _tableCell(context.tr('决策', 'Action'), 70),
+                      _tableCell(context.tr('公司', 'Company'), 165),
+                      _tableCell(context.tr('权重', 'Weight'), 70),
+                      _tableCell(context.tr('股数', 'Shares'), 65),
+                      _tableCell(context.tr('买入日', 'Entry'), 98),
+                      _tableCell(context.tr('成本', 'Cost'), 86),
+                      _tableCell(context.tr('现价', 'Price'), 86),
+                      _tableCell(context.tr('未实现盈亏', 'Unrealized'), 98),
+                      _tableCell(context.tr('信号', 'Signal'), 120),
+                      _tableCell(context.tr('分数排名', 'Score rank'), 88),
+                    ],
+                  ),
+                ),
+                for (final position in positions)
+                  _positionRow(context, position, false),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _exitRow(BuildContext context, Map<String, dynamic> row) {
+    final pnl = firstNumber([row['realized_pnl']]);
+    final pnlPct = firstNumber([row['realized_pnl_pct']]);
+    final color = (pnl ?? 0) >= 0 ? palette.positive : palette.negative;
+    final pnlLabel =
+        '${_price(row['fill_price'])} · ${pnl == null ? '-' : formatMoney(pnl)} (${pnlPct == null ? '-' : formatReturn(pnlPct)})';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: palette.border)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final ticker = Text(
+            text(row['ticker']),
+            style: TextStyle(color: palette.text, fontWeight: FontWeight.w900),
+          );
+          final reason = Text(
+            _decisionReason(context, row),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: palette.muted, fontSize: 11),
+          );
+          final realized = Text(
+            pnlLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
+            style: TextStyle(color: color, fontWeight: FontWeight.w900),
+          );
+          if (constraints.maxWidth < 720) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _badge(context, 'SELL'),
+                    const SizedBox(width: 10),
+                    SizedBox(width: 54, child: ticker),
+                    Expanded(child: realized),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 92,
+                      child: Text(
+                        formatDate(text(row['date'])),
+                        style: TextStyle(color: palette.faint, fontSize: 11),
+                      ),
+                    ),
+                    Expanded(child: reason),
+                  ],
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              _badge(context, 'SELL'),
+              const SizedBox(width: 10),
+              SizedBox(width: 62, child: ticker),
+              SizedBox(
+                width: 94,
+                child: Text(
+                  formatDate(text(row['date'])),
+                  style: TextStyle(color: palette.muted, fontSize: 11),
+                ),
+              ),
+              Expanded(child: reason),
+              const SizedBox(width: 10),
+              SizedBox(width: 230, child: realized),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final positions = asList(portfolio['positions']);
+    final exits = asList(
+      portfolio['activity'],
+    ).where((row) => text(row['action']) == 'SELL').toList();
+    final snapshotDate = text(portfolio['snapshot_date']);
+    final requestedDate = selectedNavDate.isEmpty
+        ? text(portfolio['requested_date'])
+        : selectedNavDate;
+    final snapped =
+        requestedDate.isNotEmpty &&
+        snapshotDate.isNotEmpty &&
+        requestedDate != snapshotDate;
+    return Panel(
+      palette: palette,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PanelTitle(
+            icon: Icons.inventory_2_outlined,
+            kicker: 'POINT-IN-TIME BOOK',
+            title: context.tr('历史仓位与决策快照', 'Historical position snapshot'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (snapshotDate.isNotEmpty)
+                  Text(
+                    formatDate(snapshotDate),
+                    style: TextStyle(
+                      color: palette.accent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                IconButton(
+                  tooltip: context.tr('策略说明', 'Strategy methodology'),
+                  onPressed: onHelp,
+                  icon: const Icon(Icons.help_outline_rounded),
+                ),
+              ],
+            ),
+            palette: palette,
+          ),
+          if (loading) ...[
+            const SizedBox(height: 10),
+            LinearProgressIndicator(
+              minHeight: 2,
+              color: palette.accent,
+              backgroundColor: palette.border,
+            ),
+          ] else if (portfolio.isEmpty) ...[
+            const SizedBox(height: 12),
+            EmptyState(
+              text:
+                  error ??
+                  context.tr(
+                    '该日期之前没有可用的历史仓位快照。',
+                    'No historical position snapshot is available before this date.',
+                  ),
+              palette: palette,
+            ),
+          ] else ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 6,
+              children: [
+                Text(
+                  snapped
+                      ? context.tr(
+                          'NAV ${formatDate(requestedDate)} · 使用最近已完成账本 ${formatDate(snapshotDate)}',
+                          'NAV ${formatDate(requestedDate)} · nearest completed book ${formatDate(snapshotDate)}',
+                        )
+                      : context.tr(
+                          'NAV 与账本日期 ${formatDate(snapshotDate)}',
+                          'NAV and book date ${formatDate(snapshotDate)}',
+                        ),
+                  style: TextStyle(color: palette.muted, fontSize: 11),
+                ),
+                Text(
+                  context.tr(
+                    'PIT · 次日开盘执行 · 调整价格口径',
+                    'PIT · next-open execution · adjusted-price basis',
+                  ),
+                  style: TextStyle(color: palette.faint, fontSize: 11),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            GridWrap(
+              minTileWidth: 145,
+              spacing: 8,
+              children: [
+                MiniMetric(
+                  context.tr('账户权益', 'Equity'),
+                  formatMoney(number(portfolio['equity'])),
+                  Icons.account_balance_wallet_outlined,
+                  palette,
+                ),
+                MiniMetric(
+                  context.tr('现金', 'Cash'),
+                  formatMoney(number(portfolio['cash'])),
+                  Icons.payments_outlined,
+                  palette,
+                ),
+                MiniMetric(
+                  context.tr('总仓位', 'Gross exposure'),
+                  formatReturn(number(portfolio['gross_exposure'])),
+                  Icons.pie_chart_outline_rounded,
+                  palette,
+                ),
+                MiniMetric(
+                  context.tr('持仓未实现盈亏', 'Open P&L'),
+                  formatMoney(number(portfolio['unrealized_pnl'])),
+                  Icons.query_stats_rounded,
+                  palette,
+                ),
+                MiniMetric(
+                  context.tr('区间买入 / 卖出', 'Interval buys / sells'),
+                  '${number(portfolio['buys_since_previous_snapshot']).round()} / ${number(portfolio['sells_since_previous_snapshot']).round()}',
+                  Icons.swap_horiz_rounded,
+                  palette,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _positionsTable(context, positions),
+            if (exits.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                context.tr('自上次快照以来的卖出', 'Exits since the previous snapshot'),
+                style: TextStyle(
+                  color: palette.text,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 6),
+              for (final exit in exits) _exitRow(context, exit),
+            ],
+          ],
+        ],
+      ),
     );
   }
 }
