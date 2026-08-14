@@ -33,14 +33,43 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <script>
+    // Remove the legacy Flutter PWA cache used by earlier Guru releases.
+    (() => {
+      const release = 'ontology-cutover-v1';
+      const loadFlutter = () => {
+        const script = document.createElement('script');
+        script.src = `flutter_bootstrap.js?v=${release}`;
+        script.async = true;
+        document.body.appendChild(script);
+      };
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
-  <script src="flutter_bootstrap.js" async></script>
+      if (!('serviceWorker' in navigator)) {
+        loadFlutter();
+        return;
+      }
+
+      Promise.all([
+        navigator.serviceWorker.getRegistrations().then((registrations) =>
+          Promise.all(registrations.map((registration) => registration.unregister())),
+        ),
+        'caches' in window
+          ? caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+          : Promise.resolve(),
+      ]).then(() => {
+        if (
+          navigator.serviceWorker.controller &&
+          sessionStorage.getItem('guru-cache-release') !== release
+        ) {
+          sessionStorage.setItem('guru-cache-release', release);
+          const url = new URL(window.location.href);
+          url.searchParams.set('release', release);
+          window.location.replace(url.toString());
+          return;
+        }
+        loadFlutter();
+      }).catch(loadFlutter);
+    })();
+  </script>
 </body>
 </html>
