@@ -7,7 +7,6 @@ import { fileURLToPath } from "node:url";
 import { loadGuruDashboard, loadGuruMarketContext } from "./secClient.js";
 import { loadOperationCommentary } from "./commentarySearch.js";
 import { gurus } from "./gurus.js";
-import { loadDbmfDashboard } from "./dbmfClient.js";
 import { publicOntologySnapshotInfo, registerOntologyRoutes } from "./ontologyClient.js";
 import { clearPortfolioCache, loadPortfolioDashboard, startPortfolioNavRecorder } from "./portfolioClient.js";
 import { requireAuth } from "./auth/requireAuth.js";
@@ -215,16 +214,6 @@ app.get("/api/gurus", async (request, response) => {
   try {
     const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
     const payload = await loadGuruDashboard({ forceRefresh });
-    response.json(payload);
-  } catch (error) {
-    response.status(500).json({ error: error.message });
-  }
-});
-
-app.get("/api/dbmf", async (request, response) => {
-  try {
-    const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
-    const payload = await loadDbmfDashboard({ forceRefresh });
     response.json(payload);
   } catch (error) {
     response.status(500).json({ error: error.message });

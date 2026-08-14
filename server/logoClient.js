@@ -50,7 +50,6 @@ const logoDomains = new Map(
     ["CVX", "chevron.com"],
     ["DAL", "delta.com"],
     ["DASH", "doordash.com"],
-    ["DBMF", "imgpfunds.com"],
     ["DDOG", "datadoghq.com"],
     ["DXCM", "dexcom.com"],
     ["EA", "ea.com"],

@@ -66,13 +66,6 @@ db.exec(`
   -- The PRIMARY KEY already creates sqlite_autoindex_price_points_1 on
   -- (symbol, date). A second identical index wastes about 50 MB.
 
-  CREATE TABLE IF NOT EXISTS dbmf_snapshots (
-    id TEXT PRIMARY KEY,
-    latest_date TEXT,
-    generated_at TEXT NOT NULL,
-    payload_json TEXT NOT NULL
-  );
-
   CREATE TABLE IF NOT EXISTS guru_backtests (
     guru_id TEXT NOT NULL,
     years INTEGER NOT NULL,
@@ -762,27 +755,6 @@ export function writeGuruAsset(guruId, asset) {
   );
 }
 
-export function readDbmfSnapshot() {
-  const row = db.prepare("SELECT payload_json FROM dbmf_snapshots WHERE id = ?").get("latest");
-  return parsePayload(row?.payload_json);
-}
-
-export function writeDbmfSnapshot(payload) {
-  db.prepare(`
-    INSERT INTO dbmf_snapshots (id, latest_date, generated_at, payload_json)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET
-      latest_date = excluded.latest_date,
-      generated_at = excluded.generated_at,
-      payload_json = excluded.payload_json
-  `).run(
-    "latest",
-    payload.summary?.latest_date || payload.latestDate || "",
-    payload.generatedAt || new Date().toISOString(),
-    JSON.stringify(payload)
-  );
-}
-
 export function readGuruBacktest(guruId, years = 5) {
   const row = db.prepare(`
     SELECT payload_json
@@ -1416,7 +1388,6 @@ const tableSummarySpecs = [
   { table: "valuation_ticker_snapshots", label: "Valuation tickers", latest: "generated_at" },
   { table: "valuation_podcast_insights", label: "Podcast insights", latest: "generated_at", maxDate: "observed_at" },
   { table: "price_points", label: "Market prices", latest: "updated_at", maxDate: "date" },
-  { table: "dbmf_snapshots", label: "DBMF snapshots", latest: "generated_at", maxDate: "latest_date" },
   { table: "portfolio_nav_points", label: "Local NAV history", latest: "updated_at", maxDate: "date" },
   { table: "ticker_assets", label: "Ticker logos", latest: "updated_at" },
   { table: "dividend_events", label: "Dividend calendar", latest: "updated_at", minDate: "ex_date", maxDate: "ex_date" },

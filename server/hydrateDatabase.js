@@ -2,13 +2,11 @@ import { databaseInfo } from "./localDatabase.js";
 import { gurus } from "./gurus.js";
 import { loadGuruDashboard, loadGuruMarketContext } from "./secClient.js";
 import { loadPriceSeries } from "./marketData.js";
-import { loadDbmfDashboard } from "./dbmfClient.js";
 import { loadGuruBacktest } from "./backtest.js";
 
 const args = new Set(process.argv.slice(2));
 const skipGuruRefresh = args.has("--skip-gurus");
 const skipPrices = args.has("--skip-prices");
-const skipDbmf = args.has("--skip-dbmf");
 const skipBacktests = args.has("--skip-backtests");
 const start = process.env.HYDRATE_START || "2020-01-01";
 const end = process.env.HYDRATE_END || new Date().toISOString().slice(0, 10);
@@ -49,8 +47,7 @@ const baseTickers = [
   "WMT",
   "UNH",
   "LLY",
-  "MA",
-  "DBMF"
+  "MA"
 ];
 
 function log(message, payload) {
@@ -158,22 +155,6 @@ async function hydratePrices(tickers) {
   log("[hydrate] price summary", { ok, missing });
 }
 
-async function hydrateDbmf() {
-  if (skipDbmf) {
-    log("[hydrate] skipping DBMF");
-    return;
-  }
-
-  const payload = await loadDbmfDashboard({ forceRefresh: true });
-  log("[hydrate] DBMF", {
-    latestDate: payload.summary?.latest_date,
-    previousDate: payload.summary?.previous_date,
-    snapshots: payload.registry?.snapshot_count,
-    holdings: payload.snapshots?.find((snapshot) => snapshot.date === payload.summary?.latest_date)?.holdings?.length || 0,
-    cache: payload.cache
-  });
-}
-
 async function hydrateBacktests() {
   if (skipBacktests) {
     log("[hydrate] skipping guru backtests");
@@ -211,7 +192,6 @@ async function main() {
   const tickers = collectTickers(dashboard);
   await hydratePrices(tickers);
   await hydrateBacktests();
-  await hydrateDbmf();
   log("[hydrate] done", { database: databaseInfo().path });
 }
 
