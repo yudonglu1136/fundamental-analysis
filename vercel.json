@@ -5,6 +5,20 @@
   "outputDirectory": "dist",
   "routes": [
     {
+      "src": "^/$",
+      "headers": {
+        "Cache-Control": "no-store, max-age=0"
+      },
+      "continue": true
+    },
+    {
+      "src": "^/(index\\.html|refresh\\.html|flutter_bootstrap\\.js|flutter_service_worker\\.js)$",
+      "headers": {
+        "Cache-Control": "no-store, max-age=0"
+      },
+      "continue": true
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/api/proxy.js?path=/api/$1"
     },
