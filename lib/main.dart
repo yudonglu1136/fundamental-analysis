@@ -7394,6 +7394,7 @@ class SecondaryDashboard extends StatelessWidget {
             switch (mode) {
               'ontology' => OntologyCompactDashboard(
                 data: data!,
+                api: api,
                 palette: palette,
               ),
               'portfolio' => PortfolioDashboard(
@@ -14057,15 +14058,98 @@ class _HoldingMiniLine extends StatelessWidget {
   }
 }
 
-class OntologyCompactDashboard extends StatelessWidget {
+class OntologyCompactDashboard extends StatefulWidget {
   const OntologyCompactDashboard({
     super.key,
     required this.data,
+    required this.api,
     required this.palette,
   });
 
   final Map<String, dynamic> data;
+  final ApiClient api;
   final Palette palette;
+
+  @override
+  State<OntologyCompactDashboard> createState() =>
+      _OntologyCompactDashboardState();
+}
+
+class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
+  int _timelineIndex = 0;
+  int _snapshotRequest = 0;
+  bool _snapshotLoading = false;
+  String? _snapshotError;
+  String _navPeriod = 'evaluation';
+  List<Map<String, dynamic>> _historicalSignals = const [];
+
+  Map<String, dynamic> get data => widget.data;
+  Palette get palette => widget.palette;
+
+  List<Map<String, dynamic>> get _timeline => asList(data['timeline']);
+
+  bool get _showingLatest =>
+      _timeline.isEmpty || _timelineIndex >= _timeline.length - 1;
+
+  List<Map<String, dynamic>> get _visibleSignals =>
+      _showingLatest ? asList(data['current_signals']) : _historicalSignals;
+
+  @override
+  void initState() {
+    super.initState();
+    _timelineIndex = math.max(0, _timeline.length - 1).toInt();
+  }
+
+  @override
+  void didUpdateWidget(covariant OntologyCompactDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.data, widget.data)) {
+      _snapshotRequest += 1;
+      _timelineIndex = math.max(0, _timeline.length - 1).toInt();
+      _historicalSignals = const [];
+      _snapshotLoading = false;
+      _snapshotError = null;
+    }
+  }
+
+  Future<void> _selectTimeline(int requestedIndex) async {
+    if (_timeline.isEmpty) return;
+    final index = requestedIndex.clamp(0, _timeline.length - 1).toInt();
+    final requestId = ++_snapshotRequest;
+    if (index == _timeline.length - 1) {
+      setState(() {
+        _timelineIndex = index;
+        _historicalSignals = const [];
+        _snapshotLoading = false;
+        _snapshotError = null;
+      });
+      return;
+    }
+
+    final asOf = text(_timeline[index]['month']).split('T').first;
+    setState(() {
+      _timelineIndex = index;
+      _snapshotLoading = true;
+      _snapshotError = null;
+    });
+    try {
+      final payload = await widget.api.getJson(
+        '/api/decision/snapshot?as_of=${Uri.encodeQueryComponent(asOf)}&limit=80',
+      );
+      if (!mounted || requestId != _snapshotRequest) return;
+      setState(() {
+        _historicalSignals = asList(payload['signals']);
+        _snapshotLoading = false;
+      });
+    } catch (error) {
+      if (!mounted || requestId != _snapshotRequest) return;
+      setState(() {
+        _historicalSignals = const [];
+        _snapshotLoading = false;
+        _snapshotError = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
 
   Color _stateColor(String state) => switch (state) {
     'green_graph_confirmed' => palette.accent,
@@ -14247,14 +14331,67 @@ class OntologyCompactDashboard extends StatelessWidget {
     );
   }
 
+  Widget _navLegend(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(width: 18, height: 3, color: color),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            color: palette.muted,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _navPeriodButton(String value, String label) {
+    final active = _navPeriod == value;
+    return InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: () => setState(() => _navPeriod = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: active
+              ? palette.accent.withValues(alpha: .18)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: active ? palette.accent : palette.muted,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final stats = asMap(data['stats']);
-    final signals = asList(data['current_signals']);
+    final currentSignals = asList(data['current_signals']);
+    final signals = _visibleSignals;
     final holdings = asList(data['holdings']);
     final performance = asMap(data['performance']);
     final development = asMap(performance['development']);
     final evaluation = asMap(performance['evaluation']);
+    final nav = asMap(performance['nav']);
+    final navPoints = asList(nav[_navPeriod]);
+    final navSummary = _navPeriod == 'development' ? development : evaluation;
+    final timeline = _timeline;
+    final selectedTimeline = timeline.isEmpty
+        ? const <String, dynamic>{}
+        : timeline[_timelineIndex.clamp(0, timeline.length - 1).toInt()];
+    final selectedMonth = text(selectedTimeline['month']).split('T').first;
     final asOf = text(stats['latest_information_date']).split('T').first;
 
     final header = SecondaryModeHeader(
@@ -14270,7 +14407,7 @@ class OntologyCompactDashboard extends StatelessWidget {
       metrics: [
         _GuruHeaderMetric(
           label: 'Current Signals',
-          value: '${signals.length}',
+          value: '${currentSignals.length}',
           sub: 'tradable candidates',
           palette: palette,
         ),
@@ -14296,6 +14433,204 @@ class OntologyCompactDashboard extends StatelessWidget {
       palette: palette,
     );
 
+    final timelinePanel = Panel(
+      palette: palette,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PanelTitle(
+            icon: Icons.history_rounded,
+            kicker: 'PIT REPLAY',
+            title: 'Decision history',
+            trailing: Text(
+              _showingLatest
+                  ? 'Latest · ${formatDate(selectedMonth)}'
+                  : 'Historical · ${formatDate(selectedMonth)}',
+              style: TextStyle(
+                color: _showingLatest ? palette.accent : palette.secondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            palette: palette,
+          ),
+          const SizedBox(height: 10),
+          if (timeline.isEmpty)
+            EmptyState(text: 'No PIT history is available.', palette: palette)
+          else ...[
+            Row(
+              children: [
+                IconButton(
+                  tooltip: 'Previous month',
+                  onPressed: _timelineIndex <= 0
+                      ? null
+                      : () => _selectTimeline(_timelineIndex - 1),
+                  icon: const Icon(Icons.chevron_left_rounded),
+                ),
+                Expanded(
+                  child: Slider(
+                    min: 0,
+                    max: math.max(1, timeline.length - 1).toDouble(),
+                    divisions: math.max(1, timeline.length - 1),
+                    value: _timelineIndex.toDouble(),
+                    onChanged: (value) =>
+                        setState(() => _timelineIndex = value.round()),
+                    onChangeEnd: (value) => _selectTimeline(value.round()),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Next month',
+                  onPressed: _timelineIndex >= timeline.length - 1
+                      ? null
+                      : () => _selectTimeline(_timelineIndex + 1),
+                  icon: const Icon(Icons.chevron_right_rounded),
+                ),
+                IconButton(
+                  tooltip: 'Latest snapshot',
+                  onPressed: _showingLatest
+                      ? null
+                      : () => _selectTimeline(timeline.length - 1),
+                  icon: const Icon(Icons.today_rounded),
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Wrap(
+                spacing: 16,
+                runSpacing: 6,
+                children: [
+                  Text(
+                    '${(number(selectedTimeline['events'])).round()} events',
+                    style: TextStyle(color: palette.muted, fontSize: 11),
+                  ),
+                  Text(
+                    '${(number(selectedTimeline['peer_confirmed'])).round()} peer-confirmed',
+                    style: TextStyle(color: palette.accent, fontSize: 11),
+                  ),
+                  Text(
+                    '${(number(selectedTimeline['graph_confirmed'])).round()} graph-confirmed',
+                    style: TextStyle(color: palette.secondary, fontSize: 11),
+                  ),
+                  Text(
+                    '${timeline.length} monthly snapshots',
+                    style: TextStyle(color: palette.faint, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            if (_snapshotLoading) ...[
+              const SizedBox(height: 10),
+              LinearProgressIndicator(
+                minHeight: 2,
+                color: palette.accent,
+                backgroundColor: palette.border,
+              ),
+            ],
+            if (_snapshotError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _snapshotError!,
+                style: TextStyle(color: palette.negative, fontSize: 11),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+
+    final navPanel = Panel(
+      palette: palette,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PanelTitle(
+            icon: Icons.stacked_line_chart_rounded,
+            kicker: 'REALIZED BACKTEST',
+            title: 'Historical NAV vs SPY',
+            palette: palette,
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 14,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: palette.card,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: palette.border),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _navPeriodButton('evaluation', '2018–2026 evaluation'),
+                    _navPeriodButton('development', '2010–2016 development'),
+                  ],
+                ),
+              ),
+              _navLegend(palette.positive, 'Ontology 6M'),
+              _navLegend(palette.secondary, 'SPY'),
+              Text(
+                'Daily · net of modeled costs',
+                style: TextStyle(color: palette.faint, fontSize: 10),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (navPoints.length < 2)
+            SizedBox(
+              height: 240,
+              child: EmptyState(
+                text: 'Historical NAV is not present in this snapshot.',
+                palette: palette,
+              ),
+            )
+          else ...[
+            GridWrap(
+              minTileWidth: 145,
+              spacing: 8,
+              children: [
+                MiniMetric(
+                  'Strategy return',
+                  formatReturn(number(navPoints.last['value']) - 1),
+                  Icons.trending_up_rounded,
+                  palette,
+                ),
+                MiniMetric(
+                  'SPY return',
+                  formatReturn(number(navPoints.last['benchmark']) - 1),
+                  Icons.show_chart_rounded,
+                  palette,
+                ),
+                MiniMetric(
+                  'Strategy CAGR',
+                  formatReturn(number(navSummary['cagr'])),
+                  Icons.speed_rounded,
+                  palette,
+                ),
+                MiniMetric(
+                  'Max drawdown',
+                  formatReturn(number(navSummary['max_drawdown'])),
+                  Icons.south_east_rounded,
+                  palette,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 300,
+              child: EquityChart(equity: navPoints, palette: palette),
+            ),
+          ],
+        ],
+      ),
+    );
+
     final signalPanel = Panel(
       palette: palette,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
@@ -14305,9 +14640,11 @@ class OntologyCompactDashboard extends StatelessWidget {
           PanelTitle(
             icon: Icons.bolt_rounded,
             kicker: 'DECISION BOARD',
-            title: 'Latest PIT signals',
+            title: _showingLatest
+                ? 'Latest PIT signals'
+                : 'Historical PIT signals',
             trailing: Text(
-              '${signals.length} candidates',
+              '${signals.length} · ${formatDate(selectedMonth)}',
               style: TextStyle(
                 color: palette.accent,
                 fontSize: 11,
@@ -14317,7 +14654,18 @@ class OntologyCompactDashboard extends StatelessWidget {
             palette: palette,
           ),
           const SizedBox(height: 10),
-          for (final signal in signals.take(12)) _signalRow(signal),
+          if (_snapshotLoading && !_showingLatest)
+            const SizedBox(
+              height: 160,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (signals.isEmpty)
+            EmptyState(
+              text: _snapshotError ?? 'No tradable PIT signals for this month.',
+              palette: palette,
+            )
+          else
+            for (final signal in signals.take(12)) _signalRow(signal),
         ],
       ),
     );
@@ -14410,6 +14758,10 @@ class OntologyCompactDashboard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         header,
+        const SizedBox(height: 10),
+        timelinePanel,
+        const SizedBox(height: 10),
+        navPanel,
         const SizedBox(height: 10),
         LayoutBuilder(
           builder: (context, constraints) {
