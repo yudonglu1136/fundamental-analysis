@@ -165,7 +165,6 @@ export function buildAdminSystemHealth({ allowedOrigins = [], adminEmails = [] }
   const backtestTable = tableByName(tables, "guru_backtests");
   const valuationTable = tableByName(tables, "valuation_ticker_snapshots");
   const guruTable = tableByName(tables, "guru_snapshots");
-  const dbmfTable = tableByName(tables, "dbmf_snapshots");
   const dividendTable = tableByName(tables, "dividend_events");
   const navTable = tableByName(tables, "portfolio_nav_points");
   const podcastTable = tableByName(tables, "valuation_podcast_insights");
@@ -263,18 +262,6 @@ export function buildAdminSystemHealth({ allowedOrigins = [], adminEmails = [] }
         rows: dividendTable.rowCount,
         minExDate: dividendTable.minDate,
         maxExDate: dividendTable.maxDate
-      }
-    }),
-    jobFromRun({
-      id: "dbmf_snapshots",
-      label: "DBMF exposure book",
-      run: null,
-      fallbackLatestAt: dbmfTable.latestAt,
-      warningHours: 168,
-      failedHours: 720,
-      detail: {
-        rows: dbmfTable.rowCount,
-        latestDate: dbmfTable.maxDate
       }
     })
   ];

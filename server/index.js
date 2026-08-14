@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { loadGuruDashboard, loadGuruMarketContext } from "./secClient.js";
 import { loadOperationCommentary } from "./commentarySearch.js";
 import { gurus } from "./gurus.js";
-import { loadDbmfDashboard } from "./dbmfClient.js";
+import { publicOntologySnapshotInfo, registerOntologyRoutes } from "./ontologyClient.js";
 import { clearPortfolioCache, loadPortfolioDashboard, startPortfolioNavRecorder } from "./portfolioClient.js";
 import { requireAuth } from "./auth/requireAuth.js";
 import {
@@ -18,6 +18,7 @@ import {
   startGuruBacktestRefresher
 } from "./backtest.js";
 import { loadValuationDashboard, loadValuationTicker } from "./valuationClient.js";
+import { importValuationTicker } from "./valuationImporter.js";
 import { translateTextsToChinese } from "./translationClient.js";
 import { databaseInfo, writeBackgroundJobRun } from "./localDatabase.js";
 import { loadTickerLogo } from "./logoClient.js";
@@ -100,7 +101,8 @@ app.get("/api/health", (_request, response) => {
   response.json({
     ok: true,
     service: "guru-analysis-dashboard",
-    database: databaseHealth()
+    database: databaseHealth(),
+    ontology: publicOntologySnapshotInfo()
   });
 });
 
@@ -202,6 +204,8 @@ app.use("/api", (request, _response, next) => {
   next();
 });
 
+registerOntologyRoutes(app);
+
 app.get("/api/gurus/config", (_request, response) => {
   response.json({ gurus });
 });
@@ -210,16 +214,6 @@ app.get("/api/gurus", async (request, response) => {
   try {
     const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
     const payload = await loadGuruDashboard({ forceRefresh });
-    response.json(payload);
-  } catch (error) {
-    response.status(500).json({ error: error.message });
-  }
-});
-
-app.get("/api/dbmf", async (request, response) => {
-  try {
-    const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
-    const payload = await loadDbmfDashboard({ forceRefresh });
     response.json(payload);
   } catch (error) {
     response.status(500).json({ error: error.message });
@@ -428,6 +422,21 @@ app.get("/api/valuation", async (_request, response) => {
   }
 });
 
+app.post("/api/valuation/:ticker/import", async (request, response) => {
+  try {
+    const payload = await importValuationTicker(request.params.ticker, {
+      pricePoints: request.query.pricePoints || request.body?.pricePoints
+    });
+    response.setHeader("Cache-Control", "no-store");
+    response.json(payload);
+  } catch (error) {
+    response.status(error.statusCode || 502).json({
+      error: "valuation_import_failed",
+      message: error.message
+    });
+  }
+});
+
 app.get("/api/valuation/:ticker", async (request, response) => {
   try {
     const payload = await loadValuationTicker(request.params.ticker, {
@@ -525,7 +534,7 @@ app.get("/api/gurus/:id/commentary", async (request, response) => {
   }
 });
 
-if (process.env.NODE_ENV === "production") {
+if (process.env.NODE_ENV === "production" || process.env.SERVE_FRONTEND_DIST === "1") {
   const distDir = path.join(rootDir, "dist");
   const distIndexPath = path.join(distDir, "index.html");
 

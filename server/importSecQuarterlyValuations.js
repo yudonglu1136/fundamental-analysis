@@ -3409,10 +3409,12 @@ function shouldPreserveLegacyBackendSnapshot(snapshot, valuationRows, sourceIsTr
 }
 
 async function main() {
+  const trinity = fs.existsSync(TRINITY_MODEL_PATH)
+    ? parseJson(fs.readFileSync(TRINITY_MODEL_PATH, "utf8"), {})
+    : {};
   if (!fs.existsSync(TRINITY_MODEL_PATH)) {
-    throw new Error(`Trinity model not found at ${TRINITY_MODEL_PATH}`);
+    console.warn(`Trinity model not found at ${TRINITY_MODEL_PATH}; continuing with SEC CompanyFacts only.`);
   }
-  const trinity = parseJson(fs.readFileSync(TRINITY_MODEL_PATH, "utf8"), {});
   const currentDb = new DatabaseSync(CURRENT_DB_PATH);
   try {
     const dashboard = parseJson(currentDb.prepare("SELECT payload_json FROM valuation_snapshots WHERE id = ?").get("latest")?.payload_json, {});

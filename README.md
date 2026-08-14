@@ -1,7 +1,7 @@
 # Guru Intelligence
 
-A buy-side research terminal for guru portfolios, managed futures exposure,
-fundamental valuation, and private portfolio management.
+A buy-side research terminal for guru portfolios, point-in-time market
+ontology, fundamental valuation, and private portfolio management.
 
 Guru Intelligence combines public filings, market data, earnings-call Q&A,
 podcast commentary, valuation models, and user-linked portfolio data into one
@@ -12,7 +12,7 @@ dark terminal experience for research and monitoring.
 | Module | Purpose | Highlights |
 | --- | --- | --- |
 | Guru | Track 13F funds, Form 4 insiders, and public trading signals | Guru profiles, AI-style avatars, portfolio-vs-SPY simulation, new buys/sells, quarterly contribution, signal board, crowded-holding heatmap |
-| DBMF | Monitor managed-futures exposure | Official DBMF exposure book, direction tags, prior-period markers, exposure bars, refreshable backend data |
+| Ontology | Find fundamental inflections across US industries | PIT decision signals, peer value capture, industry graphs, company drilldowns, historical timeline, model holdings and SPY validation |
 | Valuation | Research fair value and price history | Fair-value matrix, ticker search, historical valuation curve, daily price overlay, quarterly model book, model weights, call-transcript Q&A, podcast-derived forward insights |
 | Portfolio | Manage private brokerage portfolios | IBKR/Yodlee connection flow, multi-account sync, NAV history, holdings, logo-backed allocation, valuation gap, dividend calendar, portfolio analytics |
 | Admin | Operate and audit the system | Admin-only portfolio user list, account detail drilldown, backend health, backtest refresh controls |
@@ -23,7 +23,7 @@ The product is intentionally built like an internal investment terminal:
 
 - dense but scan-friendly panels;
 - dark navy workspace with mint active states and amber benchmark context;
-- persistent top-level modes: `Guru`, `DBMF`, `Valuation`, `Portfolio`, and admin-only `Admin`;
+- persistent top-level modes: `Guru`, `Ontology`, `Valuation`, `Portfolio`, and admin-only `Admin`;
 - responsive web UI today, with an iPhone-first App Store path in progress.
 
 ## Architecture
@@ -52,6 +52,8 @@ The deployment contract is deliberately strict:
 - AWS Elastic Beanstalk owns the API backend.
 - `www.thesisforge.tech` must resolve to Vercel.
 - `/api/*` is proxied from Vercel to AWS.
+- Browser builds use only the same-origin `/api/*` path; `AWS_API_ORIGIN` is
+  configured once in the Vercel proxy and is never compiled into Flutter.
 - Runtime data stays on the backend and is not committed to Git.
 
 Read [docs/deployment-contract.md](docs/deployment-contract.md) before changing
@@ -118,7 +120,9 @@ Representative API routes:
 | `GET /api/gurus` | Guru dashboard payload |
 | `GET /api/gurus/:id/backtest` | Portfolio-vs-SPY simulation |
 | `GET /api/gurus/:id/context` | Ticker context for selected guru activity |
-| `GET /api/dbmf` | DBMF exposure dashboard |
+| `GET /api/ontology/overview` | Compact Ontology decision dashboard |
+| `GET /api/market/home` | Full-market ontology home |
+| `GET /api/decision/snapshot` | Historical PIT decision snapshot |
 | `GET /api/valuation` | Fair-value matrix |
 | `GET /api/valuation/:ticker` | Ticker detail, history, model book, Q&A, commentary |
 | `GET /api/portfolio` | User portfolio cockpit |
@@ -215,10 +219,13 @@ emergency fallback is explicitly requested.
 | `scripts/` | Build, deploy, import, and App Store helper scripts |
 | `docs/` | Deployment, iOS, audit, and product-readiness documentation |
 | `web/guru-avatars/` | Public guru avatar assets |
+| `web/ontology/` | Authenticated standalone Ontology explorer |
 | `ios/` | Flutter iOS platform shell |
 | `prototypes/ios-guru-app-design/` | Product-design prototype for the iPhone app |
 | `microsoft-copilot-nowcast/` | Separate experimental nowcast implementation |
 
+Ontology data refresh and AWS publication are documented in
+[docs/ontology-deployment.md](docs/ontology-deployment.md).
 ## Microsoft Copilot Earnings Nowcast
 
 An isolated Python/FastAPI implementation lives in

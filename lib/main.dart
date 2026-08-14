@@ -320,7 +320,7 @@ class _TerminalHomeState extends State<TerminalHome>
     with WidgetsBindingObserver {
   late final ApiClient _api = ApiClient(() => widget.accessToken);
   Map<String, dynamic>? _guruPayload;
-  Map<String, dynamic>? _dbmfPayload;
+  Map<String, dynamic>? _ontologyPayload;
   Map<String, dynamic>? _portfolioPayload;
   Map<String, dynamic>? _valuationPayload;
   Map<String, dynamic>? _adminPayload;
@@ -425,7 +425,7 @@ class _TerminalHomeState extends State<TerminalHome>
   }
 
   Map<String, dynamic>? _secondaryPayloadFor(String mode) => switch (mode) {
-    'dbmf' => _dbmfPayload,
+    'ontology' => _ontologyPayload,
     'portfolio' => _portfolioPayload,
     'admin' => _adminPayload,
     _ => _valuationPayload,
@@ -462,7 +462,7 @@ class _TerminalHomeState extends State<TerminalHome>
   }
 
   Future<void> _loadSecondary(String mode, {bool refresh = false}) async {
-    if (!refresh && mode == 'dbmf' && _dbmfPayload != null) return;
+    if (!refresh && mode == 'ontology' && _ontologyPayload != null) return;
     if (!refresh && mode == 'portfolio' && _portfolioPayload != null) return;
     if (!refresh && mode == 'valuation' && _valuationPayload != null) return;
     if (!refresh && mode == 'admin' && _adminPayload != null) return;
@@ -474,7 +474,7 @@ class _TerminalHomeState extends State<TerminalHome>
     });
     try {
       final basePath = switch (mode) {
-        'dbmf' => '/api/dbmf',
+        'ontology' => '/api/ontology/overview',
         'portfolio' => '/api/portfolio',
         'admin' => '/api/admin/portfolio-users',
         _ => '/api/valuation',
@@ -483,7 +483,7 @@ class _TerminalHomeState extends State<TerminalHome>
       final payload = await _api.getJson(path);
       if (!mounted || requestId != _secondaryRequestSerial) return;
       setState(() {
-        if (mode == 'dbmf') _dbmfPayload = payload;
+        if (mode == 'ontology') _ontologyPayload = payload;
         if (mode == 'portfolio') _portfolioPayload = payload;
         if (mode == 'valuation') _valuationPayload = payload;
         if (mode == 'admin') _adminPayload = payload;
@@ -585,7 +585,7 @@ class _TerminalHomeState extends State<TerminalHome>
                           mode: _mode,
                           api: _api,
                           data: switch (_mode) {
-                            'dbmf' => _dbmfPayload,
+                            'ontology' => _ontologyPayload,
                             'portfolio' => _portfolioPayload,
                             'admin' => _adminPayload,
                             _ => _valuationPayload,
@@ -1055,7 +1055,7 @@ class ModeSegment extends StatelessWidget {
   Widget build(BuildContext context) {
     final modes = [
       ('guru', 'Guru'),
-      ('dbmf', 'DBMF'),
+      ('ontology', 'Ontology'),
       ('valuation', 'Valuation'),
       ('portfolio', 'Portfolio'),
       if (showAdmin) ('admin', 'Admin'),
@@ -4985,7 +4985,7 @@ class QuickLinksPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final links = const [
-      ('DBMF Exposure Book', 'dbmf', Icons.account_balance_rounded),
+      ('Ontology Intelligence', 'ontology', Icons.hub_rounded),
       ('Fair Value Matrix', 'valuation', Icons.query_stats_rounded),
     ];
     return Panel(
@@ -7392,7 +7392,11 @@ class SecondaryDashboard extends StatelessWidget {
             )
           else
             switch (mode) {
-              'dbmf' => DbmfCompactDashboard(data: data!, palette: palette),
+              'ontology' => OntologyCompactDashboard(
+                data: data!,
+                api: api,
+                palette: palette,
+              ),
               'portfolio' => PortfolioDashboard(
                 data: data!,
                 api: api,
@@ -14054,549 +14058,315 @@ class _HoldingMiniLine extends StatelessWidget {
   }
 }
 
-class DbmfCompactDashboard extends StatelessWidget {
-  const DbmfCompactDashboard({
+class OntologyCompactDashboard extends StatefulWidget {
+  const OntologyCompactDashboard({
     super.key,
     required this.data,
+    required this.api,
     required this.palette,
   });
 
   final Map<String, dynamic> data;
+  final ApiClient api;
   final Palette palette;
 
   @override
-  Widget build(BuildContext context) {
-    final latestExposure = asMap(data['latestExposure']);
-    final summary = asMap(data['summary']);
-    final source = asMap(data['source']);
-    final snapshots = asList(data['snapshots']);
-    final latestSnapshot = snapshots.isNotEmpty
-        ? asMap(snapshots.last)
-        : const <String, dynamic>{};
-    final exposureRows = asList(latestExposure['records']);
-    final holdingRows = asList(latestSnapshot['holdings']);
-    final assets = dbmfAssetsFromRows(
-      exposureRows.isNotEmpty ? exposureRows : holdingRows,
-      previousDate: text(latestExposure['previous_date']),
-    );
-    final visibleAssets = assets.take(18).toList();
-    final maxAbsExposure = assets.fold<double>(
-      0,
-      (max, asset) => math.max(max, asset.exposure.abs()),
-    );
-    final longExposure = assets
-        .where((asset) => asset.exposure > 0)
-        .fold<double>(0, (sum, asset) => sum + asset.exposure);
-    final shortExposure = assets
-        .where((asset) => asset.exposure < 0)
-        .fold<double>(0, (sum, asset) => sum + asset.exposure);
-    final netExposure = longExposure + shortExposure;
-    final grossExposure = assets.fold<double>(
-      0,
-      (sum, asset) => sum + asset.exposure.abs(),
-    );
-    final cashExposure = assets
-        .where((asset) => asset.key == 'cash')
-        .fold<double>(0, (sum, asset) => sum + asset.exposure);
-    final grossNotional = assets.fold<double>(
-      0,
-      (sum, asset) => sum + asset.marketValue.abs(),
-    );
-    final largest = assets.isEmpty ? null : assets.first;
-    final latestDate = dbmfLatestDate(latestExposure, latestSnapshot, summary);
-
-    Widget exposureBook() => Panel(
-      palette: palette,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          PanelTitle(
-            icon: Icons.waves_rounded,
-            kicker: 'MANAGED FUTURES',
-            title: 'DBMF exposure book',
-            trailing: SizedBox(
-              width: 190,
-              child: Text(
-                text(source['officialLabel'], 'official holdings'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-                style: TextStyle(color: palette.muted, fontSize: 12),
-              ),
-            ),
-            palette: palette,
-          ),
-          const SizedBox(height: 14),
-          if (visibleAssets.isEmpty)
-            EmptyState(
-              text: 'No DBMF holdings rows found in the backend response.',
-              palette: palette,
-            )
-          else ...[
-            DbmfExposureHeader(palette: palette),
-            const SizedBox(height: 8),
-            for (final asset in visibleAssets)
-              DbmfExposureRow(
-                asset: asset,
-                maxAbsExposure: maxAbsExposure,
-                palette: palette,
-              ),
-          ],
-        ],
-      ),
-    );
-
-    Widget rightRail() => Column(
-      children: [
-        Panel(
-          palette: palette,
-          padding: const EdgeInsets.all(14),
-          child: DbmfPosture(
-            longExposure: longExposure,
-            shortExposure: shortExposure,
-            netExposure: netExposure,
-            grossExposure: grossExposure,
-            palette: palette,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Panel(
-          palette: palette,
-          padding: const EdgeInsets.all(14),
-          child: DbmfSourceNote(
-            latestDate: latestDate,
-            source: source,
-            snapshot: latestSnapshot,
-            palette: palette,
-          ),
-        ),
-      ],
-    );
-
-    final header = SecondaryModeHeader(
-      icon: Icons.waves_rounded,
-      kicker: 'MANAGED FUTURES',
-      title: 'DBMF Exposure Book',
-      subtitle: 'Official iMGP holdings normalized into futures sleeves.',
-      chips: [
-        'As of ${formatDate(latestDate)}',
-        text(source['officialLabel'], 'official holdings'),
-      ],
-      metrics: [
-        _GuruHeaderMetric(
-          label: 'Net Exposure',
-          value: formatDbmfPercent(netExposure),
-          sub:
-              '${formatDbmfPercent(longExposure)} long / ${formatDbmfPercent(shortExposure)} short',
-          palette: palette,
-        ),
-        _GuruHeaderMetric(
-          label: 'Gross Exposure',
-          value: formatDbmfPercent(grossExposure),
-          sub: '${assets.length} sleeves',
-          palette: palette,
-        ),
-        _GuruHeaderMetric(
-          label: 'Cash Sleeve',
-          value: formatDbmfPercent(cashExposure),
-          sub: 'T-Bills collateral',
-          palette: palette,
-        ),
-        _GuruHeaderMetric(
-          label: 'Gross Notional',
-          value: formatMoney(grossNotional),
-          sub: largest == null ? 'No current rows' : 'Largest ${largest.name}',
-          palette: palette,
-        ),
-      ],
-      palette: palette,
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        header,
-        const SizedBox(height: 10),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth < 1180) {
-              return Column(
-                children: [
-                  exposureBook(),
-                  const SizedBox(height: 10),
-                  rightRail(),
-                ],
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: exposureBook()),
-                const SizedBox(width: 10),
-                SizedBox(width: 310, child: rightRail()),
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
+  State<OntologyCompactDashboard> createState() =>
+      _OntologyCompactDashboardState();
 }
 
-class DbmfMetricCard extends StatelessWidget {
-  const DbmfMetricCard({
-    super.key,
-    required this.label,
-    required this.value,
-    required this.sub,
-    required this.icon,
-    required this.tone,
-    required this.palette,
-  });
+class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
+  int _timelineIndex = 0;
+  int _snapshotRequest = 0;
+  bool _snapshotLoading = false;
+  String? _snapshotError;
+  String _navPeriod = 'evaluation';
+  List<Map<String, dynamic>> _historicalSignals = const [];
 
-  final String label;
-  final String value;
-  final String sub;
-  final IconData icon;
-  final Color tone;
-  final Palette palette;
+  Map<String, dynamic> get data => widget.data;
+  Palette get palette => widget.palette;
+
+  List<Map<String, dynamic>> get _timeline => asList(data['timeline']);
+
+  bool get _showingLatest =>
+      _timeline.isEmpty || _timelineIndex >= _timeline.length - 1;
+
+  List<Map<String, dynamic>> get _visibleSignals =>
+      _showingLatest ? asList(data['current_signals']) : _historicalSignals;
 
   @override
-  Widget build(BuildContext context) {
+  void initState() {
+    super.initState();
+    _timelineIndex = math.max(0, _timeline.length - 1).toInt();
+  }
+
+  @override
+  void didUpdateWidget(covariant OntologyCompactDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.data, widget.data)) {
+      _snapshotRequest += 1;
+      _timelineIndex = math.max(0, _timeline.length - 1).toInt();
+      _historicalSignals = const [];
+      _snapshotLoading = false;
+      _snapshotError = null;
+    }
+  }
+
+  Future<void> _selectTimeline(int requestedIndex) async {
+    if (_timeline.isEmpty) return;
+    final index = requestedIndex.clamp(0, _timeline.length - 1).toInt();
+    final requestId = ++_snapshotRequest;
+    if (index == _timeline.length - 1) {
+      setState(() {
+        _timelineIndex = index;
+        _historicalSignals = const [];
+        _snapshotLoading = false;
+        _snapshotError = null;
+      });
+      return;
+    }
+
+    final asOf = text(_timeline[index]['month']).split('T').first;
+    setState(() {
+      _timelineIndex = index;
+      _snapshotLoading = true;
+      _snapshotError = null;
+    });
+    try {
+      final payload = await widget.api.getJson(
+        '/api/decision/snapshot?as_of=${Uri.encodeQueryComponent(asOf)}&limit=80',
+      );
+      if (!mounted || requestId != _snapshotRequest) return;
+      setState(() {
+        _historicalSignals = asList(payload['signals']);
+        _snapshotLoading = false;
+      });
+    } catch (error) {
+      if (!mounted || requestId != _snapshotRequest) return;
+      setState(() {
+        _historicalSignals = const [];
+        _snapshotLoading = false;
+        _snapshotError = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  Color _stateColor(String state) => switch (state) {
+    'green_graph_confirmed' => palette.accent,
+    'green_peer_capture' => palette.positive,
+    _ => palette.secondary,
+  };
+
+  String _stateLabel(String state) => switch (state) {
+    'green_graph_confirmed' => '图谱确认',
+    'green_peer_capture' => '同行确认',
+    _ => state.isEmpty ? '观察' : state,
+  };
+
+  Widget _signalRow(Map<String, dynamic> signal) {
+    final state = text(signal['signal_state']);
+    final color = _stateColor(state);
     return Container(
-      padding: const EdgeInsets.all(15),
+      constraints: const BoxConstraints(minHeight: 54),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
       decoration: BoxDecoration(
-        color: palette.panel,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: palette.border),
+        color: palette.card.withValues(alpha: .68),
+        border: Border(bottom: BorderSide(color: palette.border)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Icon(icon, color: tone, size: 20),
-          const SizedBox(height: 12),
-          Text(
-            label,
-            style: TextStyle(
-              color: palette.muted,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: palette.text,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            sub,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: palette.faint, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class DbmfExposureHeader extends StatelessWidget {
-  const DbmfExposureHeader({super.key, required this.palette});
-
-  final Palette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 780) return const SizedBox.shrink();
-        final style = TextStyle(
-          color: palette.faint,
-          fontSize: 11,
-          fontWeight: FontWeight.w900,
-        );
-        return Row(
-          children: [
-            SizedBox(width: 230, child: Text('SLEEVE', style: style)),
-            Expanded(child: Text('NET EXPOSURE', style: style)),
-            SizedBox(
-              width: 120,
-              child: Text('NOTIONAL', textAlign: TextAlign.end, style: style),
-            ),
-            const SizedBox(width: 18),
-            SizedBox(
-              width: 92,
-              child: Text('DIRECTION', textAlign: TextAlign.end, style: style),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class DbmfExposureRow extends StatelessWidget {
-  const DbmfExposureRow({
-    super.key,
-    required this.asset,
-    required this.maxAbsExposure,
-    required this.palette,
-  });
-
-  final DbmfAsset asset;
-  final double maxAbsExposure;
-  final Palette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = asset.exposure < 0 ? palette.negative : palette.positive;
-    final barValue = maxAbsExposure <= 0
-        ? 0.0
-        : math
-              .max(.04, asset.exposure.abs() / maxAbsExposure)
-              .clamp(0.0, 1.0)
-              .toDouble();
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 780;
-        final nameBlock = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              asset.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          Container(width: 4, height: 32, color: color),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 66,
+            child: Text(
+              text(signal['ticker']),
               style: TextStyle(
                 color: palette.text,
                 fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(height: 3),
-            Text(
-              asset.keyLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: palette.faint, fontSize: 12),
-            ),
-          ],
-        );
-        final bar = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  formatDbmfPercent(asset.exposure),
-                  style: TextStyle(color: color, fontWeight: FontWeight.w900),
+                  text(signal['name'], text(signal['industry'], '-')),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: palette.muted, fontSize: 11),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: DbmfExposureBar(
-                    value: barValue,
+                const SizedBox(height: 3),
+                Text(
+                  '${_stateLabel(state)} · ${text(signal['stage_name'], text(signal['sector'], '-'))}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
                     color: color,
-                    asset: asset,
-                    maxAbsExposure: maxAbsExposure,
-                    palette: palette,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
             ),
-          ],
-        );
-        final amount = Text(
-          formatMoney(asset.marketValue),
-          textAlign: TextAlign.end,
-          style: TextStyle(color: palette.text, fontWeight: FontWeight.w900),
-        );
-        final direction = DbmfDirectionChip(asset: asset, palette: palette);
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 13),
-          child: compact
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: nameBlock),
-                        direction,
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    bar,
-                    const SizedBox(height: 7),
-                    Align(alignment: Alignment.centerRight, child: amount),
-                  ],
-                )
-              : Row(
-                  children: [
-                    SizedBox(width: 230, child: nameBlock),
-                    Expanded(child: bar),
-                    const SizedBox(width: 18),
-                    SizedBox(width: 120, child: amount),
-                    const SizedBox(width: 18),
-                    SizedBox(width: 92, child: direction),
-                  ],
-                ),
-        );
-      },
-    );
-  }
-}
-
-class DbmfExposureBar extends StatelessWidget {
-  const DbmfExposureBar({
-    super.key,
-    required this.value,
-    required this.color,
-    required this.asset,
-    required this.maxAbsExposure,
-    required this.palette,
-  });
-
-  final double value;
-  final Color color;
-  final DbmfAsset asset;
-  final double maxAbsExposure;
-  final Palette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    final previous = asset.previousExposure;
-    final hasPrevious =
-        previous != null && previous.isFinite && maxAbsExposure > 0;
-    final previousPosition = hasPrevious
-        ? (previous.abs() / maxAbsExposure).clamp(0.0, 1.0).toDouble()
-        : 0.0;
-    final previousColor = previous == null
-        ? palette.faint
-        : previous < 0
-        ? palette.negative
-        : palette.positive;
-    final tooltipDate = formatDate(asset.previousDate);
-    final tooltip = asset.previousDate.isEmpty
-        ? context.tr(
-            '上一期头寸：${formatDbmfPercent(previous ?? 0)}',
-            'Previous position: ${formatDbmfPercent(previous ?? 0)}',
-          )
-        : context.tr(
-            '上一期 $tooltipDate：${formatDbmfPercent(previous ?? 0)}',
-            'Previous $tooltipDate: ${formatDbmfPercent(previous ?? 0)}',
-          );
-
-    return SizedBox(
-      height: 18,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final markerLeft = (constraints.maxWidth * previousPosition - 9)
-              .clamp(0.0, math.max(0.0, constraints.maxWidth - 18))
-              .toDouble();
-          return Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.centerLeft,
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Container(
-                height: 8,
-                decoration: BoxDecoration(
-                  color: palette.border,
-                  borderRadius: BorderRadius.circular(999),
+              Text(
+                number(signal['ontology_score']).toStringAsFixed(2),
+                style: TextStyle(
+                  color: palette.text,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-              FractionallySizedBox(
-                widthFactor: value,
-                alignment: Alignment.centerLeft,
-                child: Container(
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
+              Text(
+                '${number(signal['context_position_multiplier']).toStringAsFixed(2)}x',
+                style: TextStyle(color: palette.faint, fontSize: 9),
               ),
-              if (hasPrevious)
-                Positioned(
-                  left: markerLeft,
-                  top: 0,
-                  child: Tooltip(
-                    message: tooltip,
-                    waitDuration: const Duration(milliseconds: 200),
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: Center(
-                        child: Container(
-                          width: 9,
-                          height: 9,
-                          decoration: BoxDecoration(
-                            color: previousColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: palette.text.withValues(alpha: .92),
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: .35),
-                                blurRadius: 6,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
             ],
-          );
-        },
+          ),
+        ],
       ),
     );
   }
-}
 
-class DbmfDirectionChip extends StatelessWidget {
-  const DbmfDirectionChip({
-    super.key,
-    required this.asset,
-    required this.palette,
-  });
+  Widget _holdingRow(Map<String, dynamic> holding) {
+    final weight = number(holding['weight']);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 58,
+            child: Text(
+              text(holding['ticker']),
+              style: TextStyle(
+                color: palette.text,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: (weight / .12).clamp(0.0, 1.0).toDouble(),
+                minHeight: 5,
+                backgroundColor: palette.border,
+                valueColor: AlwaysStoppedAnimation(palette.accent),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 48,
+            child: Text(
+              formatReturn(weight),
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                color: palette.accent,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  final DbmfAsset asset;
-  final Palette palette;
+  Widget _performanceRow(String label, Map<String, dynamic> result) {
+    final cagr = number(result['cagr']);
+    final spyCagr = number(result['spy_cagr']);
+    final excess = number(result['excess_cagr_vs_spy']);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: palette.border)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: palette.muted,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              formatReturn(cagr),
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                color: palette.text,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              formatReturn(spyCagr),
+              textAlign: TextAlign.end,
+              style: TextStyle(color: palette.muted),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              formatReturn(excess),
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                color: excess >= 0 ? palette.accent : palette.negative,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    final label = asset.exposure < -0.0001
-        ? 'SHORT'
-        : asset.key == 'cash'
-        ? 'CASH'
-        : 'LONG';
-    final color = asset.exposure < -0.0001
-        ? palette.negative
-        : asset.key == 'cash'
-        ? palette.secondary
-        : palette.positive;
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+  Widget _navLegend(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(width: 18, height: 3, color: color),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            color: palette.muted,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _navPeriodButton(String value, String label) {
+    final active = _navPeriod == value;
+    return InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: () => setState(() => _navPeriod = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: .12),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: color.withValues(alpha: .35)),
+          color: active
+              ? palette.accent.withValues(alpha: .18)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: color,
+            color: active ? palette.accent : palette.muted,
             fontSize: 11,
             fontWeight: FontWeight.w900,
           ),
@@ -14604,143 +14374,411 @@ class DbmfDirectionChip extends StatelessWidget {
       ),
     );
   }
-}
-
-class DbmfPosture extends StatelessWidget {
-  const DbmfPosture({
-    super.key,
-    required this.longExposure,
-    required this.shortExposure,
-    required this.netExposure,
-    required this.grossExposure,
-    required this.palette,
-  });
-
-  final double longExposure;
-  final double shortExposure;
-  final double netExposure;
-  final double grossExposure;
-  final Palette palette;
 
   @override
   Widget build(BuildContext context) {
-    final rows = [
-      ('Long book', longExposure, palette.positive),
-      ('Short book', shortExposure, palette.negative),
-      (
-        'Net book',
-        netExposure,
-        netExposure >= 0 ? palette.positive : palette.negative,
-      ),
-      ('Gross book', grossExposure, palette.accent),
-    ];
-    final maxAbs = rows.fold<double>(
-      0,
-      (max, row) => math.max(max, row.$2.abs()),
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        PanelTitle(
-          icon: Icons.compass_calibration_rounded,
-          kicker: 'POSTURE',
-          title: 'Long / short balance',
+    final stats = asMap(data['stats']);
+    final currentSignals = asList(data['current_signals']);
+    final signals = _visibleSignals;
+    final holdings = asList(data['holdings']);
+    final performance = asMap(data['performance']);
+    final development = asMap(performance['development']);
+    final evaluation = asMap(performance['evaluation']);
+    final nav = asMap(performance['nav']);
+    final navPoints = asList(nav[_navPeriod]);
+    final navSummary = _navPeriod == 'development' ? development : evaluation;
+    final timeline = _timeline;
+    final selectedTimeline = timeline.isEmpty
+        ? const <String, dynamic>{}
+        : timeline[_timelineIndex.clamp(0, timeline.length - 1).toInt()];
+    final selectedMonth = text(selectedTimeline['month']).split('T').first;
+    final asOf = text(stats['latest_information_date']).split('T').first;
+
+    final header = SecondaryModeHeader(
+      icon: Icons.hub_rounded,
+      kicker: 'EVENT ONTOLOGY V2',
+      title: 'Ontology Intelligence',
+      subtitle:
+          'PIT fundamentals, peer value capture, and graph-confirmed decisions.',
+      chips: [
+        'PIT as of ${formatDate(asOf)}',
+        '${(number(stats['tickers'])).round()} companies',
+      ],
+      metrics: [
+        _GuruHeaderMetric(
+          label: 'Current Signals',
+          value: '${currentSignals.length}',
+          sub: 'tradable candidates',
           palette: palette,
         ),
-        const SizedBox(height: 14),
-        for (final row in rows)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Row(
+        _GuruHeaderMetric(
+          label: 'Model Holdings',
+          value: '${holdings.length}',
+          sub: 'current 12M book',
+          palette: palette,
+        ),
+        _GuruHeaderMetric(
+          label: 'Evaluation CAGR',
+          value: formatReturn(number(evaluation['cagr'])),
+          sub: 'SPY ${formatReturn(number(evaluation['spy_cagr']))}',
+          palette: palette,
+        ),
+        _GuruHeaderMetric(
+          label: 'Max Drawdown',
+          value: formatReturn(number(evaluation['max_drawdown'])),
+          sub: 'evaluation period',
+          palette: palette,
+        ),
+      ],
+      palette: palette,
+    );
+
+    final timelinePanel = Panel(
+      palette: palette,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PanelTitle(
+            icon: Icons.history_rounded,
+            kicker: 'PIT REPLAY',
+            title: 'Decision history',
+            trailing: Text(
+              _showingLatest
+                  ? 'Latest · ${formatDate(selectedMonth)}'
+                  : 'Historical · ${formatDate(selectedMonth)}',
+              style: TextStyle(
+                color: _showingLatest ? palette.accent : palette.secondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            palette: palette,
+          ),
+          const SizedBox(height: 10),
+          if (timeline.isEmpty)
+            EmptyState(text: 'No PIT history is available.', palette: palette)
+          else ...[
+            Row(
               children: [
-                SizedBox(
-                  width: 86,
-                  child: Text(
-                    row.$1,
-                    style: TextStyle(
-                      color: palette.muted,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+                IconButton(
+                  tooltip: 'Previous month',
+                  onPressed: _timelineIndex <= 0
+                      ? null
+                      : () => _selectTimeline(_timelineIndex - 1),
+                  icon: const Icon(Icons.chevron_left_rounded),
                 ),
                 Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
-                    child: LinearProgressIndicator(
-                      value: maxAbs <= 0
-                          ? 0
-                          : math.max(.05, row.$2.abs() / maxAbs),
-                      minHeight: 9,
-                      backgroundColor: palette.border,
-                      color: row.$3,
-                    ),
+                  child: Slider(
+                    min: 0,
+                    max: math.max(1, timeline.length - 1).toDouble(),
+                    divisions: math.max(1, timeline.length - 1),
+                    value: _timelineIndex.toDouble(),
+                    onChanged: (value) =>
+                        setState(() => _timelineIndex = value.round()),
+                    onChangeEnd: (value) => _selectTimeline(value.round()),
                   ),
                 ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 82,
-                  child: Text(
-                    formatDbmfPercent(row.$2),
-                    textAlign: TextAlign.end,
-                    style: TextStyle(
-                      color: row.$3,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
+                IconButton(
+                  tooltip: 'Next month',
+                  onPressed: _timelineIndex >= timeline.length - 1
+                      ? null
+                      : () => _selectTimeline(_timelineIndex + 1),
+                  icon: const Icon(Icons.chevron_right_rounded),
+                ),
+                IconButton(
+                  tooltip: 'Latest snapshot',
+                  onPressed: _showingLatest
+                      ? null
+                      : () => _selectTimeline(timeline.length - 1),
+                  icon: const Icon(Icons.today_rounded),
                 ),
               ],
             ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Wrap(
+                spacing: 16,
+                runSpacing: 6,
+                children: [
+                  Text(
+                    '${(number(selectedTimeline['events'])).round()} events',
+                    style: TextStyle(color: palette.muted, fontSize: 11),
+                  ),
+                  Text(
+                    '${(number(selectedTimeline['peer_confirmed'])).round()} peer-confirmed',
+                    style: TextStyle(color: palette.accent, fontSize: 11),
+                  ),
+                  Text(
+                    '${(number(selectedTimeline['graph_confirmed'])).round()} graph-confirmed',
+                    style: TextStyle(color: palette.secondary, fontSize: 11),
+                  ),
+                  Text(
+                    '${timeline.length} monthly snapshots',
+                    style: TextStyle(color: palette.faint, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            if (_snapshotLoading) ...[
+              const SizedBox(height: 10),
+              LinearProgressIndicator(
+                minHeight: 2,
+                color: palette.accent,
+                backgroundColor: palette.border,
+              ),
+            ],
+            if (_snapshotError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _snapshotError!,
+                style: TextStyle(color: palette.negative, fontSize: 11),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+
+    final navPanel = Panel(
+      palette: palette,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PanelTitle(
+            icon: Icons.stacked_line_chart_rounded,
+            kicker: 'REALIZED BACKTEST',
+            title: 'Historical NAV vs SPY',
+            palette: palette,
           ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 14,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: palette.card,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: palette.border),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _navPeriodButton('evaluation', '2018–2026 evaluation'),
+                    _navPeriodButton('development', '2010–2016 development'),
+                  ],
+                ),
+              ),
+              _navLegend(palette.positive, 'Ontology 6M'),
+              _navLegend(palette.secondary, 'SPY'),
+              Text(
+                'Daily · net of modeled costs',
+                style: TextStyle(color: palette.faint, fontSize: 10),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (navPoints.length < 2)
+            SizedBox(
+              height: 240,
+              child: EmptyState(
+                text: 'Historical NAV is not present in this snapshot.',
+                palette: palette,
+              ),
+            )
+          else ...[
+            GridWrap(
+              minTileWidth: 145,
+              spacing: 8,
+              children: [
+                MiniMetric(
+                  'Strategy return',
+                  formatReturn(number(navPoints.last['value']) - 1),
+                  Icons.trending_up_rounded,
+                  palette,
+                ),
+                MiniMetric(
+                  'SPY return',
+                  formatReturn(number(navPoints.last['benchmark']) - 1),
+                  Icons.show_chart_rounded,
+                  palette,
+                ),
+                MiniMetric(
+                  'Strategy CAGR',
+                  formatReturn(number(navSummary['cagr'])),
+                  Icons.speed_rounded,
+                  palette,
+                ),
+                MiniMetric(
+                  'Max drawdown',
+                  formatReturn(number(navSummary['max_drawdown'])),
+                  Icons.south_east_rounded,
+                  palette,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 300,
+              child: EquityChart(equity: navPoints, palette: palette),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    final signalPanel = Panel(
+      palette: palette,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PanelTitle(
+            icon: Icons.bolt_rounded,
+            kicker: 'DECISION BOARD',
+            title: _showingLatest
+                ? 'Latest PIT signals'
+                : 'Historical PIT signals',
+            trailing: Text(
+              '${signals.length} · ${formatDate(selectedMonth)}',
+              style: TextStyle(
+                color: palette.accent,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            palette: palette,
+          ),
+          const SizedBox(height: 10),
+          if (_snapshotLoading && !_showingLatest)
+            const SizedBox(
+              height: 160,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (signals.isEmpty)
+            EmptyState(
+              text: _snapshotError ?? 'No tradable PIT signals for this month.',
+              palette: palette,
+            )
+          else
+            for (final signal in signals.take(12)) _signalRow(signal),
+        ],
+      ),
+    );
+
+    final rightRail = Column(
+      children: [
+        Panel(
+          palette: palette,
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PanelTitle(
+                icon: Icons.pie_chart_outline_rounded,
+                kicker: 'CURRENT BOOK',
+                title: 'Model holdings',
+                palette: palette,
+              ),
+              const SizedBox(height: 8),
+              for (final holding in holdings.take(10)) _holdingRow(holding),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Panel(
+          palette: palette,
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PanelTitle(
+                icon: Icons.query_stats_rounded,
+                kicker: 'VALIDATION',
+                title: 'Strategy vs SPY',
+                palette: palette,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      'Period',
+                      style: TextStyle(color: palette.faint, fontSize: 9),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Model',
+                      textAlign: TextAlign.end,
+                      style: TextStyle(color: palette.faint, fontSize: 9),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'SPY',
+                      textAlign: TextAlign.end,
+                      style: TextStyle(color: palette.faint, fontSize: 9),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Alpha',
+                      textAlign: TextAlign.end,
+                      style: TextStyle(color: palette.faint, fontSize: 9),
+                    ),
+                  ),
+                ],
+              ),
+              _performanceRow('2010-2016', development),
+              _performanceRow('2018-2026', evaluation),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => openBrowserPath('/ontology/'),
+                  icon: const Icon(Icons.open_in_new_rounded),
+                  label: Text(
+                    context.tr('打开完整行业图谱', 'Open full ontology explorer'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
-  }
-}
 
-class DbmfSourceNote extends StatelessWidget {
-  const DbmfSourceNote({
-    super.key,
-    required this.latestDate,
-    required this.source,
-    required this.snapshot,
-    required this.palette,
-  });
-
-  final String latestDate;
-  final Map<String, dynamic> source;
-  final Map<String, dynamic> snapshot;
-  final Palette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    final meta = asMap(snapshot['meta']);
-    final totalNetAssets = firstNumber([meta['totalNetAssets'], meta['nav']]);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        PanelTitle(
-          icon: Icons.verified_rounded,
-          kicker: 'SOURCE',
-          title: 'Official holdings feed',
-          palette: palette,
-        ),
-        const SizedBox(height: 14),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            InfoChip('As of ${formatDate(latestDate)}', palette: palette),
-            InfoChip(
-              text(source['label'], 'Local DBMF database'),
-              palette: palette,
-            ),
-            if (totalNetAssets != null)
-              InfoChip('NAV ${formatMoney(totalNetAssets)}', palette: palette),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Official holdings normalized into futures sleeves, cash collateral, and the current net exposure book.',
-          style: TextStyle(color: palette.muted, height: 1.35),
+        header,
+        const SizedBox(height: 10),
+        timelinePanel,
+        const SizedBox(height: 10),
+        navPanel,
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 1080) {
+              return Column(
+                children: [signalPanel, const SizedBox(height: 10), rightRail],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: signalPanel),
+                const SizedBox(width: 10),
+                SizedBox(width: 340, child: rightRail),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -14773,8 +14811,10 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
   String _tickerSearch = '';
   final TextEditingController _tickerSearchController = TextEditingController();
   final Map<String, Map<String, dynamic>> _detailCache = {};
+  Map<String, dynamic>? _localDashboard;
   Map<String, dynamic>? _detailPayload;
   bool _detailLoading = false;
+  bool _importingTicker = false;
   String? _detailError;
   int _detailRequestSerial = 0;
 
@@ -14800,6 +14840,7 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
   void didUpdateWidget(covariant ValuationCompactDashboard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data == widget.data) return;
+    _localDashboard = null;
     final rows = valuationRowsFromTickers(
       asList(widget.data['tickers']).isNotEmpty
           ? asList(widget.data['tickers'])
@@ -14818,6 +14859,11 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
     });
     if (nextTicker.isNotEmpty) _loadTicker(nextTicker);
   }
+
+  Map<String, dynamic> get _dashboardData => _localDashboard ?? widget.data;
+
+  String _normalizeTickerInput(String value) =>
+      value.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9.-]'), '');
 
   String _defaultTicker(Map<String, dynamic> data, {String preferred = ''}) {
     final tickers = asList(data['tickers']).isNotEmpty
@@ -14873,19 +14919,69 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
     }
   }
 
+  Future<void> _importTicker(String ticker) async {
+    final normalizedTicker = _normalizeTickerInput(ticker);
+    if (normalizedTicker.isEmpty || _importingTicker) return;
+    final requestId = ++_detailRequestSerial;
+    setState(() {
+      _selectedTicker = normalizedTicker;
+      _detailPayload = null;
+      _detailError = null;
+      _detailLoading = true;
+      _importingTicker = true;
+    });
+    widget.onTickerChanged(normalizedTicker);
+    try {
+      final encodedTicker = Uri.encodeComponent(normalizedTicker);
+      final payload = await widget.api.postJson(
+        '/api/valuation/$encodedTicker/import?pricePoints=900',
+        {'pricePoints': 900},
+      );
+      final dashboard = await widget.api.getJson('/api/valuation');
+      if (!mounted || requestId != _detailRequestSerial) return;
+      final importedTicker = text(
+        asMap(payload['ticker'])['ticker'],
+        normalizedTicker,
+      ).toUpperCase();
+      _detailCache
+        ..clear()
+        ..[importedTicker] = payload;
+      setState(() {
+        _localDashboard = dashboard;
+        _selectedTicker = importedTicker;
+        _detailPayload = payload;
+        _tickerSearch = importedTicker;
+        _tickerSearchController.text = importedTicker;
+      });
+      widget.onTickerChanged(importedTicker);
+    } catch (error) {
+      if (!mounted || requestId != _detailRequestSerial) return;
+      setState(() => _detailError = error.toString());
+    } finally {
+      if (mounted && requestId == _detailRequestSerial) {
+        setState(() {
+          _detailLoading = false;
+          _importingTicker = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final tickers = asList(widget.data['tickers']).isNotEmpty
-        ? asList(widget.data['tickers'])
-        : asList(widget.data['stocks']);
-    final summary = asMap(widget.data['summary']);
-    final source = asMap(widget.data['source']);
+    final data = _dashboardData;
+    final tickers = asList(data['tickers']).isNotEmpty
+        ? asList(data['tickers'])
+        : asList(data['stocks']);
+    final summary = asMap(data['summary']);
+    final source = asMap(data['source']);
     final rows = valuationRowsFromTickers(tickers);
     final selectedRow = rows.firstWhere(
       (row) => row.ticker == _selectedTicker,
       orElse: () => rows.isNotEmpty ? rows.first : ValuationRow.empty(),
     );
     final tickerQuery = _tickerSearch.trim().toUpperCase();
+    final normalizedTickerQuery = _normalizeTickerInput(_tickerSearch);
     final filteredRows = tickerQuery.isEmpty
         ? rows
         : rows.where((row) {
@@ -14921,7 +15017,7 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
       style: TextStyle(color: widget.palette.text, fontWeight: FontWeight.w800),
       onChanged: (value) {
         setState(() => _tickerSearch = value);
-        final normalized = value.trim().toUpperCase();
+        final normalized = _normalizeTickerInput(value);
         final exactMatch = rows
             .where((row) => row.ticker == normalized)
             .toList();
@@ -14933,6 +15029,8 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
       onSubmitted: (_) {
         if (filteredRows.isNotEmpty) {
           _loadTicker(filteredRows.first.ticker);
+        } else if (normalizedTickerQuery.isNotEmpty) {
+          _importTicker(normalizedTickerQuery);
         }
       },
       decoration: InputDecoration(
@@ -14966,6 +15064,66 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
       ),
     );
 
+    Widget buildImportPrompt() {
+      final exactMatch = rows.any((row) => row.ticker == normalizedTickerQuery);
+      if (normalizedTickerQuery.isEmpty || exactMatch) {
+        return const SizedBox.shrink();
+      }
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: widget.palette.panel,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: widget.palette.border),
+        ),
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          runSpacing: 10,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$normalizedTickerQuery is not in the valuation library yet.',
+                  style: TextStyle(
+                    color: widget.palette.text,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Fetch SEC financials, price history, and rebuild the valuation snapshot.',
+                  style: TextStyle(color: widget.palette.muted, fontSize: 12),
+                ),
+              ],
+            ),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: widget.palette.accent,
+                foregroundColor: widget.palette.background,
+              ),
+              onPressed: _importingTicker
+                  ? null
+                  : () => _importTicker(normalizedTickerQuery),
+              icon: _importingTicker
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: widget.palette.background,
+                      ),
+                    )
+                  : const Icon(Icons.download_rounded),
+              label: Text(_importingTicker ? 'Fetching' : 'Add & fetch'),
+            ),
+          ],
+        ),
+      );
+    }
+
     Widget buildTickerPickerPanel() {
       final quickRows = filteredRows.take(16).toList();
       return Panel(
@@ -14994,7 +15152,16 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
             buildTickerSearchField(hintText: 'Search ticker, company, sector'),
             const SizedBox(height: 12),
             if (quickRows.isEmpty)
-              EmptyState(text: 'No matching tickers.', palette: widget.palette)
+              Column(
+                children: [
+                  EmptyState(
+                    text: 'No matching tickers.',
+                    palette: widget.palette,
+                  ),
+                  const SizedBox(height: 10),
+                  buildImportPrompt(),
+                ],
+              )
             else
               SizedBox(
                 height: 104,
@@ -15058,7 +15225,16 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
                 palette: widget.palette,
               )
             else if (visibleRows.isEmpty)
-              EmptyState(text: 'No matching tickers.', palette: widget.palette)
+              Column(
+                children: [
+                  EmptyState(
+                    text: 'No matching tickers.',
+                    palette: widget.palette,
+                  ),
+                  const SizedBox(height: 10),
+                  buildImportPrompt(),
+                ],
+              )
             else ...[
               ValuationWatchlistHeader(palette: widget.palette),
               const SizedBox(height: 8),
@@ -18028,7 +18204,7 @@ class ValuationSourceNote extends StatelessWidget {
 class ApiClient {
   ApiClient(this._accessTokenProvider);
 
-  static const Duration _requestTimeout = Duration(seconds: 25);
+  static const Duration _requestTimeout = Duration(seconds: 95);
   static const Duration _retryDelay = Duration(milliseconds: 450);
 
   final String Function() _accessTokenProvider;
@@ -18606,35 +18782,6 @@ class StatCardData {
   final IconData icon;
 }
 
-class DbmfAsset {
-  const DbmfAsset({
-    required this.name,
-    required this.key,
-    required this.marketValue,
-    required this.exposure,
-    required this.previousExposure,
-    required this.previousDate,
-    required this.componentCount,
-  });
-
-  final String name;
-  final String key;
-  final double marketValue;
-  final double exposure;
-  final double? previousExposure;
-  final String previousDate;
-  final int componentCount;
-
-  String get keyLabel {
-    if (key.isEmpty) {
-      return componentCount > 0 ? '$componentCount lines' : 'DBMF';
-    }
-    final cleaned = key.replaceAll('_', ' ').toUpperCase();
-    if (componentCount <= 1) return cleaned;
-    return '$cleaned · $componentCount lines';
-  }
-}
-
 class ValuationRow {
   const ValuationRow({
     required this.ticker,
@@ -18765,9 +18912,11 @@ String shortText(String value, [int length = 10]) {
 
 String normalizeRouteMode(String? value) {
   final mode = value?.trim().toLowerCase() ?? '';
+  // Preserve old bookmarks without retaining the retired DBMF screen.
+  if (mode == 'dbmf') return 'ontology';
   return const {
         'guru',
-        'dbmf',
+        'ontology',
         'valuation',
         'portfolio',
         'admin',
@@ -19511,87 +19660,6 @@ String valuationMethodLabel(List<Map<String, dynamic>> methods, String key) {
     }
   }
   return key.replaceAll('-', ' ');
-}
-
-List<DbmfAsset> dbmfAssetsFromRows(
-  List<Map<String, dynamic>> rows, {
-  String previousDate = '',
-}) {
-  return rows
-      .map((row) {
-        final name = text(
-          row['asset_name'],
-          text(
-            row['assetName'],
-            text(row['securityName'], text(row['ticker'], 'Unknown sleeve')),
-          ),
-        );
-        final key = text(
-          row['asset_key'],
-          text(row['assetKey'], text(row['ticker'])),
-        ).toLowerCase();
-        final marketValue =
-            firstNumber([row['market_value'], row['marketValue'], row['mv']]) ??
-            0;
-        final exposure = normalizeDbmfRatio(
-          firstNumber([row['exposure'], row['weight'], row['pct']]) ?? 0,
-        );
-        final previousExposure = firstNumber([
-          row['previous_exposure'],
-          row['previousExposure'],
-          row['previous_weight'],
-          row['previousWeight'],
-        ]);
-        return DbmfAsset(
-          name: name,
-          key: key,
-          marketValue: marketValue,
-          exposure: exposure,
-          previousExposure: previousExposure == null
-              ? null
-              : normalizeDbmfRatio(previousExposure),
-          previousDate: text(
-            row['previous_date'],
-            text(row['previousDate'], previousDate),
-          ),
-          componentCount:
-              firstNumber([
-                row['component_count'],
-                row['componentCount'],
-              ])?.round() ??
-              0,
-        );
-      })
-      .where((asset) => asset.name.trim().isNotEmpty)
-      .toList()
-    ..sort((a, b) => b.exposure.abs().compareTo(a.exposure.abs()));
-}
-
-double normalizeDbmfRatio(double value) {
-  if (!value.isFinite) return 0;
-  return value.abs() > 3 ? value / 100 : value;
-}
-
-String formatDbmfPercent(double value) => formatReturn(value);
-
-String dbmfLatestDate(
-  Map<String, dynamic> latestExposure,
-  Map<String, dynamic> latestSnapshot,
-  Map<String, dynamic> summary,
-) {
-  return text(
-    latestExposure['date'],
-    text(
-      latestExposure['asOfDate'],
-      text(
-        latestExposure['latest_date'],
-        text(
-          latestSnapshot['date'],
-          text(summary['latestDate'], text(summary['asOfDate'])),
-        ),
-      ),
-    ),
-  );
 }
 
 List<ValuationRow> valuationRowsFromTickers(

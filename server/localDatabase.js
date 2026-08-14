@@ -33,6 +33,12 @@ db.exec(`
 	    payload_json TEXT NOT NULL
 	  );
 
+	  CREATE TABLE IF NOT EXISTS guru_exposure_snapshots (
+	    guru_id TEXT PRIMARY KEY,
+	    generated_at TEXT NOT NULL,
+	    payload_json TEXT NOT NULL
+	  );
+
 	  CREATE TABLE IF NOT EXISTS guru_assets (
 	    guru_id TEXT NOT NULL,
 	    asset_type TEXT NOT NULL,
@@ -57,15 +63,8 @@ db.exec(`
     PRIMARY KEY (symbol, date)
   );
 
-  CREATE INDEX IF NOT EXISTS idx_price_points_symbol_date
-    ON price_points (symbol, date);
-
-  CREATE TABLE IF NOT EXISTS dbmf_snapshots (
-    id TEXT PRIMARY KEY,
-    latest_date TEXT,
-    generated_at TEXT NOT NULL,
-    payload_json TEXT NOT NULL
-  );
+  -- The PRIMARY KEY already creates sqlite_autoindex_price_points_1 on
+  -- (symbol, date). A second identical index wastes about 50 MB.
 
   CREATE TABLE IF NOT EXISTS guru_backtests (
     guru_id TEXT NOT NULL,
@@ -675,6 +674,21 @@ export function writeGuruSnapshot(guruId, payload) {
   );
 }
 
+export function readGuruExposureSnapshot(guruId) {
+  const row = db.prepare("SELECT payload_json FROM guru_exposure_snapshots WHERE guru_id = ?").get(guruId);
+  return parsePayload(row?.payload_json);
+}
+
+export function writeGuruExposureSnapshot(guruId, payload) {
+  db.prepare(`
+    INSERT INTO guru_exposure_snapshots (guru_id, generated_at, payload_json)
+    VALUES (?, ?, ?)
+    ON CONFLICT(guru_id) DO UPDATE SET
+      generated_at = excluded.generated_at,
+      payload_json = excluded.payload_json
+  `).run(guruId, payload.generatedAt || new Date().toISOString(), JSON.stringify(payload));
+}
+
 export function readGuruAssets() {
   return db.prepare(`
     SELECT guru_id, asset_type, url, local_path, style, prompt, generated_at
@@ -738,27 +752,6 @@ export function writeGuruAsset(guruId, asset) {
     asset.style || "",
     asset.prompt || "",
     asset.generatedAt || new Date().toISOString()
-  );
-}
-
-export function readDbmfSnapshot() {
-  const row = db.prepare("SELECT payload_json FROM dbmf_snapshots WHERE id = ?").get("latest");
-  return parsePayload(row?.payload_json);
-}
-
-export function writeDbmfSnapshot(payload) {
-  db.prepare(`
-    INSERT INTO dbmf_snapshots (id, latest_date, generated_at, payload_json)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET
-      latest_date = excluded.latest_date,
-      generated_at = excluded.generated_at,
-      payload_json = excluded.payload_json
-  `).run(
-    "latest",
-    payload.summary?.latest_date || payload.latestDate || "",
-    payload.generatedAt || new Date().toISOString(),
-    JSON.stringify(payload)
   );
 }
 
@@ -1388,13 +1381,13 @@ export function writeBackgroundJobRun(jobId, run = {}) {
 const tableSummarySpecs = [
   { table: "dashboard_snapshots", label: "Guru dashboard", latest: "generated_at" },
   { table: "guru_snapshots", label: "Guru snapshots", latest: "generated_at" },
+  { table: "guru_exposure_snapshots", label: "Guru exposure snapshots", latest: "generated_at" },
   { table: "guru_assets", label: "Guru avatars", latest: "generated_at" },
   { table: "guru_backtests", label: "Guru backtests", latest: "generated_at", maxDate: "end_date" },
   { table: "valuation_snapshots", label: "Valuation dashboard", latest: "generated_at" },
   { table: "valuation_ticker_snapshots", label: "Valuation tickers", latest: "generated_at" },
   { table: "valuation_podcast_insights", label: "Podcast insights", latest: "generated_at", maxDate: "observed_at" },
   { table: "price_points", label: "Market prices", latest: "updated_at", maxDate: "date" },
-  { table: "dbmf_snapshots", label: "DBMF snapshots", latest: "generated_at", maxDate: "latest_date" },
   { table: "portfolio_nav_points", label: "Local NAV history", latest: "updated_at", maxDate: "date" },
   { table: "ticker_assets", label: "Ticker logos", latest: "updated_at" },
   { table: "dividend_events", label: "Dividend calendar", latest: "updated_at", minDate: "ex_date", maxDate: "ex_date" },
