@@ -17,6 +17,9 @@ build/
 .vite/
 coverage/
 .vercel
+__pycache__/
+*.py[cod]
+output/
 server/cache/
 
 # Backend/runtime data artifacts belong in AWS, not GitHub/Vercel.
