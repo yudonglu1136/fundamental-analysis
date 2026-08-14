@@ -52,6 +52,8 @@ The deployment contract is deliberately strict:
 - AWS Elastic Beanstalk owns the API backend.
 - `www.thesisforge.tech` must resolve to Vercel.
 - `/api/*` is proxied from Vercel to AWS.
+- Browser builds use only the same-origin `/api/*` path; `AWS_API_ORIGIN` is
+  configured once in the Vercel proxy and is never compiled into Flutter.
 - Runtime data stays on the backend and is not committed to Git.
 
 Read [docs/deployment-contract.md](docs/deployment-contract.md) before changing
@@ -224,7 +226,6 @@ emergency fallback is explicitly requested.
 
 Ontology data refresh and AWS publication are documented in
 [docs/ontology-deployment.md](docs/ontology-deployment.md).
-
 ## Microsoft Copilot Earnings Nowcast
 
 An isolated Python/FastAPI implementation lives in
