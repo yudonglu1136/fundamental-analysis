@@ -15040,6 +15040,9 @@ class OntologyPositionSnapshot extends StatelessWidget {
   final Palette palette;
   final VoidCallback onHelp;
 
+  static const double _actionColumnWidth = 88;
+  static const double _companyColumnWidth = 165;
+
   Color _actionColor(String action) => switch (action) {
     'BUY' => palette.accent,
     'SELL' => palette.negative,
@@ -15263,9 +15266,15 @@ class OntologyPositionSnapshot extends StatelessWidget {
           )
         : Row(
             children: [
-              SizedBox(width: 70, child: _badge(context, action)),
               SizedBox(
-                width: 165,
+                width: _actionColumnWidth,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _badge(context, action),
+                ),
+              ),
+              SizedBox(
+                width: _companyColumnWidth,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -15368,8 +15377,14 @@ class OntologyPositionSnapshot extends StatelessWidget {
                   color: palette.card.withValues(alpha: .72),
                   child: Row(
                     children: [
-                      _tableCell(context.tr('决策', 'Action'), 70),
-                      _tableCell(context.tr('公司', 'Company'), 165),
+                      _tableCell(
+                        context.tr('决策', 'Action'),
+                        _actionColumnWidth,
+                      ),
+                      _tableCell(
+                        context.tr('公司', 'Company'),
+                        _companyColumnWidth,
+                      ),
                       _tableCell(context.tr('权重', 'Weight'), 70),
                       _tableCell(context.tr('股数', 'Shares'), 65),
                       _tableCell(context.tr('买入日', 'Entry'), 98),
