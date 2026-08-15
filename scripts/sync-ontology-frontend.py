@@ -17,16 +17,49 @@ SOURCE_FETCH = """async function getJson(url) {
   return response.json();
 }"""
 
-AUTHENTICATED_FETCH = """async function getJson(url) {
+AUTHENTICATED_FETCH = """const supabaseProjectRef = "__GURU_SUPABASE_PROJECT_REF__";
+const authRetryKey = "guru-ontology-auth-retry";
+const authRetryWindowMs = 10_000;
+let authRedirectStarted = false;
+
+function ontologyReturnPath() {
+  const path = `${location.pathname}${location.search}${location.hash}`;
+  return path.startsWith("/ontology") ? path : "/ontology/";
+}
+
+function redirectToGuruAuth() {
+  const previousAttempt = Number(sessionStorage.getItem(authRetryKey) || 0);
+  if (authRedirectStarted || Date.now() - previousAttempt < authRetryWindowMs) return false;
+  authRedirectStarted = true;
+  sessionStorage.setItem(authRetryKey, String(Date.now()));
+  const loginUrl = new URL("/", location.origin);
+  loginUrl.searchParams.set("returnTo", ontologyReturnPath());
+  location.replace(loginUrl.toString());
+  return true;
+}
+
+async function getJson(url) {
   const accessToken = readSupabaseAccessToken();
-  const headers = accessToken ? { authorization: `Bearer ${accessToken}` } : {};
-  const response = await fetch(url, { headers });
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    const message = payload.message || payload.error || response.statusText;
-    throw new Error(`${response.status} ${message}`);
+  if (!accessToken) {
+    redirectToGuruAuth();
+    throw new Error("正在验证登录状态…");
   }
-  return response.json();
+  const response = await fetch(url, {
+    headers: { authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+  if (response.ok) {
+    sessionStorage.removeItem(authRetryKey);
+    return response.json();
+  }
+  if (response.status === 401 && redirectToGuruAuth()) {
+    throw new Error("登录已过期，正在重新验证…");
+  }
+  const payload = await response.json().catch(() => ({}));
+  const message = response.status === 401
+    ? "登录验证失败，请返回 Guru 重新登录"
+    : (payload.message || payload.error || response.statusText);
+  throw new Error(`${response.status} ${message}`);
 }
 
 function readSupabaseAccessToken() {
@@ -42,17 +75,13 @@ function readSupabaseAccessToken() {
     }
     return "";
   };
-  for (let index = 0; index < localStorage.length; index += 1) {
-    const key = localStorage.key(index) || "";
-    if (!key.startsWith("sb-") || !key.endsWith("-auth-token")) continue;
-    try {
-      const token = findToken(JSON.parse(localStorage.getItem(key) || "null"));
-      if (token) return token;
-    } catch {
-      // Ignore stale or unrelated browser storage entries.
-    }
+  if (!/^[a-z0-9]+$/i.test(supabaseProjectRef)) return "";
+  const storageKey = `sb-${supabaseProjectRef}-auth-token`;
+  try {
+    return findToken(JSON.parse(localStorage.getItem(storageKey) || "null"));
+  } catch {
+    return "";
   }
-  return "";
 }"""
 
 BACK_LINK_CSS = """
@@ -112,8 +141,8 @@ def main() -> int:
         if redirect_end >= 0:
             index = index[:redirect_start] + index[redirect_end + len("    </script>\n") :]
     index = index.replace('href="/static/favicon.svg"', 'href="./favicon.svg"')
-    index = index.replace('href="/static/styles.css?v=6"', 'href="./styles.css?v=1"')
-    index = index.replace('src="/static/app.js?v=6"', 'src="./app.js?v=1"')
+    index = index.replace('href="/static/styles.css?v=6"', 'href="./styles.css?v=2"')
+    index = index.replace('src="/static/app.js?v=6"', 'src="./app.js?v=2"')
     anchor = '          <p id="data-status">正在连接本地 Sharadar 数据库…</p>\n        </div>'
     replacement = anchor + '\n        <a class="guru-back-link" href="/" title="返回 Guru Intelligence">← Guru</a>'
     if anchor not in index:

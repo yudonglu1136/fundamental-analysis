@@ -33,6 +33,17 @@ AppLanguage parseAppLanguage(String? value) =>
 String trFor(AppLanguage language, String zh, String en) =>
     language == AppLanguage.en ? en : zh;
 
+String? ontologyReturnPath(String? value) {
+  final candidate = value?.trim() ?? '';
+  if (candidate.isEmpty) return null;
+  final uri = Uri.tryParse(candidate);
+  if (uri == null || uri.hasScheme || uri.hasAuthority) return null;
+  if (uri.path != '/ontology' && !uri.path.startsWith('/ontology/')) {
+    return null;
+  }
+  return uri.toString();
+}
+
 class LanguageScope extends InheritedWidget {
   const LanguageScope({
     super.key,
@@ -123,6 +134,9 @@ class _AuthGateState extends State<AuthGate> {
   String? _authMessage;
   Session? _session;
   StreamSubscription<AuthState>? _authSub;
+  late final String? _returnTo = ontologyReturnPath(
+    readBrowserQuery()['returnTo'],
+  );
 
   @override
   void initState() {
@@ -138,6 +152,23 @@ class _AuthGateState extends State<AuthGate> {
         if (!mounted) return;
         setState(() => _session = event.session);
       });
+      if (_session != null && _returnTo != null) {
+        try {
+          final refreshed = await client.auth.refreshSession();
+          _session = refreshed.session ?? client.auth.currentSession;
+        } catch (_) {
+          _session = client.auth.currentSession;
+          if (_session?.isExpired ?? false) {
+            await client.auth.signOut();
+            _session = null;
+            _authMessage = 'Your session expired. Sign in again to continue.';
+          }
+        }
+        if (_session != null) {
+          openBrowserPath(_returnTo);
+          return;
+        }
+      }
     } else if (_authConfigured) {
       _authMessage =
           'Supabase auth did not initialize. Check DNS/network and Supabase URL.';
@@ -161,7 +192,7 @@ class _AuthGateState extends State<AuthGate> {
       return;
     }
     final base = Uri.base;
-    final redirectTo = '${base.scheme}://${base.authority}${base.path}';
+    final redirectTo = base.replace(fragment: '').toString();
     await Supabase.instance.client.auth.signInWithOAuth(
       OAuthProvider.google,
       redirectTo: redirectTo,
