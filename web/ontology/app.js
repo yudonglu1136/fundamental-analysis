@@ -25,7 +25,14 @@ const state = {
   decisionSort: "ontology_score",
   decisionTimelineIndex: null,
   decisionSnapshotRequest: 0,
-  activeView: "decision",
+  strategyCatalog: null,
+  strategyDetails: new Map(),
+  strategyId: null,
+  strategyPeriod: "evaluation_2018_2026",
+  strategyRangeStart: null,
+  strategyRangeEnd: null,
+  strategySnapshotRequest: 0,
+  activeView: "strategy",
   timeline: null,
   latestCompanies: null,
   timelineIndex: null,
@@ -1311,19 +1318,444 @@ async function runGlobalMarketSearch(query) {
   }));
 }
 
+function fmtSignedMoney(value) {
+  const number = safeNumber(value);
+  if (number === null) return "--";
+  const sign = number > 0 ? "+" : number < 0 ? "-" : "";
+  return `${sign}${fmtMoney(Math.abs(number))}`;
+}
+
+function strategyDetail() {
+  return state.strategyDetails.get(state.strategyId) || null;
+}
+
+function strategyPeriod() {
+  return strategyDetail()?.periods?.[state.strategyPeriod] || null;
+}
+
+function dateValue(value) {
+  return new Date(`${fmtDate(value)}T00:00:00Z`).getTime();
+}
+
+function selectedStrategyNav() {
+  const period = strategyPeriod();
+  if (!period) return [];
+  const start = state.strategyRangeStart || period.start;
+  const end = state.strategyRangeEnd || period.end;
+  return period.nav.filter((row) => fmtDate(row.date) >= start && fmtDate(row.date) <= end);
+}
+
+function standardDeviation(values) {
+  if (values.length < 2) return 0;
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  return Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (values.length - 1));
+}
+
+function rangeMetrics(rows, returnField, navField) {
+  if (rows.length < 2) return {};
+  const returns = rows.map((row) => safeNumber(row[returnField]) || 0);
+  const totalReturn = returns.reduce((value, dailyReturn) => value * (1 + dailyReturn), 1) - 1;
+  const years = Math.max((dateValue(rows.at(-1).date) - dateValue(rows[0].date)) / (365.25 * 86400000), 1 / 252);
+  const volatility = standardDeviation(returns) * Math.sqrt(252);
+  const mean = returns.length ? returns.reduce((sum, value) => sum + value, 0) / returns.length : 0;
+  const normalized = [1];
+  returns.forEach((dailyReturn) => normalized.push(normalized.at(-1) * (1 + dailyReturn)));
+  let peak = 1;
+  let maxDrawdown = 0;
+  normalized.forEach((value) => {
+    peak = Math.max(peak, value);
+    maxDrawdown = Math.min(maxDrawdown, value / peak - 1);
+  });
+  return {
+    total_return: totalReturn,
+    cagr: (1 + totalReturn) ** (1 / years) - 1,
+    volatility,
+    sharpe: volatility > 0 ? mean * 252 / volatility : null,
+    max_drawdown: maxDrawdown,
+  };
+}
+
+function rangeBeta(rows) {
+  const pairs = rows.slice(1).map((row) => [safeNumber(row.daily_return) || 0, safeNumber(row.spy_return) || 0]);
+  if (pairs.length < 2) return null;
+  const meanStrategy = pairs.reduce((sum, row) => sum + row[0], 0) / pairs.length;
+  const meanSpy = pairs.reduce((sum, row) => sum + row[1], 0) / pairs.length;
+  const covariance = pairs.reduce((sum, row) => sum + (row[0] - meanStrategy) * (row[1] - meanSpy), 0) / (pairs.length - 1);
+  const variance = pairs.reduce((sum, row) => sum + (row[1] - meanSpy) ** 2, 0) / (pairs.length - 1);
+  return variance > 0 ? covariance / variance : null;
+}
+
+function renderStrategyLibrary() {
+  const catalog = state.strategyCatalog;
+  if (!catalog) return;
+  $("#strategy-asof").textContent = fmtDate(catalog.as_of);
+  $("#strategy-library").innerHTML = catalog.strategies.map((strategy) => {
+    const metrics = strategy.evaluation || {};
+    return `
+      <button class="strategy-card ${strategy.id === state.strategyId ? "active" : ""}" data-strategy-id="${escapeHtml(strategy.id)}" style="--strategy-accent:${escapeHtml(strategy.accent)}">
+        <span class="strategy-card-top"><i></i><b>${escapeHtml(strategy.type)}</b><small>${escapeHtml(strategy.version)}</small></span>
+        <strong>${escapeHtml(strategy.name)}</strong>
+        <p>${escapeHtml(strategy.tagline)}</p>
+        <span class="strategy-card-metrics">
+          <span><small>评估 CAGR</small><b>${fmtPct(metrics.cagr)}</b></span>
+          <span><small>Sharpe</small><b>${safeNumber(metrics.sharpe)?.toFixed(2) ?? "--"}</b></span>
+          <span><small>最大回撤</small><b>${fmtPct(metrics.max_drawdown)}</b></span>
+          <span><small>年换手</small><b>${fmtUnsignedPct(metrics.annual_turnover, 0)}</b></span>
+        </span>
+        <em>${escapeHtml(strategy.validation_status)}</em>
+      </button>`;
+  }).join("");
+}
+
+function strategyAnnualRows(navRows = selectedStrategyNav()) {
+  const grouped = new Map();
+  navRows.forEach((row) => {
+    const year = Number(fmtDate(row.date).slice(0, 4));
+    if (!grouped.has(year)) grouped.set(year, []);
+    grouped.get(year).push(row);
+  });
+  return Array.from(grouped.entries()).map(([year, rows]) => {
+    return {
+      year,
+      strategy_return: rows.reduce((value, row) => value * (1 + (safeNumber(row.daily_return) || 0)), 1) - 1,
+      spy_return: rows.reduce((value, row) => value * (1 + (safeNumber(row.spy_return) || 0)), 1) - 1,
+    };
+  });
+}
+
+function renderStrategyMetrics() {
+  const rows = selectedStrategyNav();
+  const strategy = rangeMetrics(rows, "daily_return", "strategy_nav");
+  const spy = rangeMetrics(rows, "spy_return", "spy_nav");
+  const beta = rangeBeta(rows);
+  const items = [
+    ["区间收益", fmtPct(strategy.total_return), `SPY ${fmtPct(spy.total_return)}`],
+    ["年化收益", fmtPct(strategy.cagr), `SPY ${fmtPct(spy.cagr)}`],
+    ["Sharpe", safeNumber(strategy.sharpe)?.toFixed(2) ?? "--", `SPY ${safeNumber(spy.sharpe)?.toFixed(2) ?? "--"}`],
+    ["最大回撤", fmtPct(strategy.max_drawdown), `SPY ${fmtPct(spy.max_drawdown)}`],
+    ["年化波动", fmtUnsignedPct(strategy.volatility), `SPY ${fmtUnsignedPct(spy.volatility)}`],
+    ["市场 Beta", safeNumber(beta)?.toFixed(2) ?? "--", `CAGR alpha ${fmtPpt((strategy.cagr || 0) - (spy.cagr || 0))}`],
+  ];
+  $("#strategy-metrics").innerHTML = items.map(([label, value, benchmark]) => `
+    <div><span>${label}</span><strong>${value}</strong><small>${benchmark}</small></div>
+  `).join("");
+}
+
+function svgPath(points) {
+  return points.map((point, index) => `${index ? "L" : "M"}${point[0].toFixed(2)},${point[1].toFixed(2)}`).join(" ");
+}
+
+function renderStrategyNav() {
+  const rows = selectedStrategyNav();
+  const svg = $("#strategy-nav-chart");
+  if (rows.length < 2) {
+    svg.innerHTML = "";
+    return;
+  }
+  const width = 1120;
+  const height = 360;
+  const pad = { left: 58, right: 20, top: 24, bottom: 38 };
+  const firstStrategy = safeNumber(rows[0].strategy_nav) || 1;
+  const firstSpy = safeNumber(rows[0].spy_nav) || 1;
+  const values = rows.flatMap((row) => [
+    (safeNumber(row.strategy_nav) || firstStrategy) / firstStrategy,
+    (safeNumber(row.spy_nav) || firstSpy) / firstSpy,
+  ]);
+  let minValue = Math.min(...values);
+  let maxValue = Math.max(...values);
+  const margin = Math.max((maxValue - minValue) * 0.08, 0.04);
+  minValue -= margin;
+  maxValue += margin;
+  const x = (index) => pad.left + index / (rows.length - 1) * (width - pad.left - pad.right);
+  const y = (value) => pad.top + (maxValue - value) / (maxValue - minValue) * (height - pad.top - pad.bottom);
+  const strategyPoints = rows.map((row, index) => [x(index), y((safeNumber(row.strategy_nav) || firstStrategy) / firstStrategy)]);
+  const spyPoints = rows.map((row, index) => [x(index), y((safeNumber(row.spy_nav) || firstSpy) / firstSpy)]);
+  const yLines = Array.from({ length: 5 }, (_, index) => minValue + index / 4 * (maxValue - minValue));
+  const tickIndexes = Array.from(new Set(Array.from({ length: 6 }, (_, index) => Math.round(index / 5 * (rows.length - 1)))));
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.innerHTML = `
+    ${yLines.map((value) => `<g><line x1="${pad.left}" x2="${width - pad.right}" y1="${y(value)}" y2="${y(value)}" class="strategy-grid-line"/><text x="${pad.left - 10}" y="${y(value) + 4}" text-anchor="end" class="strategy-axis-text">${value.toFixed(1)}x</text></g>`).join("")}
+    ${tickIndexes.map((index) => `<text x="${x(index)}" y="${height - 10}" text-anchor="middle" class="strategy-axis-text">${fmtDate(rows[index].date).slice(0, 7)}</text>`).join("")}
+    <path d="${svgPath(spyPoints)}" class="strategy-spy-path"/>
+    <path d="${svgPath(strategyPoints)}" class="strategy-nav-path"/>
+    <line id="strategy-crosshair" x1="0" x2="0" y1="${pad.top}" y2="${height - pad.bottom}" class="strategy-crosshair" hidden/>
+    <circle id="strategy-dot" cx="0" cy="0" r="5" class="strategy-dot" hidden/>
+    <rect x="${pad.left}" y="${pad.top}" width="${width - pad.left - pad.right}" height="${height - pad.top - pad.bottom}" class="strategy-chart-hit"/>
+  `;
+  const tooltip = $("#strategy-nav-tooltip");
+  const showPoint = (event, select = false) => {
+    const rect = svg.getBoundingClientRect();
+    const localX = (event.clientX - rect.left) / rect.width * width;
+    const ratio = Math.max(0, Math.min(1, (localX - pad.left) / (width - pad.left - pad.right)));
+    const index = Math.round(ratio * (rows.length - 1));
+    const row = rows[index];
+    const strategyValue = (safeNumber(row.strategy_nav) || firstStrategy) / firstStrategy;
+    const spyValue = (safeNumber(row.spy_nav) || firstSpy) / firstSpy;
+    const crosshair = $("#strategy-crosshair");
+    const dot = $("#strategy-dot");
+    crosshair.hidden = false;
+    dot.hidden = false;
+    crosshair.setAttribute("x1", x(index));
+    crosshair.setAttribute("x2", x(index));
+    dot.setAttribute("cx", x(index));
+    dot.setAttribute("cy", y(strategyValue));
+    tooltip.hidden = false;
+    tooltip.style.left = `${Math.min(82, Math.max(8, x(index) / width * 100))}%`;
+    tooltip.style.top = `${Math.max(8, y(Math.max(strategyValue, spyValue)) / height * 100 - 8)}%`;
+    tooltip.innerHTML = `<strong>${fmtDate(row.date)}</strong><span>策略 <b>${strategyValue.toFixed(2)}x</b></span><span>SPY <b>${spyValue.toFixed(2)}x</b></span><small>超额 ${fmtPpt(strategyValue - spyValue)}</small>`;
+    if (select) selectStrategySnapshot(row.date);
+  };
+  svg.onpointermove = (event) => showPoint(event, false);
+  svg.onpointerleave = () => {
+    tooltip.hidden = true;
+    $("#strategy-crosshair").hidden = true;
+    $("#strategy-dot").hidden = true;
+  };
+  svg.onclick = (event) => showPoint(event, true);
+}
+
+function renderStrategyAnnualBars() {
+  const annual = strategyAnnualRows();
+  const maxAbs = Math.max(0.1, ...annual.flatMap((row) => [Math.abs(row.strategy_return), Math.abs(row.spy_return)]));
+  $("#strategy-annual-bars").innerHTML = annual.map((row) => `
+    <div class="annual-bar-row">
+      <strong>${row.year}</strong>
+      <div class="annual-bar-track">
+        <span class="annual-zero"></span>
+        <i class="annual-strategy ${row.strategy_return < 0 ? "negative" : ""}" style="--bar:${Math.abs(row.strategy_return) / maxAbs * 48}%;--side:${row.strategy_return < 0 ? "left" : "right"}"></i>
+        <i class="annual-spy ${row.spy_return < 0 ? "negative" : ""}" style="--bar:${Math.abs(row.spy_return) / maxAbs * 48}%;--side:${row.spy_return < 0 ? "left" : "right"}"></i>
+      </div>
+      <span><b>${fmtPct(row.strategy_return)}</b><small>${fmtPct(row.spy_return)}</small></span>
+    </div>
+  `).join("");
+}
+
+function selectedClosedTrades() {
+  const trades = strategyPeriod()?.analytics?.closed_trades || [];
+  const start = state.strategyRangeStart || strategyPeriod()?.start;
+  const end = state.strategyRangeEnd || strategyPeriod()?.end;
+  return trades.filter((row) => fmtDate(row.exit_date) >= start && fmtDate(row.exit_date) <= end);
+}
+
+function summarizeTrades(rows) {
+  const pnls = rows.map((row) => safeNumber(row.pnl) || 0);
+  const winners = pnls.filter((value) => value > 0);
+  const losers = pnls.filter((value) => value < 0);
+  const average = (values) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+  const median = (values) => {
+    if (!values.length) return null;
+    const sorted = [...values].sort((a, b) => a - b);
+    const middle = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+  };
+  const grossProfit = winners.reduce((sum, value) => sum + value, 0);
+  const grossLoss = -losers.reduce((sum, value) => sum + value, 0);
+  return {
+    count: rows.length,
+    win_rate: rows.length ? winners.length / rows.length : null,
+    pnl: pnls.reduce((sum, value) => sum + value, 0),
+    profit_factor: grossLoss > 0 ? grossProfit / grossLoss : null,
+    average_pnl: average(pnls),
+    median_pnl: median(pnls),
+    average_win: average(winners),
+    average_loss: average(losers),
+  };
+}
+
+function renderStrategyTradeSummary() {
+  const trades = selectedClosedTrades();
+  const summary = summarizeTrades(trades);
+  const items = [
+    ["退出笔数", summary.count?.toLocaleString() || "0"],
+    ["胜率", fmtUnsignedPct(summary.win_rate)],
+    ["Profit factor", safeNumber(summary.profit_factor)?.toFixed(2) ?? "--"],
+    ["已实现盈亏", fmtSignedMoney(summary.pnl)],
+    ["单笔中位数", fmtSignedMoney(summary.median_pnl)],
+    ["平均盈利 / 亏损", `${fmtSignedMoney(summary.average_win)} / ${fmtSignedMoney(summary.average_loss)}`],
+  ];
+  $("#strategy-trade-summary").innerHTML = items.map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
+  const buckets = [
+    ["<-25%", -Infinity, -0.25], ["-25~-10%", -0.25, -0.1], ["-10~0%", -0.1, 0],
+    ["0~10%", 0, 0.1], ["10~25%", 0.1, 0.25], [">25%", 0.25, Infinity],
+  ].map(([label, low, high]) => ({
+    label,
+    count: trades.filter((row) => (safeNumber(row.pnl_pct) || 0) >= low && (safeNumber(row.pnl_pct) || 0) < high).length,
+  }));
+  const maxCount = Math.max(1, ...buckets.map((bucket) => bucket.count));
+  $("#strategy-pnl-distribution").innerHTML = buckets.map((bucket, index) => `
+    <div><i class="${index < 3 ? "loss" : "win"}" style="height:${Math.max(3, bucket.count / maxCount * 70)}px"></i><b>${bucket.count}</b><span>${bucket.label}</span></div>
+  `).join("");
+}
+
+function renderStrategyYearly() {
+  const annual = strategyAnnualRows();
+  const trades = selectedClosedTrades();
+  $("#strategy-yearly-body").innerHTML = annual.map((annualRow) => {
+    const yearTrades = trades.filter((row) => Number(fmtDate(row.exit_date).slice(0, 4)) === annualRow.year);
+    const summary = summarizeTrades(yearTrades);
+    const tickerPnl = new Map();
+    yearTrades.forEach((row) => tickerPnl.set(row.ticker, (tickerPnl.get(row.ticker) || 0) + (safeNumber(row.pnl) || 0)));
+    const ranked = Array.from(tickerPnl.entries()).sort((a, b) => b[1] - a[1]);
+    const best = ranked[0];
+    const worst = ranked.at(-1);
+    return `<tr>
+      <td><strong>${annualRow.year}</strong></td><td class="${metricClass(annualRow.strategy_return)}">${fmtPct(annualRow.strategy_return)}</td><td>${fmtPct(annualRow.spy_return)}</td>
+      <td>${summary.count}</td><td>${fmtUnsignedPct(summary.win_rate)}</td><td class="${metricClass(summary.pnl)}">${fmtSignedMoney(summary.pnl)}</td>
+      <td>${fmtSignedMoney(summary.average_pnl)}</td><td class="metric-positive">${fmtSignedMoney(summary.average_win)}</td><td class="metric-negative">${fmtSignedMoney(summary.average_loss)}</td>
+      <td>${best ? `<b>${escapeHtml(best[0])}</b><small>${fmtSignedMoney(best[1])}</small>` : "--"}</td>
+      <td>${worst ? `<b>${escapeHtml(worst[0])}</b><small>${fmtSignedMoney(worst[1])}</small>` : "--"}</td>
+    </tr>`;
+  }).join("");
+  $("#strategy-trades-body").innerHTML = trades.map((row) => `<tr>
+    <td>${fmtDate(row.exit_date)}</td><td><strong>${escapeHtml(row.ticker)}</strong><small>${escapeHtml(row.name || "")}</small></td>
+    <td>${escapeHtml(row.selection_source)}</td><td>${Math.round(safeNumber(row.holding_days) || 0)}</td><td>${fmtMoney(row.cost)}</td><td>${fmtMoney(row.proceeds)}</td>
+    <td class="${metricClass(row.pnl)}">${fmtSignedMoney(row.pnl)}</td><td class="${metricClass(row.pnl_pct)}">${fmtPct(row.pnl_pct)}</td><td>${escapeHtml(row.exit_reason)}</td>
+  </tr>`).join("");
+}
+
+function renderStrategyMethodology() {
+  const methodology = strategyDetail()?.methodology;
+  if (!methodology) return;
+  $("#strategy-objective").textContent = methodology.objective;
+  $("#strategy-process").innerHTML = methodology.process.map((item, index) => `
+    <div><span>${String(index + 1).padStart(2, "0")}</span><strong>${escapeHtml(item.step)}</strong><p>${escapeHtml(item.detail)}</p></div>
+  `).join("");
+  $("#strategy-formula").innerHTML = methodology.formula.map((item) => `<div><strong>${escapeHtml(item.name)}</strong><p>${escapeHtml(item.value)}</p></div>`).join("");
+  $("#strategy-parameters").innerHTML = methodology.parameters.map((item) => `<div><strong>${escapeHtml(item.name)}</strong><p>${escapeHtml(item.value)}</p></div>`).join("");
+  $("#strategy-risks").innerHTML = methodology.risk_controls.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  $("#strategy-caveats").innerHTML = methodology.caveats.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+}
+
+function renderStrategyDetail() {
+  const detail = strategyDetail();
+  const period = strategyPeriod();
+  if (!detail || !period) return;
+  $("#strategy-type").textContent = `${detail.type} · ${detail.version}`;
+  $("#strategy-name").textContent = detail.name;
+  $("#strategy-description").textContent = detail.description;
+  $("#strategy-validation").textContent = detail.validation_status;
+  $("#strategy-period-tabs").innerHTML = Object.values(detail.periods).map((item) => `
+    <button class="${item.id === state.strategyPeriod ? "active" : ""}" data-strategy-period="${escapeHtml(item.id)}"><strong>${escapeHtml(item.label)}</strong><small>${fmtDate(item.start)} 至 ${fmtDate(item.end)}</small></button>
+  `).join("");
+  $("#strategy-start-date").min = period.start;
+  $("#strategy-start-date").max = period.end;
+  $("#strategy-start-date").value = state.strategyRangeStart;
+  $("#strategy-end-date").min = period.start;
+  $("#strategy-end-date").max = period.end;
+  $("#strategy-end-date").value = state.strategyRangeEnd;
+  renderStrategyMetrics();
+  renderStrategyNav();
+  renderStrategyAnnualBars();
+  renderStrategyTradeSummary();
+  renderStrategyYearly();
+  renderStrategyMethodology();
+}
+
+async function selectStrategySnapshot(selectedDate) {
+  const period = strategyPeriod();
+  if (!period?.snapshot_dates?.length) return;
+  const requested = fmtDate(selectedDate);
+  const available = period.snapshot_dates.filter((value) => fmtDate(value) <= requested);
+  const snapshotDate = available.at(-1) || period.snapshot_dates[0];
+  const requestId = ++state.strategySnapshotRequest;
+  $("#strategy-snapshot-loading").hidden = false;
+  try {
+    const query = new URLSearchParams({ period: state.strategyPeriod, as_of: snapshotDate });
+    const snapshot = await getJson(`/api/strategies/${encodeURIComponent(state.strategyId)}/snapshot?${query.toString()}`);
+    if (requestId !== state.strategySnapshotRequest) return;
+    renderStrategySnapshot(snapshot);
+  } finally {
+    if (requestId === state.strategySnapshotRequest) $("#strategy-snapshot-loading").hidden = true;
+  }
+}
+
+function renderStrategySnapshot(snapshot) {
+  $("#strategy-snapshot-date").textContent = snapshot.snapshot_date;
+  $("#strategy-snapshot-account").innerHTML = `
+    <span><small>净值</small><b>${fmtMoney(snapshot.equity)}</b></span>
+    <span><small>现金</small><b>${fmtMoney(snapshot.cash)}</b></span>
+    <span><small>持仓</small><b>${snapshot.positions_count}</b></span>
+    <span><small>总敞口</small><b>${fmtUnsignedPct(snapshot.gross_exposure)}</b></span>
+    <span><small>未实现盈亏</small><b class="${metricClass(snapshot.unrealized_pnl)}">${fmtSignedMoney(snapshot.unrealized_pnl)}</b></span>`;
+  const actionLabels = { BUY: "买入", ADD: "加仓", TRIM: "减仓", HOLD: "持有" };
+  $("#strategy-snapshot-body").innerHTML = snapshot.positions.map((row) => {
+    const rank = safeNumber(row.prediction) !== null
+      ? `ML ${fmtScore(row.prediction)} · #${row.core_rank || "--"}`
+      : `Ontology ${fmtScore(row.ontology_score)}`;
+    return `<tr>
+      <td><span class="strategy-action ${String(row.action || "hold").toLowerCase()}">${actionLabels[row.action] || row.action}</span></td>
+      <td><strong>${escapeHtml(row.ticker)}</strong><small>${escapeHtml(row.name || "")}</small></td>
+      <td>${fmtUnsignedPct(row.weight)}</td><td>${Math.round(safeNumber(row.shares) || 0).toLocaleString()}</td><td>${fmtDate(row.entry_date)}</td>
+      <td>${fmtMoney(row.average_cost)}</td><td>${fmtMoney(row.current_price)}</td><td class="${metricClass(row.unrealized_pnl)}"><b>${fmtSignedMoney(row.unrealized_pnl)}</b><small>${fmtPct(row.unrealized_pnl_pct)}</small></td>
+      <td><b>${escapeHtml(row.selection_source)}</b><small>${escapeHtml(row.selection_reason)}</small></td><td>${escapeHtml(rank)}</td>
+    </tr>`;
+  }).join("");
+  const activity = snapshot.activity || [];
+  $("#strategy-snapshot-activity").innerHTML = activity.length
+    ? `<strong>自上次月末的成交</strong><div>${activity.map((row) => `<span class="${String(row.side).toLowerCase()}"><b>${escapeHtml(row.side)} ${escapeHtml(row.ticker)}</b><small>${fmtDate(row.date)} · ${Number(row.shares || 0).toLocaleString()} 股 · ${escapeHtml(row.reason || "")}</small></span>`).join("")}</div>`
+    : "<strong>自上次月末无成交</strong>";
+}
+
+function setStrategyPeriod(periodId) {
+  const detail = strategyDetail();
+  if (!detail?.periods?.[periodId]) return;
+  state.strategyPeriod = periodId;
+  state.strategyRangeStart = detail.periods[periodId].start;
+  state.strategyRangeEnd = detail.periods[periodId].end;
+  renderStrategyDetail();
+  selectStrategySnapshot(state.strategyRangeEnd);
+}
+
+async function loadStrategy(strategyId) {
+  state.strategyId = strategyId;
+  renderStrategyLibrary();
+  let detail = state.strategyDetails.get(strategyId);
+  if (!detail) {
+    $("#strategy-name").textContent = "载入策略研究档案…";
+    detail = await getJson(`/api/strategies/${encodeURIComponent(strategyId)}`);
+    state.strategyDetails.set(strategyId, detail);
+  }
+  const preferredPeriod = detail.periods.evaluation_2018_2026 ? "evaluation_2018_2026" : Object.keys(detail.periods)[0];
+  state.strategyPeriod = preferredPeriod;
+  state.strategyRangeStart = detail.periods[preferredPeriod].start;
+  state.strategyRangeEnd = detail.periods[preferredPeriod].end;
+  renderStrategyLibrary();
+  renderStrategyDetail();
+  await selectStrategySnapshot(state.strategyRangeEnd);
+}
+
+function applyStrategyRange() {
+  const period = strategyPeriod();
+  if (!period) return;
+  const start = $("#strategy-start-date").value;
+  const end = $("#strategy-end-date").value;
+  if (!start || !end || start > end) return;
+  state.strategyRangeStart = start < period.start ? period.start : start;
+  state.strategyRangeEnd = end > period.end ? period.end : end;
+  renderStrategyDetail();
+  selectStrategySnapshot(state.strategyRangeEnd);
+}
+
 function switchView(view) {
   state.activeView = view;
   $$(".view-tab").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
   $$(".view-panel").forEach((panel) => panel.classList.toggle("active", panel.id === `${view}-view`));
   const marketMode = view === "market";
   const decisionMode = view === "decision";
+  const strategyMode = view === "strategy";
   $(".app-shell").classList.toggle("market-mode", marketMode);
   $(".app-shell").classList.toggle("decision-mode", decisionMode);
-  $("#mobile-filter-toggle").hidden = marketMode || decisionMode;
-  $$(".ai-only-control").forEach((control) => { control.hidden = marketMode || decisionMode; });
+  $(".app-shell").classList.toggle("strategy-mode", strategyMode);
+  $(".topbar").classList.toggle("strategy-mode", strategyMode);
+  $("#mobile-filter-toggle").hidden = marketMode || decisionMode || strategyMode;
+  $$(".ai-only-control").forEach((control) => { control.hidden = marketMode || decisionMode || strategyMode; });
+  $("#search-input").closest(".search-box").hidden = strategyMode;
   $("#search-input").placeholder = decisionMode ? "搜索决策信号" : marketMode ? "搜索全市场 ticker 或公司" : "搜索 AI ticker 或公司";
   $("#global-search-results").hidden = true;
-  if (decisionMode) {
+  if (strategyMode) {
+    $("#data-status").textContent = `策略回测 · 数据截至 ${fmtDate(state.strategyCatalog?.as_of)} · PIT + modeled costs`;
+    $("#detail-panel").innerHTML = "";
+  } else if (decisionMode) {
     renderDecisionStats();
     $("#detail-panel").innerHTML = "";
   } else if (marketMode) {
@@ -1848,6 +2280,23 @@ async function loadTimeline() {
 }
 
 function bindControls() {
+  $("#strategy-library").addEventListener("click", (event) => {
+    const target = event.target.closest("[data-strategy-id]");
+    if (target) loadStrategy(target.dataset.strategyId);
+  });
+  $("#strategy-period-tabs").addEventListener("click", (event) => {
+    const target = event.target.closest("[data-strategy-period]");
+    if (target) setStrategyPeriod(target.dataset.strategyPeriod);
+  });
+  $("#strategy-apply-range").addEventListener("click", applyStrategyRange);
+  $("#strategy-reset-range").addEventListener("click", () => {
+    const period = strategyPeriod();
+    if (!period) return;
+    state.strategyRangeStart = period.start;
+    state.strategyRangeEnd = period.end;
+    renderStrategyDetail();
+    selectStrategySnapshot(period.end);
+  });
   $("#decision-view").addEventListener("click", (event) => {
     const tickerTarget = event.target.closest("[data-decision-ticker]");
     if (tickerTarget) {
@@ -2044,7 +2493,8 @@ function bindControls() {
 
 async function initialize() {
   try {
-    [state.decision, state.marketHome, state.overview, state.graph, state.methodology] = await Promise.all([
+    [state.strategyCatalog, state.decision, state.marketHome, state.overview, state.graph, state.methodology] = await Promise.all([
+      getJson("/api/strategies"),
       getJson("/api/decision/overview"),
       getJson("/api/market/home"),
       getJson("/api/overview"),
@@ -2060,7 +2510,9 @@ async function initialize() {
     bindControls();
     renderGraph();
     renderDecision();
-    switchView("decision");
+    renderStrategyLibrary();
+    switchView("strategy");
+    await loadStrategy(state.strategyCatalog.strategies[0].id);
     $("#loading").classList.add("hidden");
     loadTimeline();
     const groupMatch = location.hash.match(/^#group=(.+)$/);

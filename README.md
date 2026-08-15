@@ -121,6 +121,9 @@ Representative API routes:
 | `GET /api/gurus/:id/backtest` | Portfolio-vs-SPY simulation |
 | `GET /api/gurus/:id/context` | Ticker context for selected guru activity |
 | `GET /api/ontology/overview` | Compact Ontology decision dashboard |
+| `GET /api/strategies` | Strategy research catalog and validation summary |
+| `GET /api/strategies/:id` | Daily NAV, annual returns, trade analytics, and methodology |
+| `GET /api/strategies/:id/snapshot` | Dated portfolio holdings, cost basis, P&L, and decision source |
 | `GET /api/market/home` | Full-market ontology home |
 | `GET /api/decision/snapshot` | Historical PIT decision snapshot |
 | `GET /api/valuation` | Fair-value matrix |

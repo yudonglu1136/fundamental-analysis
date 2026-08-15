@@ -34,10 +34,12 @@ python3 scripts/export-ontology-snapshot.py \
   --output server/data/ontology-snapshot.sqlite
 ```
 
-The exporter covers fixed dashboards, monthly decision snapshots, all market
-groups and value-chain stages, company detail for the current 5,865-company
-universe, and historical AI and market timelines. A manifest and SHA-256 digest
-are written next to the database.
+The exporter covers the strategy catalog, daily strategy research payloads,
+monthly portfolio snapshots, fixed dashboards, monthly decision snapshots, all
+market groups and value-chain stages, company detail for the current
+5,867-company universe, and historical AI and market timelines. A manifest and
+SHA-256 digest are written next to the database. Strategy exports include both
+`ontology-rules-6m` and `integrated-ml-ontology`.
 
 ## Publish data privately
 
@@ -77,6 +79,9 @@ Authenticated checks:
 ```text
 GET /api/ontology/health
 GET /api/ontology/overview
+GET /api/strategies
+GET /api/strategies/integrated-ml-ontology
+GET /api/strategies/integrated-ml-ontology/snapshot?period=evaluation_2018_2026&as_of=2026-08-13
 GET /api/market/home
 GET /api/decision/snapshot?as_of=2026-08-01&limit=5
 ```

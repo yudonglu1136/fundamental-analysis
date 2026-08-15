@@ -50,9 +50,23 @@ put("fixed:rankings_all", {
     { ticker: "BBB", primary_layer: "chips", signal_state: "mixed", heat_score: 80, fcf_yoy: -0.1 }
   ]
 });
+put("fixed:strategies", {
+  version: "strategy-showcase-v1",
+  strategies: [{ id: "ontology-rules-6m", name: "Ontology 固定规则" }]
+});
+put("strategy_detail:ontology-rules-6m", {
+  id: "ontology-rules-6m",
+  periods: { evaluation_2018_2026: { nav: [{ date: "2026-08-01" }] } }
+});
+put("strategy_snapshot:ontology-rules-6m:evaluation_2018_2026:2026-08-01", {
+  strategy_id: "ontology-rules-6m",
+  period: "evaluation_2018_2026",
+  snapshot_date: "2026-08-01",
+  positions: [{ ticker: "AAA" }]
+});
 database.prepare("INSERT INTO metadata VALUES (?, ?)").run(
   "manifest",
-  JSON.stringify({ schema_version: 1 })
+  JSON.stringify({ schema_version: 2 })
 );
 database.close();
 
@@ -93,4 +107,15 @@ test("filters market stages and ranks requested metrics", () => {
 test("search prioritizes an exact ticker", () => {
   const payload = ontology.searchMarketCompanies("bbb", 2);
   assert.equal(payload.companies[0].ticker, "BBB");
+});
+
+test("loads strategy catalog, detail and dated portfolio snapshot", () => {
+  assert.equal(ontology.loadStrategyCatalog().strategies[0].id, "ontology-rules-6m");
+  assert.equal(ontology.loadStrategyDetail("ontology-rules-6m").id, "ontology-rules-6m");
+  const snapshot = ontology.loadStrategySnapshot({
+    strategyId: "ontology-rules-6m",
+    period: "evaluation_2018_2026",
+    asOf: "2026-08-01"
+  });
+  assert.equal(snapshot.positions[0].ticker, "AAA");
 });

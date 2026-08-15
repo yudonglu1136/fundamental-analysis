@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ontology Intelligence</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=2" />
+    <link rel="stylesheet" href="./styles.css?v=3" />
   </head>
   <body>
     <header class="topbar">
@@ -32,7 +32,8 @@
           <button class="segment" data-flow="capital">资金流</button>
         </div>
         <nav class="view-tabs" aria-label="视图">
-          <button class="view-tab active" data-view="decision">Ontology</button>
+          <button class="view-tab active" data-view="strategy">策略</button>
+          <button class="view-tab" data-view="decision">Ontology</button>
           <button class="view-tab" data-view="market">全市场</button>
           <button class="view-tab" data-view="graph">行业图谱</button>
           <button class="view-tab" data-view="ranking">信号排行</button>
@@ -41,7 +42,7 @@
       </div>
     </header>
 
-    <div class="app-shell decision-mode">
+    <div class="app-shell strategy-mode">
       <aside id="filter-rail" class="filter-rail" aria-label="筛选">
         <section>
           <div class="rail-heading">
@@ -91,7 +92,138 @@
       </aside>
 
       <main class="workspace">
-        <section id="decision-view" class="view-panel active">
+        <section id="strategy-view" class="view-panel active">
+          <div class="strategy-shell">
+            <header class="strategy-hero">
+              <div>
+                <span class="terminal-kicker"><i></i> STRATEGY RESEARCH</span>
+                <h2>Ontology 策略实验室</h2>
+                <p>同一套 PIT 数据与真实执行口径，比较固定规则和 Integrated with ML，并下钻每个月末真实持仓。</p>
+              </div>
+              <div class="strategy-freshness">
+                <span>回测数据截至</span>
+                <strong id="strategy-asof">--</strong>
+                <small>Sharadar PIT · SPY 同期基准</small>
+              </div>
+            </header>
+
+            <section class="strategy-library-band">
+              <div class="strategy-section-heading">
+                <div><span>STRATEGY LIBRARY</span><h3>选择研究版本</h3></div>
+                <p>所有结果均包含模型化滑点与佣金；点击切换完整研究档案。</p>
+              </div>
+              <div id="strategy-library" class="strategy-library"></div>
+            </section>
+
+            <section id="strategy-detail" class="strategy-detail" aria-live="polite">
+              <header class="strategy-detail-header">
+                <div>
+                  <span id="strategy-type" class="strategy-type">--</span>
+                  <h2 id="strategy-name">载入策略</h2>
+                  <p id="strategy-description">--</p>
+                </div>
+                <span id="strategy-validation" class="strategy-validation">--</span>
+              </header>
+
+              <div class="strategy-range-toolbar">
+                <div id="strategy-period-tabs" class="strategy-period-tabs" aria-label="研究区间"></div>
+                <div class="strategy-date-range">
+                  <label>起始 <input id="strategy-start-date" type="date" /></label>
+                  <label>结束 <input id="strategy-end-date" type="date" /></label>
+                  <button id="strategy-apply-range" type="button">应用区间</button>
+                  <button id="strategy-reset-range" class="secondary" type="button">重置</button>
+                </div>
+              </div>
+
+              <section class="strategy-performance-panel">
+                <div class="strategy-section-heading compact">
+                  <div><span>MARK-TO-MARKET</span><h3>净值与同期 SPY</h3></div>
+                  <div class="strategy-chart-legend"><span class="strategy-line"></span>策略 <span class="spy-line"></span>SPY</div>
+                </div>
+                <div id="strategy-metrics" class="strategy-metrics"></div>
+                <div class="strategy-nav-wrap">
+                  <svg id="strategy-nav-chart" role="img" aria-label="策略与 SPY 净值曲线"></svg>
+                  <div id="strategy-nav-tooltip" class="strategy-nav-tooltip" hidden></div>
+                </div>
+                <p class="strategy-chart-hint">点击曲线任意日期，下方会载入该日期之前最近一个月末的实际组合快照。</p>
+              </section>
+
+              <section class="strategy-two-column">
+                <div class="strategy-analysis-panel">
+                  <div class="strategy-section-heading compact">
+                    <div><span>CALENDAR RETURNS</span><h3>区间内年度表现</h3></div>
+                    <small>策略 vs SPY</small>
+                  </div>
+                  <div id="strategy-annual-bars" class="strategy-annual-bars"></div>
+                </div>
+                <div class="strategy-analysis-panel">
+                  <div class="strategy-section-heading compact">
+                    <div><span>TRADE OUTCOMES</span><h3>已实现交易质量</h3></div>
+                    <small>FIFO · 含成本</small>
+                  </div>
+                  <div id="strategy-trade-summary" class="strategy-trade-summary"></div>
+                  <div id="strategy-pnl-distribution" class="strategy-pnl-distribution"></div>
+                </div>
+              </section>
+
+              <section id="strategy-snapshot-panel" class="strategy-snapshot-panel">
+                <header class="strategy-section-heading">
+                  <div>
+                    <span>PORTFOLIO REPLAY</span>
+                    <h3>仓位快照 <b id="strategy-snapshot-date">--</b></h3>
+                  </div>
+                  <div id="strategy-snapshot-account" class="strategy-snapshot-account"></div>
+                </header>
+                <div id="strategy-snapshot-loading" class="strategy-inline-loading" hidden>正在重建月末成本与仓位…</div>
+                <div class="strategy-table-wrap">
+                  <table class="strategy-table snapshot-table">
+                    <thead><tr><th>决策</th><th>公司</th><th>权重</th><th>股数</th><th>首次买入</th><th>平均成本</th><th>现价</th><th>未实现盈亏</th><th>选股来源</th><th>分数 / 排名</th></tr></thead>
+                    <tbody id="strategy-snapshot-body"></tbody>
+                  </table>
+                </div>
+                <div id="strategy-snapshot-activity" class="strategy-snapshot-activity"></div>
+              </section>
+
+              <section class="strategy-analytics-panel">
+                <div class="strategy-section-heading">
+                  <div><span>DETAILED ATTRIBUTION</span><h3>逐年胜率、盈亏与贡献</h3></div>
+                  <p>年度组合收益按每日市值计价；单票贡献按退出时 FIFO 已实现盈亏。</p>
+                </div>
+                <div class="strategy-table-wrap">
+                  <table class="strategy-table">
+                    <thead><tr><th>年份</th><th>策略收益</th><th>SPY</th><th>退出笔数</th><th>胜率</th><th>已实现盈亏</th><th>平均单笔</th><th>平均盈利</th><th>平均亏损</th><th>最大贡献票</th><th>最大亏损票</th></tr></thead>
+                    <tbody id="strategy-yearly-body"></tbody>
+                  </table>
+                </div>
+                <details class="strategy-trades-details">
+                  <summary>查看全部已实现交易</summary>
+                  <div class="strategy-table-wrap">
+                    <table class="strategy-table compact-table">
+                      <thead><tr><th>退出日</th><th>股票</th><th>来源</th><th>持有天数</th><th>成本</th><th>回收</th><th>盈亏</th><th>收益率</th><th>退出原因</th></tr></thead>
+                      <tbody id="strategy-trades-body"></tbody>
+                    </table>
+                  </div>
+                </details>
+              </section>
+
+              <section class="strategy-method-panel">
+                <div class="strategy-section-heading">
+                  <div><span>HOW IT WORKS</span><h3>策略构建、参数与风险控制</h3></div>
+                  <p id="strategy-objective">--</p>
+                </div>
+                <div id="strategy-process" class="strategy-process"></div>
+                <div class="strategy-method-grid">
+                  <section><h4>公式与决策</h4><div id="strategy-formula" class="strategy-definition-list"></div></section>
+                  <section><h4>冻结参数</h4><div id="strategy-parameters" class="strategy-definition-list"></div></section>
+                  <section><h4>风险控制</h4><ul id="strategy-risks" class="strategy-notes"></ul></section>
+                  <section><h4>验证边界</h4><ul id="strategy-caveats" class="strategy-notes caveats"></ul></section>
+                </div>
+              </section>
+            </section>
+          </div>
+        </section>
+
+        <section id="decision-view" class="view-panel">
           <div class="decision-shell">
             <header class="decision-hero">
               <div>
@@ -541,6 +673,6 @@
     </dialog>
 
     <div id="loading" class="loading-state">载入本地 ontology…</div>
-    <script src="./app.js?v=2" defer></script>
+    <script src="./app.js?v=3" defer></script>
   </body>
 </html>
