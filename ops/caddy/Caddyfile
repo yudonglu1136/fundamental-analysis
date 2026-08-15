@@ -1,0 +1,21 @@
+api.thesisforge.tech {
+  @ontology path \
+    /api/ontology/* \
+    /api/decision/* \
+    /api/market/* \
+    /api/overview \
+    /api/graph \
+    /api/methodology \
+    /api/timeline \
+    /api/rankings \
+    /api/company/* \
+    /api/snapshot
+
+  handle @ontology {
+    reverse_proxy 127.0.0.1:8791
+  }
+
+  handle {
+    reverse_proxy 127.0.0.1:8787
+  }
+}

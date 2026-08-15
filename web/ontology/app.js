@@ -771,33 +771,132 @@ function closeMarketGroup() {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function renderCompanyOntologyStructure(ontology, ticker) {
+  const structure = ontology?.structure;
+  if (!structure?.profile) {
+    return `
+      <section class="dialog-ontology-section">
+        <div class="company-ontology-heading"><span>新 Ontology 结构</span><small>无行业阶段映射</small></div>
+        <p class="company-ontology-empty">当前公司没有可用的行业阶段与上下游关系。</p>
+      </section>
+    `;
+  }
+  const profile = structure.profile;
+  const currentStageId = profile.stage_id;
+  const stagesById = Object.fromEntries((structure.stages || []).map((stage) => [stage.stage_id, stage]));
+  const edges = [...(structure.edges || [])].sort((left, right) => {
+    const leftConnected = left.source_stage_id === currentStageId || left.target_stage_id === currentStageId;
+    const rightConnected = right.source_stage_id === currentStageId || right.target_stage_id === currentStageId;
+    return Number(rightConnected) - Number(leftConnected);
+  });
+  const edgeRows = edges.length ? edges.map((edge) => {
+    const source = stagesById[edge.source_stage_id] || { name: edge.source_name, companies: null };
+    const target = stagesById[edge.target_stage_id] || { name: edge.target_name, companies: null };
+    const connected = edge.source_stage_id === currentStageId || edge.target_stage_id === currentStageId;
+    return `
+      <div class="company-flow-edge${connected ? " connected" : ""}">
+        <div class="company-flow-node${edge.source_stage_id === currentStageId ? " current" : ""}">
+          <strong>${escapeHtml(source.name)}</strong><small>${fmtCompact(source.companies)} 家公司</small>
+        </div>
+        <div class="company-flow-link"><span>${escapeHtml(edge.label || "价值流")}</span><i>→</i></div>
+        <div class="company-flow-node${edge.target_stage_id === currentStageId ? " current" : ""}">
+          <strong>${escapeHtml(target.name)}</strong><small>${fmtCompact(target.companies)} 家公司</small>
+        </div>
+      </div>
+    `;
+  }).join("") : (structure.stages || []).map((stage) => `
+    <div class="company-flow-node${stage.stage_id === currentStageId ? " current" : ""}">
+      <strong>${escapeHtml(stage.name)}</strong><small>${fmtCompact(stage.companies)} 家公司</small>
+    </div>
+  `).join("");
+  return `
+    <section class="dialog-ontology-section">
+      <div class="company-ontology-heading">
+        <span>新 Ontology 结构</span>
+        <small>${escapeHtml(profile.group_id)} · ${escapeHtml(ontology.version || "event-ontology-v2")}</small>
+      </div>
+      <div class="company-stage-anchor">
+        <span><b>${escapeHtml(ticker)}</b><small>公司</small></span>
+        <i>→</i>
+        <span class="stage"><b>${escapeHtml(profile.stage_name)}</b><small>${escapeHtml(profile.stage_role)}</small></span>
+      </div>
+      <div class="company-ontology-profile">
+        <strong>${escapeHtml(profile.title)}</strong>
+        <span>阶段是行业结构映射；连线表达经济价值流，不代表已核实的公司合同。</span>
+      </div>
+      <div class="company-flow-map">${edgeRows}</div>
+    </section>
+  `;
+}
+
+function renderCompanyDecisionSignal(ontology, legacySignal) {
+  const signal = ontology?.strategy_signal;
+  const legacyNote = legacySignal ? `
+    <div class="legacy-signal-note">
+      <span>旧版浏览热度</span>
+      <strong>${safeNumber(legacySignal.heat_score)?.toFixed(0) || "--"} / 100 · ${escapeHtml(stateLabels[legacySignal.signal_state] || legacySignal.signal_state)}</strong>
+      <small>仅用于全市场财务温度浏览，不参与 Event Ontology v2 的买卖决策。</small>
+    </div>
+  ` : "";
+  if (!signal) {
+    return `
+      <section class="company-decision-status excluded">
+        <div><span>EVENT ONTOLOGY V2</span><strong>不在新策略有效事件池</strong></div>
+        <ul>${(ontology?.exclusion_reasons || ["没有PIT可执行事件"]).map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul>
+      </section>
+      ${legacyNote}
+    `;
+  }
+  const peerContribution = (safeNumber(signal.peer_score) || 0) - (safeNumber(signal.company_score) || 0);
+  const graphContribution = (safeNumber(signal.ontology_score) || 0) - (safeNumber(signal.peer_score) || 0);
+  return `
+    <section class="company-decision-status eligible">
+      <div>
+        <span>EVENT ONTOLOGY V2 · PIT ${fmtDate(signal.information_date)}</span>
+        <strong><span class="decision-state-pill ${decisionSignalClass(signal)}"><i></i>${escapeHtml(signal.signal_label || decisionStateLabels[signal.signal_state] || signal.signal_state)}</span></strong>
+      </div>
+      <small>报告 ${fmtDate(signal.reportperiod)} → 公开 ${fmtDate(signal.information_date)} → 交易 ${fmtDate(signal.trade_date)}</small>
+    </section>
+    <div class="company-score-bridge" aria-label="新Ontology分数分解">
+      <div><span>公司事件</span><strong>${fmtScore(signal.company_score)}</strong></div>
+      <i>+</i>
+      <div><span>同行增量</span><strong>${fmtScore(peerContribution)}</strong></div>
+      <i>+</i>
+      <div><span>上下游增量</span><strong>${fmtScore(graphContribution)}</strong></div>
+      <i>=</i>
+      <div class="final"><span>最终分数</span><strong>${fmtScore(signal.ontology_score)}</strong></div>
+    </div>
+    <div class="company-signal-components">
+      <span><small>经营超预期</small><b>${fmtScore(signal.operating_surprise)}</b></span>
+      <span><small>现金确认</small><b>${fmtScore(signal.cash_confirmation)}</b></span>
+      <span><small>持续质量</small><b>${fmtScore(signal.durable_quality)}</b></span>
+      <span><small>估值支持</small><b>${fmtScore(signal.valuation_support)}</b></span>
+      <span><small>负债/稀释</small><b>${fmtScore(signal.balance_dilution_safety)}</b></span>
+      <span><small>同行广度</small><b>${fmtUnsignedPct(signal.stage_breadth)}</b></span>
+      <span><small>连接广度</small><b>${fmtUnsignedPct(signal.connected_breadth)}</b></span>
+      <span><small>仓位倍率</small><b>${safeNumber(signal.context_position_multiplier)?.toFixed(2) || "--"}x</b></span>
+    </div>
+    ${legacyNote}
+  `;
+}
+
 async function showMarketCompany(ticker, signalContext = null) {
   const dialog = $("#market-company-dialog");
   $("#market-company-dialog-content").innerHTML = `<div class="market-dialog-loading">载入 ${escapeHtml(ticker)}…</div>`;
   if (!dialog.open) dialog.showModal();
   try {
-    const payload = await getJson(`/api/market/companies/${encodeURIComponent(ticker)}`);
+    const selectedAsOf = signalContext ? state.marketDetail?.ontology?.as_of : null;
+    const query = selectedAsOf ? `?as_of=${encodeURIComponent(fmtDate(selectedAsOf))}` : "";
+    const payload = await getJson(`/api/market/companies/${encodeURIComponent(ticker)}${query}`);
     const company = payload.company;
-    const signalPalette = stateColors[signalContext?.signal_state] || stateColors.mixed;
-    const signalSnapshot = signalContext ? `
-      <section class="dialog-signal-summary" style="--signal-color:${signalPalette.stroke};--signal-fill:${signalPalette.fill}">
-        <div>
-          <span>图谱信号 · ${fmtDate(state.marketDetail?.ontology?.as_of)}</span>
-          <strong>${stateLabels[signalContext.signal_state] || signalContext.signal_state}</strong>
-        </div>
-        <div><span>行业内热度</span><strong>${safeNumber(signalContext.heat_score)?.toFixed(0) || "--"} / 100</strong></div>
-        <div><span>收入同比</span><strong>${fmtPct(signalContext.revenue_yoy)}</strong></div>
-        <div><span>营业利润同比</span><strong>${fmtPct(signalContext.operating_income_yoy)}</strong></div>
-      </section>
-      <p class="dialog-signal-note">上方是所选历史观察日的 PIT 信号；下方是公司数据库中的最新可用财务。</p>
-    ` : "";
     $("#market-company-dialog-content").innerHTML = `
       <header class="market-dialog-header">
         <div><span class="section-kicker">${escapeHtml(company.sector || "UNCLASSIFIED")}</span><h2>${escapeHtml(company.ticker)}</h2><p>${escapeHtml(company.name)}</p></div>
         <button id="market-dialog-close" class="dialog-close" aria-label="关闭" title="关闭">×</button>
       </header>
       <div class="dialog-meta"><span>${escapeHtml(company.exchange || "--")}</span><span>${escapeHtml(company.industry || "--")}</span><span>报告期 ${fmtDate(company.reportperiod)}</span><span>公开日 ${fmtDate(company.datekey)}</span></div>
-      ${signalSnapshot}
+      ${renderCompanyDecisionSignal(payload.ontology, signalContext)}
+      ${renderCompanyOntologyStructure(payload.ontology, company.ticker)}
       <div class="dialog-metric-grid">
         <div><span>市值</span><strong>${fmtMoney(company.marketcap_usd)}</strong></div>
         <div><span>TTM收入</span><strong>${fmtMoney(company.revenue_usd)}</strong></div>
@@ -808,7 +907,7 @@ async function showMarketCompany(ticker, signalContext = null) {
         <div><span>净利率</span><strong>${fmtPct(company.net_margin)}</strong></div>
         <div><span>FCF率</span><strong>${fmtPct(company.fcf_margin)}</strong></div>
       </div>
-      <section class="dialog-memberships"><h3>所属 Ontology</h3><div>${payload.memberships.map((item) => `<button data-dialog-group="${escapeHtml(item.id)}" style="--group-color:${escapeHtml(item.color)}">${escapeHtml(item.short_name)}</button>`).join("")}</div></section>
+      <section class="dialog-memberships"><h3>市场分类入口</h3><p>这些按钮只负责导航，不代表新策略信号。</p><div>${payload.memberships.map((item) => `<button data-dialog-group="${escapeHtml(item.id)}" style="--group-color:${escapeHtml(item.color)}">${escapeHtml(item.short_name)}</button>`).join("")}</div></section>
     `;
     $("#market-dialog-close").addEventListener("click", () => dialog.close());
     $$('[data-dialog-group]').forEach((button) => button.addEventListener("click", () => {

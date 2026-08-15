@@ -1,8 +1,8 @@
 # Ontology Deployment
 
 Guru Intelligence replaces the former DBMF product tab with the US Market
-Ontology. The public application remains split between Vercel and AWS Elastic
-Beanstalk.
+Ontology. The public application is split between Vercel and the AWS Lightsail
+API host.
 
 ## Data boundary
 
@@ -58,9 +58,11 @@ ONTOLOGY_SNAPSHOT_PATH=server/data/ontology-snapshot.sqlite \
 bash scripts/package-aws-backend.sh <version-label>
 ```
 
-Deploy the resulting zip to the `guru-analysis-api-prod` Elastic Beanstalk
-environment. The Node process serves the original Ontology API contract from
-`server/ontologyClient.js`; no Python or DuckDB runtime is required on AWS.
+Deploy the resulting zip to a versioned directory below
+`/home/ubuntu/ontology-api/releases`. Start `server/ontologyServer.js` with
+Node 24 on `127.0.0.1:8791`; no Python or DuckDB runtime is required on AWS.
+The Caddy configuration in `ops/caddy/Caddyfile` routes only Ontology paths to
+this service and leaves the existing Guru API on `127.0.0.1:8787` unchanged.
 
 ## Deploy frontend
 
