@@ -301,6 +301,85 @@ function syncBundledGuruBacktests() {
   }
 }
 
+function syncBundledGuruExposureSnapshots() {
+  if (process.env.SYNC_BUNDLED_GURU_EXPOSURE_SNAPSHOTS === "false") return;
+  if (dbPath === bundledDbPath || !fs.existsSync(bundledDbPath)) return;
+
+  let bundledDb;
+  try {
+    bundledDb = new DatabaseSync(bundledDbPath, { readOnly: true });
+    const bundledSummary = bundledDb.prepare(`
+      SELECT
+        COUNT(*) AS count,
+        MAX(generated_at) AS generated_at
+      FROM guru_exposure_snapshots
+    `).get();
+    if (!bundledSummary?.count) return;
+
+    const currentSummary = db.prepare(`
+      SELECT
+        COUNT(*) AS count,
+        MAX(generated_at) AS generated_at
+      FROM guru_exposure_snapshots
+    `).get();
+    const shouldSync =
+      Number(bundledSummary.count || 0) > Number(currentSummary?.count || 0) ||
+      (bundledSummary.generated_at &&
+        (!currentSummary?.generated_at || bundledSummary.generated_at > currentSummary.generated_at));
+    if (!shouldSync) return;
+
+    const rows = bundledDb.prepare(`
+      SELECT guru_id, generated_at, payload_json
+      FROM guru_exposure_snapshots
+    `).all();
+    const jobRows = bundledDb.prepare(`
+      SELECT job_id, started_at, finished_at, status, payload_json
+      FROM background_job_runs
+      WHERE job_id = 'guru_exposure_refresh'
+    `).all();
+    if (!rows.length) return;
+
+    const writeExposure = db.prepare(`
+      INSERT INTO guru_exposure_snapshots (guru_id, generated_at, payload_json)
+      VALUES (?, ?, ?)
+      ON CONFLICT(guru_id) DO UPDATE SET
+        generated_at = excluded.generated_at,
+        payload_json = excluded.payload_json
+      WHERE
+        guru_exposure_snapshots.generated_at IS NULL OR
+        excluded.generated_at > guru_exposure_snapshots.generated_at
+    `);
+    const writeJob = db.prepare(`
+      INSERT INTO background_job_runs (job_id, started_at, finished_at, status, payload_json)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(job_id) DO UPDATE SET
+        started_at = excluded.started_at,
+        finished_at = excluded.finished_at,
+        status = excluded.status,
+        payload_json = excluded.payload_json
+    `);
+
+    db.exec("BEGIN");
+    try {
+      for (const row of rows) {
+        writeExposure.run(row.guru_id, row.generated_at, row.payload_json);
+      }
+      for (const row of jobRows) {
+        writeJob.run(row.job_id, row.started_at, row.finished_at, row.status, row.payload_json);
+      }
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+    console.info(`[database] synced bundled guru exposure snapshots into ${dbPath}: ${rows.length} rows`);
+  } catch (error) {
+    console.warn(`[database] bundled guru exposure snapshot sync skipped: ${error.message}`);
+  } finally {
+    bundledDb?.close();
+  }
+}
+
 function syncBundledDividendCalendar() {
   if (process.env.SYNC_BUNDLED_DIVIDEND_CALENDAR === "false") return;
   if (dbPath === bundledDbPath || !fs.existsSync(bundledDbPath)) return;
@@ -618,6 +697,7 @@ function syncBundledPodcastInsights() {
 
 syncBundledValuationSnapshots();
 syncBundledGuruBacktests();
+syncBundledGuruExposureSnapshots();
 syncBundledDividendCalendar();
 syncBundledPodcastInsights();
 
