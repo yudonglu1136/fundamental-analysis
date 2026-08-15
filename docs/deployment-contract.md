@@ -42,10 +42,11 @@ VITE_SUPABASE_URL=<supabase project url>
 VITE_SUPABASE_ANON_KEY=<browser publishable key>
 VITE_AUTH_DEV_BYPASS=false
 VITE_AUTH_PROVIDER=supabase
-AWS_API_ORIGIN=http://guru-analysis-api-prod-378477120101.us-east-1.elasticbeanstalk.com
+AWS_API_ORIGIN=https://api.thesisforge.tech
 ```
 
-`AWS_API_ORIGIN` is optional because `api/proxy.js` has the current EB CNAME as a fallback, but setting it in Vercel makes the runtime contract explicit.
+`AWS_API_ORIGIN` is optional because `api/proxy.js` defaults to the Lightsail
+API domain, but setting it in Vercel makes the runtime contract explicit.
 
 AWS backend production env must also include both frontend origins:
 
