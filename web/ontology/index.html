@@ -315,22 +315,23 @@
             <section class="deep-ontology-section">
               <div class="market-section-heading deep-ontology-heading">
                 <div>
-                  <span>深层行业 Ontology</span>
+                  <span id="ontology-section-eyebrow">行业 Event Ontology</span>
                   <h3 id="value-chain-title">价值链阶段与公司</h3>
                 </div>
                 <div class="ontology-controls">
-                  <div class="trend-tabs" aria-label="价值流方向">
+                  <div id="market-flow-control" class="trend-tabs" aria-label="价值流方向">
                     <button class="ontology-flow-tab active" data-market-flow="product">产品/服务流</button>
                     <button class="ontology-flow-tab" data-market-flow="capital">资金/需求流</button>
                   </div>
-                  <label class="market-node-metric-control">
+                  <label id="market-node-metric-control" class="market-node-metric-control">
                     节点指标
                     <select id="market-node-metric" aria-label="行业图谱节点指标">
+                      <option value="ontology_score">Ontology 分</option>
+                      <option value="company_score">公司事件分</option>
+                      <option value="peer_score">同行确认分</option>
                       <option value="revenue_yoy">收入同比</option>
-                      <option value="revenue_acceleration">收入加速度</option>
                       <option value="operating_income_yoy">营业利润同比</option>
                       <option value="operating_margin_delta_yoy">营业率变化</option>
-                      <option value="heat_score">综合热度</option>
                     </select>
                   </label>
                   <button id="clear-value-chain-filter" class="text-button" hidden>显示全部阶段</button>
@@ -340,20 +341,20 @@
                 <svg id="market-ontology-graph" role="img" aria-label="行业价值链公司图谱"></svg>
               </div>
               <div class="market-state-legend">
-                <span><i class="state-dot surging"></i><b><strong>绿色 · 财务爆发</strong><small>热度 ≥ 75，至少 2 项正向，且无负向标签</small></b></span>
-                <span><i class="state-dot improving"></i><b><strong>蓝色 · 财务改善</strong><small>热度 ≥ 60，正向信号不少于负向信号</small></b></span>
-                <span><i class="state-dot mixed"></i><b><strong>黄色 · 中性/混合</strong><small>方向不一致，未达到改善或降温阈值</small></b></span>
-                <span><i class="state-dot cooling"></i><b><strong>红色 · 降温/风险</strong><small>热度 &lt; 35，或至少 3 项负向标签</small></b></span>
+                <span><i class="state-dot graph"></i><b><strong>绿色 · 图谱确认</strong><small>公司、同行与相邻产业阶段同时确认</small></b></span>
+                <span><i class="state-dot peer"></i><b><strong>青绿 · 同行确认</strong><small>公司改善得到同阶段同行价值捕获确认</small></b></span>
+                <span><i class="state-dot company"></i><b><strong>蓝色 · 公司改善</strong><small>公司事件成立，行业或图谱尚未确认</small></b></span>
+                <span><i class="state-dot watch"></i><b><strong>黄色 · 观察</strong><small>PIT、流动性或完整确认条件尚未满足</small></b></span>
               </div>
               <p id="market-value-chain-policy" class="ontology-policy"></p>
               <section class="market-timeline-panel" aria-label="行业历史信号时间轴">
                 <div class="timeline-header">
                   <div>
                     <div class="timeline-title-row">
-                      <h3>PIT 历史信号回放</h3>
+                      <h3>PIT Event Ontology 回放</h3>
                       <strong id="market-timeline-date">载入中</strong>
                     </div>
-                    <p id="market-timeline-status">正在载入 2020 至今的季度财务状态…</p>
+                    <p id="market-timeline-status">正在载入 2020 至今的事件确认状态…</p>
                   </div>
                   <div class="timeline-controls">
                     <button id="market-timeline-play" class="icon-button" title="播放历史" aria-label="播放历史">▶</button>
@@ -382,6 +383,9 @@
                 <div class="company-controls">
                   <input id="market-company-search" type="search" placeholder="筛选公司" />
                   <select id="market-company-sort" aria-label="公司排序">
+                    <option value="ontology_score">Ontology 分</option>
+                    <option value="company_score">公司事件分</option>
+                    <option value="peer_score">同行确认分</option>
                     <option value="marketcap">市值</option>
                     <option value="revenue_yoy">收入增速</option>
                     <option value="operating_income_yoy">营业利润增速</option>
@@ -393,7 +397,7 @@
               <div id="company-ontology" class="company-ontology"></div>
               <div class="market-table-wrap">
                 <table>
-                  <thead><tr><th>公司</th><th>子行业</th><th>规模</th><th>市值</th><th>收入同比</th><th>营业利润同比</th><th>毛利率</th><th>营业利润率</th><th>净利率</th></tr></thead>
+                  <thead><tr><th>公司</th><th>产业阶段</th><th>事件信号</th><th>Ontology 分</th><th>市值</th><th>收入同比</th><th>营业利润同比</th><th>营业利润率</th><th>净利率</th></tr></thead>
                   <tbody id="market-companies-body"></tbody>
                 </table>
               </div>
