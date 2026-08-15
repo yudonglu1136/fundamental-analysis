@@ -1,3 +1,31 @@
+thesisforge.tech {
+  redir https://www.thesisforge.tech{uri} permanent
+}
+
+www.thesisforge.tech {
+  encode zstd gzip
+
+  handle /api/* {
+    reverse_proxy http://guru-analysis-api-prod-378477120101.us-east-1.elasticbeanstalk.com {
+      header_up -Origin
+      header_up Host guru-analysis-api-prod-378477120101.us-east-1.elasticbeanstalk.com
+    }
+  }
+
+  handle {
+    root * /var/snap/caddy/common/www/thesisforge
+
+    header /index.html Cache-Control "no-cache, must-revalidate"
+    header /flutter_bootstrap.js Cache-Control "no-cache, must-revalidate"
+    header /flutter_service_worker.js Cache-Control "no-cache, must-revalidate"
+    header /main.dart.js Cache-Control "no-cache, must-revalidate"
+    header /version.json Cache-Control "no-cache, must-revalidate"
+
+    try_files {path} /index.html
+    file_server
+  }
+}
+
 api.thesisforge.tech {
   @ontology path \
     /api/ontology/* \

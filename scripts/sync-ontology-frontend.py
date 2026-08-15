@@ -141,8 +141,8 @@ def main() -> int:
         if redirect_end >= 0:
             index = index[:redirect_start] + index[redirect_end + len("    </script>\n") :]
     index = index.replace('href="/static/favicon.svg"', 'href="./favicon.svg"')
-    index = index.replace('href="/static/styles.css?v=7"', 'href="./styles.css?v=3"')
-    index = index.replace('src="/static/app.js?v=7"', 'src="./app.js?v=3"')
+    index = index.replace('href="/static/styles.css?v=7"', 'href="./styles.css?v=4"')
+    index = index.replace('src="/static/app.js?v=7"', 'src="./app.js?v=4"')
     anchor = '          <p id="data-status">正在连接本地 Sharadar 数据库…</p>\n        </div>'
     replacement = anchor + '\n        <a class="guru-back-link" href="/" title="返回 Guru Intelligence">← Guru</a>'
     if anchor not in index:

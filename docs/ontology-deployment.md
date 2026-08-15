@@ -38,8 +38,10 @@ The exporter covers the strategy catalog, daily strategy research payloads,
 monthly portfolio snapshots, fixed dashboards, monthly decision snapshots, all
 market groups and value-chain stages, company detail for the current
 5,867-company universe, and historical AI and market timelines. A manifest and
-SHA-256 digest are written next to the database. Strategy exports include both
-`ontology-rules-6m` and `integrated-ml-ontology`.
+SHA-256 digest are written next to the database. Strategy exports include
+`ontology-soft-overlay-6m`, `ontology-rules-6m`, and
+`integrated-ml-ontology`, including daily NAV, realized trades, annual
+attribution, and month-end portfolio replay snapshots.
 
 ## Publish data privately
 
@@ -80,6 +82,8 @@ Authenticated checks:
 GET /api/ontology/health
 GET /api/ontology/overview
 GET /api/strategies
+GET /api/strategies/ontology-soft-overlay-6m
+GET /api/strategies/ontology-soft-overlay-6m/snapshot?period=evaluation_2018_2026&as_of=2026-08-13
 GET /api/strategies/integrated-ml-ontology
 GET /api/strategies/integrated-ml-ontology/snapshot?period=evaluation_2018_2026&as_of=2026-08-13
 GET /api/market/home
