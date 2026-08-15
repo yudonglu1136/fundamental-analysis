@@ -4,7 +4,7 @@ import test from "node:test";
 process.env.AWS_API_ORIGIN = "https://legacy.example";
 process.env.ONTOLOGY_API_ORIGIN = "https://ontology.example";
 
-const { targetUrl } = await import(`./proxy.js?test=${Date.now()}`);
+const { targetUrl } = await import(`../api/proxy.js?test=${Date.now()}`);
 
 function request(path, search = "") {
   return {
