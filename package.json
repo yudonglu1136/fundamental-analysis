@@ -26,6 +26,7 @@
     "build": "bash scripts/flutter-build.sh",
     "package:aws": "bash scripts/package-aws-backend.sh",
     "start": "NODE_ENV=production node server/index.js",
+    "start:ontology": "NODE_ENV=production node server/ontologyServer.js",
     "import:valuation-aliases": "node server/importValuationAliases.js"
   },
   "dependencies": {
