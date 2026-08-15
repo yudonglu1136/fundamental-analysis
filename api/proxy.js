@@ -1,6 +1,22 @@
-const AWS_ORIGIN =
+const LEGACY_AWS_ORIGIN =
   process.env.AWS_API_ORIGIN ||
+  "http://guru-analysis-api-prod-378477120101.us-east-1.elasticbeanstalk.com";
+const ONTOLOGY_API_ORIGIN =
+  process.env.ONTOLOGY_API_ORIGIN ||
   "https://api.thesisforge.tech";
+
+const ONTOLOGY_PATHS = [
+  "/api/ontology",
+  "/api/decision",
+  "/api/market",
+  "/api/overview",
+  "/api/graph",
+  "/api/methodology",
+  "/api/timeline",
+  "/api/rankings",
+  "/api/company",
+  "/api/snapshot"
+];
 
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",
@@ -31,7 +47,13 @@ function targetUrl(request) {
   const normalizedPath = String(path).startsWith("/")
     ? String(path)
     : `/${path}`;
-  const target = new URL(normalizedPath, AWS_ORIGIN);
+  const ontologyRequest = ONTOLOGY_PATHS.some((prefix) => (
+    normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`)
+  ));
+  const target = new URL(
+    normalizedPath,
+    ontologyRequest ? ONTOLOGY_API_ORIGIN : LEGACY_AWS_ORIGIN
+  );
   target.search = requestUrl.searchParams.toString();
   return target;
 }
