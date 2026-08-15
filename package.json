@@ -18,6 +18,7 @@
     "sync:ontology-ui": "python3 scripts/sync-ontology-frontend.py",
     "export:ontology": "python3 scripts/export-ontology-snapshot.py",
     "test:ontology": "node --test server/ontologyClient.test.js",
+    "test:proxy": "node --test api/proxy.test.js",
     "sync:youtube-transcripts": "python3 scripts/sync_youtube_transcripts.py",
     "refresh:podcast-insights": "node server/generatePodcastValuationInsights.js",
     "audit:valuation": "node server/unifiedValuationAudit.js",

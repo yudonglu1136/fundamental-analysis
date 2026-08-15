@@ -8,6 +8,7 @@ const ONTOLOGY_API_ORIGIN =
 const ONTOLOGY_PATHS = [
   "/api/ontology",
   "/api/decision",
+  "/api/strategies",
   "/api/market",
   "/api/overview",
   "/api/graph",
@@ -40,7 +41,7 @@ const REQUEST_HEADERS = [
   "user-agent"
 ];
 
-function targetUrl(request) {
+export function targetUrl(request) {
   const requestUrl = new URL(request.url, "https://thesisforge.tech");
   const path = request.query.path || "";
   requestUrl.searchParams.delete("path");
