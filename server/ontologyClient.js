@@ -158,6 +158,24 @@ export function loadOntologyOverview() {
   return loadPayload("fixed:decision_overview");
 }
 
+export function loadStrategyCatalog() {
+  return loadPayload("fixed:strategies");
+}
+
+export function loadStrategyDetail(strategyId) {
+  return loadPayload(`strategy_detail:${text(strategyId)}`);
+}
+
+export function loadStrategySnapshot({ strategyId, period, asOf }) {
+  const normalizedStrategy = text(strategyId);
+  const normalizedPeriod = text(period);
+  const date = isoDate(asOf);
+  if (!normalizedStrategy || !normalizedPeriod || !date) {
+    throw ontologyError("strategyId, period and as_of are required", "ontology_invalid_date");
+  }
+  return loadPayload(`strategy_snapshot:${normalizedStrategy}:${normalizedPeriod}:${date}`);
+}
+
 export function loadDecisionSnapshot({ asOf, sector, limit }) {
   const date = isoDate(asOf);
   const payload = loadPayload(`decision_snapshot:${date}`);
@@ -324,6 +342,13 @@ export function registerOntologyRoutes(app) {
   };
 
   app.get("/api/ontology/health", (_request, response) => send(response, ontologySnapshotInfo));
+  app.get("/api/strategies", (_request, response) => send(response, loadStrategyCatalog));
+  app.get("/api/strategies/:strategyId/snapshot", (request, response) => send(response, () => loadStrategySnapshot({
+    strategyId: request.params.strategyId,
+    period: request.query.period,
+    asOf: request.query.as_of
+  })));
+  app.get("/api/strategies/:strategyId", (request, response) => send(response, () => loadStrategyDetail(request.params.strategyId)));
   app.get("/api/ontology/overview", (_request, response) => send(response, loadOntologyOverview));
   app.get("/api/decision/overview", (_request, response) => send(response, loadOntologyOverview));
   app.get("/api/decision/snapshot", (request, response) => send(response, () => loadDecisionSnapshot({

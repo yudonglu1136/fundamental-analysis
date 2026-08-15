@@ -1,10 +1,10 @@
 {
-  "synced_at": "2026-08-15T13:15:10.728624+00:00",
+  "synced_at": "2026-08-15T14:58:00.795504+00:00",
   "source": "jansen_us_firm_replication/ai_ontology/frontend",
   "source_sha256": {
-    "index.html": "3f701422b87d51ca22edf5eb8ae224b2706e4832204c9505545eccab6c18e8e5",
-    "app.js": "c219237fc00eea70c1b90ca63aebf6b6066861410c15f079be41d0d9a297eb34",
-    "styles.css": "b1acb6b405704fded7682ed00be30a755143fddd2da0b24a3fdec222c908a3f2",
+    "index.html": "73d8ac09f3aa6b70f818f683ee97e1a1855e467693d4fffa122331ff7f2caf70",
+    "app.js": "08cba501edc68307774783a93758ddf0424621cc6a9427de1a410eb4b4de6e4d",
+    "styles.css": "108ce485f4fdbd294e7c9179debccdfa3a3a1e79dc3d8204ee10e62cc5801446",
     "favicon.svg": "11c0b9b6cef6d33928490d0232ed8aa5994ea3208561a397324eca6c53614e6e"
   }
 }

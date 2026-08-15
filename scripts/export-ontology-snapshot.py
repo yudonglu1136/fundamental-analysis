@@ -20,6 +20,7 @@ from typing import Any, Iterable
 
 
 FIXED_ROUTES = {
+    "strategies": "/api/strategies",
     "decision_overview": "/api/decision/overview",
     "market_home": "/api/market/home",
     "overview": "/api/overview",
@@ -209,6 +210,36 @@ def main() -> int:
         writer.put(f"fixed:{key}", payload)
         print(f"[fixed] {key}", flush=True)
 
+    strategy_details: dict[str, dict[str, Any]] = {}
+    strategy_snapshot_tasks: list[tuple[str, str]] = []
+    for strategy in fixed["strategies"].get("strategies") or []:
+        strategy_id = str(strategy.get("id") or "").strip()
+        if not strategy_id:
+            continue
+        detail = api.get(f"/api/strategies/{urllib.parse.quote(strategy_id)}")
+        strategy_details[strategy_id] = detail
+        writer.put(f"strategy_detail:{strategy_id}", detail)
+        for period, period_payload in (detail.get("periods") or {}).items():
+            dates = [iso_date(value) for value in period_payload.get("snapshot_dates") or []]
+            dates = [value for value in dates if value]
+            if args.current_only and dates:
+                dates = dates[-1:]
+            for as_of in dates:
+                query = urllib.parse.urlencode({"period": period, "as_of": as_of})
+                strategy_snapshot_tasks.append(
+                    (
+                        f"strategy_snapshot:{strategy_id}:{period}:{as_of}",
+                        f"/api/strategies/{urllib.parse.quote(strategy_id)}/snapshot?{query}",
+                    )
+                )
+        print(f"[strategy] {strategy_id}", flush=True)
+    strategy_results, strategy_errors = parallel_fetch(
+        api, strategy_snapshot_tasks, min(args.workers, 4), "strategy snapshots"
+    )
+    failures.extend(strategy_errors)
+    for key, payload in strategy_results:
+        writer.put(key, payload)
+
     decision_dates = sorted(
         {iso_date(point.get("month")) for point in fixed["decision_overview"].get("timeline") or []}
         - {""}
@@ -351,7 +382,7 @@ def main() -> int:
         if not failure["key"].startswith(("market_company:", "company:", "decision_company:"))
     ]
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "started_at": started_at,
         "source_origin": api.origin,
@@ -359,6 +390,8 @@ def main() -> int:
         "responses": writer.count,
         "uncompressed_json_bytes": writer.json_bytes,
         "decision_dates": len(decision_dates),
+        "strategies": len(strategy_details),
+        "strategy_snapshots": len(strategy_results),
         "market_groups": len(group_ids),
         "market_companies": len(market_tickers),
         "decision_companies": len(decision_tickers),
@@ -372,7 +405,7 @@ def main() -> int:
         ),
     }
     writer.set_metadata("manifest", manifest)
-    writer.set_metadata("schema_version", "1")
+    writer.set_metadata("schema_version", "2")
     writer.close()
 
     digest = sha256(output)

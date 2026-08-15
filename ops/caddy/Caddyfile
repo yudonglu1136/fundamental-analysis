@@ -2,6 +2,8 @@ api.thesisforge.tech {
   @ontology path \
     /api/ontology/* \
     /api/decision/* \
+    /api/strategies \
+    /api/strategies/* \
     /api/market/* \
     /api/overview \
     /api/graph \
