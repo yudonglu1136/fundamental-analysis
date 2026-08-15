@@ -8,7 +8,7 @@ const state = {
   marketIndustry: null,
   marketStage: null,
   marketFlowMode: "product",
-  marketNodeMetric: "revenue_yoy",
+  marketNodeMetric: "ontology_score",
   marketTimelineIndex: null,
   marketSnapshotRequest: 0,
   marketPlaying: false,
@@ -51,6 +51,14 @@ const stateColors = {
   improving: { fill: "#162f48", stroke: "#54b8f6", text: "#9bd8ff" },
   mixed: { fill: "#30291c", stroke: "#e0b15a", text: "#f2cc7c" },
   cooling: { fill: "#382027", stroke: "#e15a5a", text: "#ff9c9c" },
+};
+
+const ontologyStateColors = {
+  green_graph_confirmed: { fill: "#103630", stroke: "#22d3a6", text: "#7cebc8" },
+  green_peer_capture: { fill: "#102b27", stroke: "#18a878", text: "#72d5b4" },
+  blue_company_event: { fill: "#162f48", stroke: "#54b8f6", text: "#9bd8ff" },
+  invalid_or_watch: { fill: "#30291c", stroke: "#e0b15a", text: "#f2cc7c" },
+  unavailable: { fill: "#172033", stroke: "#708093", text: "#aab5c4" },
 };
 
 const stateLabels = {
@@ -145,6 +153,7 @@ function fmtCompact(value) {
 }
 
 function metricFormatter(metric, value) {
+  if (["ontology_score", "company_score", "peer_score"].includes(metric)) return fmtScore(value);
   if (metric === "heat_score") return safeNumber(value) === null ? "--" : `${Number(value).toFixed(0)}`;
   if (metric.includes("delta") || metric === "revenue_acceleration") return fmtPpt(value);
   return fmtPct(value);
@@ -152,6 +161,9 @@ function metricFormatter(metric, value) {
 
 function metricLabel(metric) {
   return {
+    ontology_score: "Ontology分",
+    company_score: "公司事件",
+    peer_score: "同行确认",
     revenue_yoy: "收入同比",
     revenue_acceleration: "收入加速",
     operating_income_yoy: "营业利润",
@@ -363,6 +375,94 @@ function renderCapMix() {
   }).join("");
 }
 
+function renderMarketEcosystemOntology(svg, ontology, stages) {
+  const compact = window.innerWidth < 700;
+  const columns = compact ? 2 : 3;
+  const width = compact ? 550 : 1160;
+  const height = compact ? 932 : 572;
+  const rootX = compact ? 168 : 36;
+  const rootY = compact ? 20 : 222;
+  const rootWidth = 214;
+  const rootHeight = 108;
+  const nodeWidth = 238;
+  const nodeHeight = 104;
+  const startX = compact ? 20 : 332;
+  const startY = compact ? 170 : 38;
+  const columnGap = compact ? 24 : 26;
+  const rowGap = 24;
+  svg.setAttribute("width", width);
+  svg.setAttribute("height", height);
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+  const positions = stages.map((stage, index) => ({
+    stage,
+    x: startX + (index % columns) * (nodeWidth + columnGap),
+    y: startY + Math.floor(index / columns) * (nodeHeight + rowGap),
+  }));
+  positions.forEach(({ x, y }) => {
+    svg.appendChild(svgElement("path", {
+      d: compact
+        ? `M ${rootX + rootWidth / 2} ${rootY + rootHeight} C ${rootX + rootWidth / 2} ${rootY + rootHeight + 34}, ${x + nodeWidth / 2} ${y - 34}, ${x + nodeWidth / 2} ${y}`
+        : `M ${rootX + rootWidth} ${rootY + rootHeight / 2} C ${rootX + rootWidth + 48} ${rootY + rootHeight / 2}, ${x - 48} ${y + nodeHeight / 2}, ${x} ${y + nodeHeight / 2}`,
+      fill: "none", stroke: "#41536b", "stroke-width": 1.25, opacity: 0.72,
+    }));
+  });
+
+  const root = svgElement("g");
+  root.appendChild(svgElement("rect", {
+    x: rootX, y: rootY, width: rootWidth, height: rootHeight, rx: 5,
+    fill: "#111f31", stroke: "#24c9a4", "stroke-width": 1.6,
+  }));
+  root.appendChild(svgElement("rect", { x: rootX, y: rootY, width: 5, height: rootHeight, fill: "#24c9a4" }));
+  addText(root, "MARKET UNIVERSE", rootX + 18, rootY + 25, { fill: "#7cebc8", "font-size": 9, "font-weight": 700 });
+  addText(root, state.marketDetail.group.short_name || state.marketDetail.group.name, rootX + 18, rootY + 51, { fill: "#f4f7fb", "font-size": 16, "font-weight": 750 });
+  addText(root, `${Number(state.marketDetail.group.companies || 0).toLocaleString()} 家 · ${fmtDate(ontology.as_of)}`, rootX + 18, rootY + 75, { fill: "#aab5c4", "font-size": 9.5 });
+  addText(root, "点击行业进入产业链", rootX + 18, rootY + 94, { fill: "#718096", "font-size": 8.5 });
+  svg.appendChild(root);
+
+  positions.forEach(({ stage, x, y }) => {
+    const groupId = stage.stage_id === "unclassified" ? null : `sector-${stage.stage_id}`;
+    const node = svgElement("g", { tabindex: groupId ? 0 : -1, role: groupId ? "button" : "group" });
+    if (groupId) node.style.cursor = "pointer";
+    node.appendChild(svgElement("rect", {
+      x, y, width: nodeWidth, height: nodeHeight, rx: 5,
+      fill: "#121d2e", stroke: stage.color || "#52657c", "stroke-width": 1.25,
+    }));
+    node.appendChild(svgElement("rect", { x, y, width: nodeWidth, height: 4, fill: stage.color || "#52657c" }));
+    addText(node, stage.name.slice(0, 16), x + 14, y + 25, { fill: "#f4f7fb", "font-size": 13, "font-weight": 750 });
+    addText(node, `${Number(stage.companies || 0).toLocaleString()} 家`, x + nodeWidth - 13, y + 25, { fill: "#aab5c4", "font-size": 9, "text-anchor": "end" });
+    const score = safeNumber(stage.event_median_ontology_score);
+    addText(node, `可执行 ${Number(stage.event_actionable || 0).toLocaleString()} · 中位分 ${score === null ? "--" : score.toFixed(2)}`, x + 14, y + 47, { fill: "#9fb0c4", "font-size": 8.7 });
+    const breadth = [
+      [stage.event_graph_confirmed, ontologyStateColors.green_graph_confirmed.stroke],
+      [stage.event_peer_confirmed, ontologyStateColors.green_peer_capture.stroke],
+      [stage.event_company, ontologyStateColors.blue_company_event.stroke],
+      [stage.event_watch, ontologyStateColors.invalid_or_watch.stroke],
+    ];
+    const total = Math.max(1, breadth.reduce((sum, [count]) => sum + Number(count || 0), 0));
+    let barX = x + 14;
+    breadth.forEach(([count, color]) => {
+      const segmentWidth = 210 * (Number(count || 0) / total);
+      if (segmentWidth > 0) node.appendChild(svgElement("rect", { x: barX, y: y + 61, width: segmentWidth, height: 6, fill: color }));
+      barX += segmentWidth;
+    });
+    addText(node, `图谱 ${stage.event_graph_confirmed || 0}  同行 ${stage.event_peer_confirmed || 0}  公司 ${stage.event_company || 0}  观察 ${stage.event_watch || 0}`, x + 14, y + 88, { fill: "#7f91a7", "font-size": 8.2 });
+    const title = svgElement("title");
+    title.textContent = groupId
+      ? `${stage.name}：打开行业价值链与公司 Event Ontology。`
+      : `${stage.name}：尚无可用行业价值链映射。`;
+    node.appendChild(title);
+    if (groupId) {
+      const activate = () => openMarketGroup(groupId);
+      node.addEventListener("click", activate);
+      node.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") activate();
+      });
+    }
+    svg.appendChild(node);
+  });
+}
+
 function renderValueChainOntology() {
   const ontology = state.marketDetail?.ontology;
   if (!ontology?.profile) {
@@ -371,19 +471,31 @@ function renderValueChainOntology() {
     return;
   }
   const svg = $("#market-ontology-graph");
+  const ecosystem = ontology.profile.ontology_type === "ecosystem";
+  const flowControl = $("#market-flow-control");
+  const metricControl = $("#market-node-metric-control");
   svg.innerHTML = "";
+  $("#market-ontology-scroll").classList.toggle("ecosystem", ecosystem);
+  if (flowControl) flowControl.hidden = ecosystem;
+  if (metricControl) metricControl.hidden = ecosystem;
+  $("#ontology-section-eyebrow").textContent = ecosystem ? "全市场 Event Ontology" : "行业 Event Ontology";
   const stages = ontology.stages.filter((stage) => Number(stage.companies || 0) > 0);
+  if (ecosystem) {
+    $("#value-chain-title").textContent = "行业入口与事件信号广度";
+    $("#market-value-chain-policy").textContent = `按 ${fmtDate(ontology.as_of)} 当时可用的 PIT 数据扫描各经济部门。连线仅表示市场到行业的分类关系；点击行业后才展示产业阶段与上下游结构。`;
+    renderMarketEcosystemOntology(svg, ontology, stages);
+    return;
+  }
+
   const byStage = new Map(stages.map((stage) => [stage.stage_id, stage.companies_preview || []]));
   $("#value-chain-title").textContent = ontology.profile.title;
-  $("#market-value-chain-policy").textContent = ontology.profile.ontology_type === "ecosystem"
-    ? `按 ${fmtDate(ontology.as_of)} 当时可用的数据展示当前成员的经济部门状态；节点之间不推断供应合同。`
-    : `按 ${fmtDate(ontology.as_of)} 当时可用的数据重放；阶段连线是行业结构，不代表已测量的公司合同或收入占比。`;
+  $("#market-value-chain-policy").textContent = `按 ${fmtDate(ontology.as_of)} 当时可用的数据重放；颜色表示 Event Ontology 的确认层级。阶段连线是研究定义的行业结构，不代表已测量的公司合同或收入占比。`;
 
   const left = 54;
   const top = 76;
   const columnWidth = 208;
   const nodeWidth = 180;
-  const nodeHeight = 43;
+  const nodeHeight = 47;
   const rowGap = 9;
   const maxRows = Math.max(1, ...stages.map((stage) => byStage.get(stage.stage_id).length));
   const width = Math.max(980, left * 2 + stages.length * columnWidth);
@@ -406,7 +518,6 @@ function renderValueChainOntology() {
     x: left + index * columnWidth,
     center: left + index * columnWidth + nodeWidth / 2,
   }));
-
   const productMode = state.marketFlowMode === "product";
   ontology.edges.forEach((edge) => {
     const source = positions.get(productMode ? edge.source_stage_id : edge.target_stage_id);
@@ -415,11 +526,8 @@ function renderValueChainOntology() {
     const lift = 16 + Math.abs(target.center - source.center) * 0.055;
     const path = svgElement("path", {
       d: `M ${source.center} 55 C ${source.center} ${55 - lift}, ${target.center} ${55 - lift}, ${target.center} 55`,
-      fill: "none",
-      stroke: productMode ? "#7d8793" : "#b66b25",
-      "stroke-width": 1.6,
-      opacity: 0.65,
-      "marker-end": `url(#${productMode ? "market-arrow" : "market-arrow-capital"})`,
+      fill: "none", stroke: productMode ? "#7d8793" : "#b66b25", "stroke-width": 1.6,
+      opacity: 0.65, "marker-end": `url(#${productMode ? "market-arrow" : "market-arrow-capital"})`,
     });
     const title = svgElement("title");
     title.textContent = `${edge.label}：${edge.description}`;
@@ -433,17 +541,13 @@ function renderValueChainOntology() {
     const header = svgElement("g", { tabindex: 0, role: "button", "data-stage-id": stage.stage_id });
     header.style.cursor = "pointer";
     header.appendChild(svgElement("rect", {
-      x, y: top, width: nodeWidth, height: 54, rx: 4,
-      fill: stage.color,
-      stroke: selected ? "#f7fafc" : stage.color,
-      "stroke-width": selected ? 2.5 : 1,
+      x, y: top, width: nodeWidth, height: 56, rx: 4, fill: stage.color,
+      stroke: selected ? "#f7fafc" : stage.color, "stroke-width": selected ? 2.5 : 1,
     }));
-    addText(header, stage.name.slice(0, 16), x + 11, top + 20, { fill: "white", "font-size": 12, "font-weight": 700 });
-    addText(header, `${stage.companies_with_fundamentals}/${stage.companies} 家`, x + nodeWidth - 10, top + 20, { fill: "white", "font-size": 9, "text-anchor": "end", opacity: 0.88 });
-    addText(header, `绿 ${stage.surging} · 蓝 ${stage.improving} · 热度 ${safeNumber(stage.median_heat_score)?.toFixed(0) || "--"}`, x + 11, top + 40, { fill: "white", "font-size": 8.5, opacity: 0.88 });
-    const headerTitle = svgElement("title");
-    headerTitle.textContent = `${stage.role} 点击筛选该阶段全部公司。`;
-    header.appendChild(headerTitle);
+    addText(header, stage.name.slice(0, 16), x + 11, top + 19, { fill: "white", "font-size": 11.5, "font-weight": 700 });
+    addText(header, `${stage.event_actionable || 0}/${stage.companies || 0} 可执行`, x + nodeWidth - 10, top + 19, { fill: "white", "font-size": 8.3, "text-anchor": "end", opacity: 0.9 });
+    addText(header, `图谱 ${stage.event_graph_confirmed || 0} · 同行 ${stage.event_peer_confirmed || 0} · 公司 ${stage.event_company || 0}`, x + 11, top + 38, { fill: "white", "font-size": 8.1, opacity: 0.92 });
+    addText(header, `中位分 ${safeNumber(stage.event_median_ontology_score)?.toFixed(2) || "--"}`, x + 11, top + 51, { fill: "white", "font-size": 7.5, opacity: 0.75 });
     const activateStage = () => {
       state.marketStage = stage.stage_id;
       state.marketIndustry = null;
@@ -460,28 +564,22 @@ function renderValueChainOntology() {
     svg.appendChild(header);
 
     byStage.get(stage.stage_id).forEach((company, rowIndex) => {
-      const y = top + 68 + rowIndex * (nodeHeight + rowGap);
-      const palette = stateColors[company.signal_state] || stateColors.mixed;
+      const y = top + 70 + rowIndex * (nodeHeight + rowGap);
+      const palette = ontologyStateColors[company.signal_state] || ontologyStateColors.unavailable;
       const group = svgElement("g", { tabindex: 0, role: "button", "data-market-ticker": company.ticker });
       group.style.cursor = "pointer";
-      group.appendChild(svgElement("rect", {
-        x, y, width: nodeWidth, height: nodeHeight, rx: 4,
-        fill: palette.fill, stroke: palette.stroke, "stroke-width": 1.1,
-      }));
-      group.appendChild(svgElement("rect", {
-        x, y, width: Math.max(3, nodeWidth * Math.min(1, Math.max(0, (company.heat_score || 0) / 100))),
-        height: 3, fill: palette.stroke,
-      }));
-      group.appendChild(svgElement("circle", { cx: x + 12, cy: y + 15, r: 4, fill: palette.stroke }));
-      addText(group, company.ticker, x + 21, y + 18, { fill: palette.text, "font-size": 11.5, "font-weight": 750 });
+      group.appendChild(svgElement("rect", { x, y, width: nodeWidth, height: nodeHeight, rx: 4, fill: palette.fill, stroke: palette.stroke, "stroke-width": 1.1 }));
+      const strength = Math.min(1, Math.max(0.05, (safeNumber(company.ontology_score) || 0) / 2.5));
+      group.appendChild(svgElement("rect", { x, y, width: nodeWidth * strength, height: 3, fill: palette.stroke }));
+      group.appendChild(svgElement("circle", { cx: x + 12, cy: y + 16, r: 4, fill: palette.stroke }));
+      addText(group, company.ticker, x + 21, y + 19, { fill: palette.text, "font-size": 11.5, "font-weight": 750 });
       const metric = company[state.marketNodeMetric];
-      addText(group, metricFormatter(state.marketNodeMetric, metric), x + nodeWidth - 9, y + 18, {
-        fill: safeNumber(metric) !== null && metric < 0 ? "#ff9c9c" : "#f7fafc",
-        "font-size": 9.5, "font-weight": 650, "text-anchor": "end",
+      addText(group, metricFormatter(state.marketNodeMetric, metric), x + nodeWidth - 9, y + 19, {
+        fill: safeNumber(metric) !== null && metric < 0 ? "#ff9c9c" : "#f7fafc", "font-size": 9.5, "font-weight": 650, "text-anchor": "end",
       });
-      addText(group, (company.name || "").replace(/ INC$| CORP$| LTD$| PLC$/g, "").slice(0, 23), x + 10, y + 34, { fill: "#aab5c4", "font-size": 8.3 });
+      addText(group, `${company.signal_label || decisionStateLabels[company.signal_state] || "事件"} · ${fmtDate(company.information_date)}`, x + 10, y + 37, { fill: "#aab5c4", "font-size": 8.1 });
       const title = svgElement("title");
-      title.textContent = `${company.ticker} · ${stateLabels[company.signal_state] || company.signal_state} · 热度 ${safeNumber(company.heat_score)?.toFixed(0) || "--"} · ${metricLabel(state.marketNodeMetric)} ${metricFormatter(state.marketNodeMetric, metric)}`;
+      title.textContent = `${company.ticker} · ${company.signal_label || decisionStateLabels[company.signal_state]} · ${metricLabel(state.marketNodeMetric)} ${metricFormatter(state.marketNodeMetric, metric)} · 信息日 ${fmtDate(company.information_date)}`;
       group.appendChild(title);
       group.addEventListener("click", () => showMarketCompany(company.ticker, company));
       group.addEventListener("keydown", (event) => {
@@ -499,11 +597,11 @@ function marketTimelinePoint(index) {
 function renderMarketTimelineTrack() {
   const points = state.marketDetail?.signal_timeline || [];
   if (!points.length) return;
-  const maxSurging = Math.max(1, ...points.map((point) => point.surging || 0));
+  const maxActionable = Math.max(1, ...points.map((point) => point.event_actionable || point.surging || 0));
   $("#market-timeline-bars").innerHTML = points.map((point, index) => {
-    const height = 5 + ((point.surging || 0) / maxSurging) * 25;
+    const height = 5 + ((point.event_actionable || point.surging || 0) / maxActionable) * 25;
     const active = index === state.marketTimelineIndex ? " active" : "";
-    return `<button class="market-timeline-bar${active}" data-market-index="${index}" style="--bar-height:${height.toFixed(1)}px" title="${fmtDate(point.as_of)} · 绿色 ${point.surging} · 蓝色 ${point.improving}" aria-label="行业财务快照 ${fmtDate(point.as_of)}"></button>`;
+    return `<button class="market-timeline-bar${active}" data-market-index="${index}" style="--bar-height:${height.toFixed(1)}px" title="${fmtDate(point.as_of)} · 可执行 ${point.event_actionable || 0} · 图谱 ${point.event_graph_confirmed || 0} · 同行 ${point.event_peer_confirmed || 0} · 公司 ${point.event_company || 0}" aria-label="Event Ontology 快照 ${fmtDate(point.as_of)}"></button>`;
   }).join("");
   $$(".market-timeline-bar").forEach((bar) => bar.addEventListener("click", () => {
     stopMarketTimelinePlayback();
@@ -519,8 +617,8 @@ function updateMarketTimelineReadout(index, loading = false) {
   const latest = index === state.marketDetail.signal_timeline.length - 1;
   $("#market-timeline-date").textContent = `${latest ? "最新 · " : "历史 · "}${fmtDate(point.as_of)}`;
   $("#market-timeline-status").textContent = loading
-    ? `正在重建 ${fmtDate(point.as_of)} 的行业内 PIT 财务状态…`
-    : `${Number(point.available_companies || 0).toLocaleString()} / ${Number(point.membership_companies || 0).toLocaleString()} 家可用 · 绿色 ${point.surging} · 蓝色 ${point.improving} · 黄色 ${point.mixed} · 红色 ${point.cooling}`;
+    ? `正在重建 ${fmtDate(point.as_of)} 的 PIT Event Ontology…`
+    : `${Number(point.event_actionable || 0).toLocaleString()} 个可执行事件 · 图谱确认 ${point.event_graph_confirmed || 0} · 同行确认 ${point.event_peer_confirmed || 0} · 公司改善 ${point.event_company || 0} · 观察 ${point.event_watch || 0}`;
 }
 
 async function setMarketTimelineIndex(index) {
@@ -623,30 +721,28 @@ function renderIndustryStructure() {
 }
 
 function companyNode(company) {
+  const stateClass = decisionStateClasses[company.signal_state] || "watch";
   return `
-    <button class="market-company-node" data-market-ticker="${escapeHtml(company.ticker)}" title="${escapeHtml(company.name)}">
+    <button class="market-company-node ${stateClass}" data-market-ticker="${escapeHtml(company.ticker)}" title="${escapeHtml(company.name)} · ${escapeHtml(company.signal_label || "暂无事件")}">
       <strong>${escapeHtml(company.ticker)}</strong>
-      <span>${fmtPct(company.revenue_yoy)}</span>
-      <small>${fmtMoney(company.marketcap_usd)}</small>
+      <span>${fmtScore(company.ontology_score)}</span>
+      <small>${escapeHtml(company.signal_label || "暂无事件")} · ${fmtDate(company.information_date)}</small>
     </button>
   `;
 }
 
 function renderCompanyOntology(companies) {
-  const byIndustry = new Map();
+  const byStage = new Map();
   companies.forEach((company) => {
-    const industry = company.industry || "Unclassified";
-    if (!byIndustry.has(industry)) byIndustry.set(industry, []);
-    byIndustry.get(industry).push(company);
+    const stage = company.stage_name || company.industry || "未分类";
+    if (!byStage.has(stage)) byStage.set(stage, []);
+    byStage.get(stage).push(company);
   });
-  const groups = [...byIndustry.entries()].sort((a, b) => {
-    const capA = a[1].reduce((sum, item) => sum + (safeNumber(item.marketcap_usd) || 0), 0);
-    const capB = b[1].reduce((sum, item) => sum + (safeNumber(item.marketcap_usd) || 0), 0);
-    return capB - capA;
-  }).slice(0, state.marketIndustry ? 1 : 12);
-  $("#company-ontology").innerHTML = groups.map(([industry, items]) => `
+  const order = new Map((state.marketDetail?.ontology?.stages || []).map((stage, index) => [stage.name, index]));
+  const groups = [...byStage.entries()].sort((a, b) => (order.get(a[0]) ?? 999) - (order.get(b[0]) ?? 999)).slice(0, state.marketIndustry ? 1 : 12);
+  $("#company-ontology").innerHTML = groups.map(([stage, items]) => `
     <section class="ontology-lane">
-      <header><strong>${escapeHtml(industry)}</strong><span>${items.length} 家已载入</span></header>
+      <header><strong>${escapeHtml(stage)}</strong><span>${items.length} 家已载入 · Event Ontology 排序</span></header>
       <div>${items.slice(0, state.marketIndustry ? 60 : 14).map(companyNode).join("")}</div>
     </section>
   `).join("");
@@ -657,12 +753,12 @@ function renderMarketCompanyTable(companies, append = false) {
   const html = companies.map((company) => `
     <tr data-market-ticker="${escapeHtml(company.ticker)}">
       <td class="ticker-cell"><strong>${escapeHtml(company.ticker)}</strong><span>${escapeHtml(company.name)}</span></td>
-      <td>${escapeHtml(company.industry || "--")}</td>
-      <td>${escapeHtml(capBucketLabels[company.cap_bucket] || company.cap_bucket || "--")}</td>
+      <td>${escapeHtml(company.stage_name || company.industry || "--")}</td>
+      <td><span class="decision-state ${decisionStateClasses[company.signal_state] || "watch"}">${escapeHtml(company.signal_label || "暂无事件")}</span></td>
+      <td>${fmtScore(company.ontology_score)}</td>
       <td>${fmtMoney(company.marketcap_usd)}</td>
       <td class="${metricClass(company.revenue_yoy)}">${fmtPct(company.revenue_yoy)}</td>
       <td class="${metricClass(company.operating_income_yoy)}">${fmtPct(company.operating_income_yoy)}</td>
-      <td>${fmtPct(company.gross_margin)}</td>
       <td>${fmtPct(company.operating_margin)}</td>
       <td>${fmtPct(company.net_margin)}</td>
     </tr>
@@ -695,7 +791,7 @@ async function loadMarketCompanies(reset = true) {
     ? `${state.marketIndustry} → 公司`
     : state.marketStage
       ? `${state.marketDetail.ontology.stages.find((stage) => stage.stage_id === state.marketStage)?.name || state.marketStage} → 公司`
-      : `${state.marketDetail.group.name} → 子行业 → 公司`;
+      : `${state.marketDetail.group.name} → ${state.marketDetail.ontology.profile.ontology_type === "ecosystem" ? "行业分类" : "产业阶段"} → 公司`;
   const more = state.marketCompanyOffset < state.marketCompanyTotal;
   $("#market-load-more").hidden = !more;
   $("#market-load-more").textContent = more
@@ -710,7 +806,7 @@ async function openMarketGroup(groupId) {
   state.marketIndustry = null;
   state.marketStage = null;
   state.marketFlowMode = "product";
-  state.marketNodeMetric = "revenue_yoy";
+  state.marketNodeMetric = "ontology_score";
   state.marketTimelineIndex = null;
   state.marketTrendMode = "revenue";
   $("#market-home").hidden = true;
@@ -727,7 +823,7 @@ async function openMarketGroup(groupId) {
     $("#clear-industry-filter").hidden = true;
     $("#clear-value-chain-filter").hidden = true;
     $("#market-company-search").value = "";
-    $("#market-company-sort").value = "marketcap";
+    $("#market-company-sort").value = "ontology_score";
     $("#market-node-metric").value = state.marketNodeMetric;
     $$(".trend-tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.trend === "revenue"));
     renderGroupSummary(group);
@@ -742,7 +838,7 @@ async function openMarketGroup(groupId) {
     state.marketCompanyTotal = group.companies;
     renderMarketCompanyTable(state.marketCompanies);
     renderCompanyOntology(state.marketCompanies);
-    $("#company-ontology-title").textContent = `${group.name} → 子行业 → 公司`;
+    $("#company-ontology-title").textContent = `${group.name} → ${state.marketDetail.ontology.profile.ontology_type === "ecosystem" ? "行业分类" : "产业阶段"} → 公司`;
     $("#market-load-more").hidden = state.marketCompanyOffset >= state.marketCompanyTotal;
     if (!$("#market-load-more").hidden) {
       $("#market-load-more").textContent = `载入更多 · 已显示 ${state.marketCompanyOffset.toLocaleString()} / ${Number(state.marketCompanyTotal).toLocaleString()}`;

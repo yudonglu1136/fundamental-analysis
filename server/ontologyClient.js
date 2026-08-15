@@ -12,6 +12,9 @@ const payloadCache = new Map();
 const cacheLimit = 48;
 
 const marketSortFields = new Set([
+  "ontology_score",
+  "company_score",
+  "peer_score",
   "marketcap",
   "revenue_yoy",
   "operating_income_yoy",
@@ -93,6 +96,15 @@ function isoDate(value) {
 function marketSortValue(row, sort) {
   if (sort === "marketcap") return number(row.marketcap_usd);
   return number(row[sort]);
+}
+
+function decisionStateRank(row) {
+  return {
+    green_graph_confirmed: 1,
+    green_peer_capture: 2,
+    blue_company_event: 3,
+    invalid_or_watch: 4
+  }[text(row.signal_state)] || 5;
 }
 
 function rankingSortValue(row, sort) {
@@ -199,7 +211,17 @@ export function loadMarketGroupCompanies({
     }
     return true;
   });
-  companies = sortRows(companies, (row) => marketSortValue(row, sort));
+  if (["ontology_score", "company_score", "peer_score"].includes(sort)) {
+    companies = [...companies].sort((left, right) => {
+      const stateDelta = decisionStateRank(left) - decisionStateRank(right);
+      if (stateDelta !== 0) return stateDelta;
+      const metricDelta = marketSortValue(right, sort) - marketSortValue(left, sort);
+      if (Number.isFinite(metricDelta) && metricDelta !== 0) return metricDelta;
+      return text(left.ticker).localeCompare(text(right.ticker));
+    });
+  } else {
+    companies = sortRows(companies, (row) => marketSortValue(row, sort));
+  }
   const start = boundedInteger(offset, 0, 0, Number.MAX_SAFE_INTEGER);
   const pageSize = boundedInteger(limit, 120, 1, 500);
   return {

@@ -35,8 +35,8 @@ put("decision_snapshot:2026-08-01", {
 });
 put("market_group_companies:market-all", {
   companies: [
-    { ticker: "AAA", name: "Alpha", industry: "Software", marketcap_usd: 10, revenue_yoy: 0.1 },
-    { ticker: "BBB", name: "Beta", industry: "Energy", marketcap_usd: 20, revenue_yoy: 0.2 }
+    { ticker: "AAA", name: "Alpha", industry: "Software", marketcap_usd: 10, revenue_yoy: 0.1, ontology_score: 1.1, signal_state: "green_peer_capture" },
+    { ticker: "BBB", name: "Beta", industry: "Energy", marketcap_usd: 20, revenue_yoy: 0.2, ontology_score: 1.5, signal_state: "invalid_or_watch" }
   ]
 });
 put("market_group_companies:market-all:stage:software", {
@@ -81,6 +81,13 @@ test("filters market stages and ranks requested metrics", () => {
 
   const rankings = ontology.loadRankings({ sort: "heat_score", limit: 2 });
   assert.deepEqual(rankings.companies.map((row) => row.ticker), ["BBB", "AAA"]);
+
+  const eventRanked = ontology.loadMarketGroupCompanies({
+    groupId: "market-all",
+    sort: "ontology_score",
+    limit: 20
+  });
+  assert.deepEqual(eventRanked.companies.map((row) => row.ticker), ["AAA", "BBB"]);
 });
 
 test("search prioritizes an exact ticker", () => {
