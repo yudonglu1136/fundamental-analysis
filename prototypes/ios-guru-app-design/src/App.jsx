@@ -1,5 +1,4 @@
 import {
-  Bank,
   CalendarCheck,
   ChartLineUp,
   CheckCircle,
@@ -413,7 +412,7 @@ function ChartCard() {
 function TabBar({ active }) {
   const items = [
     ["Guru", Sparkle],
-    ["DBMF", Bank],
+    ["Ontology", ChartLineUp],
     ["Valuation", TrendUp],
     ["Portfolio", SquaresFour],
   ];

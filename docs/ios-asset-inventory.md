@@ -87,7 +87,7 @@ Each state should include a clear recovery action, not only an exception string.
 
 ## Native Interaction Assets
 
-- Tab icons for Guru, DBMF, Valuation, Portfolio.
+- Tab icons for Guru, Ontology, Valuation, Portfolio.
 - Refresh icon.
 - Search icon.
 - Add account icon.

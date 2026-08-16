@@ -5,7 +5,7 @@ Product Design prototype for the future iOS version of Guru Intelligence.
 Confirmed product direction:
 
 - First release is Guru-research-first.
-- Bottom tabs: Guru, DBMF, Valuation, Portfolio.
+- Bottom tabs: Guru, Ontology, Valuation, Portfolio.
 - Visual language follows the existing dark buy-side terminal.
 - Portfolio remains a core tab, but not the first screen after login.
 
