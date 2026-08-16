@@ -33,6 +33,10 @@
       "continue": true
     },
     {
+      "src": "^/dbmf(?:/.*)?$",
+      "dest": "/?view=ontology"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/api/proxy.js?path=/api/$1"
     },

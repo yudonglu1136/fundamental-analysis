@@ -2,6 +2,8 @@ import 'package:web/web.dart' as web;
 
 Map<String, String> readBrowserQuery() => Uri.base.queryParameters;
 
+String readBrowserPath() => Uri.base.path;
+
 void replaceBrowserQuery(Map<String, String?> updates) {
   final current = Uri.base;
   final nextParams = Map<String, String>.from(current.queryParameters);

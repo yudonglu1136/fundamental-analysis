@@ -38,6 +38,14 @@ String? ontologyReturnPath(String? value) {
   if (candidate.isEmpty) return null;
   final uri = Uri.tryParse(candidate);
   if (uri == null || uri.hasScheme || uri.hasAuthority) return null;
+  if (uri.path == '/dbmf' || uri.path.startsWith('/dbmf/')) {
+    final suffix = uri.path.substring('/dbmf'.length);
+    return Uri(
+      path: '/ontology${suffix.isEmpty ? '/' : suffix}',
+      query: uri.hasQuery ? uri.query : null,
+      fragment: uri.hasFragment ? uri.fragment : null,
+    ).toString();
+  }
   if (uri.path != '/ontology' && !uri.path.startsWith('/ontology/')) {
     return null;
   }
@@ -386,7 +394,10 @@ class _TerminalHomeState extends State<TerminalHome>
       (_) => _recoverSecondaryIfNeeded(),
     );
     final route = readBrowserQuery();
-    _mode = normalizeRouteMode(route['view'] ?? route['mode']);
+    _mode = normalizeRouteMode(
+      route['view'] ?? route['mode'],
+      path: readBrowserPath(),
+    );
     if (_mode == 'admin' && !_adminEnabled) _mode = 'guru';
     _selectedGuruId = cleanRouteValue(route['guru']);
     _guruModule = guruModuleIndex(route['module']);
@@ -19791,10 +19802,15 @@ String shortText(String value, [int length = 10]) {
   return cleaned.substring(0, length);
 }
 
-String normalizeRouteMode(String? value) {
+String normalizeRouteMode(String? value, {String? path}) {
   final mode = value?.trim().toLowerCase() ?? '';
   // Preserve old bookmarks without retaining the retired DBMF screen.
-  if (mode == 'dbmf') return 'ontology';
+  final normalizedPath = path?.trim().toLowerCase() ?? '';
+  if (mode == 'dbmf' ||
+      normalizedPath == '/dbmf' ||
+      normalizedPath.startsWith('/dbmf/')) {
+    return 'ontology';
+  }
   return const {
         'guru',
         'ontology',
