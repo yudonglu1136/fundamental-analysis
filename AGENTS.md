@@ -39,6 +39,11 @@ The Supabase key is browser-publishable. Never use or expose a Supabase service-
 
 ## Build And Deploy
 
+DBMF is retired. Ontology is the only production replacement for that module.
+Do not restore a DBMF tab, screen, API route, build artifact, or deployment.
+Legacy `mode=dbmf`, `/dbmf`, and `/api/dbmf` requests must resolve to Ontology.
+Never promote a Vercel deployment built from a branch other than `trunk`.
+
 For frontend changes:
 
 1. Commit and push to GitHub `trunk`.

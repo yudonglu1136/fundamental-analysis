@@ -30,3 +30,10 @@ test("keeps unrelated API requests on the legacy backend", () => {
     "https://legacy.example/api/gurus"
   );
 });
+
+test("rewrites the retired DBMF endpoint to Ontology", () => {
+  assert.equal(
+    targetUrl(request("/api/dbmf", "?refresh=1")).href,
+    "https://ontology.example/api/ontology/overview?refresh=1"
+  );
+});

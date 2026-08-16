@@ -5,6 +5,10 @@ const ONTOLOGY_API_ORIGIN =
   process.env.ONTOLOGY_API_ORIGIN ||
   "https://api.thesisforge.tech";
 
+const RETIRED_PATH_ALIASES = new Map([
+  ["/api/dbmf", "/api/ontology/overview"]
+]);
+
 const ONTOLOGY_PATHS = [
   "/api/ontology",
   "/api/decision",
@@ -48,11 +52,12 @@ export function targetUrl(request) {
   const normalizedPath = String(path).startsWith("/")
     ? String(path)
     : `/${path}`;
+  const targetPath = RETIRED_PATH_ALIASES.get(normalizedPath) || normalizedPath;
   const ontologyRequest = ONTOLOGY_PATHS.some((prefix) => (
-    normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`)
+    targetPath === prefix || targetPath.startsWith(`${prefix}/`)
   ));
   const target = new URL(
-    normalizedPath,
+    targetPath,
     ontologyRequest ? ONTOLOGY_API_ORIGIN : LEGACY_AWS_ORIGIN
   );
   target.search = requestUrl.searchParams.toString();

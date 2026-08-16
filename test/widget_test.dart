@@ -12,6 +12,18 @@ void main() {
     expect(ontologyReturnPath('https://example.com/ontology/'), isNull);
     expect(ontologyReturnPath('//example.com/ontology/'), isNull);
     expect(ontologyReturnPath('/ontology-admin'), isNull);
+    expect(ontologyReturnPath('/dbmf'), '/ontology/');
+    expect(
+      ontologyReturnPath('/dbmf/?view=market#latest'),
+      '/ontology/?view=market#latest',
+    );
+  });
+
+  test('redirects retired DBMF routes to the Ontology module', () {
+    expect(normalizeRouteMode('dbmf'), 'ontology');
+    expect(normalizeRouteMode(null, path: '/dbmf'), 'ontology');
+    expect(normalizeRouteMode(null, path: '/dbmf/history'), 'ontology');
+    expect(normalizeRouteMode('valuation', path: '/'), 'valuation');
   });
 
   testWidgets('renders the auth shell', (WidgetTester tester) async {
