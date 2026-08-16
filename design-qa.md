@@ -21,7 +21,7 @@ Passed:
 P3 follow-up:
 - Header strategy text truncates in tight center widths; acceptable for this pass, but can be refined with a wider metrics allocation or tooltip.
 
-## DBMF / Valuation Terminal Refresh
+## Ontology / Valuation Terminal Refresh
 
 final result: passed
 
@@ -32,8 +32,8 @@ Prototype checked: release build served locally and deployed to `https://www.the
 Checked viewport: desktop terminal layout. Browser canvas screenshot capture timed out on the Flutter surface, but the release page loaded without console errors and production build/tests passed.
 
 Passed:
-- DBMF now opens as a focused exposure terminal instead of a large marketing-style hero: compact mode header, exposure book as the primary task, and posture/source context in the right rail.
-- DBMF retains the previous-period marker on exposure bars with hover tooltip for date and value.
+- Ontology now opens as the market-structure and PIT-signal workspace, with strategy evidence, graph context, and historical snapshots as the primary tasks.
+- Legacy module links resolve to Ontology without exposing the retired screen or navigation label.
 - Valuation now follows the same terminal rhythm: compact mode header, searchable ticker matrix, detail chart/workspace, and model distribution/source controls in a right rail.
 - Valuation keeps ticker click-through into historical valuation and price trend detail, while the search bar supports direct ticker lookup.
 - Both modes share the same spacing, panel radius, icon treatment, muted labels, and metric typography as the Guru screen.

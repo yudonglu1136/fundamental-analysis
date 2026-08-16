@@ -78,7 +78,7 @@ Review.
 - App Review contact filled in.
 - Demo account or demo video prepared. Because IBKR/Yodlee account linking is
   hard for reviewers to reproduce, include a reviewer note and a seeded demo
-  account that shows Guru, DBMF, Valuation, and Portfolio screens.
+  account that shows Guru, Ontology, Valuation, and Portfolio screens.
 - Export compliance answered. If only standard HTTPS/TLS encryption is used,
   answer accordingly in App Store Connect.
 - Age rating completed. Finance/research content generally should avoid any

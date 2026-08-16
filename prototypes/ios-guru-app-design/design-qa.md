@@ -28,7 +28,7 @@ semantics, real generated manager avatars from the existing product assets, and
 compact research modules.
 
 The iOS hierarchy follows the confirmed brief: Guru is the first-release
-primary tab, while DBMF, Valuation, and Portfolio remain bottom-tab peers.
+primary tab, while Ontology, Valuation, and Portfolio remain bottom-tab peers.
 
 ## Focused region comparison evidence
 

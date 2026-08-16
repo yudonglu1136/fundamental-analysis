@@ -28,7 +28,7 @@ data.
 Use a native bottom tab bar with four tabs:
 
 1. Guru
-2. DBMF
+2. Ontology
 3. Valuation
 4. Portfolio
 
@@ -114,16 +114,16 @@ Mobile pattern:
 - Position contribution list sorted by contribution.
 - Selected quarter should highlight corresponding chart point where applicable.
 
-### 7. DBMF
+### 7. Ontology
 
-Purpose: make the exposure book readable at a glance.
+Purpose: turn PIT fundamentals and company/industry relationships into explainable investment decisions.
 
 Mobile pattern:
 
-- Exposure rows sorted by absolute net exposure.
-- Previous-period dot on every bar.
-- Long-press tooltip for current and previous exposure.
-- Source and update timestamp tucked into a small info row, not a hero.
+- Strategy cards with NAV, benchmark, drawdown, and Sharpe comparisons.
+- Current and historical holding snapshots with buy, hold, and sell explanations.
+- Industry and company graph drill-down with peer and upstream/downstream confirmation.
+- Filing availability date and source timestamp visible for every PIT signal.
 
 ### 8. Valuation Matrix
 
