@@ -36,6 +36,26 @@
   <script>
     // Remove the legacy Flutter PWA cache used by earlier Guru releases.
     (() => {
+      const currentUrl = new URL(window.location.href);
+      const requestedView = (
+        currentUrl.searchParams.get('view') ||
+        currentUrl.searchParams.get('mode') ||
+        ''
+      ).toLowerCase();
+      const isLegacyOntologyRoute =
+        requestedView === 'ontology' ||
+        window.location.pathname === '/dbmf' ||
+        window.location.pathname.startsWith('/dbmf/');
+      const isAuthCallback =
+        currentUrl.searchParams.has('code') ||
+        currentUrl.searchParams.has('error') ||
+        window.location.hash.includes('access_token=');
+
+      if (isLegacyOntologyRoute && !isAuthCallback) {
+        window.location.replace('/ontology/');
+        return;
+      }
+
       const release = 'ontology-auth-refresh-v1';
       const loadFlutter = () => {
         const script = document.createElement('script');
