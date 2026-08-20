@@ -398,6 +398,10 @@ class _TerminalHomeState extends State<TerminalHome>
       route['view'] ?? route['mode'],
       path: readBrowserPath(),
     );
+    if (_mode == 'ontology') {
+      _mode = 'guru';
+      scheduleMicrotask(() => openBrowserPath('/ontology/'));
+    }
     if (_mode == 'admin' && !_adminEnabled) _mode = 'guru';
     _selectedGuruId = cleanRouteValue(route['guru']);
     _guruModule = guruModuleIndex(route['module']);
@@ -544,6 +548,10 @@ class _TerminalHomeState extends State<TerminalHome>
 
   void _changeMode(String mode) {
     if (mode == 'admin' && !_adminEnabled) return;
+    if (mode == 'ontology') {
+      openBrowserPath('/ontology/');
+      return;
+    }
     setState(() {
       _mode = mode;
       _secondaryError = null;
