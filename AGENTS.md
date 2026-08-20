@@ -58,3 +58,26 @@ For backend changes:
    `INCLUDE_FRONTEND_DIST=1 bash scripts/package-aws-backend.sh`.
 
 See `docs/deployment-contract.md` for the full runbook.
+
+## 13F Refresh Completion Contract
+
+A 13F refresh is complete only when every affected manager has been rebuilt and
+all downstream product views agree on the same latest public filing. After new
+13F data is imported:
+
+1. Refresh the manager snapshot and all-history backtest cache.
+2. Verify the profile header latest quarter, filing date, filing lag, AUM, and
+   holdings count.
+3. Verify New Buys & Sells, Quarterly Contribution, 13F Book History, and the
+   Portfolio vs SPY simulation all include the new filing.
+4. Verify the `guru-top3-consensus` strategy recomputes. It reads the all-history
+   caches for Gavin Baker, Bill Ackman, and Stanley Druckenmiller, takes each
+   manager's latest publicly available Top 3, merges duplicate tickers once,
+   and equal-weights the unique set.
+5. Run `npm run test:ontology`, then test the catalog, detail, and snapshot API
+   routes before deployment.
+
+The consensus cache key includes each source backtest `generatedAt` value and
+the latest SPY price date, so a source 13F refresh or daily price update must
+invalidate it automatically. Never add a future quarter placeholder to strategy
+returns; a quarter is available only after its filing has been made public.

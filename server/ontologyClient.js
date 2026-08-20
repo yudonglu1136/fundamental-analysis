@@ -3,6 +3,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
 import { DatabaseSync } from "node:sqlite";
+import {
+  GURU_CONSENSUS_STRATEGY_ID,
+  loadGuruConsensusCatalogEntry,
+  loadGuruConsensusStrategyDetail,
+  loadGuruConsensusStrategySnapshot
+} from "./guruConsensusStrategy.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const defaultSnapshotPath = path.join(__dirname, "data", "ontology-snapshot.sqlite");
@@ -159,10 +165,17 @@ export function loadOntologyOverview() {
 }
 
 export function loadStrategyCatalog() {
-  return loadPayload("fixed:strategies");
+  const catalog = loadPayload("fixed:strategies");
+  const consensus = loadGuruConsensusCatalogEntry();
+  return {
+    ...catalog,
+    as_of: [catalog.as_of, consensus.latest_date].filter(Boolean).sort().at(-1) || catalog.as_of,
+    strategies: [...(catalog.strategies || []).filter((strategy) => strategy.id !== GURU_CONSENSUS_STRATEGY_ID), consensus]
+  };
 }
 
 export function loadStrategyDetail(strategyId) {
+  if (text(strategyId) === GURU_CONSENSUS_STRATEGY_ID) return loadGuruConsensusStrategyDetail();
   return loadPayload(`strategy_detail:${text(strategyId)}`);
 }
 
@@ -172,6 +185,9 @@ export function loadStrategySnapshot({ strategyId, period, asOf }) {
   const date = isoDate(asOf);
   if (!normalizedStrategy || !normalizedPeriod || !date) {
     throw ontologyError("strategyId, period and as_of are required", "ontology_invalid_date");
+  }
+  if (normalizedStrategy === GURU_CONSENSUS_STRATEGY_ID) {
+    return loadGuruConsensusStrategySnapshot({ period: normalizedPeriod, asOf: date });
   }
   return loadPayload(`strategy_snapshot:${normalizedStrategy}:${normalizedPeriod}:${date}`);
 }
@@ -258,6 +274,18 @@ export function loadMarketCompany(ticker) {
   return loadPayload(`market_company:${text(ticker).toUpperCase()}`);
 }
 
+export function loadValuationHeatmap() {
+  return loadPayload("fixed:valuation_heatmap");
+}
+
+export function loadValuationHeatmapSnapshot({ groupId, asOf }) {
+  const normalizedGroup = text(groupId);
+  if (!normalizedGroup.startsWith("sector-")) {
+    throw ontologyError("group_id must identify a sector", "ontology_invalid_group");
+  }
+  return loadPayload(`valuation_heatmap_snapshot:${normalizedGroup}:${isoDate(asOf)}`);
+}
+
 export function searchMarketCompanies(query, limit = 20) {
   const token = text(query).toLowerCase();
   if (!token) return { query: "", companies: [] };
@@ -332,7 +360,7 @@ export function registerOntologyRoutes(app) {
       response.setHeader("Cache-Control", "private, max-age=300");
       response.json(callback());
     } catch (error) {
-      const status = error.code === "ontology_invalid_date" || error.code === "ontology_invalid_sort"
+      const status = error.code === "ontology_invalid_date" || error.code === "ontology_invalid_sort" || error.code === "ontology_invalid_group"
         ? 400
         : error.code === "ontology_payload_missing"
           ? 404
@@ -360,6 +388,11 @@ export function registerOntologyRoutes(app) {
 
   app.get("/api/market/health", (_request, response) => send(response, ontologySnapshotInfo));
   app.get("/api/market/home", (_request, response) => send(response, () => loadFixedOntologyPayload("market_home")));
+  app.get("/api/market/valuation-heatmap", (_request, response) => send(response, loadValuationHeatmap));
+  app.get("/api/market/valuation-heatmap/snapshot", (request, response) => send(response, () => loadValuationHeatmapSnapshot({
+    groupId: request.query.group_id,
+    asOf: request.query.as_of
+  })));
   app.get("/api/market/groups/:groupId", (request, response) => send(response, () => loadMarketGroup(request.params.groupId)));
   app.get("/api/market/groups/:groupId/snapshot", (request, response) => send(response, () => loadMarketGroupSnapshot(request.params.groupId, request.query.as_of)));
   app.get("/api/market/groups/:groupId/companies", (request, response) => send(response, () => loadMarketGroupCompanies({

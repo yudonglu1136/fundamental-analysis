@@ -98,7 +98,7 @@
               <div>
                 <span class="terminal-kicker"><i></i> STRATEGY RESEARCH</span>
                 <h2>Ontology 策略实验室</h2>
-                <p>同一套 PIT 数据与真实执行口径，比较 V2 固定规则、软风险覆盖和 Integrated with ML，并下钻每个月末真实持仓。</p>
+                <p>同一套 PIT 数据与真实执行口径，比较 Ontology、ML 与 13F 跟随策略，并下钻每次决策后的真实持仓。</p>
               </div>
               <div class="strategy-freshness">
                 <span>回测数据截至</span>
@@ -110,7 +110,7 @@
             <section class="strategy-library-band">
               <div class="strategy-section-heading">
                 <div><span>STRATEGY LIBRARY</span><h3>选择研究版本</h3></div>
-                <p>所有结果均包含模型化滑点与佣金；点击切换完整研究档案。</p>
+                <p>所有结果均采用公开信息后的真实执行口径；点击切换完整研究档案。</p>
               </div>
               <div id="strategy-library" class="strategy-library"></div>
             </section>
@@ -145,7 +145,7 @@
                   <svg id="strategy-nav-chart" role="img" aria-label="策略与 SPY 净值曲线"></svg>
                   <div id="strategy-nav-tooltip" class="strategy-nav-tooltip" hidden></div>
                 </div>
-                <p class="strategy-chart-hint">点击曲线任意日期，下方会载入该日期之前最近一个月末的实际组合快照。</p>
+                <p class="strategy-chart-hint">点击曲线任意日期，下方会载入该日期之前最近一个组合快照。</p>
               </section>
 
               <section class="strategy-two-column">
@@ -156,10 +156,10 @@
                   </div>
                   <div id="strategy-annual-bars" class="strategy-annual-bars"></div>
                 </div>
-                <div class="strategy-analysis-panel">
+                <div id="strategy-execution-panel" class="strategy-analysis-panel">
                   <div class="strategy-section-heading compact">
-                    <div><span>TRADE OUTCOMES</span><h3>已实现交易质量</h3></div>
-                    <small>FIFO · 含成本</small>
+                    <div><span id="strategy-execution-kicker">TRADE OUTCOMES</span><h3 id="strategy-execution-title">已实现交易质量</h3></div>
+                    <small id="strategy-execution-note">FIFO · 含成本</small>
                   </div>
                   <div id="strategy-trade-summary" class="strategy-trade-summary"></div>
                   <div id="strategy-pnl-distribution" class="strategy-pnl-distribution"></div>
@@ -184,7 +184,7 @@
                 <div id="strategy-snapshot-activity" class="strategy-snapshot-activity"></div>
               </section>
 
-              <section class="strategy-analytics-panel">
+              <section id="strategy-analytics-panel" class="strategy-analytics-panel">
                 <div class="strategy-section-heading">
                   <div><span>DETAILED ATTRIBUTION</span><h3>逐年胜率、盈亏与贡献</h3></div>
                   <p>年度组合收益按每日市值计价；单票贡献按退出时 FIFO 已实现盈亏。</p>

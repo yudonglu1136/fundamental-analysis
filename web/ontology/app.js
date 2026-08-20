@@ -1563,6 +1563,29 @@ function summarizeTrades(rows) {
 }
 
 function renderStrategyTradeSummary() {
+  const detail = strategyDetail();
+  if (detail?.closed_trade_analytics_available === false) {
+    const summary = detail.execution_summary || {};
+    const items = [
+      ["调仓快照", Number(summary.rebalances || 0).toLocaleString()],
+      ["新进入", Number(summary.buys || 0).toLocaleString()],
+      ["退出", Number(summary.sells || 0).toLocaleString()],
+      ["最新唯一持仓", Number(summary.latest_unique_holdings || 0).toLocaleString()],
+      ["年化换手", fmtUnsignedPct(summary.annual_turnover)],
+      ["模型成本", summary.modeled_cost > 0 ? fmtMoney(summary.modeled_cost) : "未计入"],
+    ];
+    $("#strategy-execution-kicker").textContent = "EXECUTION LOG";
+    $("#strategy-execution-title").textContent = "披露驱动调仓";
+    $("#strategy-execution-note").textContent = "13F 公开后执行 · 重复只买一次";
+    $("#strategy-trade-summary").innerHTML = items.map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
+    $("#strategy-pnl-distribution").innerHTML = "";
+    $("#strategy-pnl-distribution").hidden = true;
+    return;
+  }
+  $("#strategy-execution-kicker").textContent = "TRADE OUTCOMES";
+  $("#strategy-execution-title").textContent = "已实现交易质量";
+  $("#strategy-execution-note").textContent = "FIFO · 含成本";
+  $("#strategy-pnl-distribution").hidden = false;
   const trades = selectedClosedTrades();
   const summary = summarizeTrades(trades);
   const items = [
@@ -1634,6 +1657,7 @@ function renderStrategyDetail() {
   $("#strategy-name").textContent = detail.name;
   $("#strategy-description").textContent = detail.description;
   $("#strategy-validation").textContent = detail.validation_status;
+  $("#strategy-analytics-panel").hidden = detail.closed_trade_analytics_available === false;
   $("#strategy-period-tabs").innerHTML = Object.values(detail.periods).map((item) => `
     <button class="${item.id === state.strategyPeriod ? "active" : ""}" data-strategy-period="${escapeHtml(item.id)}"><strong>${escapeHtml(item.label)}</strong><small>${fmtDate(item.start)} 至 ${fmtDate(item.end)}</small></button>
   `).join("");
@@ -1679,9 +1703,9 @@ function renderStrategySnapshot(snapshot) {
     <span><small>未实现盈亏</small><b class="${metricClass(snapshot.unrealized_pnl)}">${fmtSignedMoney(snapshot.unrealized_pnl)}</b></span>`;
   const actionLabels = { BUY: "买入", ADD: "加仓", TRIM: "减仓", HOLD: "持有" };
   $("#strategy-snapshot-body").innerHTML = snapshot.positions.map((row) => {
-    const rank = safeNumber(row.prediction) !== null
+    const rank = row.selection_score_label || (safeNumber(row.prediction) !== null
       ? `ML ${fmtScore(row.prediction)} · #${row.core_rank || "--"}`
-      : `Ontology ${fmtScore(row.ontology_score)}`;
+      : `Ontology ${fmtScore(row.ontology_score)}`);
     return `<tr>
       <td><span class="strategy-action ${String(row.action || "hold").toLowerCase()}">${actionLabels[row.action] || row.action}</span></td>
       <td><strong>${escapeHtml(row.ticker)}</strong><small>${escapeHtml(row.name || "")}</small></td>
@@ -1692,8 +1716,8 @@ function renderStrategySnapshot(snapshot) {
   }).join("");
   const activity = snapshot.activity || [];
   $("#strategy-snapshot-activity").innerHTML = activity.length
-    ? `<strong>自上次月末的成交</strong><div>${activity.map((row) => `<span class="${String(row.side).toLowerCase()}"><b>${escapeHtml(row.side)} ${escapeHtml(row.ticker)}</b><small>${fmtDate(row.date)} · ${Number(row.shares || 0).toLocaleString()} 股 · ${escapeHtml(row.reason || "")}</small></span>`).join("")}</div>`
-    : "<strong>自上次月末无成交</strong>";
+    ? `<strong>自上次组合快照的变动</strong><div>${activity.map((row) => `<span class="${String(row.side).toLowerCase()}"><b>${escapeHtml(row.side)} ${escapeHtml(row.ticker)}</b><small>${fmtDate(row.date)} · ${Number(row.shares || 0).toLocaleString()} 股 · ${escapeHtml(row.reason || "")}</small></span>`).join("")}</div>`
+    : "<strong>自上次组合快照无变动</strong>";
 }
 
 function setStrategyPeriod(periodId) {
@@ -1753,7 +1777,7 @@ function switchView(view) {
   $("#search-input").placeholder = decisionMode ? "搜索决策信号" : marketMode ? "搜索全市场 ticker 或公司" : "搜索 AI ticker 或公司";
   $("#global-search-results").hidden = true;
   if (strategyMode) {
-    $("#data-status").textContent = `策略回测 · 数据截至 ${fmtDate(state.strategyCatalog?.as_of)} · PIT + modeled costs`;
+    $("#data-status").textContent = `策略回测 · 数据截至 ${fmtDate(state.strategyCatalog?.as_of)} · PIT + 公开信息后执行`;
     $("#detail-panel").innerHTML = "";
   } else if (decisionMode) {
     renderDecisionStats();
