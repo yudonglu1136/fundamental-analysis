@@ -5,6 +5,8 @@ version="${1:-$(git rev-parse --short HEAD)}"
 zip_path="${AWS_PACKAGE_PATH:-/tmp/guru-dashboard-${version}.zip}"
 db_path="${SQLITE_DB_PATH:-server/data/guru-analysis.sqlite}"
 ontology_snapshot_path="${ONTOLOGY_SNAPSHOT_PATH:-server/data/ontology-snapshot.sqlite}"
+pit_migration_path="${PIT_MIGRATION_PATH:-server/data/valuation-pit-migration.sqlite.gz}"
+include_sqlite_db="${INCLUDE_SQLITE_DB:-0}"
 
 rm -f "$zip_path"
 git archive --format=zip --output="$zip_path" HEAD
@@ -17,7 +19,9 @@ if [ "${INCLUDE_FRONTEND_DIST:-0}" = "1" ]; then
   fi
 fi
 
-if [ -f "$db_path" ]; then
+if [ "$include_sqlite_db" != "1" ]; then
+  echo "info: skipping SQLite DB in AWS package; set INCLUDE_SQLITE_DB=1 to bundle a seed database" >&2
+elif [ -f "$db_path" ]; then
   if [ "$db_path" = "server/data/guru-analysis.sqlite" ]; then
     zip -q -u "$zip_path" "$db_path"
   else
@@ -47,6 +51,23 @@ if [ "${INCLUDE_ONTOLOGY_SNAPSHOT:-0}" = "1" ]; then
   rm -rf "$tmp_ontology_dir"
 else
   echo "info: skipping ontology snapshot; set INCLUDE_ONTOLOGY_SNAPSHOT=1 for an Ontology release" >&2
+fi
+
+if [ "${INCLUDE_PIT_MIGRATION:-0}" = "1" ]; then
+  if [ ! -f "$pit_migration_path" ]; then
+    echo "error: PIT valuation migration artifact not found at $pit_migration_path" >&2
+    exit 1
+  fi
+  tmp_pit_dir="$(mktemp -d)"
+  mkdir -p "$tmp_pit_dir/server/data"
+  cp "$pit_migration_path" "$tmp_pit_dir/server/data/valuation-pit-migration.sqlite.gz"
+  if [ -f "${pit_migration_path%.sqlite.gz}.manifest.json" ]; then
+    cp "${pit_migration_path%.sqlite.gz}.manifest.json" \
+      "$tmp_pit_dir/server/data/valuation-pit-migration.manifest.json"
+  fi
+  (cd "$tmp_pit_dir" && zip -q -u "$zip_path" server/data/valuation-pit-migration.*)
+else
+  echo "info: skipping PIT valuation migration; set INCLUDE_PIT_MIGRATION=1 for a valuation release" >&2
 fi
 
 echo "$zip_path"

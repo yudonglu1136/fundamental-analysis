@@ -414,6 +414,25 @@ function unifiedAuditForTicker(snapshot, consensus) {
   const inputAudit = snapshot.dataQuality?.modelInputAudit || {};
   const stability = valuationChangeStats(history);
   const external = consensusStatus({ latestFairValue, latestPrice, consensus });
+  const valuationNotApplicable = snapshot.dataQuality?.valuationStatus === "not_applicable";
+  if (valuationNotApplicable) {
+    return {
+      status: "not_applicable",
+      generatedAt: new Date().toISOString(),
+      framework: "Unified valuation sanity loop v3",
+      policy: "Derived instruments without issuer financial statements are excluded from issuer fair-value scoring and are not treated as audit failures.",
+      latestFairToPrice: null,
+      profile: null,
+      verifiedInputs: false,
+      adequateCoverage: true,
+      stability,
+      externalConsensus: consensus || null,
+      externalConsensusCheck: external,
+      warnings: [],
+      watchNotes: [snapshot.dataQuality?.sourceNote || "Issuer valuation is not applicable."],
+      coverageNotes: []
+    };
+  }
   const warnings = [];
   const watchNotes = [];
   const coverageNotes = [];
@@ -467,7 +486,7 @@ function unifiedAuditForTicker(snapshot, consensus) {
   return {
     status,
     generatedAt: new Date().toISOString(),
-    framework: "Unified valuation sanity loop v2",
+    framework: "Unified valuation sanity loop v3",
     policy: "Fair value remains generated from company financials/guidance/scenario assumptions. Market price and external analyst consensus are comparison guardrails only; they are not model inputs and do not create data-quality failures by themselves.",
     latestFairToPrice: fairToPrice,
     profile,
@@ -537,6 +556,7 @@ async function main() {
       unifiedValuationAuditPassCount: updated.filter((ticker) => ticker.dataQuality?.unifiedValuationAudit?.status === "pass").length,
       unifiedValuationAuditReviewCount: updated.filter((ticker) => ticker.dataQuality?.unifiedValuationAudit?.status === "review").length,
       unifiedValuationAuditFailCount: updated.filter((ticker) => ticker.dataQuality?.unifiedValuationAudit?.status === "fail").length,
+      unifiedValuationAuditNotApplicableCount: updated.filter((ticker) => ticker.dataQuality?.unifiedValuationAudit?.status === "not_applicable").length,
       externalConsensusTickerCount: updated.filter((ticker) => ticker.dataQuality?.unifiedValuationAudit?.externalConsensus?.averageTarget).length,
       externalConsensusDivergentCount: updated.filter((ticker) => ticker.dataQuality?.unifiedValuationAudit?.externalConsensusCheck?.status === "divergent").length
     };

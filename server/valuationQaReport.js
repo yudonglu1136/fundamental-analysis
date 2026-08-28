@@ -123,6 +123,28 @@ function transcriptQaStats(history) {
 }
 
 function tickerQa(snapshot) {
+  const valuationNotApplicable = snapshot.dataQuality?.valuationStatus === "not_applicable";
+  if (valuationNotApplicable) {
+    return {
+      ticker: snapshot.ticker,
+      name: snapshot.name,
+      profile: null,
+      status: "not_applicable",
+      rowCount: 0,
+      first: null,
+      last: null,
+      latestFairValue: null,
+      latestPrice: finiteNumber(snapshot.latest?.latestPrice),
+      latestFairToPrice: null,
+      unifiedStatus: snapshot.dataQuality?.unifiedValuationAudit?.status || "not_applicable",
+      consensusStatus: null,
+      transcriptQa: transcriptQaStats([]),
+      issueCount: 0,
+      issues: [],
+      watchNotes: [],
+      sortRank: 0
+    };
+  }
   const history = [...(snapshot.history || [])]
     .filter((row) => row.asOfDate && finiteNumber(row.fairValue) != null)
     .sort((left, right) => String(left.asOfDate).localeCompare(String(right.asOfDate)));
@@ -171,7 +193,15 @@ function tickerQa(snapshot) {
     const current = history[index];
     const previousRank = quarterRank(previous);
     const currentRank = quarterRank(current);
-    if (previousRank != null && currentRank != null && currentRank <= previousRank) {
+    const previousCalendarTransition = previous.dataSnapshot?.financialSource?.record?.fiscalCalendarTransition === true;
+    const currentCalendarTransition = current.dataSnapshot?.financialSource?.record?.fiscalCalendarTransition === true;
+    if (
+      previousRank != null &&
+      currentRank != null &&
+      currentRank <= previousRank &&
+      !previousCalendarTransition &&
+      !currentCalendarTransition
+    ) {
       fiscalInversions.push({
         from: previous.label,
         to: current.label,
@@ -259,7 +289,7 @@ function tickerQa(snapshot) {
     }));
   }
 
-  const severityRank = { pass: 0, review: 1, fail: 2 };
+  const severityRank = { not_applicable: 0, pass: 0, review: 1, fail: 2 };
   const status = issues.some((item) => item.severity === "fail")
     ? "fail"
     : issues.some((item) => item.severity === "review")
@@ -297,6 +327,7 @@ function main() {
       dbPath: DB_PATH,
       summary: {
         tickerCount: tickers.length,
+        notApplicableCount: tickers.filter((ticker) => ticker.status === "not_applicable").length,
         passCount: tickers.filter((ticker) => ticker.status === "pass").length,
         reviewCount: tickers.filter((ticker) => ticker.status === "review").length,
         failCount: tickers.filter((ticker) => ticker.status === "fail").length,
