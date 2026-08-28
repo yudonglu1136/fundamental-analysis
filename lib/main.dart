@@ -16941,32 +16941,36 @@ class _ValuationDistributionBar extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(999),
             child: SizedBox(
-              height: 8,
+              height: 12,
               child: total == 0
-                  ? ColoredBox(color: palette.border)
-                  : Row(
-                      children: [
-                        if (undervalued > 0)
-                          Expanded(
-                            flex: undervalued,
-                            child: ColoredBox(color: palette.positive),
-                          ),
-                        if (fair > 0)
-                          Expanded(
-                            flex: fair,
-                            child: ColoredBox(color: palette.secondary),
-                          ),
-                        if (expensive > 0)
-                          Expanded(
-                            flex: expensive,
-                            child: ColoredBox(color: palette.negative),
-                          ),
-                        if (missing > 0)
-                          Expanded(
-                            flex: missing,
-                            child: ColoredBox(color: palette.faint),
-                          ),
-                      ],
+                  ? ColoredBox(color: palette.border.withValues(alpha: .7))
+                  : ColoredBox(
+                      color: palette.border.withValues(alpha: .45),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (undervalued > 0)
+                            Expanded(
+                              flex: undervalued,
+                              child: ColoredBox(color: palette.positive),
+                            ),
+                          if (fair > 0)
+                            Expanded(
+                              flex: fair,
+                              child: ColoredBox(color: palette.secondary),
+                            ),
+                          if (expensive > 0)
+                            Expanded(
+                              flex: expensive,
+                              child: ColoredBox(color: palette.negative),
+                            ),
+                          if (missing > 0)
+                            Expanded(
+                              flex: missing,
+                              child: ColoredBox(color: palette.faint),
+                            ),
+                        ],
+                      ),
                     ),
             ),
           ),
