@@ -15709,6 +15709,11 @@ class ValuationCompactDashboard extends StatefulWidget {
 class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
   String _selectedTicker = '';
   String _tickerSearch = '';
+  String _valuationFilter = 'all';
+  final String _valuationSort = 'upside';
+  String _qualityFilter = 'all';
+  String _expandedIndustryKey = '';
+  bool _showFullResearch = false;
   final TextEditingController _tickerSearchController = TextEditingController();
   final Map<String, Map<String, dynamic>> _detailCache = {};
   Map<String, dynamic>? _localDashboard;
@@ -15765,6 +15770,65 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
   String _normalizeTickerInput(String value) =>
       value.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9.-]'), '');
 
+  bool _matchesValuationFilter(ValuationRow row, String filter) {
+    switch (filter) {
+      case 'deep':
+        return row.hasModel && row.upside >= .25;
+      case 'fair':
+        return row.hasModel && row.upside > -.05 && row.upside < .25;
+      case 'expensive':
+        return row.hasModel && row.upside <= -.05;
+      case 'audit':
+        return row.auditStatus == 'pass';
+      case 'watch':
+        final status = row.consensusStatus.toLowerCase();
+        return status.contains('watch') || status.contains('stretch');
+      case 'missing':
+        return !row.hasModel;
+      default:
+        return true;
+    }
+  }
+
+  List<ValuationRow> _applyValuationFilter(List<ValuationRow> rows) => rows
+      .where((row) => _matchesValuationFilter(row, _valuationFilter))
+      .where((row) {
+        switch (_qualityFilter) {
+          case 'pass':
+            return row.auditStatus == 'pass';
+          case 'watch':
+            return row.consensusStatus.toLowerCase().contains('watch') ||
+                row.consensusStatus.toLowerCase().contains('stretch');
+          case 'missing':
+            return !row.hasModel;
+          default:
+            return true;
+        }
+      })
+      .toList();
+
+  List<ValuationRow> _sortValuationRows(List<ValuationRow> rows) {
+    final sorted = [...rows];
+    int byTicker(ValuationRow a, ValuationRow b) =>
+        a.ticker.compareTo(b.ticker);
+    sorted.sort((a, b) {
+      switch (_valuationSort) {
+        case 'expensive':
+          return a.upside.compareTo(b.upside);
+        case 'ticker':
+          return byTicker(a, b);
+        case 'quality':
+          final quality = (b.auditStatus == 'pass' ? 1 : 0).compareTo(
+            a.auditStatus == 'pass' ? 1 : 0,
+          );
+          return quality == 0 ? b.upside.compareTo(a.upside) : quality;
+        default:
+          return b.upside.compareTo(a.upside);
+      }
+    });
+    return sorted;
+  }
+
   String _defaultTicker(Map<String, dynamic> data, {String preferred = ''}) {
     final tickers = asList(data['tickers']).isNotEmpty
         ? asList(data['tickers'])
@@ -15784,6 +15848,7 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
     final cachedPayload = refresh ? null : _detailCache[normalizedTicker];
     final requestId = ++_detailRequestSerial;
     setState(() {
+      if (_selectedTicker != normalizedTicker) _showFullResearch = false;
       _selectedTicker = normalizedTicker;
       _detailPayload = cachedPayload;
       _detailError = null;
@@ -15817,6 +15882,14 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
         setState(() => _detailLoading = false);
       }
     }
+  }
+
+  void _selectTicker(ValuationRow row) {
+    setState(() {
+      _expandedIndustryKey = valuationIndustryForRow(row).key;
+      _showFullResearch = false;
+    });
+    _loadTicker(row.ticker);
   }
 
   Future<void> _importTicker(String ticker) async {
@@ -15873,8 +15946,6 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
     final tickers = asList(data['tickers']).isNotEmpty
         ? asList(data['tickers'])
         : asList(data['stocks']);
-    final summary = asMap(data['summary']);
-    final source = asMap(data['source']);
     final rows = valuationRowsFromTickers(tickers);
     final selectedRow = rows.firstWhere(
       (row) => row.ticker == _selectedTicker,
@@ -15882,404 +15953,1755 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
     );
     final tickerQuery = _tickerSearch.trim().toUpperCase();
     final normalizedTickerQuery = _normalizeTickerInput(_tickerSearch);
-    final filteredRows = tickerQuery.isEmpty
+    final searchedRows = tickerQuery.isEmpty
         ? rows
         : rows.where((row) {
             final haystack = '${row.ticker} ${row.name} ${row.sector}'
                 .toUpperCase();
             return haystack.contains(tickerQuery);
           }).toList();
-    final maxAbsUpside = rows.fold<double>(
-      0,
-      (max, row) => math.max(max, row.upside.abs()),
+    final filteredRows = _sortValuationRows(
+      _applyValuationFilter(searchedRows),
     );
-    final positives = rows.where((row) => row.upside > 0).length;
-    final negatives = rows.where((row) => row.upside < 0).length;
-    final auditPass = rows.where((row) => row.auditStatus == 'pass').length;
-    final consensusWatch = rows
-        .where((row) => row.consensusStatus == 'watch')
-        .length;
-    final medianUpside = medianDouble(rows.map((row) => row.upside).toList());
-    final averageUpside = rows.isEmpty
-        ? 0.0
-        : rows.fold<double>(0, (sum, row) => sum + row.upside) / rows.length;
-    final best = rows.isEmpty ? null : rows.first;
-    final worst = rows.isEmpty ? null : rows.last;
-    final latestPriceDate = text(
-      summary['latestPriceDate'],
-      best?.latestPriceDate ?? '',
-    );
-    Widget buildTickerSearchField({
-      String hintText = 'Search ticker',
-    }) => TextField(
-      controller: _tickerSearchController,
-      cursorColor: widget.palette.accent,
-      style: TextStyle(color: widget.palette.text, fontWeight: FontWeight.w800),
-      onChanged: (value) {
+    final selectedIndustry = valuationIndustryForRow(selectedRow);
+    final effectiveIndustryKey = _expandedIndustryKey.isEmpty
+        ? selectedIndustry.key
+        : _expandedIndustryKey;
+
+    return ValuationIndustryDashboardView(
+      api: widget.api,
+      palette: widget.palette,
+      rows: rows,
+      visibleRows: filteredRows,
+      selectedRow: selectedRow,
+      summary: asMap(data['summary']),
+      source: asMap(data['source']),
+      tickerSearchController: _tickerSearchController,
+      tickerSearch: _tickerSearch,
+      valuationFilter: _valuationFilter,
+      qualityFilter: _qualityFilter,
+      expandedIndustryKey: effectiveIndustryKey,
+      detailPayload: _detailPayload,
+      detailLoading: _detailLoading,
+      detailError: _detailError,
+      importingTicker: _importingTicker,
+      showFullResearch: _showFullResearch,
+      onSearchChanged: (value) {
         setState(() => _tickerSearch = value);
         final normalized = _normalizeTickerInput(value);
-        final exactMatch = rows
+        final exactMatches = rows
             .where((row) => row.ticker == normalized)
             .toList();
-        if (exactMatch.length == 1 &&
-            exactMatch.first.ticker != _selectedTicker) {
-          _loadTicker(exactMatch.first.ticker);
+        if (exactMatches.length == 1 &&
+            exactMatches.first.ticker != _selectedTicker) {
+          _selectTicker(exactMatches.first);
         }
       },
-      onSubmitted: (_) {
+      onSearchSubmitted: () {
         if (filteredRows.isNotEmpty) {
-          _loadTicker(filteredRows.first.ticker);
+          _selectTicker(filteredRows.first);
         } else if (normalizedTickerQuery.isNotEmpty) {
           _importTicker(normalizedTickerQuery);
         }
       },
-      decoration: InputDecoration(
-        hintText: hintText,
-        hintStyle: TextStyle(color: widget.palette.faint),
-        prefixIcon: Icon(Icons.search_rounded, color: widget.palette.muted),
-        suffixIcon: _tickerSearch.isEmpty
-            ? null
-            : IconButton(
-                tooltip: 'Clear',
-                onPressed: () {
-                  _tickerSearchController.clear();
-                  setState(() => _tickerSearch = '');
-                },
-                icon: Icon(Icons.close_rounded, color: widget.palette.muted),
-              ),
-        filled: true,
-        fillColor: widget.palette.card,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: widget.palette.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: widget.palette.accent),
-        ),
-      ),
+      onClearSearch: () {
+        _tickerSearchController.clear();
+        setState(() => _tickerSearch = '');
+      },
+      onImportTicker: normalizedTickerQuery.isEmpty
+          ? null
+          : () => _importTicker(normalizedTickerQuery),
+      onValuationFilterChanged: (value) {
+        setState(() => _valuationFilter = value);
+      },
+      onQualityFilterChanged: (value) {
+        setState(() => _qualityFilter = value);
+      },
+      onIndustryChanged: (value) {
+        setState(() => _expandedIndustryKey = value);
+      },
+      onTickerSelected: _selectTicker,
+      onRefresh: () => _loadTicker(_selectedTicker, refresh: true),
+      onToggleFullResearch: () {
+        setState(() => _showFullResearch = !_showFullResearch);
+      },
     );
+  }
+}
 
-    Widget buildImportPrompt() {
-      final exactMatch = rows.any((row) => row.ticker == normalizedTickerQuery);
-      if (normalizedTickerQuery.isEmpty || exactMatch) {
-        return const SizedBox.shrink();
-      }
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: widget.palette.panel,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: widget.palette.border),
-        ),
-        child: Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          runSpacing: 10,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$normalizedTickerQuery is not in the valuation library yet.',
-                  style: TextStyle(
-                    color: widget.palette.text,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Fetch SEC financials, price history, and rebuild the valuation snapshot.',
-                  style: TextStyle(color: widget.palette.muted, fontSize: 12),
-                ),
-              ],
-            ),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: widget.palette.accent,
-                foregroundColor: widget.palette.background,
-              ),
-              onPressed: _importingTicker
-                  ? null
-                  : () => _importTicker(normalizedTickerQuery),
-              icon: _importingTicker
-                  ? SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: widget.palette.background,
-                      ),
-                    )
-                  : const Icon(Icons.download_rounded),
-              label: Text(_importingTicker ? 'Fetching' : 'Add & fetch'),
-            ),
-          ],
-        ),
-      );
-    }
+class ValuationIndustryDefinition {
+  const ValuationIndustryDefinition({
+    required this.key,
+    required this.zh,
+    required this.en,
+    required this.icon,
+  });
 
-    Widget buildTickerPickerPanel() {
-      final quickRows = filteredRows.take(16).toList();
-      return Panel(
-        palette: widget.palette,
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            PanelTitle(
-              icon: Icons.manage_search_rounded,
-              kicker: 'VALUATION SEARCH',
-              title: 'Ticker selector',
-              trailing: Text(
-                tickerQuery.isEmpty
-                    ? '${rows.length} names'
-                    : '${filteredRows.length} matches',
-                style: TextStyle(
-                  color: widget.palette.muted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              palette: widget.palette,
-            ),
-            const SizedBox(height: 12),
-            buildTickerSearchField(hintText: 'Search ticker, company, sector'),
-            const SizedBox(height: 12),
-            if (quickRows.isEmpty)
-              Column(
-                children: [
-                  EmptyState(
-                    text: 'No matching tickers.',
-                    palette: widget.palette,
-                  ),
-                  const SizedBox(height: 10),
-                  buildImportPrompt(),
-                ],
-              )
-            else
-              SizedBox(
-                height: 104,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: quickRows.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 10),
-                  itemBuilder: (context, index) {
-                    final row = quickRows[index];
-                    return ValuationTickerPickerCard(
-                      row: row,
-                      active: row.ticker == selectedRow.ticker,
-                      palette: widget.palette,
-                      onTap: () => _loadTicker(row.ticker),
-                    );
-                  },
-                ),
-              ),
-          ],
-        ),
-      );
-    }
+  final String key;
+  final String zh;
+  final String en;
+  final IconData icon;
+}
 
-    Widget buildMatrixPanel({
-      bool showSearch = true,
-      int rowLimit = 28,
-      String title = 'Fair value matrix',
-    }) {
-      final visibleRows = filteredRows.take(rowLimit).toList();
-      return Panel(
-        palette: widget.palette,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            PanelTitle(
-              icon: Icons.query_stats_rounded,
-              kicker: 'VALUATION',
-              title: title,
-              trailing: SizedBox(
-                width: 190,
-                child: Text(
-                  latestPriceDate.isEmpty
-                      ? 'latest price feed'
-                      : 'prices ${formatDate(latestPriceDate)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                  style: TextStyle(color: widget.palette.muted, fontSize: 12),
-                ),
-              ),
-              palette: widget.palette,
-            ),
-            if (showSearch) ...[
-              const SizedBox(height: 14),
-              buildTickerSearchField(),
-            ],
-            const SizedBox(height: 14),
-            if (rows.isEmpty)
-              EmptyState(
-                text: 'No valuation rows found in the backend response.',
-                palette: widget.palette,
-              )
-            else if (visibleRows.isEmpty)
-              Column(
-                children: [
-                  EmptyState(
-                    text: 'No matching tickers.',
-                    palette: widget.palette,
-                  ),
-                  const SizedBox(height: 10),
-                  buildImportPrompt(),
-                ],
-              )
-            else ...[
-              ValuationWatchlistHeader(palette: widget.palette),
-              const SizedBox(height: 8),
-              for (final row in visibleRows)
-                ValuationWatchlistRow(
-                  row: row,
-                  maxAbsUpside: maxAbsUpside,
-                  active: row.ticker == selectedRow.ticker,
-                  palette: widget.palette,
-                  onTap: () => _loadTicker(row.ticker),
-                ),
-            ],
-          ],
-        ),
-      );
-    }
+const valuationIndustryDefinitions = <ValuationIndustryDefinition>[
+  ValuationIndustryDefinition(
+    key: 'software_cloud',
+    zh: '软件与云服务',
+    en: 'Software & Cloud',
+    icon: Icons.cloud_outlined,
+  ),
+  ValuationIndustryDefinition(
+    key: 'semiconductors_hardware',
+    zh: '半导体与硬件',
+    en: 'Semiconductors & Hardware',
+    icon: Icons.memory_rounded,
+  ),
+  ValuationIndustryDefinition(
+    key: 'internet_media',
+    zh: '互联网与媒体',
+    en: 'Internet & Media',
+    icon: Icons.language_rounded,
+  ),
+  ValuationIndustryDefinition(
+    key: 'healthcare',
+    zh: '医疗健康',
+    en: 'Healthcare',
+    icon: Icons.health_and_safety_outlined,
+  ),
+  ValuationIndustryDefinition(
+    key: 'financials',
+    zh: '金融与支付',
+    en: 'Financials & Payments',
+    icon: Icons.account_balance_outlined,
+  ),
+  ValuationIndustryDefinition(
+    key: 'consumer',
+    zh: '消费',
+    en: 'Consumer',
+    icon: Icons.shopping_bag_outlined,
+  ),
+  ValuationIndustryDefinition(
+    key: 'industrials',
+    zh: '工业与国防',
+    en: 'Industrials & Defense',
+    icon: Icons.precision_manufacturing_outlined,
+  ),
+  ValuationIndustryDefinition(
+    key: 'energy_utilities',
+    zh: '能源与公用事业',
+    en: 'Energy & Utilities',
+    icon: Icons.bolt_outlined,
+  ),
+  ValuationIndustryDefinition(
+    key: 'other',
+    zh: '其他',
+    en: 'Other',
+    icon: Icons.category_outlined,
+  ),
+];
 
-    Widget buildDetailPanel() => ValuationTickerDetailPanel(
-      api: widget.api,
-      payload: _detailPayload,
-      selectedRow: selectedRow,
-      loading: _detailLoading,
-      error: _detailError,
-      palette: widget.palette,
-      onRetry: () => _loadTicker(_selectedTicker, refresh: true),
+ValuationIndustryDefinition valuationIndustryForRow(ValuationRow row) {
+  final sector = row.sector.toLowerCase();
+  bool hasAny(Iterable<String> needles) =>
+      needles.any((needle) => sector.contains(needle));
+
+  String key;
+  if (row.ticker == 'RKLX') {
+    key = 'industrials';
+  } else if (hasAny([
+    'semiconductor',
+    'foundry',
+    'optical',
+    'networking',
+    'storage',
+  ])) {
+    key = 'semiconductors_hardware';
+  } else if (hasAny(['software', 'information services'])) {
+    key = 'software_cloud';
+  } else if (hasAny([
+    'platform',
+    'search',
+    'media',
+    'telecom',
+    'streaming',
+    'entertainment',
+  ])) {
+    key = 'internet_media';
+  } else if (hasAny([
+    'healthcare',
+    'biotech',
+    'biopharma',
+    'medtech',
+    'diagnostic',
+    'managed care',
+  ])) {
+    key = 'healthcare';
+  } else if (hasAny(['bank', 'insurance', 'payment', 'lender'])) {
+    key = 'financials';
+  } else if (hasAny(['consumer', 'retail', 'beverage', 'staple'])) {
+    key = 'consumer';
+  } else if (hasAny(['industrial', 'defense', 'aerospace', 'space'])) {
+    key = 'industrials';
+  } else if (hasAny(['energy', 'utility', 'power', 'natural gas'])) {
+    key = 'energy_utilities';
+  } else {
+    key = 'other';
+  }
+  return valuationIndustryDefinitions.firstWhere(
+    (definition) => definition.key == key,
+  );
+}
+
+class ValuationIndustryGroupData {
+  ValuationIndustryGroupData({required this.definition, required this.rows});
+
+  final ValuationIndustryDefinition definition;
+  final List<ValuationRow> rows;
+
+  double get medianUpside => medianDouble(
+    rows.where((row) => row.hasModel).map((row) => row.upside).toList(),
+  );
+
+  int get undervaluedCount =>
+      rows.where((row) => row.hasModel && row.upside >= .05).length;
+
+  int get fairCount => rows
+      .where((row) => row.hasModel && row.upside > -.05 && row.upside < .05)
+      .length;
+
+  int get expensiveCount =>
+      rows.where((row) => row.hasModel && row.upside <= -.05).length;
+
+  int get missingCount => rows.where((row) => !row.hasModel).length;
+}
+
+List<ValuationIndustryGroupData> valuationIndustryGroups(
+  List<ValuationRow> rows,
+) {
+  final byKey = <String, List<ValuationRow>>{};
+  for (final row in rows) {
+    final key = valuationIndustryForRow(row).key;
+    byKey.putIfAbsent(key, () => []).add(row);
+  }
+  return [
+    for (final definition in valuationIndustryDefinitions)
+      if ((byKey[definition.key] ?? const <ValuationRow>[]).isNotEmpty)
+        ValuationIndustryGroupData(
+          definition: definition,
+          rows: [...byKey[definition.key]!]
+            ..sort((a, b) => b.upside.compareTo(a.upside)),
+        ),
+  ];
+}
+
+class ValuationIndustryDashboardView extends StatelessWidget {
+  const ValuationIndustryDashboardView({
+    super.key,
+    required this.api,
+    required this.palette,
+    required this.rows,
+    required this.visibleRows,
+    required this.selectedRow,
+    required this.summary,
+    required this.source,
+    required this.tickerSearchController,
+    required this.tickerSearch,
+    required this.valuationFilter,
+    required this.qualityFilter,
+    required this.expandedIndustryKey,
+    required this.detailPayload,
+    required this.detailLoading,
+    required this.detailError,
+    required this.importingTicker,
+    required this.showFullResearch,
+    required this.onSearchChanged,
+    required this.onSearchSubmitted,
+    required this.onClearSearch,
+    required this.onImportTicker,
+    required this.onValuationFilterChanged,
+    required this.onQualityFilterChanged,
+    required this.onIndustryChanged,
+    required this.onTickerSelected,
+    required this.onRefresh,
+    required this.onToggleFullResearch,
+  });
+
+  final ApiClient api;
+  final Palette palette;
+  final List<ValuationRow> rows;
+  final List<ValuationRow> visibleRows;
+  final ValuationRow selectedRow;
+  final Map<String, dynamic> summary;
+  final Map<String, dynamic> source;
+  final TextEditingController tickerSearchController;
+  final String tickerSearch;
+  final String valuationFilter;
+  final String qualityFilter;
+  final String expandedIndustryKey;
+  final Map<String, dynamic>? detailPayload;
+  final bool detailLoading;
+  final String? detailError;
+  final bool importingTicker;
+  final bool showFullResearch;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onSearchSubmitted;
+  final VoidCallback onClearSearch;
+  final VoidCallback? onImportTicker;
+  final ValueChanged<String> onValuationFilterChanged;
+  final ValueChanged<String> onQualityFilterChanged;
+  final ValueChanged<String> onIndustryChanged;
+  final ValueChanged<ValuationRow> onTickerSelected;
+  final VoidCallback onRefresh;
+  final VoidCallback onToggleFullResearch;
+
+  @override
+  Widget build(BuildContext context) {
+    final latestPriceDate = text(
+      summary['latestPriceDate'],
+      rows.isEmpty ? '' : rows.first.latestPriceDate,
     );
-
-    Widget rightRail() => Column(
-      children: [
-        Panel(
-          palette: widget.palette,
-          padding: const EdgeInsets.all(14),
-          child: ValuationDistribution(
-            rows: rows,
-            best: best,
-            worst: worst,
-            palette: widget.palette,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Panel(
-          palette: widget.palette,
-          padding: const EdgeInsets.all(14),
-          child: ValuationSourceNote(
-            source: source,
-            summary: summary,
-            palette: widget.palette,
-          ),
-        ),
-      ],
-    );
-
-    final header = SecondaryModeHeader(
-      icon: Icons.query_stats_rounded,
-      kicker: 'VALUATION',
-      title: 'Fair Value Research Terminal',
-      subtitle: 'Ticker-level fair value, price history, and model controls.',
-      chips: [
-        latestPriceDate.isEmpty
-            ? 'latest price feed'
-            : 'prices ${formatDate(latestPriceDate)}',
-        text(source['upstreamLabel'], 'SEC + transcript model'),
-      ],
-      metrics: [
-        _GuruHeaderMetric(
-          label: 'Coverage',
-          value: '${rows.length}',
-          sub: '${formatNumber(number(summary['historyRows']))} value rows',
-          palette: widget.palette,
-        ),
-        _GuruHeaderMetric(
-          label: 'Median Upside',
-          value: formatReturn(medianUpside),
-          sub: '${formatReturn(averageUpside)} average',
-          palette: widget.palette,
-        ),
-        _GuruHeaderMetric(
-          label: 'Positive / Negative',
-          value: '$positives / $negatives',
-          sub: 'price vs fair value',
-          palette: widget.palette,
-        ),
-        _GuruHeaderMetric(
-          label: 'Audit Pass',
-          value: '$auditPass/${rows.length}',
-          sub: '$consensusWatch watch flags',
-          palette: widget.palette,
-        ),
-      ],
-      palette: widget.palette,
-    );
+    final auditPass = rows.where((row) => row.auditStatus == 'pass').length;
+    final normalizedSearch = tickerSearch.trim().toUpperCase();
+    final hasExactMatch = rows.any((row) => row.ticker == normalizedSearch);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        header,
-        const SizedBox(height: 10),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth < 980) {
-              return Column(
-                children: [
-                  buildTickerPickerPanel(),
-                  const SizedBox(height: 10),
-                  buildDetailPanel(),
-                  const SizedBox(height: 10),
-                  buildMatrixPanel(
-                    showSearch: false,
-                    rowLimit: constraints.maxWidth < 560 ? 14 : 22,
-                    title: 'All valuation rows',
-                  ),
-                  const SizedBox(height: 10),
-                  rightRail(),
-                ],
-              );
-            }
-            if (constraints.maxWidth < 1320) {
-              return Row(
+        Panel(
+          palette: palette,
+          padding: const EdgeInsets.all(14),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 900;
+              final title = Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(width: 360, child: buildMatrixPanel()),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        buildDetailPanel(),
-                        const SizedBox(height: 10),
-                        rightRail(),
-                      ],
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.grid_view_rounded,
+                        color: palette.accent,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 9),
+                      Text(
+                        context.tr('估值市场地图', 'Valuation Market Map'),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: palette.text,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    context.tr(
+                      '${rows.length} 个标的 · 股价 ${latestPriceDate.isEmpty ? '最新' : formatDate(latestPriceDate)} · $auditPass/${rows.length} PIT 审计通过',
+                      '${rows.length} stocks · prices ${latestPriceDate.isEmpty ? 'latest' : formatDate(latestPriceDate)} · $auditPass/${rows.length} PIT audited',
+                    ),
+                    style: TextStyle(
+                      color: palette.muted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
               );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              final controls = Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  SizedBox(
+                    width: compact ? constraints.maxWidth : 340,
+                    child: TextField(
+                      controller: tickerSearchController,
+                      cursorColor: palette.accent,
+                      style: TextStyle(
+                        color: palette.text,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      onChanged: onSearchChanged,
+                      onSubmitted: (_) => onSearchSubmitted(),
+                      decoration: InputDecoration(
+                        hintText: context.tr(
+                          '搜索代码、公司或行业',
+                          'Search ticker, company, or industry',
+                        ),
+                        hintStyle: TextStyle(color: palette.faint),
+                        prefixIcon: Icon(
+                          Icons.search_rounded,
+                          color: palette.muted,
+                        ),
+                        suffixIcon: tickerSearch.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: context.tr('清除', 'Clear'),
+                                onPressed: onClearSearch,
+                                icon: Icon(
+                                  Icons.close_rounded,
+                                  color: palette.muted,
+                                ),
+                              ),
+                        filled: true,
+                        fillColor: palette.card,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 13,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: palette.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: palette.accent),
+                        ),
+                      ),
+                    ),
+                  ),
+                  _ValuationToolbarMenu(
+                    value: valuationFilter,
+                    icon: Icons.balance_rounded,
+                    label: context.tr('估值状态', 'Valuation'),
+                    options: {
+                      'all': context.tr('全部估值', 'All valuations'),
+                      'deep': context.tr('低估', 'Undervalued'),
+                      'fair': context.tr('合理', 'Fair range'),
+                      'expensive': context.tr('偏贵', 'Expensive'),
+                    },
+                    palette: palette,
+                    onChanged: onValuationFilterChanged,
+                  ),
+                  _ValuationToolbarMenu(
+                    value: qualityFilter,
+                    icon: Icons.verified_outlined,
+                    label: context.tr('数据质量', 'Data quality'),
+                    options: {
+                      'all': context.tr('全部质量', 'All quality'),
+                      'pass': context.tr('审计通过', 'Audit pass'),
+                      'watch': context.tr('需复核', 'Watch'),
+                      'missing': context.tr('缺少估值', 'Missing FV'),
+                    },
+                    palette: palette,
+                    onChanged: onQualityFilterChanged,
+                  ),
+                  IconButton.filledTonal(
+                    tooltip: context.tr('刷新当前标的', 'Refresh selected ticker'),
+                    onPressed: onRefresh,
+                    icon: const Icon(Icons.refresh_rounded),
+                  ),
+                ],
+              );
+              if (compact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [title, const SizedBox(height: 14), controls],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: title),
+                  const SizedBox(width: 18),
+                  controls,
+                ],
+              );
+            },
+          ),
+        ),
+        if (normalizedSearch.isNotEmpty && !hasExactMatch) ...[
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: palette.panel,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: palette.border),
+            ),
+            child: Row(
               children: [
-                SizedBox(width: 360, child: buildMatrixPanel()),
-                const SizedBox(width: 10),
-                Expanded(child: buildDetailPanel()),
-                const SizedBox(width: 10),
-                SizedBox(width: 300, child: rightRail()),
+                Expanded(
+                  child: Text(
+                    visibleRows.isEmpty
+                        ? context.tr(
+                            '$normalizedSearch 不在估值库中，可以抓取并建立 PIT 模型。',
+                            '$normalizedSearch is not in the library. Fetch it and build a PIT model.',
+                          )
+                        : context.tr(
+                            '显示 ${visibleRows.length} 个匹配结果。',
+                            '${visibleRows.length} matching results.',
+                          ),
+                    style: TextStyle(color: palette.muted),
+                  ),
+                ),
+                if (visibleRows.isEmpty && onImportTicker != null)
+                  FilledButton.icon(
+                    onPressed: importingTicker ? null : onImportTicker,
+                    icon: importingTicker
+                        ? const SizedBox(
+                            width: 15,
+                            height: 15,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.download_rounded),
+                    label: Text(context.tr('添加并抓取', 'Add & fetch')),
+                  ),
               ],
-            );
-          },
+            ),
+          ),
+        ],
+        const SizedBox(height: 10),
+        ValuationIndustryMap(
+          rows: visibleRows,
+          selectedTicker: selectedRow.ticker,
+          expandedIndustryKey: expandedIndustryKey,
+          palette: palette,
+          onIndustryChanged: onIndustryChanged,
+          onTickerSelected: onTickerSelected,
+        ),
+        const SizedBox(height: 10),
+        ValuationSelectedOverview(
+          payload: detailPayload,
+          selectedRow: selectedRow,
+          loading: detailLoading,
+          error: detailError,
+          palette: palette,
+          showFullResearch: showFullResearch,
+          onRetry: onRefresh,
+          onToggleFullResearch: onToggleFullResearch,
+        ),
+        if (showFullResearch) ...[
+          const SizedBox(height: 10),
+          ValuationTickerDetailPanel(
+            api: api,
+            payload: detailPayload,
+            selectedRow: selectedRow,
+            loading: detailLoading,
+            error: detailError,
+            palette: palette,
+            onRetry: onRefresh,
+          ),
+        ],
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: palette.panel,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: palette.border),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.verified_user_outlined,
+                size: 18,
+                color: palette.accent,
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  context.tr(
+                    '估值输入：${text(source['upstreamLabel'], 'Jansen Sharadar PIT 财务 + 可见管理层指引')}。市场价格仅用于比较，不参与公允价值计算。',
+                    'Inputs: ${text(source['upstreamLabel'], 'Jansen Sharadar PIT financials + event-visible guidance')}. Market price is comparison-only.',
+                  ),
+                  style: TextStyle(
+                    color: palette.muted,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ValuationToolbarMenu extends StatelessWidget {
+  const _ValuationToolbarMenu({
+    required this.value,
+    required this.icon,
+    required this.label,
+    required this.options,
+    required this.palette,
+    required this.onChanged,
+  });
+
+  final String value;
+  final IconData icon;
+  final String label;
+  final Map<String, String> options;
+  final Palette palette;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      tooltip: label,
+      color: palette.card,
+      onSelected: onChanged,
+      itemBuilder: (context) => [
+        for (final option in options.entries)
+          PopupMenuItem<String>(
+            value: option.key,
+            child: Row(
+              children: [
+                Icon(
+                  option.key == value
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  size: 17,
+                  color: option.key == value ? palette.accent : palette.muted,
+                ),
+                const SizedBox(width: 9),
+                Text(
+                  option.value,
+                  style: TextStyle(
+                    color: palette.text,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: palette.card,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: palette.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 17, color: palette.muted),
+            const SizedBox(width: 7),
+            Text(
+              options[value] ?? label,
+              style: TextStyle(
+                color: palette.text,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(width: 7),
+            Icon(Icons.expand_more_rounded, size: 17, color: palette.muted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ValuationIndustryMap extends StatelessWidget {
+  const ValuationIndustryMap({
+    super.key,
+    required this.rows,
+    required this.selectedTicker,
+    required this.expandedIndustryKey,
+    required this.palette,
+    required this.onIndustryChanged,
+    required this.onTickerSelected,
+  });
+
+  final List<ValuationRow> rows;
+  final String selectedTicker;
+  final String expandedIndustryKey;
+  final Palette palette;
+  final ValueChanged<String> onIndustryChanged;
+  final ValueChanged<ValuationRow> onTickerSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = valuationIndustryGroups(rows);
+    final compact = MediaQuery.sizeOf(context).width < 760;
+    return Panel(
+      palette: palette,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (compact) ...[
+            PanelTitle(
+              icon: Icons.grid_view_rounded,
+              kicker: 'INDUSTRY MAP',
+              title: context.tr('按行业浏览估值', 'Browse valuation by industry'),
+              trailing: Text(
+                context.tr('${rows.length} 个可见标的', '${rows.length} visible'),
+                style: TextStyle(
+                  color: palette.muted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              palette: palette,
+            ),
+            const SizedBox(height: 14),
+          ],
+          if (groups.isEmpty)
+            EmptyState(
+              text: context.tr('当前筛选没有匹配标的。', 'No stocks match these filters.'),
+              palette: palette,
+            )
+          else
+            Column(
+              children: [
+                if (!compact) _ValuationIndustryHeader(palette: palette),
+                for (final group in groups)
+                  _ValuationIndustryRow(
+                    group: group,
+                    expanded: group.definition.key == expandedIndustryKey,
+                    compact: compact,
+                    selectedTicker: selectedTicker,
+                    palette: palette,
+                    onTap: () => onIndustryChanged(group.definition.key),
+                    onTickerSelected: onTickerSelected,
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ValuationIndustryHeader extends StatelessWidget {
+  const _ValuationIndustryHeader({required this.palette});
+
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      color: palette.faint,
+      fontSize: 10,
+      fontWeight: FontWeight.w900,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 260,
+            child: Text(context.tr('行业', 'INDUSTRY'), style: style),
+          ),
+          SizedBox(
+            width: 100,
+            child: Text(context.tr('覆盖数量', 'COVERAGE'), style: style),
+          ),
+          SizedBox(
+            width: 170,
+            child: Text(context.tr('中位估值差', 'MEDIAN GAP'), style: style),
+          ),
+          Expanded(
+            child: Text(
+              context.tr('估值分布', 'VALUATION DISTRIBUTION'),
+              style: style,
+            ),
+          ),
+          const SizedBox(width: 32),
+        ],
+      ),
+    );
+  }
+}
+
+class _ValuationIndustryRow extends StatelessWidget {
+  const _ValuationIndustryRow({
+    required this.group,
+    required this.expanded,
+    required this.compact,
+    required this.selectedTicker,
+    required this.palette,
+    required this.onTap,
+    required this.onTickerSelected,
+  });
+
+  final ValuationIndustryGroupData group;
+  final bool expanded;
+  final bool compact;
+  final String selectedTicker;
+  final Palette palette;
+  final VoidCallback onTap;
+  final ValueChanged<ValuationRow> onTickerSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = valuationTone(group.medianUpside, palette);
+    final industryLabel = context.tr(group.definition.zh, group.definition.en);
+    final title = Row(
+      children: [
+        Container(
+          width: compact ? 34 : 26,
+          height: compact ? 34 : 26,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: expanded
+                ? palette.accent.withValues(alpha: .14)
+                : palette.card,
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(
+              color: expanded
+                  ? palette.accent.withValues(alpha: .4)
+                  : palette.border,
+            ),
+          ),
+          child: Icon(
+            group.definition.icon,
+            size: compact ? 18 : 14,
+            color: expanded ? palette.accent : palette.muted,
+          ),
+        ),
+        SizedBox(width: compact ? 10 : 8),
+        Expanded(
+          child: compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      industryLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: expanded ? palette.text : palette.muted,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      context.tr(
+                        '${group.rows.length} 个标的',
+                        '${group.rows.length} stocks',
+                      ),
+                      style: TextStyle(color: palette.faint, fontSize: 11),
+                    ),
+                  ],
+                )
+              : Text(
+                  industryLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: expanded ? palette.text : palette.muted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+        ),
+      ],
+    );
+    final gap = Text(
+      formatReturn(group.medianUpside),
+      style: TextStyle(color: tone, fontSize: 15, fontWeight: FontWeight.w900),
+    );
+    final distribution = _ValuationDistributionBar(
+      undervalued: group.undervaluedCount,
+      fair: group.fairCount,
+      expensive: group.expensiveCount,
+      missing: group.missingCount,
+      palette: palette,
+    );
+    final row = compact
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: title),
+                  const SizedBox(width: 12),
+                  gap,
+                  const SizedBox(width: 4),
+                  Icon(
+                    expanded
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                    color: palette.muted,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              distribution,
+            ],
+          )
+        : Row(
+            children: [
+              SizedBox(width: 260, child: title),
+              SizedBox(
+                width: 100,
+                child: Text(
+                  '${group.rows.length}',
+                  style: TextStyle(
+                    color: palette.text,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              SizedBox(width: 170, child: gap),
+              Expanded(child: distribution),
+              SizedBox(
+                width: 32,
+                child: Icon(
+                  expanded
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                  color: expanded ? palette.accent : palette.muted,
+                ),
+              ),
+            ],
+          );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: expanded
+            ? palette.accent.withValues(alpha: .055)
+            : Colors.transparent,
+        border: Border(
+          top: BorderSide(color: palette.border.withValues(alpha: .8)),
+          left: BorderSide(
+            width: 2,
+            color: expanded ? palette.accent : Colors.transparent,
+          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 10 : 12,
+                vertical: compact ? 12 : 5,
+              ),
+              child: row,
+            ),
+          ),
+          if (expanded)
+            _ValuationIndustryTickerGrid(
+              rows: group.rows,
+              selectedTicker: selectedTicker,
+              palette: palette,
+              onTickerSelected: onTickerSelected,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ValuationDistributionBar extends StatelessWidget {
+  const _ValuationDistributionBar({
+    required this.undervalued,
+    required this.fair,
+    required this.expensive,
+    required this.missing,
+    required this.palette,
+  });
+
+  final int undervalued;
+  final int fair;
+  final int expensive;
+  final int missing;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = undervalued + fair + expensive + missing;
+    Widget legendDot(Color color, String text) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: TextStyle(
+            color: palette.faint,
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+    return Row(
+      children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: SizedBox(
+              height: 8,
+              child: total == 0
+                  ? ColoredBox(color: palette.border)
+                  : Row(
+                      children: [
+                        if (undervalued > 0)
+                          Expanded(
+                            flex: undervalued,
+                            child: ColoredBox(color: palette.positive),
+                          ),
+                        if (fair > 0)
+                          Expanded(
+                            flex: fair,
+                            child: ColoredBox(color: palette.secondary),
+                          ),
+                        if (expensive > 0)
+                          Expanded(
+                            flex: expensive,
+                            child: ColoredBox(color: palette.negative),
+                          ),
+                        if (missing > 0)
+                          Expanded(
+                            flex: missing,
+                            child: ColoredBox(color: palette.faint),
+                          ),
+                      ],
+                    ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Wrap(
+          spacing: 8,
+          children: [
+            legendDot(palette.positive, '$undervalued'),
+            legendDot(palette.secondary, '$fair'),
+            legendDot(palette.negative, '$expensive'),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ValuationIndustryTickerGrid extends StatelessWidget {
+  const _ValuationIndustryTickerGrid({
+    required this.rows,
+    required this.selectedTicker,
+    required this.palette,
+    required this.onTickerSelected,
+  });
+
+  final List<ValuationRow> rows;
+  final String selectedTicker;
+  final Palette palette;
+  final ValueChanged<ValuationRow> onTickerSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 1400
+            ? 6
+            : constraints.maxWidth >= 1050
+            ? 5
+            : constraints.maxWidth >= 760
+            ? 4
+            : constraints.maxWidth >= 330
+            ? 2
+            : 1;
+        const gap = 8.0;
+        final width =
+            (constraints.maxWidth - 24 - gap * (columns - 1)) / columns;
+        final previewCount = columns <= 2 ? 6 : 12;
+        final visibleRows = rows.take(previewCount).toList();
+        final selectedRow = rows
+            .where((row) => row.ticker == selectedTicker)
+            .firstOrNull;
+        if (selectedRow != null &&
+            !visibleRows.any((row) => row.ticker == selectedTicker)) {
+          visibleRows[visibleRows.length - 1] = selectedRow;
+        }
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(12, 2, 12, 14),
+          child: Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            children: [
+              for (final row in visibleRows)
+                SizedBox(
+                  width: width,
+                  child: _ValuationTickerCell(
+                    row: row,
+                    selected: row.ticker == selectedTicker,
+                    dense: columns >= 4,
+                    palette: palette,
+                    onTap: () => onTickerSelected(row),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ValuationTickerCell extends StatelessWidget {
+  const _ValuationTickerCell({
+    required this.row,
+    required this.selected,
+    required this.dense,
+    required this.palette,
+    required this.onTap,
+  });
+
+  final ValuationRow row;
+  final bool selected;
+  final bool dense;
+  final Palette palette;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = row.hasModel
+        ? valuationTone(row.upside, palette)
+        : palette.faint;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(7),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: dense ? 58 : 70,
+        padding: EdgeInsets.symmetric(horizontal: 11, vertical: dense ? 7 : 9),
+        decoration: BoxDecoration(
+          color: selected
+              ? palette.accent.withValues(alpha: .14)
+              : palette.card.withValues(alpha: .7),
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(
+            color: selected
+                ? palette.accent.withValues(alpha: .55)
+                : palette.border,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    row.ticker,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: palette.text,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                Text(
+                  row.hasModel ? formatReturn(row.upside) : '-',
+                  style: TextStyle(
+                    color: tone,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              row.hasModel
+                  ? '${formatCurrencyValue(row.latestPrice, row.currency)}  ·  FV ${formatCurrencyValue(row.fairValue, row.currency)}'
+                  : context.tr('估值待补', 'Valuation pending'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: palette.muted,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ValuationSelectedOverview extends StatelessWidget {
+  const ValuationSelectedOverview({
+    super.key,
+    required this.payload,
+    required this.selectedRow,
+    required this.loading,
+    required this.error,
+    required this.palette,
+    required this.showFullResearch,
+    required this.onRetry,
+    required this.onToggleFullResearch,
+  });
+
+  final Map<String, dynamic>? payload;
+  final ValuationRow selectedRow;
+  final bool loading;
+  final String? error;
+  final Palette palette;
+  final bool showFullResearch;
+  final VoidCallback onRetry;
+  final VoidCallback onToggleFullResearch;
+
+  @override
+  Widget build(BuildContext context) {
+    final tickerPayload = asMap(payload?['ticker']);
+    final ticker = text(tickerPayload['ticker'], selectedRow.ticker);
+    final name = text(tickerPayload['name'], selectedRow.name);
+    final sector = text(tickerPayload['sector'], selectedRow.sector);
+    final currency = text(tickerPayload['currency'], selectedRow.currency);
+    final latest = asMap(tickerPayload['latest']);
+    final history = asList(tickerPayload['history']).toList()
+      ..sort((a, b) => text(a['asOfDate']).compareTo(text(b['asOfDate'])));
+    final priceHistory = asList(tickerPayload['priceHistory']);
+    final latestPrice =
+        firstNumber([latest['latestPrice'], selectedRow.latestPrice]) ?? 0;
+    final fairValue =
+        firstNumber([latest['baseFairValue'], selectedRow.fairValue]) ?? 0;
+    final upside =
+        firstNumber([latest['upsideToBase'], selectedRow.upside]) ?? 0;
+    final target =
+        firstNumber([latest['targetPrice3Y'], selectedRow.targetPrice3Y]) ?? 0;
+    final latestHistory = history.isEmpty ? <String, dynamic>{} : history.last;
+    final previousHistory = history.length < 2
+        ? <String, dynamic>{}
+        : history[history.length - 2];
+    final latestInputs = asMap(
+      asMap(
+        asMap(latestHistory['dataSnapshot'])['valuationSemantics'],
+      )['scoreInputs'],
+    );
+    final previousInputs = asMap(
+      asMap(
+        asMap(previousHistory['dataSnapshot'])['valuationSemantics'],
+      )['scoreInputs'],
+    );
+    final drivers = _valuationDrivers(
+      context,
+      latestHistory: latestHistory,
+      previousHistory: previousHistory,
+      latestInputs: latestInputs,
+      previousInputs: previousInputs,
+      currency: currency,
+      palette: palette,
+    );
+    final selectedQuarterKey = history.isEmpty
+        ? ''
+        : valuationQuarterKey(history.last);
+    final compactLayout = MediaQuery.sizeOf(context).width < 900;
+
+    Widget metricGrid() => GridWrap(
+      minTileWidth: 132,
+      spacing: 8,
+      children: [
+        MiniMetric(
+          context.tr('价格', 'Price'),
+          formatCurrencyValue(latestPrice, currency),
+          Icons.show_chart_rounded,
+          palette,
+        ),
+        MiniMetric(
+          context.tr('公允价值', 'Fair value'),
+          formatCurrencyValue(fairValue, currency),
+          Icons.balance_rounded,
+          palette,
+        ),
+        MiniMetric(
+          context.tr('估值差距', 'Valuation gap'),
+          formatReturn(upside),
+          Icons.trending_up_rounded,
+          palette,
+        ),
+        MiniMetric(
+          context.tr('三年目标', '3Y target'),
+          formatCurrencyValue(target, currency),
+          Icons.flag_outlined,
+          palette,
+        ),
+      ],
+    );
+
+    Widget metricRailItem(String label, String value, Color tone) => Expanded(
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: palette.faint,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              value,
+              style: TextStyle(
+                color: tone,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    Widget metricRail() => Padding(
+      padding: const EdgeInsets.only(top: 34),
+      child: Container(
+        height: 286,
+        padding: const EdgeInsets.only(left: 14),
+        decoration: BoxDecoration(
+          border: Border(left: BorderSide(color: palette.border)),
+        ),
+        child: Column(
+          children: [
+            metricRailItem(
+              context.tr('当前价格', 'Current price'),
+              formatCurrencyValue(latestPrice, currency),
+              palette.text,
+            ),
+            Divider(height: 1, color: palette.border),
+            metricRailItem(
+              context.tr('公允价值', 'Fair value'),
+              formatCurrencyValue(fairValue, currency),
+              palette.accent,
+            ),
+            Divider(height: 1, color: palette.border),
+            metricRailItem(
+              context.tr('估值差距', 'Valuation gap'),
+              formatReturn(upside),
+              valuationTone(upside, palette),
+            ),
+            Divider(height: 1, color: palette.border),
+            metricRailItem(
+              context.tr('三年目标', '3Y target'),
+              formatCurrencyValue(target, currency),
+              palette.secondary,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return Panel(
+      palette: palette,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SELECTED RESEARCH',
+                      style: TextStyle(
+                        color: palette.faint,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      ticker.isEmpty
+                          ? context.tr('选择一个标的', 'Select a ticker')
+                          : '$ticker · $name',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: palette.text,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      sector,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: palette.muted, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              BadgeLabel(
+                text: selectedRow.valuationVerdict(context),
+                color: valuationTone(selectedRow.upside, palette),
+              ),
+              const SizedBox(width: 4),
+              _RetryIconButton(onPressed: onRetry, palette: palette),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (compactLayout) ...[metricGrid(), const SizedBox(height: 14)],
+          if (loading && payload == null)
+            SizedBox(
+              height: 300,
+              child: Center(
+                child: CircularProgressIndicator(color: palette.accent),
+              ),
+            )
+          else if (error != null && payload == null)
+            EmptyState(text: error!, palette: palette)
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 900;
+                final chart = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.tr('历史估值 / 股价', 'Fair value / price history'),
+                      style: TextStyle(
+                        color: palette.text,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: compact ? 240 : 286,
+                      child: history.length < 2 && priceHistory.length < 2
+                          ? EmptyState(
+                              text: context.tr(
+                                '暂无历史序列。',
+                                'No historical series available.',
+                              ),
+                              palette: palette,
+                            )
+                          : ValuationTrendChart(
+                              history: history,
+                              priceHistory: priceHistory,
+                              currency: currency,
+                              palette: palette,
+                              selectedQuarterKey: selectedQuarterKey,
+                            ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 6,
+                      children: [
+                        _ChartLegend(
+                          color: palette.accent,
+                          label: context.tr('公允价值', 'Fair value'),
+                          palette: palette,
+                        ),
+                        _ChartLegend(
+                          color: palette.secondary,
+                          label: context.tr('季度股价', 'Quarter price'),
+                          palette: palette,
+                        ),
+                        _ChartLegend(
+                          color: palette.faint,
+                          label: context.tr('每日股价', 'Daily price'),
+                          palette: palette,
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+                final why = Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: palette.card.withValues(alpha: .72),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: palette.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.rule_rounded,
+                            color: palette.accent,
+                            size: 19,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            context.tr('为什么变化', 'Why it changed'),
+                            style: TextStyle(
+                              color: palette.text,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        context.tr(
+                          '只比较相邻两个 PIT 财报节点。',
+                          'Compares the two latest PIT reporting nodes.',
+                        ),
+                        style: TextStyle(color: palette.faint, fontSize: 11),
+                      ),
+                      const SizedBox(height: 10),
+                      for (final driver in drivers) ...[
+                        _ValuationDriverRow(driver: driver, palette: palette),
+                        if (driver != drivers.last)
+                          Divider(height: 16, color: palette.border),
+                      ],
+                    ],
+                  ),
+                );
+                if (compact) {
+                  return Column(
+                    children: [chart, const SizedBox(height: 14), why],
+                  );
+                }
+                final chartWithMetrics = Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: chart),
+                    const SizedBox(width: 12),
+                    SizedBox(width: 154, child: metricRail()),
+                  ],
+                );
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 7, child: chartWithMetrics),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 3, child: why),
+                  ],
+                );
+              },
+            ),
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: onToggleFullResearch,
+              icon: Icon(
+                showFullResearch
+                    ? Icons.expand_less_rounded
+                    : Icons.open_in_new_rounded,
+              ),
+              label: Text(
+                showFullResearch
+                    ? context.tr('收起完整研究', 'Hide full research')
+                    : context.tr('打开完整研究', 'Open full research'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ValuationDriver {
+  const _ValuationDriver({
+    required this.label,
+    required this.value,
+    required this.change,
+    required this.note,
+    required this.color,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final String change;
+  final String note;
+  final Color color;
+  final IconData icon;
+}
+
+List<_ValuationDriver> _valuationDrivers(
+  BuildContext context, {
+  required Map<String, dynamic> latestHistory,
+  required Map<String, dynamic> previousHistory,
+  required Map<String, dynamic> latestInputs,
+  required Map<String, dynamic> previousInputs,
+  required String currency,
+  required Palette palette,
+}) {
+  double? input(Map<String, dynamic> values, String key) =>
+      nullableNumber(values[key]);
+  String change(double? latest, double? previous) {
+    if (latest == null || previous == null || previous == 0) return '-';
+    return formatReturn(latest / previous - 1);
+  }
+
+  Color tone(double? latest, double? previous) {
+    if (latest == null || previous == null || previous == 0) {
+      return palette.muted;
+    }
+    return latest >= previous ? palette.positive : palette.negative;
+  }
+
+  final latestRevenue =
+      input(latestInputs, 'revenueGuidanceM') ??
+      input(latestInputs, 'valuationRevenue');
+  final previousRevenue =
+      input(previousInputs, 'revenueGuidanceM') ??
+      input(previousInputs, 'valuationRevenue');
+  final latestFcf =
+      input(latestInputs, 'valuationFreeCashFlow') ??
+      input(latestInputs, 'ttmFreeCashFlow');
+  final previousFcf =
+      input(previousInputs, 'valuationFreeCashFlow') ??
+      input(previousInputs, 'ttmFreeCashFlow');
+  final latestFairValue = nullableNumber(latestHistory['fairValue']);
+  final previousFairValue = nullableNumber(previousHistory['fairValue']);
+
+  return [
+    _ValuationDriver(
+      label: context.tr('全年收入输入', 'FY revenue input'),
+      value: _formatModelAmountM(latestRevenue, currency),
+      change: change(latestRevenue, previousRevenue),
+      note: context.tr(
+        input(latestInputs, 'revenueGuidanceM') != null
+            ? '管理层全年指引，已排除下一季度和分部收入。'
+            : '未找到可用全年指引，使用模型前瞻收入。',
+        input(latestInputs, 'revenueGuidanceM') != null
+            ? 'Management FY guide; next-quarter and segment revenue excluded.'
+            : 'No valid FY guide; model-forward revenue used.',
+      ),
+      color: tone(latestRevenue, previousRevenue),
+      icon: Icons.campaign_outlined,
+    ),
+    _ValuationDriver(
+      label: context.tr('估值自由现金流', 'Valuation free cash flow'),
+      value: _formatModelAmountM(latestFcf, currency),
+      change: change(latestFcf, previousFcf),
+      note: context.tr(
+        input(latestInputs, 'fcfGuidanceM') != null
+            ? '使用管理层全年 FCF 指引。'
+            : '使用 PIT 财务与模型前瞻比例。',
+        input(latestInputs, 'fcfGuidanceM') != null
+            ? 'Management FY FCF guidance used.'
+            : 'Uses PIT financials and the model forward scale.',
+      ),
+      color: tone(latestFcf, previousFcf),
+      icon: Icons.account_balance_wallet_outlined,
+    ),
+    _ValuationDriver(
+      label: context.tr('公允价值', 'Fair value'),
+      value: latestFairValue == null
+          ? '-'
+          : formatCurrencyValue(latestFairValue, currency),
+      change: change(latestFairValue, previousFairValue),
+      note: context.tr(
+        '保持同一估值方法，只更新当时可见的 PIT 输入。',
+        'Same valuation method; only event-visible PIT inputs changed.',
+      ),
+      color: tone(latestFairValue, previousFairValue),
+      icon: Icons.balance_outlined,
+    ),
+  ];
+}
+
+String _formatModelAmountM(double? value, String currency) {
+  if (value == null || !value.isFinite) return '-';
+  final symbol = switch (currency.toUpperCase()) {
+    'GBP' => '£',
+    'EUR' => '€',
+    'JPY' => '¥',
+    _ => r'$',
+  };
+  final absolute = value.abs();
+  if (absolute >= 1000) {
+    final digits = absolute >= 10000 ? 1 : 2;
+    return '$symbol${(value / 1000).toStringAsFixed(digits)}B';
+  }
+  return '$symbol${value.toStringAsFixed(0)}M';
+}
+
+class _ValuationDriverRow extends StatelessWidget {
+  const _ValuationDriverRow({required this.driver, required this.palette});
+
+  final _ValuationDriver driver;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: driver.color.withValues(alpha: .12),
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Icon(driver.icon, size: 16, color: driver.color),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      driver.label,
+                      style: TextStyle(
+                        color: palette.muted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    driver.change,
+                    style: TextStyle(
+                      color: driver.color,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 3),
+              Text(
+                driver.value,
+                style: TextStyle(
+                  color: palette.text,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                driver.note,
+                style: TextStyle(
+                  color: palette.faint,
+                  fontSize: 10,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -19731,6 +21153,16 @@ class ValuationRow {
   final String auditStatus;
   final String consensusStatus;
   final double? consensusUpside;
+
+  bool get hasModel => latestPrice > 0 && fairValue > 0;
+
+  String valuationVerdict(BuildContext context) {
+    if (!hasModel) return context.tr('无估值', 'No FV');
+    if (upside >= .25) return context.tr('深度折价', 'Deep value');
+    if (upside >= .05) return context.tr('偏便宜', 'Undervalued');
+    if (upside <= -.10) return context.tr('偏贵', 'Expensive');
+    return context.tr('接近公允', 'Near fair');
+  }
 
   String get coverageLabel {
     if (coverageKind.isEmpty) return 'model';
