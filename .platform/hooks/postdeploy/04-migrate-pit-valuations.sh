@@ -4,7 +4,7 @@ set -euo pipefail
 runtime_db="${SQLITE_DB_PATH:-/var/app/data/guru-analysis.sqlite}"
 runtime_dir="$(dirname "${runtime_db}")"
 artifact="${PIT_MIGRATION_ARTIFACT:-/var/app/current/server/data/valuation-pit-migration.sqlite.gz}"
-expected_sha256="7d24f6a14a62be4826f6b724b5fb714e42dc75af6309df5d5294227df3b24bac"
+manifest="${PIT_MIGRATION_MANIFEST:-/var/app/current/server/data/valuation-pit-migration.manifest.json}"
 backup_dir="${PIT_BACKUP_DIR:-${runtime_dir}/backups}"
 portfolio_dir="${PIT_PORTFOLIO_DIR:-${runtime_dir}/user-portfolios}"
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -23,15 +23,39 @@ if [ ! -f "${runtime_db}" ]; then
   echo "error: runtime database is missing"
   exit 1
 fi
-if [ ! -f "${artifact}" ]; then
-  echo "error: PIT migration artifact is missing"
+if [ ! -f "${artifact}" ] && [ ! -f "${manifest}" ]; then
+  echo "no PIT migration artifact in this release; skipping"
+  exit 0
+fi
+if [ ! -f "${artifact}" ] || [ ! -f "${manifest}" ]; then
+  echo "error: PIT migration artifact and manifest must both be present"
   exit 1
 fi
+
+expected_sha256="$(python3 - "${manifest}" <<'PY'
+import json
+import sys
+
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+if manifest.get("releaseAudit", {}).get("status") != "pass":
+    raise SystemExit("migration manifest does not contain a passing release audit")
+value = str(manifest.get("artifactSha256") or "")
+if len(value) != 64:
+    raise SystemExit("migration manifest is missing a valid SHA-256")
+print(value)
+PY
+)"
 
 actual_sha256="$(sha256sum "${artifact}" | awk '{print $1}')"
 if [ "${actual_sha256}" != "${expected_sha256}" ]; then
   echo "error: migration artifact checksum mismatch: ${actual_sha256}"
   exit 1
+fi
+
+completion_marker="${runtime_dir}/.valuation-pit-migration-${actual_sha256}.done"
+if [ -f "${completion_marker}" ]; then
+  echo "migration artifact was already installed; marker=${completion_marker}"
+  exit 0
 fi
 
 mkdir -p "${backup_dir}"
@@ -73,13 +97,13 @@ fi
 
 gzip -dc "${artifact}" > "${migration_db}"
 
-python3 - "${runtime_db}" "${migration_db}" "${portfolio_dir}" <<'PY'
+python3 - "${runtime_db}" "${migration_db}" "${portfolio_dir}" "${manifest}" <<'PY'
 import json
 import os
 import sqlite3
 import sys
 
-runtime_path, migration_path, portfolio_dir = sys.argv[1:4]
+runtime_path, migration_path, portfolio_dir, manifest_path = sys.argv[1:5]
 replace_tables = (
     "valuation_pit_source_metadata",
     "valuation_pit_financials",
@@ -88,14 +112,14 @@ replace_tables = (
     "valuation_ticker_snapshots",
     "valuation_snapshots",
 )
+manifest = json.load(open(manifest_path, encoding="utf-8"))
 expected_counts = {
-    "valuation_pit_source_metadata": 18,
-    "valuation_pit_financials": 15894,
-    "valuation_pit_guidance": 18418,
-    "valuation_pit_model_runs": 7612,
-    "valuation_ticker_snapshots": 141,
-    "valuation_snapshots": 1,
+    table: int(manifest.get("valuationCounts", {}).get(table, -1))
+    for table in replace_tables
 }
+if any(count < 0 for count in expected_counts.values()):
+    raise RuntimeError("migration manifest is missing valuation table counts")
+expected_model_version = manifest.get("modelVersion")
 
 
 def quote_identifier(value):
@@ -149,6 +173,13 @@ try:
     if source_counts != expected_counts:
         raise RuntimeError(
             f"migration artifact count mismatch: {source_counts} != {expected_counts}"
+        )
+    model_version_row = migration.execute(
+        "SELECT value FROM valuation_pit_source_metadata WHERE key='model_version'"
+    ).fetchone()
+    if not model_version_row or model_version_row[0] != expected_model_version:
+        raise RuntimeError(
+            f"migration model version mismatch: {model_version_row} != {expected_model_version}"
         )
 finally:
     migration.close()
@@ -259,5 +290,7 @@ PY
 
 chown webapp:webapp "${runtime_db}" "${backup_gz}" || true
 chmod 600 "${runtime_db}" "${backup_gz}" || true
+touch "${completion_marker}"
+chown webapp:webapp "${completion_marker}" || true
 
 echo "PIT valuation migration completed at $(date -u +%Y-%m-%dT%H:%M:%SZ)"

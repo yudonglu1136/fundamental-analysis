@@ -9,11 +9,14 @@ are the point-in-time availability boundary.
 from __future__ import annotations
 
 import argparse
+import collections
+import concurrent.futures
 import datetime as dt
 import hashlib
 import json
 import re
 import sqlite3
+import sys
 import time
 from pathlib import Path
 
@@ -24,10 +27,14 @@ from urllib3.util.retry import Retry
 
 
 DEFAULT_SOURCE_DB = Path("server/data/valuation-pit-source.sqlite")
+DEFAULT_TARGET_DB = Path("server/data/guru-analysis.sqlite")
+DEFAULT_MANIFEST = Path("server/config/sp500-valuation-universe.json")
 SEC_USER_AGENT = "Guru Intelligence data engineering luyudong1136@gmail.com"
-IMPORT_VERSION = "official-sec-guidance-v2-2026-08-27"
+IMPORT_VERSION = "official-sec-guidance-v3-2026-08-28"
+SEC_REQUEST_DELAY_SECONDS = 0.36
 ISSUERS = {
     "CCEP": {"cik": "0001650107", "start": "2016-01-01"},
+    "DGE.L": {"cik": "0000835403", "start": "2010-01-01"},
     "FER": {"cik": "0001468522", "start": "2024-01-01"},
 }
 RESULT_DOCUMENT = re.compile(
@@ -96,50 +103,129 @@ PERCENT_RANGE = re.compile(
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-db", type=Path, default=DEFAULT_SOURCE_DB)
+    parser.add_argument("--target-db", type=Path, default=DEFAULT_TARGET_DB)
+    parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--cache-dir", type=Path, default=Path("/tmp/pit-official-sec-guidance"))
+    parser.add_argument("--workers", type=int, default=3)
     return parser.parse_args()
+
+
+def normalize_cik(value):
+    digits = "".join(character for character in str(value or "") if character.isdigit())
+    return digits.zfill(10) if digits else None
+
+
+def issuer_targets(source_db: Path, target_db: Path, manifest_path: Path):
+    cik_by_ticker = {
+        ticker: config["cik"] for ticker, config in ISSUERS.items()
+    }
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for company in manifest.get("companies") or []:
+            cik = normalize_cik(company.get("cik"))
+            if cik:
+                cik_by_ticker[str(company["ticker"]).upper()] = cik
+    if target_db.exists():
+        with sqlite3.connect(target_db) as connection:
+            for ticker, payload_json in connection.execute(
+                "SELECT ticker, payload_json FROM valuation_ticker_snapshots"
+            ):
+                payload = json.loads(payload_json)
+                cik = normalize_cik(
+                    payload.get("cik")
+                    or ((payload.get("dataQuality") or {}).get("secCompanyFacts") or {}).get("cik")
+                )
+                if cik:
+                    cik_by_ticker[str(ticker).upper()] = cik
+    with sqlite3.connect(source_db) as connection:
+        rows = connection.execute(
+            """
+            SELECT coverage.ticker, coverage.status
+            FROM pit_guidance_coverage AS coverage
+            WHERE coverage.status IN (
+              'missing_transcripts',
+              'no_explicit_guidance',
+              'official_guidance_review_incomplete'
+            ) OR EXISTS (
+              SELECT 1 FROM pit_guidance_events AS events
+              WHERE events.ticker = coverage.ticker
+                AND events.source_type = 'official_issuer_sec_filing'
+            )
+            ORDER BY coverage.ticker
+            """
+        ).fetchall()
+    targets = {}
+    for ticker, _status in rows:
+        ticker = str(ticker).upper()
+        cik = cik_by_ticker.get(ticker)
+        if cik:
+            targets[ticker] = {"cik": cik, "start": ISSUERS.get(ticker, {}).get("start", "2010-01-01")}
+    return targets
 
 
 def get_json(session: requests.Session, url: str, cache: Path):
     if cache.exists():
         return json.loads(cache.read_text())
-    response = session.get(url, timeout=45)
+    response = session.get(url, timeout=20)
     response.raise_for_status()
     cache.parent.mkdir(parents=True, exist_ok=True)
     cache.write_text(response.text)
-    time.sleep(0.12)
+    time.sleep(SEC_REQUEST_DELAY_SECONDS)
     return response.json()
 
 
 def get_text(session: requests.Session, url: str, cache: Path):
     if cache.exists():
         return cache.read_text(errors="replace")
-    response = session.get(url, timeout=45)
+    response = session.get(url, timeout=20)
     response.raise_for_status()
     cache.parent.mkdir(parents=True, exist_ok=True)
     cache.write_text(response.text)
-    time.sleep(0.12)
+    time.sleep(SEC_REQUEST_DELAY_SECONDS)
     return response.text
 
 
-def filing_rows(submission: dict, start_date: str):
-    recent = submission["filings"]["recent"]
-    for index, form in enumerate(recent["form"]):
-        filing_date = recent["filingDate"][index]
-        primary = recent["primaryDocument"][index]
-        if form != "6-K" or filing_date < start_date:
+def filing_rows(records: dict, start_date: str):
+    for index, form in enumerate(records["form"]):
+        filing_date = records["filingDate"][index]
+        primary = records["primaryDocument"][index]
+        items = (records.get("items") or [""] * len(records["form"]))[index]
+        if form not in {"6-K", "8-K"} or filing_date < start_date:
             continue
-        if not RESULT_DOCUMENT.search(primary) or EXCLUDED_DOCUMENT.search(primary):
+        if form == "8-K" and not re.search(r"(?:^|,|\s)(?:2\.02|7\.01)(?:$|,|\s)", items or ""):
+            continue
+        if form == "6-K" and (not RESULT_DOCUMENT.search(primary) or EXCLUDED_DOCUMENT.search(primary)):
             continue
         yield {
-            "accession": recent["accessionNumber"][index],
+            "accession": records["accessionNumber"][index],
             "filing_date": filing_date,
-            "report_date": recent["reportDate"][index],
+            "report_date": records["reportDate"][index],
             "primary": primary,
+            "form": form,
+            "items": items,
         }
 
 
-def accession_documents(session, cik: str, filing: dict, cache_dir: Path):
+def submission_record_sets(session, submission: dict, cache_dir: Path):
+    yield submission["filings"]["recent"]
+    for row in submission["filings"].get("files") or []:
+        name = row.get("name")
+        if not name:
+            continue
+        yield get_json(
+            session,
+            f"https://data.sec.gov/submissions/{name}",
+            cache_dir / "submission-archives" / name,
+        )
+
+
+def accession_documents(
+    session,
+    cik: str,
+    filing: dict,
+    cache_dir: Path,
+    document_errors: list[dict] | None = None,
+):
     accession = filing["accession"].replace("-", "")
     base = f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{accession}"
     index = get_json(session, f"{base}/index.json", cache_dir / accession / "index.json")
@@ -151,9 +237,17 @@ def accession_documents(session, cik: str, filing: dict, cache_dir: Path):
         if name == filing["primary"] or RESULT_DOCUMENT.search(name):
             candidates.append(name)
     for name in dict.fromkeys(candidates):
-        yield name, f"{base}/{name}", get_text(
-            session, f"{base}/{name}", cache_dir / accession / name
-        )
+        try:
+            yield name, f"{base}/{name}", get_text(
+                session, f"{base}/{name}", cache_dir / accession / name
+            )
+        except Exception as error:
+            if document_errors is not None:
+                document_errors.append({
+                    "accession": filing["accession"],
+                    "document": name,
+                    "error": str(error),
+                })
 
 
 def clean_lines(html: str):
@@ -342,81 +436,230 @@ def ensure_schema(connection):
     )
 
 
-def main():
-    args = parse_args()
-    args.cache_dir.mkdir(parents=True, exist_ok=True)
+def build_session():
     session = requests.Session()
     session.headers.update({"User-Agent": SEC_USER_AGENT, "Accept-Encoding": "gzip, deflate"})
     session.mount(
         "https://",
         HTTPAdapter(
             max_retries=Retry(
-                total=5,
-                connect=5,
-                read=5,
+                total=1,
+                connect=1,
+                read=1,
                 backoff_factor=1.0,
                 status_forcelist=(429, 500, 502, 503, 504),
                 allowed_methods=("GET",),
             )
         ),
     )
+    return session
+
+
+def scan_issuer(ticker: str, config: dict, cache_dir: Path):
+    session = build_session()
+    events = []
+    filing_count = 0
+    filing_errors = 0
+    access_errors = []
+    periods = set()
+    seen_accessions = set()
+    try:
+        cik = config["cik"]
+        try:
+            submission = get_json(
+                session,
+                f"https://data.sec.gov/submissions/CIK{cik}.json",
+                cache_dir / ticker / "submission.json",
+            )
+        except Exception as error:
+            return ticker, [], {
+                "filings": 0,
+                "filingErrors": 1,
+                "periods": 0,
+                "submissionError": str(error),
+            }
+        record_sets = [submission["filings"]["recent"]]
+        for archive in submission["filings"].get("files") or []:
+            name = archive.get("name")
+            if not name:
+                continue
+            try:
+                record_sets.append(get_json(
+                    session,
+                    f"https://data.sec.gov/submissions/{name}",
+                    cache_dir / ticker / "submission-archives" / name,
+                ))
+            except Exception:
+                filing_errors += 1
+                access_errors.append({
+                    "archive": name,
+                    "error": "Submission archive could not be read.",
+                })
+        for records in record_sets:
+            for filing in filing_rows(records, config["start"]):
+                if filing["accession"] in seen_accessions:
+                    continue
+                seen_accessions.add(filing["accession"])
+                filing_count += 1
+                document_errors = []
+                try:
+                    documents = list(accession_documents(
+                        session,
+                        cik,
+                        filing,
+                        cache_dir / ticker,
+                        document_errors,
+                    ))
+                except Exception as error:
+                    filing_errors += 1
+                    access_errors.append({
+                        "accession": filing["accession"],
+                        "document": "index.json",
+                        "error": str(error),
+                    })
+                    continue
+                access_errors.extend(document_errors)
+                if not documents and document_errors:
+                    filing_errors += 1
+                for document_name, source_url, html in documents:
+                    lines = clean_lines(html)
+                    period = fiscal_period(lines, filing)
+                    for metric, excerpt in guidance_lines(lines, ticker):
+                        amount, currency, margin, growth = metric_values(excerpt, metric)
+                        digest = hashlib.sha256(
+                            f"{ticker}|{period}|{filing['filing_date']}|{metric}|{excerpt}".encode()
+                        ).hexdigest()[:24]
+                        payload = {
+                            "id": digest,
+                            "ticker": ticker,
+                            "fiscal_period": period,
+                            "observed_at": filing["filing_date"],
+                            "metric_name": metric,
+                            "actual_or_guidance": "guidance",
+                            "amount": amount,
+                            "unit": f"{currency or 'reported'} millions" if amount is not None else None,
+                            "currency": currency,
+                            "growth_yoy": growth,
+                            "growth_qoq": None,
+                            "margin_pct": margin,
+                            "value_text": excerpt,
+                            "quality_status": "clear",
+                            "extraction_confidence": 0.96,
+                            "speaker": "Issuer management / investor relations filing",
+                            "source_url": source_url,
+                            "evidence_excerpt": excerpt,
+                            "source_file": f"SEC:{filing['accession']}:{document_name}",
+                            "source_type": "official_issuer_sec_filing",
+                            "extraction_version": IMPORT_VERSION,
+                        }
+                        payload["payload_json"] = json.dumps(payload, separators=(",", ":"))
+                        events.append(payload)
+                        periods.add(period)
+        return ticker, events, {
+            "filings": filing_count,
+            "filingErrors": filing_errors,
+            "accessErrors": access_errors,
+            "periods": len(periods),
+        }
+    finally:
+        session.close()
+
+
+def align_events_to_financial_periods(source_db: Path, events: list[dict]) -> list[dict]:
+    """Attach filing guidance to the nearest issuer financial release.
+
+    Filing headings can mention a future quarter and are therefore not a safe
+    fiscal-period key.  The issuer's first-visible financial date is the PIT
+    boundary and provides the stable quarter assignment.
+    """
+
+    by_ticker: dict[str, list[tuple[dt.date, str]]] = collections.defaultdict(list)
+    with sqlite3.connect(source_db) as connection:
+        for ticker, fiscal_period, available_at in connection.execute(
+            """
+            SELECT ticker, fiscal_period, MIN(available_at)
+            FROM pit_financial_periods
+            GROUP BY ticker, fiscal_period
+            ORDER BY ticker, MIN(available_at)
+            """
+        ):
+            try:
+                by_ticker[str(ticker).upper()].append(
+                    (dt.date.fromisoformat(str(available_at)), str(fiscal_period))
+                )
+            except (TypeError, ValueError):
+                continue
+
+    aligned = []
+    for event in events:
+        try:
+            observed = dt.date.fromisoformat(str(event["observed_at"]))
+        except (KeyError, TypeError, ValueError):
+            aligned.append(event)
+            continue
+        candidates = by_ticker.get(str(event.get("ticker", "")).upper(), [])
+        nearest = min(candidates, key=lambda item: abs((item[0] - observed).days), default=None)
+        if nearest and abs((nearest[0] - observed).days) <= 45:
+            event = {**event, "fiscal_period": nearest[1]}
+            event["id"] = hashlib.sha256(
+                "|".join(
+                    str(event.get(key) or "")
+                    for key in (
+                        "ticker",
+                        "fiscal_period",
+                        "observed_at",
+                        "metric_name",
+                        "evidence_excerpt",
+                    )
+                ).encode()
+            ).hexdigest()[:24]
+            payload = {
+                key: value for key, value in event.items() if key != "payload_json"
+            }
+            event["payload_json"] = json.dumps(payload, separators=(",", ":"))
+        aligned.append(event)
+    return aligned
+
+
+def main():
+    args = parse_args()
+    args.cache_dir.mkdir(parents=True, exist_ok=True)
     events = []
     coverage = {}
 
-    for ticker, config in ISSUERS.items():
-        cik = config["cik"]
-        submission = get_json(
-            session,
-            f"https://data.sec.gov/submissions/CIK{cik}.json",
-            args.cache_dir / ticker / "submission.json",
-        )
-        filing_count = 0
-        periods = set()
-        for filing in filing_rows(submission, config["start"]):
-            filing_count += 1
-            for document_name, source_url, html in accession_documents(
-                session, cik, filing, args.cache_dir / ticker
-            ):
-                lines = clean_lines(html)
-                period = fiscal_period(lines, filing)
-                for metric, excerpt in guidance_lines(lines, ticker):
-                    amount, currency, margin, growth = metric_values(excerpt, metric)
-                    digest = hashlib.sha256(
-                        f"{ticker}|{period}|{filing['filing_date']}|{metric}|{excerpt}".encode()
-                    ).hexdigest()[:24]
-                    payload = {
-                        "id": digest,
-                        "ticker": ticker,
-                        "fiscal_period": period,
-                        "observed_at": filing["filing_date"],
-                        "metric_name": metric,
-                        "actual_or_guidance": "guidance",
-                        "amount": amount,
-                        "unit": f"{currency or 'reported'} millions" if amount is not None else None,
-                        "currency": currency,
-                        "growth_yoy": growth,
-                        "growth_qoq": None,
-                        "margin_pct": margin,
-                        "value_text": excerpt,
-                        "quality_status": "clear",
-                        "extraction_confidence": 0.96,
-                        "speaker": "Issuer management / investor relations filing",
-                        "source_url": source_url,
-                        "evidence_excerpt": excerpt,
-                        "source_file": f"SEC:{filing['accession']}:{document_name}",
-                        "source_type": "official_issuer_sec_filing",
-                        "extraction_version": IMPORT_VERSION,
-                    }
-                    payload["payload_json"] = json.dumps(payload, separators=(",", ":"))
-                    events.append(payload)
-                    periods.add(period)
-        coverage[ticker] = {"filings": filing_count, "periods": len(periods)}
+    issuers = issuer_targets(args.source_db, args.target_db, args.manifest)
+    workers = max(1, min(args.workers, 3))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {
+            executor.submit(scan_issuer, ticker, config, args.cache_dir): ticker
+            for ticker, config in issuers.items()
+        }
+        for future in concurrent.futures.as_completed(futures):
+            ticker, issuer_events, issuer_coverage = future.result()
+            events.extend(issuer_events)
+            coverage[ticker] = issuer_coverage
+            print(
+                f"{ticker}: {issuer_coverage['filings']} filings, "
+                f"{len(issuer_events)} guidance events, "
+                f"{issuer_coverage['filingErrors']} access errors",
+                file=sys.stderr,
+                flush=True,
+            )
+
+    events = align_events_to_financial_periods(args.source_db, events)
 
     with sqlite3.connect(args.source_db) as connection:
         ensure_schema(connection)
-        connection.execute(
-            "DELETE FROM pit_guidance_events WHERE source_type='official_issuer_sec_filing'"
-        )
+        placeholders = ",".join("?" for _ in issuers)
+        if placeholders:
+            connection.execute(
+                f"""
+                DELETE FROM pit_guidance_events
+                WHERE source_type='official_issuer_sec_filing'
+                  AND ticker IN ({placeholders})
+                """,
+                tuple(issuers),
+            )
         for event in events:
             connection.execute(
                 """
@@ -440,16 +683,25 @@ def main():
                     event["extraction_version"], event["payload_json"],
                 ),
             )
-        for ticker in ISSUERS:
-            count, periods = connection.execute(
+        for ticker in issuers:
+            official_count = connection.execute(
                 """
-                SELECT COUNT(*), COUNT(DISTINCT fiscal_period)
+                SELECT COUNT(*)
                 FROM pit_guidance_events
                 WHERE ticker=? AND source_type='official_issuer_sec_filing'
                 """,
                 (ticker,),
+            ).fetchone()[0]
+            count, periods = connection.execute(
+                """
+                SELECT COUNT(*), COUNT(DISTINCT fiscal_period)
+                FROM pit_guidance_events
+                WHERE ticker=?
+                """,
+                (ticker,),
             ).fetchone()
             if count:
+                status = "covered_official_filing" if official_count else "covered"
                 connection.execute(
                     """
                     UPDATE pit_guidance_coverage
@@ -457,12 +709,23 @@ def main():
                     WHERE ticker=?
                     """,
                     (
-                        periods, count, "covered_official_filing",
-                        "Official issuer SEC result filings; filing date is PIT boundary.",
+                        periods, count, status,
+                        "Event-visible transcript and/or official issuer filing guidance; observed filing/call date is the PIT boundary.",
                         ticker,
                     ),
                 )
             else:
+                filing_errors = coverage.get(ticker, {}).get("filingErrors", 0)
+                status = (
+                    "official_guidance_review_incomplete"
+                    if filing_errors
+                    else "no_quantified_official_guidance"
+                )
+                note = (
+                    f"Official filing review had {filing_errors} document access errors; guidance coverage is incomplete."
+                    if filing_errors
+                    else "Official issuer filings reviewed; no quantified group-level guidance suitable for the valuation model."
+                )
                 connection.execute(
                     """
                     UPDATE pit_guidance_coverage
@@ -470,11 +733,41 @@ def main():
                     WHERE ticker=?
                     """,
                     (
-                        "no_quantified_official_guidance",
-                        "Official issuer filings reviewed; no quantified group-level guidance suitable for the valuation model.",
+                        status,
+                        note,
                         ticker,
                     ),
                 )
+        connection.execute(
+            """
+            UPDATE pit_guidance_coverage
+            SET guidance_periods = (
+                  SELECT COUNT(DISTINCT events.fiscal_period)
+                  FROM pit_guidance_events AS events
+                  WHERE events.ticker = pit_guidance_coverage.ticker
+                ),
+                guidance_events = (
+                  SELECT COUNT(*)
+                  FROM pit_guidance_events AS events
+                  WHERE events.ticker = pit_guidance_coverage.ticker
+                ),
+                status = CASE
+                  WHEN EXISTS (
+                    SELECT 1 FROM pit_guidance_events AS events
+                    WHERE events.ticker = pit_guidance_coverage.ticker
+                      AND events.source_type IN (
+                        'official_issuer_sec_filing',
+                        'official_uk_company_filing'
+                      )
+                  ) THEN 'covered_official_filing'
+                  WHEN EXISTS (
+                    SELECT 1 FROM pit_guidance_events AS events
+                    WHERE events.ticker = pit_guidance_coverage.ticker
+                  ) THEN 'covered'
+                  ELSE status
+                END
+            """
+        )
         connection.execute(
             "INSERT OR REPLACE INTO pit_source_metadata (key,value) VALUES (?,?)",
             ("official_sec_guidance_version", IMPORT_VERSION),

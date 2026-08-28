@@ -1,3 +1,5 @@
+import { sp500CanonicalTicker } from "./sp500ValuationUniverse.js";
+
 const explicitLondonAliases = new Map([
   ["AZNL", { valuation: "AZN", market: "AZN.L", display: "AZN.L" }],
   ["AZN.L", { valuation: "AZN", market: "AZN.L", display: "AZN.L" }],
@@ -67,6 +69,7 @@ export function valuationTickerCandidates(value, { currency = "", companyName = 
   const candidates = [];
   if (!ticker) return candidates;
   pushUnique(candidates, ticker);
+  pushUnique(candidates, sp500CanonicalTicker(ticker));
 
   const explicit = explicitLondonAliases.get(ticker);
   if (explicit) {
@@ -116,6 +119,7 @@ export function valuationLookupKeysForSnapshot(snapshot = {}) {
   const ticker = normalizeTicker(snapshot.ticker || snapshot.key);
   const keys = [];
   pushUnique(keys, ticker);
+  pushUnique(keys, sp500CanonicalTicker(ticker));
   const explicit = explicitLondonAliases.get(ticker);
   if (explicit) {
     pushUnique(keys, explicit.valuation);

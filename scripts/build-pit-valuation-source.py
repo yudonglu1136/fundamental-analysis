@@ -12,6 +12,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 import sqlite3
 from pathlib import Path
 
@@ -19,7 +20,10 @@ import pyarrow.dataset as ds
 
 
 DEFAULT_JANSEN_ROOT = Path(
-    "/Users/yudonglu/Documents/jansen_us_firm_replication/data/sharadar/parquet"
+    os.environ.get(
+        "JANSEN_SHARADAR_ROOT",
+        Path.home() / "Documents/jansen_us_firm_replication/data/sharadar/parquet",
+    )
 )
 DEFAULT_TARGET_DB = Path("server/data/guru-analysis.sqlite")
 DEFAULT_OUTPUT_DB = Path("server/data/valuation-pit-source.sqlite")
@@ -74,6 +78,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--jansen-root", type=Path, default=DEFAULT_JANSEN_ROOT)
     parser.add_argument("--target-db", type=Path, default=DEFAULT_TARGET_DB)
     parser.add_argument("--output-db", type=Path, default=DEFAULT_OUTPUT_DB)
+    parser.add_argument(
+        "--sp500-universe",
+        type=Path,
+        help="Deduplicated S&P 500 manifest to union with existing tracked tickers.",
+    )
     parser.add_argument("--start-date", default="2010-01-01")
     return parser.parse_args()
 
@@ -98,14 +107,68 @@ def source_fingerprint(root: Path) -> str:
     return digest.hexdigest()
 
 
-def target_tickers(db_path: Path) -> list[str]:
-    with sqlite3.connect(db_path) as connection:
-        return [
-            row[0].upper()
-            for row in connection.execute(
-                "SELECT ticker FROM valuation_ticker_snapshots ORDER BY ticker"
+def normalize_cik(value) -> str | None:
+    digits = "".join(character for character in str(value or "") if character.isdigit())
+    return digits.zfill(10) if digits else None
+
+
+def snapshot_cik(payload: dict) -> str | None:
+    cik = payload.get("cik") or (payload.get("dataQuality") or {}).get(
+        "secCompanyFacts", {}
+    ).get("cik")
+    if not cik:
+        for row in reversed(payload.get("history") or []):
+            cik = (
+                ((row.get("dataSnapshot") or {}).get("secCompanyFacts") or {}).get(
+                    "cik"
+                )
             )
-        ]
+            if cik:
+                break
+    return normalize_cik(cik)
+
+
+def target_universe(db_path: Path, sp500_path: Path | None) -> list[dict]:
+    with sqlite3.connect(db_path) as connection:
+        snapshots = []
+        for ticker, payload_json in connection.execute(
+            "SELECT ticker, payload_json FROM valuation_ticker_snapshots ORDER BY ticker"
+        ):
+            payload = json.loads(payload_json)
+            snapshots.append(
+                {
+                    "ticker": ticker.upper(),
+                    "sourceTicker": SOURCE_ALIASES.get(ticker.upper(), ticker.upper()),
+                    "cik": snapshot_cik(payload),
+                    "membership": "tracked_extra",
+                }
+            )
+    if sp500_path is None:
+        return snapshots
+
+    manifest = json.loads(sp500_path.read_text(encoding="utf-8"))
+    companies = [
+        {
+            "ticker": str(row["ticker"]).upper(),
+            "sourceTicker": str(row.get("sourceTicker") or row["ticker"]).upper(),
+            "cik": normalize_cik(row.get("cik")),
+            "membership": "sp500",
+        }
+        for row in manifest["companies"]
+    ]
+    sp500_ciks = {row["cik"] for row in companies if row["cik"]}
+    sp500_tickers = {
+        str(ticker).upper()
+        for row in manifest["companies"]
+        for ticker in [row["ticker"], *(row.get("aliases") or [])]
+    }
+    extras = [
+        row
+        for row in snapshots
+        if row["ticker"] not in sp500_tickers
+        and (row["cik"] is None or row["cik"] not in sp500_ciks)
+    ]
+    return sorted([*companies, *extras], key=lambda row: row["ticker"])
 
 
 def price_at_or_before(db_path: Path, symbol: str, date: str) -> float | None:
@@ -302,10 +365,12 @@ def main():
             "Sharadar fundamentals is missing both supported PIT cutoff fields: "
             + ", ".join(PIT_CUTOFF_FIELD_CANDIDATES)
         )
-    tickers = target_tickers(args.target_db)
+    universe = target_universe(args.target_db, args.sp500_universe)
+    tickers = [row["ticker"] for row in universe]
+    source_by_ticker = {row["ticker"]: row["sourceTicker"] for row in universe}
     source_tickers = sorted(
         {
-            SOURCE_ALIASES.get(ticker, ticker)
+            source_by_ticker[ticker]
             for ticker in tickers
             if ticker not in DERIVED_TICKERS | EXTERNAL_SOURCE_TICKERS
         }
@@ -329,7 +394,7 @@ def main():
         metadata = {
             "generated_at": generated_at,
             "source": "Jansen Sharadar SF1 as-reported ARQ/ART",
-            "source_root": str(args.jansen_root),
+            "source_root": "paid Sharadar parquet export",
             "source_fingerprint": source_fingerprint(args.jansen_root),
             "start_date": args.start_date,
             "pit_cutoff_field": "datekey",
@@ -342,7 +407,7 @@ def main():
         )
 
         for ticker in tickers:
-            source_ticker = SOURCE_ALIASES.get(ticker, ticker)
+            source_ticker = source_by_ticker[ticker]
             if ticker in DERIVED_TICKERS:
                 coverage.append((ticker, "RKLB", "derived", 0, 0, None, None, "Derived ETF; no issuer financial statement model."))
                 continue

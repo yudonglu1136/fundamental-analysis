@@ -7,6 +7,7 @@ import argparse
 import concurrent.futures
 import datetime as dt
 import json
+import os
 import re
 import sqlite3
 import threading
@@ -18,8 +19,14 @@ import requests
 from bs4 import BeautifulSoup
 
 
-DEFAULT_ROOT = Path("/Users/yudonglu/Documents/youtube_transcript_db/earnings_transcripts")
+DEFAULT_ROOT = Path(
+    os.environ.get(
+        "PIT_EARNINGS_TRANSCRIPT_ROOT",
+        Path.home() / "Documents/youtube_transcript_db/earnings_transcripts",
+    )
+)
 DEFAULT_TARGET_DB = Path("server/data/guru-analysis.sqlite")
+DEFAULT_SOURCE_DB = Path("server/data/valuation-pit-source.sqlite")
 BASE_URL = "https://stockanalysis.com"
 SKIP_TICKERS = {"BA.L", "DGE.L", "LSEG", "RKLX", "SPCX"}
 THREAD_STATE = threading.local()
@@ -29,6 +36,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=DEFAULT_ROOT)
     parser.add_argument("--target-db", type=Path, default=DEFAULT_TARGET_DB)
+    parser.add_argument(
+        "--source-db",
+        type=Path,
+        default=DEFAULT_SOURCE_DB,
+        help="PIT source database whose coverage table defines the full model universe.",
+    )
     parser.add_argument("--tickers", nargs="*")
     parser.add_argument("--start-year", type=int, default=2010)
     parser.add_argument("--workers", type=int, default=4)
@@ -72,7 +85,25 @@ def fetch(url: str) -> str:
     raise RuntimeError(f"Failed to fetch {url}: {last_error}")
 
 
-def targets(db_path: Path) -> list[str]:
+def targets(db_path: Path, source_db_path: Path) -> list[str]:
+    if source_db_path.exists():
+        with sqlite3.connect(source_db_path) as connection:
+            has_coverage = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='pit_financial_coverage'"
+            ).fetchone()
+            if has_coverage:
+                return sorted(
+                    {
+                        str(row[0] or row[1]).upper()
+                        for row in connection.execute(
+                            """
+                            SELECT source_ticker, ticker
+                            FROM pit_financial_coverage
+                            WHERE status IN ('covered', 'annual_only')
+                            """
+                        )
+                    }
+                )
     with sqlite3.connect(db_path) as connection:
         return [
             str(row[0]).upper()
@@ -174,7 +205,11 @@ def sync_ticker(ticker: str, root: Path, start_year: int, overwrite: bool) -> di
 
 def main():
     args = parse_args()
-    wanted = [ticker.upper() for ticker in args.tickers] if args.tickers else targets(args.target_db)
+    wanted = (
+        [ticker.upper() for ticker in args.tickers]
+        if args.tickers
+        else targets(args.target_db, args.source_db)
+    )
     args.root.mkdir(parents=True, exist_ok=True)
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.workers)) as executor:

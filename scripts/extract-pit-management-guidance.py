@@ -12,13 +12,17 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 import re
 import sqlite3
 from pathlib import Path
 
 
 DEFAULT_TRANSCRIPT_ROOT = Path(
-    "/Users/yudonglu/Documents/youtube_transcript_db/earnings_transcripts"
+    os.environ.get(
+        "PIT_EARNINGS_TRANSCRIPT_ROOT",
+        Path.home() / "Documents/youtube_transcript_db/earnings_transcripts",
+    )
 )
 DEFAULT_TARGET_DB = Path("server/data/guru-analysis.sqlite")
 DEFAULT_SOURCE_DB = Path("server/data/valuation-pit-source.sqlite")
@@ -81,10 +85,27 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def target_tickers(db_path: Path) -> list[str]:
+def target_tickers(db_path: Path, source_db_path: Path) -> list[tuple[str, str]]:
+    if source_db_path.exists():
+        with sqlite3.connect(source_db_path) as connection:
+            has_coverage = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='pit_financial_coverage'"
+            ).fetchone()
+            if has_coverage:
+                return [
+                    (str(row[0]).upper(), str(row[1] or row[0]).upper())
+                    for row in connection.execute(
+                        """
+                        SELECT ticker, source_ticker
+                        FROM pit_financial_coverage
+                        WHERE status IN ('covered', 'annual_only')
+                        ORDER BY ticker
+                        """
+                    )
+                ]
     with sqlite3.connect(db_path) as connection:
         return [
-            str(row[0]).upper()
+            (str(row[0]).upper(), SOURCE_ALIASES.get(str(row[0]).upper(), str(row[0]).upper()))
             for row in connection.execute(
                 "SELECT ticker FROM valuation_ticker_snapshots ORDER BY ticker"
             )
@@ -310,7 +331,7 @@ def ensure_schema(connection: sqlite3.Connection):
 
 def main():
     args = parse_args()
-    targets = target_tickers(args.target_db)
+    targets = target_tickers(args.target_db, args.source_db)
     args.source_db.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(args.source_db) as connection:
         ensure_schema(connection)
@@ -322,8 +343,7 @@ def main():
         insert = connection.cursor()
         total_events = 0
         covered_periods = set()
-        for ui_ticker in targets:
-            source_ticker = SOURCE_ALIASES.get(ui_ticker, ui_ticker)
+        for ui_ticker, source_ticker in targets:
             directory = args.transcript_root / source_ticker
             files = sorted(directory.glob("*.txt")) if directory.exists() else []
             all_periods = set()

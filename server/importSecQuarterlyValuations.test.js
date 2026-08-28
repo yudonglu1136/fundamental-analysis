@@ -3,10 +3,12 @@ import test from "node:test";
 import {
   attachMstrCryptoMetrics,
   buildEquityDcf,
+  cycleNormalizeNetIncome,
   digestGuidanceMetrics,
   hasExplicitValuationProfile,
   normalizedMarginRatio,
-  normalizedNetIncomePower
+  normalizedNetIncomePower,
+  profileSettings
 } from "./importSecQuarterlyValuations.js";
 
 function guidance(metricName, amount, excerpt, qualityStatus = "clear") {
@@ -137,6 +139,63 @@ test("normalized earnings preserve the observed below-operating burden", () => {
   assert.ok(result.belowOperatingIncomeBurden > 0.13);
   assert.ok(result.normalizedNetMargin < 0.09);
   assert.ok(result.netIncomeM < 4_900);
+});
+
+test("cycle burden filters a one-quarter impairment from normalized earnings", () => {
+  const result = normalizedNetIncomePower({
+    ttm: {
+      revenue_m: 10_000,
+      operating_income_m: 2_000,
+      net_income_m: -2_000,
+      cycle_operating_margin_pct: 19,
+      cycle_net_margin_pct: 10,
+      cycle_below_operating_burden_pct: 8
+    },
+    valuationRevenue: 10_000,
+    normalizedOperatingMargin: 0.18
+  });
+
+  assert.equal(result.belowOperatingIncomeBurden, 0.08);
+  assert.ok(Math.abs(result.normalizedNetMargin - 0.1) < 1e-12);
+  assert.ok(Math.abs(result.netIncomeM - 1_000) < 1e-9);
+});
+
+test("a positive reported net margin cannot disappear when normalized operating margin is lower", () => {
+  const result = normalizedNetIncomePower({
+    ttm: {
+      revenue_m: 22_430,
+      operating_income_m: 3_643,
+      net_income_m: 534
+    },
+    valuationRevenue: 22_430,
+    normalizedOperatingMargin: 0.125
+  });
+
+  assert.ok(result.belowOperatingIncomeBurden > 0.13);
+  assert.ok(result.normalizedNetMargin > 0);
+  assert.ok(result.normalizedNetMargin < 0.02);
+  assert.ok(result.netIncomeM > 300);
+});
+
+test("financial business models separate brokers, asset managers, and insurers", () => {
+  assert.equal(profileSettings("GS").profile, "capital_markets");
+  assert.equal(profileSettings("APO").profile, "asset_manager");
+  assert.equal(profileSettings("AON").profile, "insurance_broker");
+  assert.equal(profileSettings("CB").profile, "insurance");
+});
+
+test("cyclical earnings use only the trailing point-in-time EPS anchor", () => {
+  const normalized = cycleNormalizeNetIncome(
+    10,
+    { cycle_eps: 5 },
+    100,
+    { profile: "power_utility", earningsActualWeight: 0.68 }
+  );
+  assert.equal(normalized, 296);
+  assert.equal(
+    cycleNormalizeNetIncome(10, { cycle_eps: 5 }, 100, { profile: "media_telecom" }),
+    10
+  );
 });
 
 test("industry margin target cannot cap a structurally higher company margin", () => {

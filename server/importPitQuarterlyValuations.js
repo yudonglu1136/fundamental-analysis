@@ -7,14 +7,17 @@ import {
   compactTicker,
   digestGuidanceMetrics,
   hasExplicitValuationProfile,
+  profileSettings,
   readPriceHistoryFromDb,
   updateTickerSnapshot
 } from "./importSecQuarterlyValuations.js";
 
 const TARGET_DB_PATH = process.env.SQLITE_DB_PATH || path.join(process.cwd(), "server/data/guru-analysis.sqlite");
 const SOURCE_DB_PATH = process.env.PIT_VALUATION_SOURCE_PATH || path.join(process.cwd(), "server/data/valuation-pit-source.sqlite");
-const MODEL_VERSION = process.env.PIT_VALUATION_MODEL_VERSION || "pit-valuation-v4-fcfe-dcf-2026-08-28";
+const MODEL_VERSION = process.env.PIT_VALUATION_MODEL_VERSION || "pit-valuation-v13-sp500-clean-prices-2026-08-28";
 const SEC_FACTS_CACHE_DIR = process.env.SEC_FACTS_CACHE_DIR || path.join(process.cwd(), "server/data/sec-companyfacts");
+const PIT_SOURCE_LABEL = "valuation-pit-source";
+const PIT_GUIDANCE_LABEL = "valuation-pit-guidance";
 const APPLY = process.argv.includes("--apply");
 const ALLOW_INCOMPLETE = process.argv.includes("--allow-incomplete");
 
@@ -39,6 +42,23 @@ function maxDate(...dates) {
   return dates.filter(Boolean).sort().at(-1) || null;
 }
 
+function sanitizeReleasePayload(value, key = "") {
+  if (Array.isArray(value)) return value.map((child) => sanitizeReleasePayload(child, key));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([childKey, child]) => [childKey, sanitizeReleasePayload(child, childKey)])
+    );
+  }
+  if (
+    typeof value === "string" &&
+    /(path|file|database|root)$/i.test(key) &&
+    path.isAbsolute(value)
+  ) {
+    return `source-artifact://${path.basename(value)}`;
+  }
+  return value;
+}
+
 function normalizePeriod(period) {
   const value = String(period || "").trim().toUpperCase().replace(/\s+/g, "");
   const leadingQuarter = value.match(/^Q([1-4])(?:FY)?(20\d{2})$/);
@@ -59,9 +79,16 @@ function cleanSnapshot(snapshot) {
     key: snapshot.key,
     name: snapshot.name,
     sector: snapshot.sector,
+    industry: snapshot.industry,
     currency: snapshot.currency,
     description: snapshot.description,
     cik: inferredCik,
+    cusip: snapshot.cusip,
+    aliases: Array.isArray(snapshot.aliases) ? snapshot.aliases : [],
+    valuationProfile: hasExplicitValuationProfile(snapshot.ticker)
+      ? profileSettings(snapshot.ticker).profile
+      : snapshot.valuationProfile,
+    sp500MembershipAsOf: snapshot.sp500MembershipAsOf,
     priceHistory: Array.isArray(snapshot.priceHistory) ? snapshot.priceHistory : [],
     priceSource: snapshot.priceSource,
     latest: {
@@ -72,6 +99,44 @@ function cleanSnapshot(snapshot) {
     dataQuality: {
       pricePoints: snapshot.priceHistory?.length || snapshot.dataQuality?.pricePoints || 0,
       hasLivePriceSeries: Boolean(snapshot.priceHistory?.length)
+    }
+  };
+}
+
+function compactPriceHistory(points, maxPoints = 1800) {
+  const sorted = [...(Array.isArray(points) ? points : [])]
+    .filter((point) => point?.date && finiteNumber(point.close) > 0)
+    .sort((left, right) => String(left.date).localeCompare(String(right.date)));
+  if (sorted.length <= maxPoints) return sorted;
+  const recentCount = Math.min(260, Math.floor(maxPoints / 3));
+  const recent = sorted.slice(-recentCount);
+  const older = sorted.slice(0, -recentCount);
+  const olderBudget = maxPoints - recent.length;
+  const sampled = [];
+  for (let index = 0; index < olderBudget; index += 1) {
+    const sourceIndex = Math.min(
+      older.length - 1,
+      Math.floor(index * (older.length - 1) / Math.max(1, olderBudget - 1))
+    );
+    const point = older[sourceIndex];
+    if (!sampled.length || sampled.at(-1).date !== point.date) sampled.push(point);
+  }
+  return [...sampled, ...recent];
+}
+
+function compactSnapshotPriceHistory(snapshot) {
+  const validHistory = (Array.isArray(snapshot.priceHistory) ? snapshot.priceHistory : [])
+    .filter((point) => point?.date && finiteNumber(point.close) > 0);
+  const fullCount = validHistory.length;
+  const priceHistory = compactPriceHistory(validHistory);
+  return {
+    ...snapshot,
+    priceHistory,
+    dataQuality: {
+      ...(snapshot.dataQuality || {}),
+      pricePoints: fullCount,
+      storedPricePoints: priceHistory.length,
+      priceStoragePolicy: "stratified history plus latest 260 daily observations"
     }
   };
 }
@@ -122,10 +187,18 @@ function buildQuarterlyRows(sourceRows, guidanceByPeriod, ticker, sourceTicker) 
     rowsByPeriod.set(key, [...(rowsByPeriod.get(key) || []), row]);
   }
   const selected = [...rowsByPeriod.values()]
-    .map((candidates) =>
-      candidates.find((row) => row.sourceDimension === "ARQ" && hasCoreFinancials(row)) ||
-      candidates.find((row) => row.sourceDimension === "ART" && hasCoreFinancials(row))
-    )
+    .map((candidates) => {
+      const arq = candidates.find((row) => row.sourceDimension === "ARQ" && hasCoreFinancials(row));
+      const art = candidates.find((row) => row.sourceDimension === "ART" && hasCoreFinancials(row));
+      const base = arq || art;
+      if (!base) return null;
+      return {
+        ...base,
+        pitTrailingTwelveMonths: art || null,
+        trailingTwelveMonthsSourceRecord: art?.sourceRecord || null,
+        trailingTwelveMonthsAvailableAt: art?.asOfDate || null
+      };
+    })
     .filter(Boolean);
   const byPeriod = new Map(selected.map((row) => [`${row.fiscalYear}::${row.fiscalQuarter}`, row]));
   return selected
@@ -134,7 +207,7 @@ function buildQuarterlyRows(sourceRows, guidanceByPeriod, ticker, sourceTicker) 
       const guidanceKey = `${ticker}::Q${String(row.fiscalQuarter).replace("Q", "")}${row.fiscalYear}`;
       const sourceGuidanceKey = `${sourceTicker}::Q${String(row.fiscalQuarter).replace("Q", "")}${row.fiscalYear}`;
       const guidance = guidanceByPeriod.get(guidanceKey) || guidanceByPeriod.get(sourceGuidanceKey) || null;
-      const financialAvailableAt = row.asOfDate;
+      const financialAvailableAt = maxDate(row.asOfDate, row.trailingTwelveMonthsAvailableAt);
       const asOfDate = maxDate(financialAvailableAt, guidance?.maxObservedAt);
       return {
         ...row,
@@ -171,10 +244,11 @@ function attachPointInTimeSupplements(ticker, rows, existingSnapshot) {
     return {
       ...row,
       asOfDate: maxDate(row.asOfDate, ...supplementalDates),
+      financialAvailableAt: maxDate(row.financialAvailableAt, ...supplementalDates),
       sourceRecord: {
         ...(row.sourceRecord || {}),
         supplementalSource: "SEC CompanyFacts crypto-asset disclosures only",
-        supplementalCachePath: cachePath,
+        supplementalCachePath: `sec-companyfacts-cache/${path.basename(cachePath)}`,
         supplementalPitPolicy: "earliest filing date per fiscal period"
       }
     };
@@ -264,7 +338,7 @@ function readPitGuidance(source, tickers) {
   }
   const byPeriod = new Map();
   for (const [key, metrics] of grouped) {
-    byPeriod.set(key, digestGuidanceMetrics(metrics, { sourceDatabase: SOURCE_DB_PATH }));
+    byPeriod.set(key, digestGuidanceMetrics(metrics, { sourceDatabase: PIT_GUIDANCE_LABEL }));
   }
   return { rows, byPeriod };
 }
@@ -279,6 +353,10 @@ function insertRawGuidance(db, rows, importedAt) {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   for (const row of rows) {
+    const releasePayload = sanitizeReleasePayload({
+      ...row,
+      payload_json: parseJson(row.payload_json, row.payload_json)
+    });
     insert.run(
       row.source_type || "pit_management_guidance",
       String(row.id),
@@ -298,7 +376,7 @@ function insertRawGuidance(db, rows, importedAt) {
       row.speaker || null,
       row.source_url || null,
       row.evidence_excerpt || null,
-      JSON.stringify(row),
+      JSON.stringify(releasePayload),
       importedAt
     );
   }
@@ -313,8 +391,15 @@ function updateDashboard(db, previousDashboard, snapshots, generatedAt, sourceMe
     tickerCount: snapshots.length,
     historyRows: snapshots.reduce((sum, ticker) => sum + (ticker.history?.length || 0), 0),
     pricePointCount: snapshots.reduce((sum, ticker) => sum + (ticker.priceHistory?.length || 0), 0),
+    livePriceTickerCount: snapshots.filter((ticker) =>
+      finiteNumber(ticker.latest?.latestPrice) > 0 &&
+      (ticker.priceHistory || []).some((point) => finiteNumber(point?.close) > 0)
+    ).length,
+    positiveUpsideCount: snapshots.filter((ticker) => finiteNumber(ticker.latest?.upsideToBase) > 0).length,
+    negativeUpsideCount: snapshots.filter((ticker) => finiteNumber(ticker.latest?.upsideToBase) < 0).length,
     pitFinancialTickerCount: snapshots.filter((ticker) => ticker.dataQuality?.pitFinancialRows > 0).length,
-    quarterlyBackendValuationTickerCount: snapshots.filter((ticker) => ticker.dataQuality?.hasQuarterlyValuationRuns).length,
+    quarterlyBackendValuationTickerCount: snapshots.filter((ticker) => ticker.dataQuality?.pitValuationRows > 0).length,
+    unsupportedValuationTickerCount: snapshots.filter((ticker) => ticker.dataQuality?.valuationStatus === "not_applicable").length,
     latestPriceDate: snapshots.map((ticker) => ticker.latest?.latestPriceDate).filter(Boolean).sort().at(-1) || null
   };
   const payload = {
@@ -354,11 +439,44 @@ function main() {
         .map((row) => [String(row.ticker).toUpperCase(), parseJson(row.payload_json, {})])
     );
     const coverage = source.prepare("SELECT * FROM pit_financial_coverage ORDER BY ticker").all();
+    const guidanceCoverage = source.prepare("SELECT * FROM pit_guidance_coverage ORDER BY ticker").all();
     const sourceMetadata = new Map(
       source.prepare("SELECT key, value FROM pit_source_metadata").all().map((row) => [row.key, row.value])
     );
+    const countStatuses = (rows) => Object.fromEntries(
+      [...rows.reduce((counts, row) => {
+        const status = String(row.status || "unknown");
+        counts.set(status, (counts.get(status) || 0) + 1);
+        return counts;
+      }, new Map()).entries()].sort(([left], [right]) => left.localeCompare(right))
+    );
+    sourceMetadata.set("financial_coverage_summary", JSON.stringify(countStatuses(coverage)));
+    sourceMetadata.set("guidance_coverage_summary", JSON.stringify(countStatuses(guidanceCoverage)));
+    sourceMetadata.set("guidance_coverage_ticker_count", String(guidanceCoverage.length));
+    sourceMetadata.set("guidance_no_quantified_tickers", JSON.stringify(
+      guidanceCoverage
+        .filter((row) => row.status === "no_quantified_official_guidance")
+        .map((row) => String(row.ticker).toUpperCase())
+        .sort()
+    ));
     const blockers = coverage.filter((row) => row.status === "missing" || row.status === "external_required");
     const modelTickers = coverage.filter((row) => ["covered", "annual_only"].includes(row.status));
+    const acceptableGuidanceStatuses = new Set([
+      "covered",
+      "covered_official_filing",
+      "no_quantified_official_guidance"
+    ]);
+    const modelTickerSet = new Set(modelTickers.map((row) => String(row.ticker).toUpperCase()));
+    for (const row of guidanceCoverage) {
+      const ticker = String(row.ticker || "").toUpperCase();
+      if (modelTickerSet.has(ticker) && !acceptableGuidanceStatuses.has(row.status)) {
+        blockers.push({
+          ticker,
+          status: `guidance_${row.status || "missing"}`,
+          note: row.note || "Management guidance coverage has not passed the PIT evidence review."
+        });
+      }
+    }
     const evidenceTickers = [...new Set(modelTickers.flatMap((row) => [row.ticker, row.source_ticker]).filter(Boolean))];
     const pitGuidance = readPitGuidance(source, evidenceTickers);
     const guidanceByPeriod = pitGuidance.byPeriod;
@@ -416,6 +534,23 @@ function main() {
           modelVersion: MODEL_VERSION
         }
       });
+      if (!valuationRows.length) {
+        blockers.push({
+          ticker,
+          sourceTicker,
+          status: "zero_valuation_rows",
+          financialRows: quarterlyRows.length,
+          note: "PIT financials were available, but the valuation model produced no auditable historical node."
+        });
+        results.push({
+          ticker,
+          sourceTicker,
+          financialRows: quarterlyRows.length,
+          valuationRows: 0,
+          guidancePeriods: 0
+        });
+        continue;
+      }
       const youtubePeriods = valuationRows.filter((row) => row.dataSnapshot?.youtubeEarnings?.guidanceMetricCount).length;
       const next = updateTickerSnapshot({
         ticker,
@@ -428,7 +563,7 @@ function main() {
           modelType: "Point-in-time Fundamental Analysis model",
           methodCardLabel: "PIT financial + guidance model",
           methodCardDescription: "Constant-method historical replay using only financials and management guidance visible at each event.",
-          sourcePath: SOURCE_DB_PATH,
+          sourcePath: PIT_SOURCE_LABEL,
           sourceFingerprint: sourceMetadata.get("source_fingerprint") || null,
           sourceTicker,
           quarterlyFinancialRows: quarterlyRows.length,
@@ -449,7 +584,7 @@ function main() {
         sourceFingerprint: sourceMetadata.get("source_fingerprint") || null,
         revisionPolicy: "earliest datekey per fiscal period"
       };
-      nextSnapshots.push(next);
+      nextSnapshots.push(compactSnapshotPriceHistory(next));
       for (const output of valuationRows) {
         const fiscalPeriod = `${output.fiscalYear}-${output.fiscalQuarter}`;
         const financial = quarterlyRows.find((row) => row.fiscalYear === output.fiscalYear && row.fiscalQuarter === output.fiscalQuarter);
@@ -465,7 +600,8 @@ function main() {
             trailingTwelveMonths: output.dataSnapshot?.trailingTwelveMonths || null,
             guidance,
             valuationSemantics: output.dataSnapshot?.valuationSemantics || null,
-            sourceRecord: output.dataSnapshot?.financialSource?.record || null
+            sourceRecord: output.dataSnapshot?.financialSource?.record || null,
+            trailingTwelveMonthsSourceRecord: output.dataSnapshot?.financialSource?.trailingTwelveMonthsRecord || null
           },
           output
         });
@@ -480,7 +616,7 @@ function main() {
       const existing = currentSnapshots.get(ticker);
       if (!existing) continue;
       const snapshotBase = cleanSnapshot(existing);
-      nextSnapshots.push({
+      nextSnapshots.push(compactSnapshotPriceHistory({
         ...snapshotBase,
         modelType: "Derived instrument without issuer financial statements",
         latest: {
@@ -512,7 +648,7 @@ function main() {
           sourceNote: coverageRow.note || null,
           priceExcludedFromFairValue: true
         }
-      });
+      }));
       results.push({
         ticker,
         sourceTicker,

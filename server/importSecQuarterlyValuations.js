@@ -1,13 +1,18 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import { readTranscriptQaByTickerPeriod } from "./transcriptQaClient.js";
+import { sp500ValuationProfile } from "./sp500ValuationUniverse.js";
 
 const CURRENT_DB_PATH = process.env.SQLITE_DB_PATH || path.join(process.cwd(), "server/data/guru-analysis.sqlite");
-const YOUTUBE_DB_PATH = process.env.YOUTUBE_TRANSCRIPT_DB_PATH || "/Users/yudonglu/Documents/youtube_transcript_db/transcripts.sqlite";
-const TRINITY_MODEL_PATH = process.env.TRINITY_MODEL_PATH || "/Users/yudonglu/Documents/ai-trinity-dashboard/trinity_model.json";
-const TRINITY_MODEL_DIR = process.env.TRINITY_MODEL_DIR || "/Users/yudonglu/Documents/ai-trinity-dashboard";
+const YOUTUBE_DB_PATH = process.env.YOUTUBE_TRANSCRIPT_DB_PATH
+  || path.join(os.homedir(), "Documents/youtube_transcript_db/transcripts.sqlite");
+const TRINITY_MODEL_DIR = process.env.TRINITY_MODEL_DIR
+  || path.join(os.homedir(), "Documents/ai-trinity-dashboard");
+const TRINITY_MODEL_PATH = process.env.TRINITY_MODEL_PATH
+  || path.join(TRINITY_MODEL_DIR, "trinity_model.json");
 const CACHE_DIR = process.env.SEC_FACTS_CACHE_DIR || path.join(process.cwd(), "server/data/sec-companyfacts");
 const SEC_USER_AGENT = process.env.SEC_USER_AGENT || "thesisforge-guru-analysis yudonglu1136@gmail.com";
 const DEFAULT_TICKERS = (process.env.SEC_VALUATION_TICKERS || "ALL")
@@ -151,6 +156,7 @@ const VALUATION_PROFILES = {
   BKNG: "platform_marketplace_reinvestment",
   BKR: "industrial_growth",
   BMY: "biopharma",
+  BNY: "capital_markets",
   CB: "insurance",
   CCEP: "quality_consumer",
   CDNS: "software_growth",
@@ -177,13 +183,16 @@ const VALUATION_PROFILES = {
   FAST: "industrial_growth",
   FER: "industrial_growth",
   FTNT: "software_growth",
-  GEHC: "medtech_platform",
+  GEHC: "mature_medtech",
   GILD: "biopharma",
+  GS: "capital_markets",
   GOOG: "ads_ai_platform",
   GOOGL: "ads_ai_platform",
   GTLB: "software_growth",
   HON: "industrial_growth",
+  HOOD: "capital_markets",
   IBM: "information_services",
+  IBKR: "capital_markets",
   IDXX: "medtech_platform",
   INSM: "emerging_biotech",
   INTC: "semiconductor_cyclical",
@@ -211,6 +220,7 @@ const VALUATION_PROFILES = {
   MNST: "quality_consumer",
   MPWR: "semiconductor_growth",
   MRVL: "semiconductor_growth",
+  MS: "capital_markets",
   MSFT: "mega_cap_platform",
   MSTR: "bitcoin_treasury_software",
   MU: "semiconductor_cyclical",
@@ -219,6 +229,7 @@ const VALUATION_PROFILES = {
   NFLX: "subscription_streaming_platform",
   NXPI: "semiconductor_value",
   NTRA: "genetic_diagnostics_growth",
+  NTRS: "capital_markets",
   NVDA: "semiconductor_growth",
   ODFL: "industrial_growth",
   ORCL: "mega_cap_platform",
@@ -228,21 +239,25 @@ const VALUATION_PROFILES = {
   PCAR: "industrial_growth",
   PEP: "quality_consumer",
   PDD: "platform_marketplace_reinvestment",
+  PFG: "capital_markets",
   PLTR: "hypergrowth_ai_software",
   PYPL: "payments_network",
   QCOM: "semiconductor_value",
   REGN: "biopharma_growth",
   RKLB: "space_launch_growth",
   ROP: "industrial_growth",
+  RJF: "capital_markets",
   ROST: "quality_consumer",
   RTX: "defense_prime",
   SBUX: "quality_consumer",
+  SCHW: "capital_markets",
   SE: "platform_marketplace_reinvestment",
   SHOP: "platform_marketplace_reinvestment",
   SNDK: "semiconductor_storage_cycle",
   SNOW: "software_growth",
   SPCX: "space_platform_ipo",
   STX: "semiconductor_storage_cycle",
+  STT: "capital_markets",
   SNPS: "software_growth",
   TEM: "emerging_health_ai",
   TMUS: "media_telecom",
@@ -1060,14 +1075,14 @@ function pricePointAtOrBefore(points = [], date) {
   const target = Date.parse(date);
   if (!Number.isFinite(target)) return null;
   return [...points]
-    .filter((point) => point.date && finiteNumber(point.close) != null && Date.parse(point.date) <= target)
+    .filter((point) => point.date && finiteNumber(point.close) > 0 && Date.parse(point.date) <= target)
     .sort((left, right) => String(left.date).localeCompare(String(right.date)))
     .at(-1) || null;
 }
 
 function latestPricePoint(points = []) {
   return [...points]
-    .filter((point) => point.date && finiteNumber(point.close) != null)
+    .filter((point) => point.date && finiteNumber(point.close) > 0)
     .sort((left, right) => String(left.date).localeCompare(String(right.date)))
     .at(-1) || null;
 }
@@ -1077,7 +1092,7 @@ export function readPriceHistoryFromDb(db, ticker, limit = 1800) {
     const rows = db.prepare(`
       SELECT date, open, high, low, close, volume, source
       FROM price_points
-      WHERE symbol = ?
+      WHERE symbol = ? AND close > 0
       ORDER BY date DESC
       LIMIT ?
     `).all(ticker, limit);
@@ -1092,7 +1107,7 @@ export function readPriceHistoryFromDb(db, ticker, limit = 1800) {
         volume: finiteNumber(row.volume),
         source: row.source || "local price_points"
       }))
-      .filter((row) => row.date && row.close != null);
+      .filter((row) => row.date && row.close > 0);
   } catch {
     return [];
   }
@@ -1175,6 +1190,8 @@ function isVerifiedFinancialModelSource(sourceType) {
 
 function trailingOrAnnualValue(rows, index, key, annualizationFactor) {
   const row = rows[index];
+  const providerTrailingValue = finiteNumber(row?.pitTrailingTwelveMonths?.[key]);
+  if (providerTrailingValue != null) return providerTrailingValue;
   if (isAnnualOnlyFinancialRow(row)) return finiteNumber(row?.[key]);
   const ttmValue = trailingSum(rows, index, key);
   if (ttmValue != null) return ttmValue;
@@ -1197,6 +1214,54 @@ function latestKnownValueWithin(rows, index, key, maxRows) {
     if (value != null) return value;
   }
   return null;
+}
+
+function annualizationFactorForRow(row) {
+  return row?.fiscalQuarter === "Q4" && ["10-K", "20-F", "40-F"].includes(row?.sources?.revenue_m?.form)
+    ? 1
+    : 4;
+}
+
+function cycleContextForRows(rows, index, windowSize = 8) {
+  const start = Math.max(0, index - Math.max(1, windowSize) + 1);
+  const samples = [];
+  for (let sampleIndex = start; sampleIndex <= index; sampleIndex += 1) {
+    const factor = annualizationFactorForRow(rows[sampleIndex]);
+    const revenue = trailingOrAnnualValue(rows, sampleIndex, "revenue_m", factor);
+    const operatingIncome = trailingOrAnnualValue(rows, sampleIndex, "operating_income_m", factor);
+    const netIncome = trailingOrAnnualValue(rows, sampleIndex, "net_income_m", factor);
+    const cfo = trailingOrAnnualValue(rows, sampleIndex, "cfo_m", factor);
+    const capex = trailingOrAnnualValue(rows, sampleIndex, "capex_m", factor);
+    const equity = latestKnownValue(rows, sampleIndex, "equity_m");
+    const shares = latestKnownValueWithin(rows, sampleIndex, "shares_m", 8);
+    if (!(revenue > 0)) continue;
+    const operatingMarginPct = margin(operatingIncome, revenue);
+    const netMarginPct = margin(netIncome, revenue);
+    samples.push({
+      operatingMarginPct,
+      netMarginPct,
+      cfoMarginPct: margin(cfo, revenue),
+      fcfMarginPct: cfo != null && capex != null ? margin(cfo - capex, revenue) : null,
+      roePct: netIncome != null && equity > 0 ? netIncome / equity * 100 : null,
+      eps: netIncome != null && shares > 0 ? netIncome / shares : null,
+      belowOperatingBurdenPct: operatingMarginPct > 0 && netMarginPct != null
+        ? operatingMarginPct - netMarginPct
+        : null
+    });
+  }
+  const metricMedian = (key, min, max) => median(samples
+    .map((sample) => finiteNumber(sample[key]))
+    .filter((value) => value != null && value >= min && value <= max));
+  return {
+    sampleCount: samples.length,
+    operatingMarginPct: metricMedian("operatingMarginPct", -100, 100),
+    netMarginPct: metricMedian("netMarginPct", -100, 100),
+    cfoMarginPct: metricMedian("cfoMarginPct", -100, 150),
+    fcfMarginPct: metricMedian("fcfMarginPct", -100, 100),
+    roePct: metricMedian("roePct", -100, 150),
+    eps: metricMedian("eps", 0.000001, 10_000),
+    belowOperatingBurdenPct: metricMedian("belowOperatingBurdenPct", 0, 25)
+  };
 }
 
 function valuationMultiples(row, ttm) {
@@ -1559,6 +1624,22 @@ const PROFILE_SETTINGS = {
     marginActualWeight: 0.42,
     fcfWeight: 0.34
   },
+  mature_medtech: {
+    label: "Mature medical technology",
+    method: "Normalized medical-device EPS + FCFE DCF",
+    normalizedGrowthWindow: 8,
+    peRange: [15, 30],
+    peBase: 21,
+    peGrowthCoefficient: 0.18,
+    peMarginCoefficient: 0.1,
+    fcfYieldRange: [0.04, 0.075],
+    fcfYieldBase: 0.055,
+    targetMargin: 0.18,
+    marginActualWeight: 0.72,
+    fcfWeight: 0.4,
+    normalizeFcfAcrossCycle: true,
+    fcfActualWeight: 0.65
+  },
   healthcare_distribution: {
     label: "Healthcare distribution",
     method: "Low-margin EPS + FCFE DCF",
@@ -1726,7 +1807,12 @@ const PROFILE_SETTINGS = {
     fcfYieldRange: [0.055, 0.09],
     fcfYieldBase: 0.068,
     targetMargin: 0.18,
-    fcfWeight: 0.25
+    marginActualWeight: 0.72,
+    fcfWeight: 0.12,
+    maintenanceCapexIntensityPct: 0.12,
+    normalizeFcfAcrossCycle: true,
+    fcfActualWeight: 0.55,
+    terminalGrowth: 0.022
   },
   quality_consumer: {
     label: "Quality consumer compounder",
@@ -1783,6 +1869,200 @@ const PROFILE_SETTINGS = {
     fcfYieldBase: 0.055,
     targetMargin: 0.12,
     fcfWeight: 0.25
+  },
+  software_platform: {
+    label: "Software platform",
+    method: "Moderate-growth EV/sales + normalized earnings + FCFE DCF",
+    allowLossMakingStage: true,
+    forwardRevenueYears: 1,
+    forwardFcfScaleCap: 1.4,
+    normalizedGrowthWindow: 8,
+    normalizedGrowthCapPct: 45,
+    peRange: [20, 44],
+    peBase: 27,
+    fcfYieldRange: [0.032, 0.065],
+    fcfYieldBase: 0.045,
+    evSalesRange: [3.0, 16.0],
+    evSalesBase: 5.5,
+    evSalesGrowthCoefficient: 0.11,
+    evSalesGrossMarginCoefficient: 0.045,
+    evSalesFcfMarginCoefficient: 0.035,
+    targetMargin: 0.24,
+    salesWeight: 0.38,
+    earningsWeight: 0.32,
+    fcfWeight: 0.30,
+    defaultGrossMarginPct: 70
+  },
+  technology_hardware: {
+    label: "Technology hardware",
+    method: "Cycle-normalized EPS + FCFE DCF",
+    normalizedGrowthWindow: 8,
+    peRange: [13, 30],
+    peBase: 19,
+    fcfYieldRange: [0.04, 0.08],
+    fcfYieldBase: 0.057,
+    targetMargin: 0.15,
+    fcfWeight: 0.38,
+    cycleHaircut: 0.94
+  },
+  credit_services: {
+    label: "Consumer and commercial credit",
+    method: "ROE-implied P/B + normalized EPS",
+    costOfEquity: 0.11,
+    terminalGrowth: 0.025,
+    pbRange: [0.8, 3.5],
+    peRange: [8, 18],
+    peBase: 11.5,
+    bookWeight: 0.55,
+    epsWeight: 0.45
+  },
+  capital_markets: {
+    label: "Broker / capital markets",
+    method: "Through-cycle ROE-implied P/B + EPS power",
+    normalizedGrowthWindow: 8,
+    costOfEquity: 0.11,
+    terminalGrowth: 0.025,
+    pbRange: [0.85, 4.5],
+    peRange: [9, 22],
+    peBase: 14,
+    bookWeight: 0.48,
+    epsWeight: 0.52,
+    normalizedRoeRange: [0.06, 0.32],
+    defaultRoe: 0.1,
+    roeActualWeight: 0.55
+  },
+  asset_manager: {
+    label: "Asset manager",
+    method: "Through-cycle EPS power",
+    normalizedGrowthWindow: 8,
+    peRange: [9, 22],
+    peBase: 14,
+    peGrowthCoefficient: 0.1,
+    peMarginCoefficient: 0,
+    earningsActualWeight: 0.58
+  },
+  insurance_broker: {
+    label: "Insurance broker",
+    method: "Through-cycle brokerage EPS power",
+    normalizedGrowthWindow: 8,
+    peRange: [14, 28],
+    peBase: 18,
+    peGrowthCoefficient: 0.12,
+    peMarginCoefficient: 0,
+    earningsActualWeight: 0.65
+  },
+  reit: {
+    label: "Equity REIT",
+    method: "Normalized distributable cash flow + FCFE DCF",
+    normalizedGrowthWindow: 8,
+    peRange: [13, 25],
+    peBase: 17,
+    fcfYieldRange: [0.045, 0.085],
+    fcfYieldBase: 0.062,
+    targetMargin: 0.28,
+    marginActualWeight: 0.65,
+    fcfWeight: 0.78,
+    maintenanceCapexIntensityPct: 0.05,
+    normalizeFcfAcrossCycle: true,
+    fcfActualWeight: 0.6,
+    terminalGrowth: 0.025
+  },
+  energy_infrastructure: {
+    label: "Energy infrastructure / integrated",
+    method: "Cycle-normalized owner earnings + FCFE DCF",
+    normalizedGrowthWindow: 8,
+    peRange: [7, 17],
+    peBase: 10,
+    fcfYieldRange: [0.065, 0.13],
+    fcfYieldBase: 0.09,
+    targetMargin: 0.12,
+    marginActualWeight: 0.68,
+    fcfWeight: 0.55,
+    maintenanceCapexIntensityPct: 0.08,
+    normalizeFcfAcrossCycle: true,
+    fcfActualWeight: 0.55,
+    cycleHaircut: 0.82
+  },
+  materials: {
+    label: "Materials / building products",
+    method: "Cycle-normalized EPS + FCFE DCF",
+    normalizedGrowthWindow: 8,
+    peRange: [10, 25],
+    peBase: 16,
+    fcfYieldRange: [0.045, 0.095],
+    fcfYieldBase: 0.066,
+    targetMargin: 0.12,
+    fcfWeight: 0.42,
+    normalizeFcfAcrossCycle: true,
+    fcfActualWeight: 0.55,
+    cycleHaircut: 0.9
+  },
+  commodity_merchant: {
+    label: "Commodity merchant / processor",
+    method: "Low-margin cycle-normalized EPS + FCFE DCF",
+    normalizedGrowthWindow: 8,
+    peRange: [9, 18],
+    peBase: 12,
+    peGrowthCoefficient: 0.1,
+    peMarginCoefficient: 0.06,
+    fcfYieldRange: [0.06, 0.1],
+    fcfYieldBase: 0.075,
+    targetMargin: 0.035,
+    marginActualWeight: 0.78,
+    fcfWeight: 0.35,
+    normalizeFcfAcrossCycle: true,
+    fcfActualWeight: 0.55,
+    cycleHaircut: 0.9
+  },
+  consumer_staples: {
+    label: "Consumer staples",
+    method: "Normalized EPS + FCFE DCF",
+    normalizedGrowthWindow: 8,
+    peRange: [16, 32],
+    peBase: 21,
+    fcfYieldRange: [0.035, 0.065],
+    fcfYieldBase: 0.048,
+    targetMargin: 0.12,
+    fcfWeight: 0.44
+  },
+  consumer_cyclical: {
+    label: "Consumer cyclical",
+    method: "Cycle-normalized EPS + FCFE DCF",
+    normalizedGrowthWindow: 8,
+    peRange: [10, 30],
+    peBase: 18,
+    fcfYieldRange: [0.04, 0.09],
+    fcfYieldBase: 0.06,
+    targetMargin: 0.1,
+    fcfWeight: 0.4,
+    normalizeFcfAcrossCycle: true,
+    fcfActualWeight: 0.6,
+    cycleHaircut: 0.94
+  },
+  healthcare_services: {
+    label: "Healthcare services / diagnostics",
+    method: "Quality EPS + FCFE DCF",
+    normalizedGrowthWindow: 8,
+    peRange: [16, 36],
+    peBase: 23,
+    fcfYieldRange: [0.035, 0.075],
+    fcfYieldBase: 0.052,
+    targetMargin: 0.16,
+    fcfWeight: 0.42
+  },
+  transportation: {
+    label: "Transportation / travel",
+    method: "Cycle-normalized EPS + FCFE DCF",
+    normalizedGrowthWindow: 8,
+    peRange: [9, 25],
+    peBase: 15,
+    fcfYieldRange: [0.045, 0.1],
+    fcfYieldBase: 0.068,
+    targetMargin: 0.1,
+    fcfWeight: 0.42,
+    normalizeFcfAcrossCycle: true,
+    fcfActualWeight: 0.55,
+    cycleHaircut: 0.9
   },
   industrial_gases_compounder: {
     label: "Industrial gases compounder",
@@ -1864,18 +2144,23 @@ const PROFILE_SETTINGS = {
 };
 
 function profileForTicker(ticker) {
-  return VALUATION_PROFILES[ticker] || "mega_cap_platform";
+  const normalized = String(ticker || "").toUpperCase();
+  return VALUATION_PROFILES[normalized] || sp500ValuationProfile(normalized) || null;
 }
 
 export function hasExplicitValuationProfile(ticker) {
-  return Object.hasOwn(VALUATION_PROFILES, String(ticker || "").toUpperCase());
+  const profile = profileForTicker(ticker);
+  return Boolean(profile && Object.hasOwn(PROFILE_SETTINGS, profile));
 }
 
 export function profileSettings(ticker) {
   const profile = profileForTicker(ticker);
+  if (!profile || !Object.hasOwn(PROFILE_SETTINGS, profile)) {
+    throw new Error(`Missing explicit valuation profile for ${String(ticker || "").toUpperCase()}`);
+  }
   return {
     profile,
-    ...(PROFILE_SETTINGS[profile] || PROFILE_SETTINGS.mega_cap_platform)
+    ...PROFILE_SETTINGS[profile]
   };
 }
 
@@ -1903,11 +2188,16 @@ function normalizedRevenueGrowthForRows(rows, index, windowSize) {
 }
 
 export function normalizedMarginRatio(ttm, settings) {
-  const opMargin = finiteNumber(ttm.operating_margin_pct);
+  const currentMargin = finiteNumber(ttm.operating_margin_pct);
+  const cycleMargin = finiteNumber(ttm.cycle_operating_margin_pct);
+  const opMargin = cycleMargin ?? currentMargin;
   const target = finiteNumber(settings.targetMargin) ?? 0.2;
   if (opMargin == null) return target;
   const actualWeight = clamp(settings.marginActualWeight ?? 0.7, 0.25, 0.9);
-  const blendedMargin = opMargin / 100 * actualWeight + target * (1 - actualWeight);
+  const observedFloor = finiteNumber(settings.observedMarginFloor) ?? Math.min(target, Math.max(-0.05, target * 0.15));
+  const observedCeiling = finiteNumber(settings.observedMarginCeiling) ?? 0.75;
+  const normalizedObservedMargin = clamp(opMargin / 100, observedFloor, observedCeiling);
+  const blendedMargin = normalizedObservedMargin * actualWeight + target * (1 - actualWeight);
   const floor = finiteNumber(settings.normalizedMarginFloor) ?? -0.05;
   const ceiling = finiteNumber(settings.normalizedMarginCap) ?? 0.6;
   return clamp(blendedMargin, floor, ceiling);
@@ -1979,26 +2269,75 @@ function valuationFreeCashFlow(ttm, settings) {
   const ttmCfo = finiteNumber(ttm.cfo_m);
   const ttmRevenue = finiteNumber(ttm.revenue_m);
   const ttmCapex = finiteNumber(ttm.capex_m);
+  const cycleFcfMargin = finiteNumber(ttm.cycle_fcf_margin_pct);
+  const cycleCfoMargin = finiteNumber(ttm.cycle_cfo_margin_pct);
   const maintenanceIntensity = finiteNumber(settings.maintenanceCapexIntensityPct);
+  const actualWeight = clamp(settings.fcfActualWeight ?? 0.65, 0.25, 0.9);
+  const cycleFcfM = ttmRevenue > 0 && cycleFcfMargin != null && cycleFcfMargin > 0
+    ? ttmRevenue * cycleFcfMargin / 100
+    : null;
+  if (maintenanceIntensity > 0 && ttmRevenue > 0) {
+    const cycleCfoM = cycleCfoMargin != null && cycleCfoMargin > 0
+      ? ttmRevenue * cycleCfoMargin / 100
+      : null;
+    const normalizedCfoM = ttmCfo > 0 && cycleCfoM > 0
+      ? ttmCfo * actualWeight + cycleCfoM * (1 - actualWeight)
+      : ttmCfo > 0
+        ? ttmCfo
+        : cycleCfoM != null
+          ? cycleCfoM * 0.7
+          : null;
+    const maintenanceCapexM = ttmRevenue * maintenanceIntensity;
+    const normalizedFcf = normalizedCfoM != null
+      ? normalizedCfoM - Math.min(Math.max(0, ttmCapex || 0), maintenanceCapexM)
+      : null;
+    return {
+      reportedFcf: ttmFcf,
+      normalizedFcf,
+      cycleFcfM,
+      maintenanceCapexM,
+      growthCapexM: Math.max(0, (ttmCapex || 0) - maintenanceCapexM),
+      capexIntensityPct: margin(ttmCapex, ttmRevenue),
+      usesOwnerEarnings: true,
+      usesCycleNormalization: cycleCfoM != null
+    };
+  }
+  if (settings.normalizeFcfAcrossCycle && cycleFcfM > 0) {
+    const normalizedFcf = ttmFcf > 0
+      ? ttmFcf * actualWeight + cycleFcfM * (1 - actualWeight)
+      : cycleFcfM * 0.7;
+    return {
+      reportedFcf: ttmFcf,
+      normalizedFcf,
+      cycleFcfM,
+      maintenanceCapexM: null,
+      growthCapexM: null,
+      capexIntensityPct: margin(ttmCapex, ttmRevenue),
+      usesOwnerEarnings: false,
+      usesCycleNormalization: true
+    };
+  }
   if (!(maintenanceIntensity > 0) || !(ttmCfo > 0) || !(ttmRevenue > 0) || !(ttmCapex > 0)) {
     return {
       reportedFcf: ttmFcf,
       normalizedFcf: ttmFcf,
+      cycleFcfM,
       maintenanceCapexM: null,
       growthCapexM: null,
       capexIntensityPct: margin(ttmCapex, ttmRevenue),
-      usesOwnerEarnings: false
+      usesOwnerEarnings: false,
+      usesCycleNormalization: false
     };
   }
-  const maintenanceCapexM = ttmRevenue * maintenanceIntensity;
-  const normalizedFcf = ttmCfo - Math.min(ttmCapex, maintenanceCapexM);
   return {
     reportedFcf: ttmFcf,
-    normalizedFcf,
-    maintenanceCapexM,
-    growthCapexM: Math.max(0, ttmCapex - maintenanceCapexM),
+    normalizedFcf: ttmFcf,
+    cycleFcfM,
+    maintenanceCapexM: null,
+    growthCapexM: null,
     capexIntensityPct: margin(ttmCapex, ttmRevenue),
-    usesOwnerEarnings: ttmCapex > maintenanceCapexM * 1.15 && normalizedFcf > (ttmFcf || 0)
+    usesOwnerEarnings: false,
+    usesCycleNormalization: false
   };
 }
 
@@ -2026,6 +2365,23 @@ const LOWER_RISK_DCF_PROFILES = new Set([
   "quality_consumer"
 ]);
 
+const CYCLE_NORMALIZED_EARNINGS_PROFILES = new Set([
+  "commodity_merchant",
+  "consumer_cyclical",
+  "defense_growth",
+  "defense_prime",
+  "energy_e_and_p",
+  "energy_infrastructure",
+  "industrial_growth",
+  "materials",
+  "mature_medtech",
+  "power_utility",
+  "semiconductor_cyclical",
+  "semiconductor_value",
+  "technology_hardware",
+  "transportation"
+]);
+
 export function normalizedNetIncomePower({ ttm, valuationRevenue, normalizedOperatingMargin, taxRate = 0.19 }) {
   const ttmRevenue = finiteNumber(ttm.revenue_m);
   const ttmOperatingIncome = finiteNumber(ttm.operating_income_m);
@@ -2046,20 +2402,71 @@ export function normalizedNetIncomePower({ ttm, valuationRevenue, normalizedOper
   const observedNetMargin = ttmRevenue > 0 && ttmNetIncome != null
     ? ttmNetIncome / ttmRevenue
     : null;
-  const belowOperatingIncomeBurden = observedOperatingMargin != null && observedNetMargin != null
-    ? clamp(observedOperatingMargin - observedNetMargin, 0, 0.35)
+  const cycleOperatingMargin = finiteNumber(ttm.cycle_operating_margin_pct);
+  const cycleNetMargin = finiteNumber(ttm.cycle_net_margin_pct);
+  const cycleBelowOperatingBurden = finiteNumber(ttm.cycle_below_operating_burden_pct);
+  const observedBurden = observedOperatingMargin != null && observedNetMargin != null
+    ? observedOperatingMargin - observedNetMargin
     : null;
+  const normalizedBurdenSource = cycleBelowOperatingBurden != null
+    ? cycleBelowOperatingBurden / 100
+    : observedBurden != null && observedBurden >= 0 && observedBurden <= 0.25
+      ? observedBurden
+      : null;
+  const belowOperatingIncomeBurden = normalizedBurdenSource != null
+    ? clamp(normalizedBurdenSource, 0, 0.25)
+    : null;
+  const taxBasedNetMargin = normalizedOperatingMargin * (1 - taxRate);
+  const observedPositiveFloor = observedNetMargin != null && observedNetMargin > 0
+    ? Math.min(observedNetMargin, taxBasedNetMargin) * 0.65
+    : 0;
   const normalizedNetMargin = belowOperatingIncomeBurden != null
-    ? clamp(normalizedOperatingMargin - belowOperatingIncomeBurden, 0, 0.6)
-    : clamp(normalizedOperatingMargin * (1 - taxRate), 0, 0.6);
+    ? clamp(Math.max(normalizedOperatingMargin - belowOperatingIncomeBurden, observedPositiveFloor), 0, 0.6)
+    : clamp(taxBasedNetMargin, 0, 0.6);
 
   return {
     netIncomeM: normalizedNetMargin > 0 ? valuationRevenue * normalizedNetMargin : null,
     normalizedNetMargin,
     observedOperatingMargin,
     observedNetMargin,
-    belowOperatingIncomeBurden
+    belowOperatingIncomeBurden,
+    cycleOperatingMargin: cycleOperatingMargin != null ? cycleOperatingMargin / 100 : null,
+    cycleNetMargin: cycleNetMargin != null ? cycleNetMargin / 100 : null
   };
+}
+
+function valuationFreeCashFlowCapMargin(settings) {
+  const targetMargin = Math.max(0, finiteNumber(settings.targetMargin) ?? 0.1);
+  return clamp(
+    finiteNumber(settings.maxFcfMarginPct) ?? Math.max(0.15, targetMargin * 1.5),
+    0.08,
+    0.65
+  );
+}
+
+function capValuationFreeCashFlow(value, revenue, settings) {
+  const fcfM = finiteNumber(value);
+  const revenueM = finiteNumber(revenue);
+  if (!(fcfM > 0) || !(revenueM > 0)) return fcfM;
+  const maxMargin = valuationFreeCashFlowCapMargin(settings);
+  return Math.min(fcfM, revenueM * maxMargin);
+}
+
+export function cycleNormalizeNetIncome(value, ttm, sharesM, settings) {
+  const currentNetIncomeM = finiteNumber(value);
+  const cycleEps = finiteNumber(ttm.cycle_eps);
+  if (!CYCLE_NORMALIZED_EARNINGS_PROFILES.has(settings.profile) || !(cycleEps > 0) || !(sharesM > 0)) {
+    return currentNetIncomeM;
+  }
+  const cycleNetIncomeM = cycleEps * sharesM;
+  if (!(currentNetIncomeM > 0)) return cycleNetIncomeM * 0.65;
+  const actualWeight = clamp(settings.earningsActualWeight ?? 0.68, 0.4, 0.85);
+  const boundedCurrentNetIncomeM = clamp(
+    currentNetIncomeM,
+    cycleNetIncomeM * 0.4,
+    cycleNetIncomeM * 2.5
+  );
+  return boundedCurrentNetIncomeM * actualWeight + cycleNetIncomeM * (1 - actualWeight);
 }
 
 function dcfRiskFloor(settings) {
@@ -2190,7 +2597,13 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
     valuationRevenue,
     normalizedOperatingMargin: normalizedMargin
   });
-  const normalizedNetIncome = normalizedEarnings.netIncomeM;
+  const marginBasedNetIncome = normalizedEarnings.netIncomeM;
+  const normalizedNetIncome = cycleNormalizeNetIncome(
+    marginBasedNetIncome,
+    ttm,
+    sharesM,
+    settings
+  );
   const pe = adjustedPe(settings, growthPct, ttm.operating_margin_pct);
   const fcfYield = adjustedFcfYield(settings, growthPct, ttm.fcf_margin_pct);
   const evSales = growthEvSalesMultiple(settings, growthPct, grossMarginPct, ttm.fcf_margin_pct);
@@ -2201,7 +2614,10 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
   const earningsValue = normalizedNetIncome > 0 ? normalizedNetIncome / sharesM * pe * cycleHaircut : null;
   const ttmFcf = finiteNumber(ttm.fcf_after_capex_m);
   const fcfGuidanceM = plausibleGuidanceAmount(youtubeEvidence?.fcfGuidanceM, valuationRevenue, 0.03, 0.85);
-  const valuationFcf = fcfGuidanceM || (ttmFcf && ttmFcf > 0 ? forwardMetric(ttmFcf, Math.min(forwardScale, settings.forwardFcfScaleCap || 1.65)) : null);
+  const rawValuationFcf = fcfGuidanceM || (ttmFcf && ttmFcf > 0
+    ? forwardMetric(ttmFcf, Math.min(forwardScale, settings.forwardFcfScaleCap || 1.65))
+    : null);
+  const valuationFcf = capValuationFreeCashFlow(rawValuationFcf, valuationRevenue, settings);
   const equityDcf = buildEquityDcf({
     baseFcfM: valuationFcf,
     sharesM,
@@ -2269,12 +2685,16 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
       forwardRevenueYears: settings.forwardRevenueYears || 0,
       revenueGuidanceM,
       ttmNetIncome: finiteNumber(ttm.net_income_m),
+      marginBasedNetIncome,
       normalizedNetIncome,
+      cycleEps: ttm.cycle_eps,
       observedOperatingMargin: normalizedEarnings.observedOperatingMargin != null ? normalizedEarnings.observedOperatingMargin * 100 : null,
       observedNetMargin: normalizedEarnings.observedNetMargin != null ? normalizedEarnings.observedNetMargin * 100 : null,
       belowOperatingIncomeBurden: normalizedEarnings.belowOperatingIncomeBurden != null ? normalizedEarnings.belowOperatingIncomeBurden * 100 : null,
       ttmFreeCashFlow: ttmFcf,
+      rawValuationFreeCashFlow: rawValuationFcf,
       valuationFreeCashFlow: valuationFcf,
+      valuationFreeCashFlowCapMargin: valuationFreeCashFlowCapMargin(settings),
       fcfGuidanceM,
       guidanceOperatingIncomeM,
       guidanceOperatingMargin: guidanceOperatingMargin != null ? guidanceOperatingMargin * 100 : null,
@@ -2302,15 +2722,25 @@ function buildFinancialInstitutionModel({ ticker, row, ttm, settings }) {
   const sharesM = finiteNumber(ttm.shares_m);
   const equityM = finiteNumber(row.equity_m) ?? finiteNumber(ttm.equity_m);
   const netIncomeM = finiteNumber(ttm.net_income_m);
-  if (!(sharesM > 0) || !(equityM > 0) || !(netIncomeM > 0)) return null;
-  const roe = netIncomeM / equityM;
+  if (!(sharesM > 0) || !(equityM > 0)) return null;
+  const reportedRoe = netIncomeM != null ? netIncomeM / equityM : null;
+  const cycleRoe = finiteNumber(ttm.cycle_roe_pct) != null ? finiteNumber(ttm.cycle_roe_pct) / 100 : null;
+  const [minRoe, maxRoe] = settings.normalizedRoeRange || [0.04, 0.28];
+  const actualWeight = clamp(settings.roeActualWeight ?? 0.65, 0.25, 0.9);
+  const positiveReportedRoe = reportedRoe != null && reportedRoe > 0 ? reportedRoe : null;
+  const positiveCycleRoe = cycleRoe != null && cycleRoe > 0 ? cycleRoe : null;
+  const roeCandidate = positiveReportedRoe != null && positiveCycleRoe != null
+    ? positiveReportedRoe * actualWeight + positiveCycleRoe * (1 - actualWeight)
+    : positiveReportedRoe ?? positiveCycleRoe ?? finiteNumber(settings.defaultRoe) ?? 0.08;
+  const roe = clamp(roeCandidate, minRoe, maxRoe);
   const bvps = equityM / sharesM;
   const costOfEquity = settings.costOfEquity || 0.1;
   const terminalGrowth = settings.terminalGrowth || 0.025;
   const pbRaw = (roe - terminalGrowth) / Math.max(0.01, costOfEquity - terminalGrowth);
   const pb = clamp(pbRaw, settings.pbRange[0], settings.pbRange[1]);
   const pe = clamp(settings.peBase + (roe - 0.11) * 18, settings.peRange[0], settings.peRange[1]);
-  const epsValue = netIncomeM / sharesM * pe;
+  const normalizedNetIncomeM = equityM * roe;
+  const epsValue = normalizedNetIncomeM / sharesM * pe;
   const bookValue = bvps * pb;
   const bookWeight = clamp(settings.bookWeight ?? 0.68, 0, 1);
   const epsWeight = settings.epsWeight != null
@@ -2330,14 +2760,14 @@ function buildFinancialInstitutionModel({ ticker, row, ttm, settings }) {
         label: "ROE-implied P/B value",
         value: bookValue,
         format: "currency",
-        description: `Book value per share x ${pb.toFixed(2)}x implied P/B from ${(roe * 100).toFixed(1)}% ROE and ${(costOfEquity * 100).toFixed(1)}% cost of equity.`
+        description: `Book value per share x ${pb.toFixed(2)}x implied P/B from ${(roe * 100).toFixed(1)}% through-cycle ROE and ${(costOfEquity * 100).toFixed(1)}% cost of equity.`
       },
       {
         key: "eps-cross-check",
         label: "EPS cross-check",
         value: epsValue,
         format: "currency",
-        description: `TTM EPS x ${pe.toFixed(1)}x normalized P/E.`
+        description: `Through-cycle EPS x ${pe.toFixed(1)}x normalized P/E; broker and asset-manager customer cash flows are excluded from FCFE DCF.`
       },
       {
         key: "financial-method-weighting",
@@ -2357,8 +2787,11 @@ function buildFinancialInstitutionModel({ ticker, row, ttm, settings }) {
     scoreInputs: {
       profile: settings.profile,
       ttmNetIncome: netIncomeM,
+      normalizedNetIncome: normalizedNetIncomeM,
       equityM,
       sharesM,
+      reportedRoe,
+      cycleRoe,
       roe,
       targetPB: pb,
       targetPE: pe,
@@ -2366,6 +2799,70 @@ function buildFinancialInstitutionModel({ ticker, row, ttm, settings }) {
       terminalGrowth
     },
     formula: `${Math.round(bookWeight / totalWeight * 100)}% ROE-implied book value + ${Math.round(epsWeight / totalWeight * 100)}% EPS cross-check; no market price input`
+  };
+}
+
+function buildEarningsBusinessModel({ row, ttm, settings }) {
+  const sharesM = finiteNumber(ttm.shares_m);
+  if (!(sharesM > 0)) return null;
+
+  const netIncomeM = finiteNumber(ttm.net_income_m);
+  const currentEps = netIncomeM != null && netIncomeM > 0 ? netIncomeM / sharesM : null;
+  const cycleEps = finiteNumber(ttm.cycle_eps);
+  if (!(currentEps > 0) && !(cycleEps > 0)) return null;
+
+  const actualWeight = clamp(settings.earningsActualWeight ?? 0.6, 0.25, 0.85);
+  const boundedCurrentEps = cycleEps > 0
+    ? currentEps > 0
+      ? clamp(currentEps, cycleEps * 0.35, cycleEps * 2.5)
+      : cycleEps * 0.65
+    : currentEps;
+  const normalizedEps = cycleEps > 0
+    ? boundedCurrentEps * actualWeight + cycleEps * (1 - actualWeight)
+    : boundedCurrentEps;
+  if (!(normalizedEps > 0)) return null;
+
+  const growthPct = normalizedGrowthPct(row, null, settings);
+  const pe = adjustedPe(settings, growthPct, null);
+  const fairValue = normalizedEps * pe;
+  const longRunGrowth = clamp(
+    0.025 + Math.max(-10, Math.min(20, growthPct)) / 100 * 0.18,
+    0.015,
+    0.065
+  );
+  return {
+    fairValue,
+    targetPrice3Y: fairValue * (1 + longRunGrowth) ** 3,
+    method: settings.method,
+    longRunGrowth,
+    methodOutputs: [
+      {
+        key: "through-cycle-eps",
+        label: "Through-cycle EPS power",
+        value: fairValue,
+        format: "currency",
+        description: `Point-in-time reported and trailing-cycle EPS blended to $${normalizedEps.toFixed(2)}, then valued at ${pe.toFixed(1)}x P/E.`
+      },
+      {
+        key: "customer-cash-flow-exclusion",
+        label: "Customer cash flows excluded",
+        value: 100,
+        format: "percent",
+        description: "Customer, fund, brokerage, and policyholder cash flows are excluded from FCFE valuation."
+      }
+    ],
+    scoreInputs: {
+      profile: settings.profile,
+      ttmNetIncome: netIncomeM,
+      currentEps,
+      cycleEps,
+      normalizedEps,
+      cycleSampleCount: ttm.cycle_sample_count,
+      revenueGrowth: growthPct,
+      targetPE: pe,
+      sharesM
+    },
+    formula: "Through-cycle normalized EPS x target P/E; no customer cash flow, book-value multiple, or market price input"
   };
 }
 
@@ -2514,6 +3011,7 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
   }
   if ([
     "software_growth",
+    "software_platform",
     "hypergrowth_ai_software",
     "defense_growth",
     "space_launch_growth",
@@ -2547,7 +3045,7 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
   const marginBasedNetIncome = normalizedEarnings.netIncomeM;
   const normalizedNetIncome = guidedAdjustedNetIncome != null
     ? guidedAdjustedNetIncome
-    : marginBasedNetIncome;
+    : cycleNormalizeNetIncome(marginBasedNetIncome, ttm, sharesM, settings);
   const usesAdjustedEpsGuidance = guidedAdjustedNetIncome != null && Math.abs(normalizedNetIncome - guidedAdjustedNetIncome) < 0.01;
   const pe = adjustedPe(settings, growthPct, ttm.operating_margin_pct);
   const fcfYield = adjustedFcfYield(settings, growthPct, ttm.fcf_margin_pct);
@@ -2555,8 +3053,11 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
   const earningsValue = normalizedNetIncome > 0 ? normalizedNetIncome / sharesM * pe * cycleHaircut : null;
   const fcf = valuationFreeCashFlow(ttm, settings);
   const ttmFcf = fcf.reportedFcf;
-  const fcfBase = fcf.usesOwnerEarnings ? fcf.normalizedFcf : ttmFcf;
-  const valuationFcf = fcfBase && fcfBase > 0 ? forwardMetric(fcfBase, Math.min(forwardScale, settings.forwardFcfScaleCap || 1.65)) : null;
+  const fcfBase = fcf.usesOwnerEarnings || fcf.usesCycleNormalization ? fcf.normalizedFcf : ttmFcf;
+  const rawValuationFcf = fcfBase && fcfBase > 0
+    ? forwardMetric(fcfBase, Math.min(forwardScale, settings.forwardFcfScaleCap || 1.65))
+    : null;
+  const valuationFcf = capValuationFreeCashFlow(rawValuationFcf, valuationRevenue, settings);
   const equityDcf = buildEquityDcf({
     baseFcfM: valuationFcf,
     sharesM,
@@ -2598,11 +3099,15 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
       },
       {
         key: "fcfe-dcf",
-        label: fcf.usesOwnerEarnings ? "Owner earnings FCFE DCF" : "Five-year FCFE DCF",
+        label: fcf.usesOwnerEarnings
+          ? "Owner earnings FCFE DCF"
+          : fcf.usesCycleNormalization
+            ? "Cycle-normalized FCFE DCF"
+            : "Five-year FCFE DCF",
         value: fcfValue,
         format: "currency",
         description: fcfValue
-          ? `${settings.forwardRevenueYears ? "Forward-scaled" : "TTM"} ${fcf.usesOwnerEarnings ? "owner earnings FCF" : "equity FCF"} discounted at ${(equityDcf.discountRate * 100).toFixed(1)}%, fading toward ${(equityDcf.terminalGrowth * 100).toFixed(1)}% terminal growth.`
+          ? `${settings.forwardRevenueYears ? "Forward-scaled" : "TTM"} ${fcf.usesOwnerEarnings ? "owner earnings FCF" : fcf.usesCycleNormalization ? "cycle-normalized equity FCF" : "equity FCF"} discounted at ${(equityDcf.discountRate * 100).toFixed(1)}%, fading toward ${(equityDcf.terminalGrowth * 100).toFixed(1)}% terminal growth.`
           : "FCF was unavailable or negative, so earnings power carries the row."
       },
       ...(fcf.usesOwnerEarnings ? [{
@@ -2655,8 +3160,17 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
       observedNetMargin: normalizedEarnings.observedNetMargin != null ? normalizedEarnings.observedNetMargin * 100 : null,
       belowOperatingIncomeBurden: normalizedEarnings.belowOperatingIncomeBurden != null ? normalizedEarnings.belowOperatingIncomeBurden * 100 : null,
       ttmFreeCashFlow: ttmFcf,
+      rawValuationFreeCashFlow: rawValuationFcf,
       valuationFreeCashFlow: valuationFcf,
+      valuationFreeCashFlowCapMargin: valuationFreeCashFlowCapMargin(settings),
       normalizedFreeCashFlow: fcf.normalizedFcf,
+      cycleFreeCashFlow: fcf.cycleFcfM,
+      cycleSampleCount: ttm.cycle_sample_count,
+      cycleEps: ttm.cycle_eps,
+      cycleOperatingMargin: ttm.cycle_operating_margin_pct,
+      cycleNetMargin: ttm.cycle_net_margin_pct,
+      cycleCfoMargin: ttm.cycle_cfo_margin_pct,
+      cycleFcfMargin: ttm.cycle_fcf_margin_pct,
       maintenanceCapexM: fcf.maintenanceCapexM,
       growthCapexM: fcf.growthCapexM,
       capexIntensity: fcf.capexIntensityPct,
@@ -2684,8 +3198,11 @@ function buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidenc
 
 function buildBuySideValuationModel({ ticker, row, ttm, youtubeEvidence }) {
   const settings = profileSettings(ticker);
-  if (["bank", "insurance", "card_network_lender"].includes(settings.profile)) {
+  if (["bank", "insurance", "card_network_lender", "credit_services", "capital_markets"].includes(settings.profile)) {
     return buildFinancialInstitutionModel({ ticker, row, ttm, settings });
+  }
+  if (["asset_manager", "insurance_broker"].includes(settings.profile)) {
+    return buildEarningsBusinessModel({ row, ttm, settings });
   }
   return buildOperatingCompanyModel({ ticker, row, ttm, settings, youtubeEvidence });
 }
@@ -2765,11 +3282,7 @@ export function buildValuationRows({
   quarterlyRows.forEach((row, index) => {
     if (String(row.asOfDate).localeCompare(OUTPUT_START_DATE) < 0) return;
     const settings = profileSettings(ticker);
-    const isRevenueStage = ["emerging_biotech", "emerging_health_ai"].includes(settings.profile);
-    const allowsLossMakingStage = isRevenueStage || Boolean(settings.allowLossMakingStage);
-    const rowAnnualizationFactor = row.fiscalQuarter === "Q4" && ["10-K", "20-F", "40-F"].includes(row.sources?.revenue_m?.form)
-      ? 1
-      : 4;
+    const rowAnnualizationFactor = annualizationFactorForRow(row);
     const annualOnlyFinancialRow = isAnnualOnlyFinancialRow(row);
     const ttmRevenue = trailingOrAnnualValue(quarterlyRows, index, "revenue_m", rowAnnualizationFactor);
     const ttmGrossProfit = trailingOrAnnualValue(quarterlyRows, index, "gross_profit_m", rowAnnualizationFactor);
@@ -2785,7 +3298,6 @@ export function buildValuationRows({
     const ttmCryptoFairValue = latestKnownValue(quarterlyRows, index, "crypto_asset_fair_value_m");
     const ttmCryptoCost = latestKnownValue(quarterlyRows, index, "crypto_asset_cost_m");
     const ttmCryptoUnits = latestKnownValue(quarterlyRows, index, "crypto_asset_units");
-    if (!allowsLossMakingStage && !(ttmNetIncome > 0) && !(ttmFcf > 0) && !(ttmOperatingIncome > 0)) return;
     const shareOverride = SHARE_COUNT_OVERRIDES[ticker];
     const sharesM = finiteNumber(row.shares_m) ??
       latestKnownValueWithin(quarterlyRows, index, "shares_m", 8) ??
@@ -2793,6 +3305,11 @@ export function buildValuationRows({
       finiteNumber(shareOverride?.sharesM);
     if (!(sharesM > 0)) return;
 
+    const cycleContext = cycleContextForRows(
+      quarterlyRows,
+      index,
+      Math.max(4, settings.normalizedGrowthWindow || 8)
+    );
     const ttm = {
       revenue_m: ttmRevenue,
       gross_profit_m: ttmGrossProfit,
@@ -2813,7 +3330,15 @@ export function buildValuationRows({
       operating_margin_pct: margin(ttmOperatingIncome, ttmRevenue),
       net_margin_pct: margin(ttmNetIncome, ttmRevenue),
       fcf_margin_pct: margin(ttmFcf, ttmRevenue),
-      capex_intensity_pct: margin(ttmCapex, ttmRevenue)
+      capex_intensity_pct: margin(ttmCapex, ttmRevenue),
+      cycle_sample_count: cycleContext.sampleCount,
+      cycle_operating_margin_pct: cycleContext.operatingMarginPct,
+      cycle_net_margin_pct: cycleContext.netMarginPct,
+      cycle_cfo_margin_pct: cycleContext.cfoMarginPct,
+      cycle_fcf_margin_pct: cycleContext.fcfMarginPct,
+      cycle_roe_pct: cycleContext.roePct,
+      cycle_eps: cycleContext.eps,
+      cycle_below_operating_burden_pct: cycleContext.belowOperatingBurdenPct
     };
     const normalizedRevenueGrowthPct = normalizedRevenueGrowthForRows(quarterlyRows, index, settings.normalizedGrowthWindow);
     const pricePoint = pricePointAtOrBefore(priceHistory, row.asOfDate);
@@ -2866,8 +3391,8 @@ export function buildValuationRows({
         segmentFinancialCount: 0,
         guidanceCandidateCount: youtubeEvidence?.guidanceMetricCount || 0,
         transcriptCandidateCount: youtubeEvidence?.metricCount || 0,
-        latestAnnualizedRevenue: row.revenue_m != null ? row.revenue_m * rowAnnualizationFactor : null,
-        latestAnnualizedOperatingIncome: row.operating_income_m != null ? row.operating_income_m * rowAnnualizationFactor : null,
+        latestAnnualizedRevenue: ttmRevenue,
+        latestAnnualizedOperatingIncome: ttmOperatingIncome,
         fiscalFinancials: {
           revenue_m: row.revenue_m,
           revenue_growth_pct: row.revenue_growth_pct,
@@ -2890,9 +3415,11 @@ export function buildValuationRows({
           fcf_after_capex_m: row.fcf_after_capex_m
         },
         trailingTwelveMonths: ttm,
-        annualizedFromSinglePeriod: annualOnlyFinancialRow
-          ? 1
-          : trailingSum(quarterlyRows, index, "revenue_m") == null ? rowAnnualizationFactor : null,
+        annualizedFromSinglePeriod: row.pitTrailingTwelveMonths
+          ? null
+          : annualOnlyFinancialRow
+            ? 1
+            : trailingSum(quarterlyRows, index, "revenue_m") == null ? rowAnnualizationFactor : null,
         asOfAssumptionOverrideKeys: [
           ...Object.keys(model.scoreInputs || {})
         ],
@@ -2910,7 +3437,8 @@ export function buildValuationRows({
         financialSource: {
           name: sourceName,
           modelVersion,
-          record: row.sourceRecord || null
+          record: row.sourceRecord || null,
+          trailingTwelveMonthsRecord: row.trailingTwelveMonthsSourceRecord || null
         },
         secCompanyFacts: {
           cik: companyModel.cik,
