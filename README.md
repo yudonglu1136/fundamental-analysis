@@ -1,71 +1,138 @@
-# Guru Intelligence
+<div align="center">
+  <img src="web/icons/Icon-192.png" width="82" alt="Guru Intelligence app icon" />
+  <h1>Guru Intelligence</h1>
+  <p><strong>Point-in-time public-equity research and private portfolio intelligence.</strong></p>
+  <p>
+    Follow great investors, replay what the market knew, value companies from
+    reported fundamentals, and monitor a real portfolio in one research terminal.
+  </p>
+  <p>
+    <a href="https://thesisforge.tech"><strong>Open the terminal</strong></a>
+    &nbsp;&middot;&nbsp;
+    <a href="docs/deployment-contract.md">Deployment contract</a>
+    &nbsp;&middot;&nbsp;
+    <a href="docs/ios-app-store-readiness.md">iOS readiness</a>
+  </p>
+  <p>
+    <img src="https://img.shields.io/badge/Flutter-Web%20%2B%20iOS-54C5F8?logo=flutter&logoColor=white" alt="Flutter Web and iOS" />
+    <img src="https://img.shields.io/badge/Node.js-Express-3C873A?logo=node.js&logoColor=white" alt="Node.js and Express" />
+    <img src="https://img.shields.io/badge/Frontend-Vercel-000000?logo=vercel&logoColor=white" alt="Vercel frontend" />
+    <img src="https://img.shields.io/badge/API-AWS-FF9900?logo=amazonaws&logoColor=white" alt="AWS API" />
+    <img src="https://img.shields.io/badge/Auth-Supabase-3ECF8E?logo=supabase&logoColor=white" alt="Supabase authentication" />
+  </p>
+</div>
 
-A buy-side research terminal for guru portfolios, point-in-time market
-ontology, fundamental valuation, and private portfolio management.
+![Valuation market map showing industry-level fair-value distribution](docs/images/valuation-market-map.png)
 
-Guru Intelligence combines public filings, market data, earnings-call Q&A,
-podcast commentary, valuation models, and user-linked portfolio data into one
-dark terminal experience for research and monitoring.
+<p align="center"><sub>Valuation Market Map: browse the research universe by industry, valuation gap, and model quality.</sub></p>
 
-## What It Does
+## The Product
 
-| Module | Purpose | Highlights |
+Guru Intelligence is a buy-side research workspace built around a simple idea:
+every conclusion should be traceable to what was actually knowable at that
+moment.
+
+It connects public filings, 13F portfolios, insider activity, point-in-time
+financials, management guidance, earnings-call Q&A, market prices, podcast
+commentary, and user-linked brokerage data without turning the experience into
+a collection of disconnected dashboards.
+
+The interface is bilingual, responsive, and intentionally dense. It is designed
+for repeated research work rather than a marketing landing page.
+
+## Research Surfaces
+
+| Surface | What it answers | Key workflows |
 | --- | --- | --- |
-| Guru | Track 13F funds, Form 4 insiders, and public trading signals | Guru profiles, AI-style avatars, portfolio-vs-SPY simulation, new buys/sells, quarterly contribution, signal board, crowded-holding heatmap |
-| Ontology | Find fundamental inflections across US industries | PIT decision signals, peer value capture, industry graphs, company drilldowns, historical timeline, model holdings and SPY validation |
-| Valuation | Research fair value and price history | Fair-value matrix, ticker search, historical valuation curve, daily price overlay, quarterly model book, model weights, call-transcript Q&A, podcast-derived forward insights |
-| Portfolio | Manage private brokerage portfolios | IBKR/Yodlee connection flow, multi-account sync, NAV history, holdings, logo-backed allocation, valuation gap, dividend calendar, portfolio analytics |
-| Admin | Operate and audit the system | Admin-only portfolio user list, account detail drilldown, backend health, backtest refresh controls |
+| **Guru** | What are high-conviction investors doing? | 13F and Form 4 tracking, new buys and exits, position history, quarterly contribution, portfolio-vs-SPY simulation, signal board, crowded holdings |
+| **Ontology** | Where are fundamental inflections appearing? | Point-in-time event signals, peer confirmation, industry graphs, decision replay, strategy comparison, model holdings |
+| **Valuation** | What is a company worth using only visible inputs? | Industry market map, historical fair value, quarterly research cards, economic-profile models, earnings-call Q&A, management guidance, podcast evidence |
+| **Portfolio** | How does the user's real book look now? | Encrypted IBKR/Yodlee sync, NAV history, holdings and allocation, cash flows, valuation gaps, dividends, Sharpe and scenario analytics |
+| **Admin** | Is the platform and its data healthy? | User portfolio audit, data-job health, backend status, refresh controls, account drilldown |
 
-## Product Shape
+## Guru Intelligence
 
-The product is intentionally built like an internal investment terminal:
+![Guru dashboard with manager selection, portfolio simulation, signal board, and crowded holdings](docs/images/guru-dashboard.png)
 
-- dense but scan-friendly panels;
-- dark navy workspace with mint active states and amber benchmark context;
-- persistent top-level modes: `Guru`, `Ontology`, `Valuation`, `Portfolio`, and admin-only `Admin`;
-- responsive web UI today, with an iPhone-first App Store path in progress.
+The Guru workspace brings manager selection, filing metadata, holdings changes,
+backtests, and cross-manager signals into one scan-friendly view. Public filing
+data remains separate from private user portfolio data.
 
-## Architecture
+## Point-In-Time Valuation
+
+Valuation nodes are historical research decisions, not present-day estimates
+painted backward onto old dates.
+
+- Financials use the earliest available filing record for each fiscal period.
+- Management guidance must have been observable on or before the model date.
+- Market price is a comparison output and is excluded from fair-value inputs.
+- Methods vary by economic profile; banks, insurers, software companies,
+  cyclicals, and asset managers do not share one generic DCF.
+- Every model node retains its financial source, guidance evidence, method
+  outputs, assumptions, weights, and price-at-date.
+- Release checks reject future-dated inputs, unexplained history gaps,
+  non-positive prices, invalid DCF bounds, and non-deterministic rebuilds.
+
+For a growth company, a quarterly research card may combine an EV/sales equity
+value, normalized earnings power, and a five-year FCFE DCF. The exact weights
+and assumptions are visible in the product rather than hidden behind a single
+target price.
+
+## System Architecture
 
 ```mermaid
 flowchart LR
-  User["User Browser / Future iOS App"]
-  Vercel["Vercel Frontend\nFlutter Web build"]
-  Proxy["/api/* Vercel Proxy"]
-  AWS["AWS Elastic Beanstalk\nNode / Express API"]
-  Supabase["Supabase Auth"]
-  SQLite["Runtime SQLite Database"]
-  Feeds["SEC, Market Data,\nTranscripts, YouTube,\nIBKR/Yodlee"]
+  Client["Flutter Web / iOS"]
+  Vercel["Vercel static frontend"]
+  Proxy["Same-origin /api proxy"]
+  Auth["Supabase Auth"]
+  API["AWS Elastic Beanstalk<br/>Node + Express"]
+  DB["Runtime SQLite<br/>PIT snapshots + user stores"]
+  Jobs["Import, enrichment,<br/>and audit jobs"]
+  Sources["SEC / 13F / Sharadar / Prices<br/>Transcripts / Podcasts / IBKR"]
 
-  User --> Vercel
+  Client --> Vercel
+  Client --> Auth
   Vercel --> Proxy
-  Proxy --> AWS
-  User --> Supabase
-  AWS --> SQLite
-  AWS --> Feeds
+  Proxy --> API
+  API --> DB
+  Sources --> Jobs
+  Jobs --> DB
 ```
 
-The deployment contract is deliberately strict:
+The deployment boundary is deliberate:
 
-- Vercel owns the public frontend.
-- AWS Elastic Beanstalk owns the API backend.
-- `www.thesisforge.tech` must resolve to Vercel.
-- `/api/*` is proxied from Vercel to AWS.
-- Browser builds use only the same-origin `/api/*` path; `AWS_API_ORIGIN` is
-  configured once in the Vercel proxy and is never compiled into Flutter.
-- Runtime data stays on the backend and is not committed to Git.
+- Vercel owns the public Flutter frontend.
+- AWS Elastic Beanstalk owns the API and runtime data.
+- Both `thesisforge.tech` and `www.thesisforge.tech` point to the same Vercel
+  production deployment.
+- The browser calls only same-origin `/api/*`; AWS is not compiled into the
+  Flutter bundle.
+- Supabase service-role credentials and brokerage credentials never enter the
+  client.
 
-Read [docs/deployment-contract.md](docs/deployment-contract.md) before changing
-DNS, Vercel, AWS, CI, or API routing.
+Read [the deployment contract](docs/deployment-contract.md) before changing
+DNS, Vercel, AWS, CI, CORS, or API routing.
+
+## iOS Direction
+
+![iPhone product design board for the Guru Intelligence app](prototypes/ios-guru-app-design/qa/ios-design-board.png)
+
+The repository includes an iPhone-first product-design prototype and an App
+Store readiness plan. The design adapts the web terminal into focused mobile
+research flows rather than wrapping the desktop layout unchanged. Native iOS
+implementation, signing, and TestFlight packaging remain separate release work.
+
+See the [App Store readiness checklist](docs/ios-app-store-readiness.md) and
+[product design brief](docs/ios-product-design-brief.md).
 
 ## Local Development
 
-Requirements:
+### Requirements
 
 - Flutter SDK
 - Node.js and npm
-- local environment variables based on `.env.example`
+- Local environment variables based on `.env.example`
 
 ```bash
 npm install
@@ -73,180 +140,96 @@ flutter pub get
 npm run dev
 ```
 
-Default local services:
-
-| Service | URL |
+| Service | Local URL |
 | --- | --- |
 | Flutter web client | `http://127.0.0.1:5174` |
 | Express API | `http://127.0.0.1:8787` |
 
-Local development uses `API_AUTH_DEV_BYPASS=true` for the backend and sends a
-local development bearer token from the client. Production must use Supabase
-auth and must not ship dev bypass settings.
+Local development uses the explicit backend-only auth bypass. Production must
+use Supabase authentication and must never ship development bypass settings.
 
-## Useful Commands
+### Quality Gates
 
 ```bash
-# Web build for Vercel
+flutter analyze
+flutter test
+node --test server/*.test.js
+npm run test:ontology
+npm run test:proxy
+npm run build
+```
+
+PIT valuation releases have an additional deterministic audit:
+
+```bash
+node server/verifyPitValuationRelease.js baseline.sqlite run1.sqlite run2.sqlite
+```
+
+## Common Operations
+
+```bash
+# Build the Vercel frontend
 npm run build
 
-# Backend package for AWS Elastic Beanstalk
+# Package the API for Elastic Beanstalk
 npm run package:aws
 
-# Hydrate local/runtime database
-npm run hydrate:db
-
-# Install or refresh guru avatars
-npm run install:avatars
-
-# Refresh dividend calendar data
+# Refresh dividend data
 npm run refresh:dividends
 
-# Import valuation aliases and derived valuation tickers
-npm run import:valuation-aliases
-npm run import:derived-valuations
+# Audit valuation coverage and model quality
+npm run audit:valuation
 
-# Build App Store archive once paid Apple Developer signing is available
-scripts/build-ios-appstore.sh
 ```
 
-## Backend API Surface
+Operational rules for 13F refreshes, valuation migrations, AWS publication,
+and frontend deployment live in [AGENTS.md](AGENTS.md).
 
-Representative API routes:
+## Representative API
 
-| Route | Description |
+| Route | Purpose |
 | --- | --- |
-| `GET /api/health` | API and database health |
-| `GET /api/gurus` | Guru dashboard payload |
-| `GET /api/gurus/:id/backtest` | Portfolio-vs-SPY simulation |
-| `GET /api/gurus/:id/context` | Ticker context for selected guru activity |
-| `GET /api/ontology/overview` | Compact Ontology decision dashboard |
-| `GET /api/strategies` | Strategy research catalog and validation summary |
-| `GET /api/strategies/:id` | Daily NAV, annual returns, trade analytics, and methodology |
-| `GET /api/strategies/:id/snapshot` | Dated portfolio holdings, cost basis, P&L, and decision source |
-| `GET /api/market/home` | Full-market ontology home |
-| `GET /api/decision/snapshot` | Historical PIT decision snapshot |
-| `GET /api/valuation` | Fair-value matrix |
-| `GET /api/valuation/:ticker` | Ticker detail, history, model book, Q&A, commentary |
-| `GET /api/portfolio` | User portfolio cockpit |
-| `POST /api/portfolio/sync` | Fetch and store linked portfolio data |
-| `POST /api/portfolio/dividends/refresh` | Refresh dividend data for portfolio names |
-| `GET /api/admin/portfolio-users` | Admin-only user overview |
-| `GET /api/admin/system-health` | Admin-only backend health |
+| `GET /api/health` | API, database, and data-job health |
+| `GET /api/gurus` | Guru universe and dashboard payload |
+| `GET /api/gurus/:id/backtest` | Manager portfolio-vs-SPY simulation |
+| `GET /api/strategies` | Ontology strategy research catalog |
+| `GET /api/decision/snapshot` | Historical point-in-time decision state |
+| `GET /api/valuation` | Fair-value market map |
+| `GET /api/valuation/:ticker` | Ticker history, model book, Q&A, and evidence |
+| `GET /api/portfolio` | Authenticated user's portfolio cockpit |
+| `POST /api/portfolio/sync` | Refresh linked portfolio data |
+| `GET /api/admin/system-health` | Admin-only operational health |
 
-Protected routes require Supabase-authenticated requests in production.
+Protected routes require a valid Supabase-authenticated request in production.
 
-## Data And Research Pipelines
+## Repository Guide
 
-The backend includes import and enrichment jobs for:
-
-- SEC and 13F-style guru holdings;
-- Form 4 and public-stock activity;
-- market price and logo enrichment;
-- valuation model history and ticker aliases;
-- earnings transcript Q&A extraction and Chinese translation;
-- YouTube and podcast transcript nowcasts;
-- dividend calendar normalization, including GBp/GBX-to-GBP handling;
-- portfolio NAV and holdings snapshots from linked brokerage reports.
-
-Most jobs are intentionally run from scripts or backend cron-style endpoints
-instead of the frontend. User secrets and brokerage credentials must stay
-encrypted on the backend.
-
-## Security Notes
-
-- Supabase service-role keys must never be shipped to the browser or iOS app.
-- IBKR/Yodlee connection credentials are user-specific and backend-only.
-- Portfolio data is scoped by authenticated user identity.
-- Admin routes are restricted to configured admin emails.
-- Account deletion is implemented through `DELETE /api/account` and removes
-user-owned portfolio data before attempting Supabase Auth deletion.
-
-## iOS / App Store Path
-
-This repo now includes a Flutter iOS shell under `ios/`.
-
-Current iOS facts:
-
-- App name: `Guru Intelligence`
-- Bundle ID: `tech.thesisforge.guru`
-- Native callback scheme: `guru-intelligence://auth/callback`
-- App icon and launch image assets are generated.
-- Sign in with Apple and in-app account deletion are implemented.
-- `flutter build ipa --no-codesign` succeeds locally.
-
-Current blocker:
-
-- TestFlight and App Store upload require an active paid Apple Developer Program
-  team. A Personal Team can create development certificates, but it cannot
-  upload App Store builds.
-
-Read:
-
-- [docs/ios-app-store-readiness.md](docs/ios-app-store-readiness.md)
-- [docs/ios-implementation-roadmap.md](docs/ios-implementation-roadmap.md)
-- [docs/ios-product-design-brief.md](docs/ios-product-design-brief.md)
-- [docs/ios-asset-inventory.md](docs/ios-asset-inventory.md)
-
-## Deployment
-
-Frontend deployment:
-
-```bash
-git push origin HEAD:trunk
-```
-
-Vercel builds the frontend with:
-
-```bash
-bash scripts/vercel-install.sh
-bash scripts/vercel-build.sh
-```
-
-Backend deployment:
-
-```bash
-bash scripts/package-aws-backend.sh <version>
-```
-
-Do not package Flutter `dist/` into AWS unless Vercel is unavailable and the
-emergency fallback is explicitly requested.
-
-## Repository Map
-
-| Path | Purpose |
+| Path | Responsibility |
 | --- | --- |
-| `lib/main.dart` | Flutter application and current terminal UI |
-| `server/` | Express API, import jobs, market/valuation/portfolio clients |
-| `api/proxy.js` | Vercel API proxy to AWS |
-| `scripts/` | Build, deploy, import, and App Store helper scripts |
-| `docs/` | Deployment, iOS, audit, and product-readiness documentation |
-| `web/guru-avatars/` | Public guru avatar assets |
-| `web/ontology/` | Authenticated standalone Ontology explorer |
-| `ios/` | Flutter iOS platform shell |
-| `prototypes/ios-guru-app-design/` | Product-design prototype for the iPhone app |
-| `microsoft-copilot-nowcast/` | Separate experimental nowcast implementation |
+| `lib/main.dart` | Flutter terminal UI and responsive workflows |
+| `server/` | Express API, models, clients, importers, audits, and tests |
+| `api/proxy.js` | Vercel same-origin proxy to AWS |
+| `scripts/` | Build, deployment, refresh, migration, and App Store tooling |
+| `web/ontology/` | Authenticated Ontology research explorer |
+| `web/guru-avatars/` | Public manager avatar assets |
+| `prototypes/ios-guru-app-design/` | iPhone product-design prototype |
+| `docs/` | Architecture, deployment, audits, and product-readiness notes |
 
-Ontology data refresh and AWS publication are documented in
-[docs/ontology-deployment.md](docs/ontology-deployment.md).
-## Microsoft Copilot Earnings Nowcast
+## Security And Data Boundaries
 
-An isolated Python/FastAPI implementation lives in
-`microsoft-copilot-nowcast/`. It is intentionally separate from the main Guru
-Intelligence Flutter/Node deployment contract.
-
-```bash
-cd microsoft-copilot-nowcast
-make install
-make seed
-make api
-```
-
-See [microsoft-copilot-nowcast/README.md](microsoft-copilot-nowcast/README.md)
-for that subproject.
+- Portfolio data is scoped to the authenticated user.
+- IBKR/Yodlee credentials are encrypted and stored only on the backend.
+- Admin routes are restricted to configured admin identities.
+- Account deletion removes user-owned portfolio data before Auth deletion.
+- Runtime databases, paid datasets, secrets, and user records are not committed
+  to Git.
 
 ## Status
 
-Guru Intelligence is an active private product build. The web terminal is the
-current production surface. The iOS app is prepared at the project level and is
-waiting on paid Apple Developer Program signing before TestFlight upload.
+Guru Intelligence is an active private product build. The responsive web
+terminal is the current production surface. The native iOS implementation is
+planned from the included design prototype and App Store readiness checklist.
+
+> **Research software, not investment advice.** Model outputs depend on source
+> quality and stated assumptions. They should be reviewed as research evidence,
+> not treated as an instruction to buy or sell a security.
