@@ -77,6 +77,7 @@ def args() -> argparse.Namespace:
     parser.add_argument("--source-db", type=Path, default=SOURCE_DB)
     parser.add_argument("--cache-dir", type=Path, default=CACHE_DIR)
     parser.add_argument("--start-year", type=int, default=START_YEAR)
+    parser.add_argument("--ticker", choices=("ALL", "BA.L", "LSEG"), default="ALL")
     parser.add_argument("--refresh", action="store_true")
     return parser.parse_args()
 
@@ -144,6 +145,17 @@ def cached_pdf_text(url: str, cache_dir: Path, refresh: bool = False) -> str:
 
 def clean_markdown(text: str) -> str:
     value = re.sub(r"[*_`]", " ", text).replace("\u00a0", " ")
+    # PDF extraction can split a thousands group or decimal across spaces,
+    # e.g. "£9, 982 million" and "£2. 2 billion". Normalize those forms
+    # before matching so they cannot silently become £9m or £2.2m.
+    value = re.sub(r"(?<=\d),\s+(?=\d{3}\b)", ",", value)
+    value = re.sub(
+        r"(?<=\d)\.\s+(?=\d+(?:\s*(?:bn|billion|m|million|p|pence|%))\b)",
+        ".",
+        value,
+        flags=re.I,
+    )
+    value = re.sub(r"\binco\s+me\b", "income", value, flags=re.I)
     return "\n".join(re.sub(r"[ \t]+", " ", line) for line in value.splitlines())
 
 
@@ -219,11 +231,31 @@ def first_table_number(
         line_pattern = re.compile(
             rf"(?im)^\s*(?:[-*•o|]\s*)?{label}(?:\d+)?(?=[^\w]|$)(?P<tail>[^\n]{{0,240}})"
         )
-        for line_match in line_pattern.finditer(normalized):
+        lines = normalized.splitlines()
+        for index, line in enumerate(lines):
+            line_match = line_pattern.match(line)
+            if not line_match:
+                continue
             tail = line_match.group("tail")
+            if len(re.findall(r"\d[\d,.]*", tail)) < 2:
+                for continuation in lines[index + 1:index + 5]:
+                    stripped = continuation.strip()
+                    if not stripped:
+                        continue
+                    if re.search(r"[A-Za-z£€]", stripped):
+                        break
+                    tail = f"{tail} {stripped}"
+                    if len(re.findall(r"\d[\d,.]*", tail)) >= 3:
+                        break
+            if "£" in tail or re.search(r"\b(?:bn|billion|million)\b", tail, re.I):
+                continue
             value_matches = list(re.finditer(
-                r"(?P<open>\()?\s*(?P<value>\d[\d,]*(?:\.\d+)?)(?P<close>\))?",
+                r"(?P<open>\()?\s*"
+                r"(?P<value>(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)"
+                r"(?:\s*(?P<scale>bn|billion|m|million))?\s*"
+                r"(?P<close>\))?",
                 tail,
+                re.I,
             ))
             if not value_matches:
                 continue
@@ -245,24 +277,93 @@ def first_table_number(
             )
             if len(value_matches) > 1 and (skip_leading_note or looks_like_footnote):
                 value_match = value_matches[1]
-            value = float(value_match.group("value").replace(",", ""))
+            value = amount_m(value_match.group("value"), value_match.group("scale"))
             if allow_negative and (value_match.group("open") or value_match.group("close")):
                 value *= -1
             return value
     return None
 
 
+def first_table_numbers(
+    text: str,
+    labels: list[str],
+    allow_negative: bool = True,
+) -> list[float]:
+    """Return current and comparative values from the first matching table row."""
+    normalized = clean_markdown(text)
+    number_pattern = re.compile(
+        r"(?P<open>\()?\s*"
+        r"(?P<value>(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)"
+        r"(?:\s*(?P<scale>bn|billion|m|million))?\s*"
+        r"(?P<close>\))?",
+        re.I,
+    )
+    for label in labels:
+        line_pattern = re.compile(
+            rf"(?im)^\s*(?:[-*•o|]\s*)?{label}(?:\d+)?(?=[^\w]|$)(?P<tail>[^\n]{{0,240}})"
+        )
+        lines = normalized.splitlines()
+        for index, line in enumerate(lines):
+            line_match = line_pattern.match(line)
+            if not line_match:
+                continue
+            tail = line_match.group("tail")
+            if len(number_pattern.findall(tail)) < 2:
+                for continuation in lines[index + 1:index + 5]:
+                    stripped = continuation.strip()
+                    if not stripped:
+                        continue
+                    if re.search(r"[A-Za-z£€]", stripped):
+                        break
+                    tail = f"{tail} {stripped}"
+                    if len(number_pattern.findall(tail)) >= 3:
+                        break
+            numeric_tail = re.sub(r"(?<=\d)\s*p\b", "", tail, flags=re.I)
+            matches = list(number_pattern.finditer(numeric_tail))
+            matches = [
+                match for match in matches
+                if not re.search(r"[A-Za-z]", numeric_tail[:match.start()])
+                and not re.match(r"\s*%", numeric_tail[match.end():])
+            ]
+            if len(matches) < 2:
+                continue
+            if (
+                len(matches) > 2
+                and "." not in matches[0].group("value")
+                and "," not in matches[0].group("value")
+                and int(matches[0].group("value")) <= 20
+            ):
+                matches = matches[1:]
+            values = []
+            for match in matches[:2]:
+                value = amount_m(match.group("value"), match.group("scale"))
+                if allow_negative and (match.group("open") or match.group("close")):
+                    value *= -1
+                values.append(value)
+            if len(values) == 2:
+                return values
+    return []
+
+
 def first_percent_or_pence(text: str, labels: list[str]) -> float | None:
     normalized = clean_markdown(text)
     for label in labels:
         match = re.search(
-            rf"(?im)^\s*(?:[-*•o|]\s*)?{label}(?:\s*\d+)?(?=[^\w]|$)(?P<tail>[^\n]{{0,160}})",
+            rf"(?im)^\s*(?:[-*•o|]\s*)?{label}(?=[^\w]|$)(?P<tail>[^\n]{{0,160}})",
             normalized,
         )
         if match:
-            values = re.findall(r"(\d+(?:\.\d+)?)\s*(?:p\b|pence\b)", match.group("tail"), re.I)
+            tail = match.group("tail")
+            values = list(re.finditer(r"(\d+(?:\.\d+)?)\s*(?:p\b|pence\b)", tail, re.I))
             if values:
-                return float(values[-1])
+                to_position = tail.lower().find(" to ")
+                selected = values[0]
+                if to_position >= 0:
+                    selected = next(
+                        (value for value in values if value.start() >= to_position),
+                        values[-1],
+                    )
+                return float(selected.group(1))
     return None
 
 
@@ -282,6 +383,21 @@ def first_disclosed_number(
         if value is not None:
             return value
     return None
+
+
+def lseg_net_debt(text: str) -> tuple[float | None, str | None]:
+    """Use the issuer's leverage-framework debt measure before accounting fallbacks."""
+    debt_bases = (
+        ("operating net debt", [r"Operating net debt"]),
+        ("adjusted net debt", [r"Adjusted net debt"]),
+        ("total net debt", [r"Total net debt"]),
+        ("net debt", [r"Net debt"]),
+    )
+    for basis, labels in debt_bases:
+        value = first_disclosed_number(text, labels)
+        if value is not None:
+            return abs(value), basis
+    return None, None
 
 
 def iso_date(value: str) -> str:
@@ -542,32 +658,72 @@ def parse_lseg_archive(cache_dir: Path, refresh: bool) -> list[Event]:
 
 
 def parse_lseg_actual(text: str) -> dict:
-    actual = text
+    # FY2021 presents a full-year Refinitiv pro-forma table before the actual
+    # statutory table. Historical PIT replay must use the issuer's reported
+    # consolidation period, not the hypothetical full-year ownership view.
+    statutory_summary = re.search(
+        r"Statutory results\s*[–—-]\s*Financial summary",
+        text,
+        re.I,
+    )
+    actual = text[statutory_summary.start():] if statutory_summary else text
+    financial_basis = (
+        "statutory continuing operations with issuer-adjusted profit and EPS"
+        if statutory_summary else "issuer-reported adjusted results"
+    )
     revenue_labels = [
+        r"(?:Adjusted )?Total (?:income|revenue) \((?:excl\.?|excluding) (?:unrealised[^)]*|recoveries[^)]*)\)",
+        r"(?:Adjusted )?Total (?:income|revenue) (?:excl\.?|excluding) (?:unrealised|recoveries)",
         r"Adjusted total income",
-        r"Total income \(excluding (?:unrealised[^)]*|recoveries[^)]*)\)",
-        r"Total (?:income|revenue) \(excl\.? recoveries\)",
-        r"Total (?:income|revenue) excluding recoveries",
         r"Total income",
         r"Total revenue",
     ]
     op_labels = [r"Adjusted operating profit"]
     fcf_labels = [r"Equity free cash flow", r"Free cash flow"]
-    debt_labels = [r"Operating net debt", r"Total net debt", r"Net debt"]
-    revenue = first_disclosed_number(actual, revenue_labels)
-    op = first_disclosed_number(actual, op_labels)
+    revenue = first_disclosed_number(actual, revenue_labels, prefer_inline=False)
+    op = first_disclosed_number(actual, op_labels, prefer_inline=False)
     fcf = first_disclosed_number(actual, fcf_labels, prefer_inline=False)
-    net_debt = first_disclosed_number(actual, debt_labels)
+    net_debt, debt_basis = lseg_net_debt(actual)
     shares_match = re.search(
-        r"weighted average number of (?:ordinary )?shares(?:\s*[–-]\s*million)?[^\n]{0,120}?"
+        r"weighted average number of (?:ordinary )?shares(?:\s*[–-]\s*million)?[\s\S]{0,180}?"
         r"(?:is\s+)?([\d,]+(?:\.\d+)?)\s*(?:million)?",
-        text,
+        actual,
         re.I,
     )
     eps_p = first_percent_or_pence(actual, [r"Adjusted basic earnings per share", r"Adjusted EPS"])
     if eps_p is None:
         eps_p = first_table_number(actual, [r"Adjusted basic earnings per share(?:\s*\(p\))?", r"Adjusted EPS"])
     shares_m = float(shares_match.group(1).replace(",", "")) if shares_match else None
+    comparative_revenue = first_table_numbers(actual, revenue_labels)
+    comparative_op = first_table_numbers(actual, op_labels)
+    comparative_fcf = first_table_numbers(actual, fcf_labels)
+    comparative_eps = first_table_numbers(
+        actual,
+        [r"Adjusted basic earnings per share(?:\s*\(p\))?", r"Adjusted EPS"],
+    )
+    comparative_shares_match = re.search(
+        r"weighted average number of (?:ordinary )?shares(?:\s*[–-]\s*million)?[\s\S]{0,180}?"
+        r"(?:is\s+)?([\d,]+(?:\.\d+)?)\s*(?:million)?[\s\S]{0,120}?"
+        r"(?:H1|20\d{2})[^:)]*:\s*([\d,]+(?:\.\d+)?)\s*(?:million)?",
+        actual,
+        re.I,
+    )
+    comparative_shares_m = (
+        float(comparative_shares_match.group(2).replace(",", ""))
+        if comparative_shares_match else None
+    )
+    prior_comparable = {
+        "revenue_m": comparative_revenue[1] if len(comparative_revenue) == 2 else None,
+        "gross_profit_m": None,
+        "operating_income_m": comparative_op[1] if len(comparative_op) == 2 else None,
+        "net_income_m": (
+            comparative_eps[1] / 100 * comparative_shares_m
+            if len(comparative_eps) == 2 and comparative_shares_m else None
+        ),
+        "cfo_m": None,
+        "capex_m": None,
+        "fcf_after_capex_m": comparative_fcf[1] if len(comparative_fcf) == 2 else None,
+    }
     if revenue is None or op is None:
         raise RuntimeError("LSEG release did not expose total income and adjusted operating profit")
     return {
@@ -575,15 +731,18 @@ def parse_lseg_actual(text: str) -> dict:
         "gross_profit_m": None,
         "operating_income_m": op,
         "net_income_m": eps_p / 100 * shares_m if eps_p is not None and shares_m else None,
-        "cfo_m": fcf,
+        "cfo_m": None,
         "capex_m": None,
         "fcf_after_capex_m": fcf,
         "shares_m": shares_m,
         "equity_m": None,
         "assets_m": None,
         "cash_m": None,
-        "debt_m": abs(net_debt) if net_debt is not None else None,
+        "debt_m": net_debt,
         "_eps_p": eps_p,
+        "_debt_basis": debt_basis,
+        "_financial_basis": financial_basis,
+        "_prior_comparable": prior_comparable,
     }
 
 
@@ -593,10 +752,20 @@ FLOW_KEYS = ("revenue_m", "gross_profit_m", "operating_income_m", "net_income_m"
 def ttm_from_half(current: dict, prior_full: dict | None, prior_half: dict | None) -> tuple[dict, str]:
     if prior_full and prior_half:
         result = copy.deepcopy(current)
+        disclosed_comparable = current.get("_prior_comparable") or {}
+        used_disclosed_comparable = False
         for key in FLOW_KEYS:
-            values = (current.get(key), prior_full.get(key), prior_half.get(key))
+            prior_half_value = disclosed_comparable.get(key)
+            if prior_half_value is not None:
+                used_disclosed_comparable = True
+            else:
+                prior_half_value = prior_half.get(key)
+            values = (current.get(key), prior_full.get(key), prior_half_value)
             result[key] = values[0] + values[1] - values[2] if all(value is not None for value in values) else current.get(key)
-        return result, "TTM = current H1 + prior FY - prior H1"
+        method = "TTM = current H1 + prior FY - prior H1"
+        if used_disclosed_comparable:
+            method += " comparator disclosed in current H1 release"
+        return result, method
     result = copy.deepcopy(current)
     for key in FLOW_KEYS:
         result[key] = current[key] * 2 if current.get(key) is not None else None
@@ -640,6 +809,8 @@ def source_payload(event: Event, metrics: dict, method: str, carried_from: dict 
             "carriedForwardFinancialPeriod": carried_from,
             "selectionPolicy": "issuer-published value visible on event date; no later restatement",
             "metricDerivation": metrics.get("_metric_derivation"),
+            "debtBasis": metrics.get("_debt_basis"),
+            "financialBasis": metrics.get("_financial_basis"),
             "fiscalCalendarTransition": fiscal_calendar_transition,
             "fiscalCalendarNote": (
                 "LSEG changed its financial year end from 31 March to 31 December in 2014; "
@@ -675,6 +846,79 @@ def guidance_module():
     return module
 
 
+def lseg_guidance_overrides(module, event: Event, text: str, speaker: str) -> list[dict]:
+    """Extract LSEG's compact issuer-guidance bullets without sentence-boundary loss."""
+    normalized = re.sub(r"\s+", " ", clean_markdown(text))
+    source_url = event.document_url or event.source_url
+    period = f"{event.quarter}{event.fiscal_year}"
+    patterns = (
+        (
+            "revenue_guidance",
+            re.compile(
+                r"organic constant currency growth in total income\s*"
+                r"(?:\([^)]*\)|excluding recoveries)?\s*"
+                r"(?:of|raised to)\s*(\d+(?:\.\d+)?)\s*%?\s*[-–]\s*"
+                r"(\d+(?:\.\d+)?)\s*%",
+                re.I,
+            ),
+        ),
+        (
+            "free_cash_flow_guidance",
+            re.compile(
+                r"equity free cash flow(?: of)?\s+at least\s+£\s*"
+                r"(\d+(?:\.\d+)?)\s*(billion|bn|million|m)\b",
+                re.I,
+            ),
+        ),
+        (
+            "capex_guidance",
+            re.compile(
+                r"capex intensity(?: of)?\s+(?:c\.?|around)\s*"
+                r"(\d+(?:\.\d+)?)\s*%",
+                re.I,
+            ),
+        ),
+    )
+    rows = []
+    for metric, pattern in patterns:
+        match = pattern.search(normalized)
+        if not match:
+            continue
+        evidence = match.group(0)
+        metric_positions = module.metric_names(evidence)
+        position = metric_positions[0][1] if metric_positions else 0
+        row = module.extract_event(
+            event.ticker,
+            period,
+            event.event_date,
+            source_url,
+            Path("official-issuer-release"),
+            speaker,
+            evidence,
+            metric,
+            position,
+            [position],
+        )
+        row["quality_status"] = "clear"
+        row["extraction_confidence"] = 0.99
+        if metric == "revenue_guidance":
+            row["amount"] = None
+            row["unit"] = None
+            row["currency"] = None
+            row["growth_yoy"] = (float(match.group(1)) + float(match.group(2))) / 2
+        elif metric == "free_cash_flow_guidance":
+            row["amount"] = amount_m(match.group(1), match.group(2))
+            row["unit"] = "GBP millions"
+            row["currency"] = "GBP"
+        elif metric == "capex_guidance":
+            row["amount"] = None
+            row["unit"] = None
+            row["currency"] = None
+            row["margin_pct"] = float(match.group(1))
+        rows.append(row)
+    return rows
+
+
 def guidance_events(module, event: Event, text: str) -> list[dict]:
     events = []
     clean = re.sub(r"\s+", " ", clean_markdown(text))
@@ -699,10 +943,23 @@ def guidance_events(module, event: Event, text: str) -> list[dict]:
                 position,
                 positions,
             )
-            row["source_type"] = "official_issuer_results_release"
-            row["extraction_version"] = f"{module.EXTRACTION_VERSION}+official-uk-v1"
-            row["payload_json"] = json.dumps(row, separators=(",", ":"))
             events.append(row)
+    if event.ticker == "LSEG":
+        overrides = lseg_guidance_overrides(module, event, text, speaker)
+        overridden_metrics = {row["metric_name"] for row in overrides}
+        events = [
+            row for row in events
+            if row["metric_name"] not in overridden_metrics
+            and not (
+                row["metric_name"] == "free_cash_flow_guidance"
+                and row.get("currency") not in {None, "GBP"}
+            )
+        ]
+        events.extend(overrides)
+    for row in events:
+        row["source_type"] = "official_issuer_results_release"
+        row["extraction_version"] = f"{module.EXTRACTION_VERSION}+official-uk-v2"
+        row["payload_json"] = json.dumps(row, separators=(",", ":"))
     return events
 
 
@@ -881,14 +1138,31 @@ def main():
     options = args()
     global START_YEAR
     START_YEAR = options.start_year
-    bae_events = parse_bae_archive(options.cache_dir, options.refresh)
-    lseg_events = parse_lseg_archive(options.cache_dir, options.refresh)
-    shares = bae_share_capital(options.cache_dir, options.refresh)
-    bae_rows, bae_guidance = build_ticker_rows(bae_events, options.cache_dir, options.refresh, shares)
-    lseg_rows, lseg_guidance = build_ticker_rows(lseg_events, options.cache_dir, options.refresh)
+    results = {}
     with sqlite3.connect(options.source_db) as connection:
-        insert_rows(connection, "BA.L", bae_rows, bae_guidance)
-        insert_rows(connection, "LSEG", lseg_rows, lseg_guidance)
+        if options.ticker in {"ALL", "BA.L"}:
+            bae_events = parse_bae_archive(options.cache_dir, options.refresh)
+            shares = bae_share_capital(options.cache_dir, options.refresh)
+            bae_rows, bae_guidance = build_ticker_rows(
+                bae_events, options.cache_dir, options.refresh, shares
+            )
+            insert_rows(connection, "BA.L", bae_rows, bae_guidance)
+            results["BA.L"] = {
+                "events": len(bae_events),
+                "financialRows": len(bae_rows),
+                "guidanceRows": len(bae_guidance),
+            }
+        if options.ticker in {"ALL", "LSEG"}:
+            lseg_events = parse_lseg_archive(options.cache_dir, options.refresh)
+            lseg_rows, lseg_guidance = build_ticker_rows(
+                lseg_events, options.cache_dir, options.refresh
+            )
+            insert_rows(connection, "LSEG", lseg_rows, lseg_guidance)
+            results["LSEG"] = {
+                "events": len(lseg_events),
+                "financialRows": len(lseg_rows),
+                "guidanceRows": len(lseg_guidance),
+            }
         generated_at = dt.datetime.now(dt.timezone.utc).isoformat()
         connection.execute("INSERT OR REPLACE INTO pit_source_metadata VALUES (?, ?)", ("official_uk_imported_at", generated_at))
         connection.execute(
@@ -897,11 +1171,7 @@ def main():
         )
         connection.commit()
         connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-    print(json.dumps({
-        "sourceDb": str(options.source_db),
-        "BA.L": {"events": len(bae_events), "financialRows": len(bae_rows), "guidanceRows": len(bae_guidance)},
-        "LSEG": {"events": len(lseg_events), "financialRows": len(lseg_rows), "guidanceRows": len(lseg_guidance)},
-    }, indent=2))
+    print(json.dumps({"sourceDb": str(options.source_db), **results}, indent=2))
 
 
 if __name__ == "__main__":

@@ -844,8 +844,8 @@ try {
   const noQuantifiedGuidance = JSON.parse(metadata.guidance_no_quantified_tickers || "[]");
   assert.deepEqual(financialCoverage, { annual_only: 2, covered: 530, derived: 1 });
   assert.deepEqual(guidanceCoverage, {
-    covered: 518,
-    covered_official_filing: 8,
+    covered: 517,
+    covered_official_filing: 9,
     no_quantified_official_guidance: 6
   });
   assert.equal(Number(metadata.guidance_coverage_ticker_count), expectedTickers.size - notApplicableTickers.length);

@@ -14,7 +14,7 @@ import {
 
 const TARGET_DB_PATH = process.env.SQLITE_DB_PATH || path.join(process.cwd(), "server/data/guru-analysis.sqlite");
 const SOURCE_DB_PATH = process.env.PIT_VALUATION_SOURCE_PATH || path.join(process.cwd(), "server/data/valuation-pit-source.sqlite");
-const MODEL_VERSION = process.env.PIT_VALUATION_MODEL_VERSION || "pit-valuation-v14-growth-guidance-2026-08-29";
+const MODEL_VERSION = process.env.PIT_VALUATION_MODEL_VERSION || "pit-valuation-v15-official-uk-audit-2026-08-29";
 const SEC_FACTS_CACHE_DIR = process.env.SEC_FACTS_CACHE_DIR || path.join(process.cwd(), "server/data/sec-companyfacts");
 const PIT_SOURCE_LABEL = "valuation-pit-source";
 const PIT_GUIDANCE_LABEL = "valuation-pit-guidance";
@@ -40,6 +40,34 @@ function margin(numerator, denominator) {
 
 function maxDate(...dates) {
   return dates.filter(Boolean).sort().at(-1) || null;
+}
+
+function mergePriceHistory(existing, incremental) {
+  const byDate = new Map();
+  for (const point of [...(existing || []), ...(incremental || [])]) {
+    if (!point?.date || !(finiteNumber(point.close) > 0)) continue;
+    byDate.set(point.date, point);
+  }
+  return [...byDate.values()].sort((left, right) => String(left.date).localeCompare(String(right.date)));
+}
+
+function marketPriceConfig(ticker) {
+  if (ticker === "LSEG") return { symbol: "LSEG.L", divisor: 100 };
+  if (ticker === "AZN") return { symbol: "AZN.L", divisor: 100 };
+  if (ticker.endsWith(".L")) return { symbol: ticker, divisor: 100 };
+  return { symbol: ticker, divisor: 1 };
+}
+
+function convertMarketPrices(points, divisor) {
+  if (divisor === 1) return points;
+  return points.map((point) => ({
+    ...point,
+    open: finiteNumber(point.open) == null ? null : finiteNumber(point.open) / divisor,
+    high: finiteNumber(point.high) == null ? null : finiteNumber(point.high) / divisor,
+    low: finiteNumber(point.low) == null ? null : finiteNumber(point.low) / divisor,
+    close: finiteNumber(point.close) / divisor,
+    source: `${point.source || "market price"}; GBp converted to GBP`
+  }));
 }
 
 function sanitizeReleasePayload(value, key = "") {
@@ -406,7 +434,7 @@ function updateDashboard(db, previousDashboard, snapshots, generatedAt, sourceMe
     ...previousDashboard,
     generatedAt,
     source: {
-      upstreamLabel: "Jansen Sharadar as-reported PIT financials + event-visible management guidance",
+      upstreamLabel: "Jansen Sharadar as-reported PIT financials + official UK issuer PIT disclosures + event-visible management guidance",
       modelVersion: MODEL_VERSION,
       sourceFingerprint: sourceMetadata.get("source_fingerprint") || null,
       pitCutoffField: "datekey",
@@ -507,32 +535,50 @@ function main() {
         existing
       );
       const existingPrices = Array.isArray(existing.priceHistory) ? existing.priceHistory : [];
-      const databasePrices = ["AZN", "LSEG"].includes(ticker) || ticker.endsWith(".L")
-        ? []
-        : readPriceHistoryFromDb(target, ticker, 10_000);
+      const priceConfig = marketPriceConfig(ticker);
+      const databasePrices = convertMarketPrices(
+        readPriceHistoryFromDb(target, priceConfig.symbol, 10_000),
+        priceConfig.divisor
+      );
       const snapshotBase = cleanSnapshot({
         ...existing,
         ticker,
-        priceHistory: databasePrices.length > existingPrices.length ? databasePrices : existingPrices
+        priceHistory: mergePriceHistory(existingPrices, databasePrices)
       });
+      const officialIssuerPit = ["BA.L", "LSEG"].includes(ticker);
+      const factsUrl = officialIssuerPit
+        ? `official-issuer://fundamentals/${sourceTicker}`
+        : `jansen-sharadar://fundamentals/${sourceTicker}`;
+      const financialSource = officialIssuerPit
+        ? {
+            sourceType: "official_issuer_pit_quarterly_model",
+            annualSourceType: "official_issuer_pit_annual_model",
+            sourceQuality: "official-issuer-as-reported-quarterly",
+            annualSourceQuality: "official-issuer-as-reported-annual",
+            sourceName: "Official issuer as-reported PIT disclosures",
+            eventType: "pit_quarterly_fundamental_guidance_model",
+            periodIdPrefix: "official-issuer-pit",
+            modelVersion: MODEL_VERSION
+          }
+        : {
+            sourceType: "jansen_pit_quarterly_model",
+            annualSourceType: "jansen_pit_annual_model",
+            sourceQuality: "jansen-sharadar-as-reported-quarterly",
+            annualSourceQuality: "jansen-sharadar-as-reported-annual",
+            sourceName: "Jansen Sharadar SF1 as-reported",
+            eventType: "pit_quarterly_fundamental_guidance_model",
+            periodIdPrefix: "jansen-pit",
+            modelVersion: MODEL_VERSION
+          };
       const valuationRows = buildValuationRows({
         ticker,
         trinityTicker: sourceTicker,
         snapshot: snapshotBase,
         companyModel: { ticker: sourceTicker, company: existing.name, cik: existing.cik || null },
-        factsUrl: `jansen-sharadar://fundamentals/${sourceTicker}`,
+        factsUrl,
         quarterlyRows,
         youtubeByPeriod: guidanceByPeriod,
-        financialSource: {
-          sourceType: "jansen_pit_quarterly_model",
-          annualSourceType: "jansen_pit_annual_model",
-          sourceQuality: "jansen-sharadar-as-reported-quarterly",
-          annualSourceQuality: "jansen-sharadar-as-reported-annual",
-          sourceName: "Jansen Sharadar SF1 as-reported",
-          eventType: "pit_quarterly_fundamental_guidance_model",
-          periodIdPrefix: "jansen-pit",
-          modelVersion: MODEL_VERSION
-        }
+        financialSource
       });
       if (!valuationRows.length) {
         blockers.push({
@@ -557,9 +603,13 @@ function main() {
         snapshot: snapshotBase,
         valuationRows,
         coverage: {
-          source: "Jansen Sharadar PIT",
-          sourceLabel: "Jansen Sharadar as-reported financials + PIT management guidance",
-          sourceNote: "Each historical point uses the first as-reported datekey record and guidance observable by that event date.",
+          source: officialIssuerPit ? "Official issuer PIT" : "Jansen Sharadar PIT",
+          sourceLabel: officialIssuerPit
+            ? "Official issuer as-reported financials + PIT management guidance"
+            : "Jansen Sharadar as-reported financials + PIT management guidance",
+          sourceNote: officialIssuerPit
+            ? "Each historical point uses the issuer result available on that date and only guidance visible at the event."
+            : "Each historical point uses the first as-reported datekey record and guidance observable by that event date.",
           modelType: "Point-in-time Fundamental Analysis model",
           methodCardLabel: "PIT financial + guidance model",
           methodCardDescription: "Constant-method historical replay using only financials and management guidance visible at each event.",

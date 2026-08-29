@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   attachMstrCryptoMetrics,
   buildEquityDcf,
+  buildValuationRows,
   cycleNormalizeNetIncome,
   digestGuidanceMetrics,
   hasExplicitValuationProfile,
@@ -24,6 +25,41 @@ function guidance(metricName, amount, excerpt, qualityStatus = "clear") {
     excerpt
   };
 }
+
+test("official revenue_guidance growth feeds the valuation digest", () => {
+  const metric = guidance(
+    "revenue_guidance",
+    null,
+    "Organic constant currency growth in total income raised to 7.0-7.5%."
+  );
+  metric.growth_yoy = 7.25;
+
+  const digest = digestGuidanceMetrics([metric]);
+
+  assert.equal(digest.revenueGrowth, 7.25);
+});
+
+test("official issuer guidance overrides same-period transcript extraction", () => {
+  const transcriptFcf = guidance(
+    "free_cash_flow_guidance",
+    2_950,
+    "We expect free cash flow of $2.95 billion."
+  );
+  transcriptFcf.currency = "USD";
+  transcriptFcf.source_type = "downloaded_online_earnings_transcript";
+  const officialFcf = guidance(
+    "free_cash_flow_guidance",
+    2_400,
+    "Equity free cash flow of at least GBP 2.4 billion."
+  );
+  officialFcf.currency = "GBP";
+  officialFcf.source_type = "official_issuer_results_release";
+
+  const digest = digestGuidanceMetrics([transcriptFcf, officialFcf]);
+
+  assert.equal(digest.fcfGuidanceM, 2_400);
+  assert.equal(digest.metricCount, 1);
+});
 
 test("PLTR Q2 uses explicit FY revenue and FCF guidance, not Q3 guidance", () => {
   const digest = digestGuidanceMetrics([
@@ -337,4 +373,57 @@ test("CHTR-like leverage receives a double-digit discount rate", () => {
   assert.ok(result.discountRate >= 0.145);
   assert.ok(result.fairValue > 0 && result.fairValue < 400);
   assert.ok(result.terminalValueShare < 0.8);
+});
+
+test("LSEG uses issuer-reported equity FCF when CFO and capex are unavailable", () => {
+  const rows = buildValuationRows({
+    ticker: "LSEG",
+    trinityTicker: "LSEG",
+    snapshot: {
+      ticker: "LSEG",
+      name: "London Stock Exchange Group",
+      currency: "GBP",
+      priceHistory: [{ date: "2026-07-30", close: 86.06, source: "LSEG.L adjusted close in GBP" }]
+    },
+    companyModel: { ticker: "LSEG", company: "London Stock Exchange Group" },
+    factsUrl: "official-issuer://lseg/h1-2026",
+    quarterlyRows: [{
+      fiscalYear: 2026,
+      fiscalQuarter: "Q2",
+      label: "FY2026 Q2",
+      asOfDate: "2026-07-30",
+      financialAvailableAt: "2026-07-30",
+      revenue_m: 9_296,
+      revenue_growth_pct: 5.89,
+      operating_income_m: 3_788,
+      net_income_m: 2_022.513,
+      cfo_m: null,
+      capex_m: null,
+      fcf_after_capex_m: 2_715,
+      shares_m: 497,
+      cash_m: null,
+      debt_m: 9_982,
+      sourceRecord: { metricsAreTrailingTwelveMonths: true },
+      sources: {}
+    }],
+    youtubeByPeriod: new Map(),
+    financialSource: {
+      sourceType: "jansen_pit_quarterly_model",
+      annualSourceType: "jansen_pit_annual_model",
+      sourceQuality: "official-issuer-pit",
+      annualSourceQuality: "official-issuer-pit",
+      sourceName: "LSEG official issuer releases",
+      eventType: "pit_quarterly_fundamental_guidance_model",
+      periodIdPrefix: "lseg-pit",
+      modelVersion: "test"
+    }
+  });
+
+  assert.equal(rows.length, 1);
+  const scoreInputs = rows[0].dataSnapshot.valuationSemantics.scoreInputs;
+  assert.equal(scoreInputs.ttmFreeCashFlow, 2_715);
+  assert.ok(scoreInputs.equityDcf);
+  assert.equal(scoreInputs.equityDcf.netDebtM, 9_982);
+  assert.ok(scoreInputs.methodWeights["fcfe-dcf"] > 0.4);
+  assert.ok(rows[0].methodOutputs.find((row) => row.key === "fcfe-dcf")?.value > 0);
 });

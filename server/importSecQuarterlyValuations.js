@@ -1181,7 +1181,8 @@ function isSecCompanyFactsModelSource(sourceType) {
 }
 
 function isPitFinancialModelSource(sourceType) {
-  return String(sourceType || "").startsWith("jansen_pit_");
+  const value = String(sourceType || "");
+  return value.startsWith("jansen_pit_") || value.startsWith("official_issuer_pit_");
 }
 
 function isVerifiedFinancialModelSource(sourceType) {
@@ -1232,6 +1233,8 @@ function cycleContextForRows(rows, index, windowSize = 8) {
     const netIncome = trailingOrAnnualValue(rows, sampleIndex, "net_income_m", factor);
     const cfo = trailingOrAnnualValue(rows, sampleIndex, "cfo_m", factor);
     const capex = trailingOrAnnualValue(rows, sampleIndex, "capex_m", factor);
+    const directFcf = trailingOrAnnualValue(rows, sampleIndex, "fcf_after_capex_m", factor);
+    const fcf = directFcf ?? (cfo != null && capex != null ? cfo - capex : null);
     const equity = latestKnownValue(rows, sampleIndex, "equity_m");
     const shares = latestKnownValueWithin(rows, sampleIndex, "shares_m", 8);
     if (!(revenue > 0)) continue;
@@ -1241,7 +1244,7 @@ function cycleContextForRows(rows, index, windowSize = 8) {
       operatingMarginPct,
       netMarginPct,
       cfoMarginPct: margin(cfo, revenue),
-      fcfMarginPct: cfo != null && capex != null ? margin(cfo - capex, revenue) : null,
+      fcfMarginPct: margin(fcf, revenue),
       roePct: netIncome != null && equity > 0 ? netIncome / equity * 100 : null,
       eps: netIncome != null && shares > 0 ? netIncome / shares : null,
       belowOperatingBurdenPct: operatingMarginPct > 0 && netMarginPct != null
@@ -3402,7 +3405,15 @@ export function buildValuationRows({
     const ttmNetIncome = trailingOrAnnualValue(quarterlyRows, index, "net_income_m", rowAnnualizationFactor);
     const ttmCfo = trailingOrAnnualValue(quarterlyRows, index, "cfo_m", rowAnnualizationFactor);
     const ttmCapex = trailingOrAnnualValue(quarterlyRows, index, "capex_m", rowAnnualizationFactor);
-    const ttmFcf = ttmCfo != null && ttmCapex != null ? ttmCfo - ttmCapex : null;
+    const directlyReportedTtmFcf = trailingOrAnnualValue(
+      quarterlyRows,
+      index,
+      "fcf_after_capex_m",
+      rowAnnualizationFactor
+    );
+    const ttmFcf = directlyReportedTtmFcf ?? (
+      ttmCfo != null && ttmCapex != null ? ttmCfo - ttmCapex : null
+    );
     const ttmEquity = latestKnownValue(quarterlyRows, index, "equity_m");
     const ttmAssets = latestKnownValue(quarterlyRows, index, "assets_m");
     const ttmCash = latestKnownValue(quarterlyRows, index, "cash_m");
@@ -3894,16 +3905,31 @@ function selectFullYearGuidanceM(metrics, { excludePatterns = [] } = {}) {
   };
 }
 
+export function preferAuthoritativeGuidanceMetrics(metrics) {
+  const officialMetricNames = new Set(
+    metrics
+      .filter((metric) => metric.source_type === "official_issuer_results_release")
+      .map((metric) => metric.metric_name)
+      .filter(Boolean)
+  );
+  if (!officialMetricNames.size) return metrics;
+  return metrics.filter((metric) =>
+    !officialMetricNames.has(metric.metric_name) ||
+    metric.source_type === "official_issuer_results_release"
+  );
+}
+
 export function digestGuidanceMetrics(metrics, { sourceDatabase = YOUTUBE_DB_PATH } = {}) {
-  const clearMetrics = metrics.filter((metric) => metric.quality_status === "clear");
-  const guidanceMetrics = metrics.filter((metric) => metric.actual_or_guidance === "guidance");
+  const selectedMetrics = preferAuthoritativeGuidanceMetrics(metrics);
+  const clearMetrics = selectedMetrics.filter((metric) => metric.quality_status === "clear");
+  const guidanceMetrics = selectedMetrics.filter((metric) => metric.actual_or_guidance === "guidance");
   const revenueGrowth = median([
     ...metricValues(clearMetrics, ["revenue_growth"]),
-    ...metricValues(guidanceMetrics, ["guidance", "revenue_growth"])
+    ...metricValues(guidanceMetrics, ["guidance", "revenue_growth", "revenue_guidance"])
   ]);
   const operatingMargin = median(metricValues(clearMetrics, ["operating_margin", "margin"], "margin_pct"));
   const grossMargin = median(metricValues(clearMetrics, ["gross_margin"], "margin_pct"));
-  const guidanceSourceMetrics = metrics.filter((metric) => ["clear", "ambiguous"].includes(metric.quality_status));
+  const guidanceSourceMetrics = selectedMetrics.filter((metric) => ["clear", "ambiguous"].includes(metric.quality_status));
   const revenueGuidance = selectFullYearGuidanceM(
     guidanceSourceMetrics.filter((metric) => metric.metric_name === "revenue_guidance"),
     {
@@ -3927,17 +3953,17 @@ export function digestGuidanceMetrics(metrics, { sourceDatabase = YOUTUBE_DB_PAT
     guidanceSourceMetrics.filter((metric) => metric.metric_name === "free_cash_flow_guidance"),
     { excludePatterns: [/free cash flow margin/, /weighted average.*shares/] }
   );
-  const observedDates = metrics.map((metric) => metric.observed_at).filter(Boolean).sort();
-  const fxConversions = metrics
+  const observedDates = selectedMetrics.map((metric) => metric.observed_at).filter(Boolean).sort();
+  const fxConversions = selectedMetrics
     .filter((metric) => metric.fx_conversion)
     .map((metric) => metric.fx_conversion);
   return {
     sourceDatabase,
-    metricCount: metrics.length,
+    metricCount: selectedMetrics.length,
     clearMetricCount: clearMetrics.length,
     guidanceMetricCount: guidanceMetrics.length,
-    actualMetricCount: metrics.filter((metric) => metric.actual_or_guidance === "actual").length,
-    metricNames: [...new Set(metrics.map((metric) => metric.metric_name).filter(Boolean))].sort(),
+    actualMetricCount: selectedMetrics.filter((metric) => metric.actual_or_guidance === "actual").length,
+    metricNames: [...new Set(selectedMetrics.map((metric) => metric.metric_name).filter(Boolean))].sort(),
     revenueGrowth,
     operatingMargin,
     grossMargin,
