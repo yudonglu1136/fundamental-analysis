@@ -6,9 +6,11 @@ import {
   cycleNormalizeNetIncome,
   digestGuidanceMetrics,
   hasExplicitValuationProfile,
+  normalizedGrowthPct,
   normalizedMarginRatio,
   normalizedNetIncomePower,
-  profileSettings
+  profileSettings,
+  resolveForwardRevenueGuidance
 } from "./importSecQuarterlyValuations.js";
 
 function guidance(metricName, amount, excerpt, qualityStatus = "clear") {
@@ -57,6 +59,7 @@ test("PLTR Q2 uses explicit FY revenue and FCF guidance, not Q3 guidance", () =>
   assert.equal(digest.operatingIncomeGuidanceM, null);
   assert.equal(digest.guidanceSelection.revenue.mode, "explicit_full_year");
   assert.equal(digest.guidanceSelection.revenue.rejectedQuarterCount, 1);
+  assert.equal(digest.revenueQuarterGuidanceM, 2160);
 });
 
 test("PLTR Q1 prefers total FY revenue over quarterly and segment guidance", () => {
@@ -123,6 +126,51 @@ test("year outlook survives when a Q3 shorthand guide is also present", () => {
 
   assert.equal(digest.revenueGuidanceM, 6340);
   assert.equal(digest.guidanceSelection.revenue.mode, "explicit_full_year");
+});
+
+test("triple-digit growth is capped instead of discarded to the default", () => {
+  const settings = { normalizedGrowthCapPct: 45 };
+  assert.equal(normalizedGrowthPct({ revenue_growth_pct: null }, null, settings), 5);
+  assert.equal(normalizedGrowthPct({ revenue_growth_pct: 99.9 }, null, settings), 45);
+  assert.equal(normalizedGrowthPct({ revenue_growth_pct: 105.9 }, null, settings), 45);
+  assert.equal(normalizedGrowthPct({ revenue_growth_pct: 1_500 }, null, settings), 45);
+  assert.equal(normalizedGrowthPct({ revenue_growth_pct: -100 }, null, settings), -20);
+});
+
+test("quarterly revenue guidance is annualized and blended without becoming FY guidance", () => {
+  const result = resolveForwardRevenueGuidance({
+    ttmRevenue: 302_969,
+    formulaForwardRevenue: 439_305.05,
+    annualGuidanceM: 108_000,
+    quarterlyGuidanceM: null,
+    guidanceMode: "unscoped_fallback",
+    settings: { forwardScaleCap: 2.4 }
+  });
+
+  assert.equal(result.scope, "inferred_quarter");
+  assert.equal(result.source, "quarterly_guidance_blend");
+  assert.equal(result.annualGuidanceM, null);
+  assert.equal(result.quarterlyGuidanceM, 108_000);
+  assert.equal(result.annualizedQuarterlyGuidanceM, 432_000);
+  assert.equal(result.boundedAnnualizedQuarterlyGuidanceM, 432_000);
+  assert.equal(result.quarterlyGuidanceWeight, 0.65);
+  assert.ok(Math.abs(result.valuationRevenue - 434_556.7675) < 1e-6);
+});
+
+test("explicit full-year revenue guidance remains the primary forward revenue input", () => {
+  const result = resolveForwardRevenueGuidance({
+    ttmRevenue: 7_100,
+    formulaForwardRevenue: 8_200,
+    annualGuidanceM: 8_154,
+    quarterlyGuidanceM: 2_160,
+    guidanceMode: "explicit_full_year",
+    settings: {}
+  });
+
+  assert.equal(result.scope, "explicit_full_year");
+  assert.equal(result.source, "full_year_guidance");
+  assert.equal(result.valuationRevenue, 8_154);
+  assert.equal(result.quarterlyGuidanceM, null);
 });
 
 test("normalized earnings preserve the observed below-operating burden", () => {

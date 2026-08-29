@@ -14,7 +14,7 @@ import {
 
 const TARGET_DB_PATH = process.env.SQLITE_DB_PATH || path.join(process.cwd(), "server/data/guru-analysis.sqlite");
 const SOURCE_DB_PATH = process.env.PIT_VALUATION_SOURCE_PATH || path.join(process.cwd(), "server/data/valuation-pit-source.sqlite");
-const MODEL_VERSION = process.env.PIT_VALUATION_MODEL_VERSION || "pit-valuation-v13-sp500-clean-prices-2026-08-28";
+const MODEL_VERSION = process.env.PIT_VALUATION_MODEL_VERSION || "pit-valuation-v14-growth-guidance-2026-08-29";
 const SEC_FACTS_CACHE_DIR = process.env.SEC_FACTS_CACHE_DIR || path.join(process.cwd(), "server/data/sec-companyfacts");
 const PIT_SOURCE_LABEL = "valuation-pit-source";
 const PIT_GUIDANCE_LABEL = "valuation-pit-guidance";

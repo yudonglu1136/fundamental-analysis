@@ -2164,12 +2164,14 @@ export function profileSettings(ticker) {
   };
 }
 
-function normalizedGrowthPct(row, youtubeEvidence, settings = {}) {
+export function normalizedGrowthPct(row, youtubeEvidence, settings = {}) {
   const fundamentalGrowth = finiteNumber(row.normalized_revenue_growth_pct) ?? finiteNumber(row.revenue_growth_pct);
   const candidates = [
     fundamentalGrowth,
     finiteNumber(youtubeEvidence?.revenueGrowth)
-  ].filter((value) => value != null && value > -50 && value < 100);
+  ]
+    .filter((value) => value != null)
+    .map((value) => clamp(value, -100, 1_000));
   return clamp(median(candidates) ?? 5, -20, settings.normalizedGrowthCapPct ?? 45);
 }
 
@@ -2178,7 +2180,8 @@ function normalizedRevenueGrowthForRows(rows, index, windowSize) {
   const values = rows
     .slice(Math.max(0, index - windowSize + 1), index + 1)
     .map((row) => finiteNumber(row.revenue_growth_pct))
-    .filter((value) => value != null && value > -50 && value < 100)
+    .filter((value) => value != null)
+    .map((value) => clamp(value, -100, 1_000))
     .sort((left, right) => left - right);
   if (!values.length) return null;
   const floor = Math.floor(values.length * 0.15);
@@ -2252,6 +2255,100 @@ function plausibleGuidanceAmount(value, base, minScale, maxScale) {
   const maxValue = baseValue * maxScale;
   if (amount < minValue || amount > maxValue) return null;
   return amount;
+}
+
+export function resolveForwardRevenueGuidance({
+  ttmRevenue,
+  formulaForwardRevenue,
+  annualGuidanceM,
+  quarterlyGuidanceM,
+  guidanceMode,
+  settings = {}
+}) {
+  const base = finiteNumber(ttmRevenue);
+  const formula = finiteNumber(formulaForwardRevenue);
+  if (!(base > 0) || !(formula > 0)) {
+    return {
+      valuationRevenue: formula,
+      annualGuidanceM: null,
+      quarterlyGuidanceM: null,
+      annualizedQuarterlyGuidanceM: null,
+      boundedAnnualizedQuarterlyGuidanceM: null,
+      quarterlyGuidanceWeight: null,
+      source: "formula_forward",
+      scope: "missing"
+    };
+  }
+
+  const maxScale = settings.guidanceRevenueMaxScale || Math.max(1.5, settings.forwardScaleCap || 2.1);
+  const explicitAnnualGuidanceM = guidanceMode === "explicit_full_year"
+    ? plausibleGuidanceAmount(annualGuidanceM, base, 0.65, maxScale)
+    : null;
+  if (explicitAnnualGuidanceM) {
+    return {
+      valuationRevenue: explicitAnnualGuidanceM,
+      annualGuidanceM: explicitAnnualGuidanceM,
+      quarterlyGuidanceM: null,
+      annualizedQuarterlyGuidanceM: null,
+      boundedAnnualizedQuarterlyGuidanceM: null,
+      quarterlyGuidanceWeight: null,
+      source: "full_year_guidance",
+      scope: "explicit_full_year"
+    };
+  }
+
+  const explicitQuarter = plausibleGuidanceAmount(quarterlyGuidanceM, base, 0.08, 0.75);
+  const unscopedAmount = guidanceMode === "unscoped_fallback" ? finiteNumber(annualGuidanceM) : null;
+  const unscopedScale = unscopedAmount && base ? unscopedAmount / base : null;
+  const inferredQuarter = unscopedScale != null && unscopedScale >= 0.12 && unscopedScale <= 0.55
+    ? unscopedAmount
+    : null;
+  const quarterGuide = explicitQuarter || inferredQuarter;
+  if (quarterGuide) {
+    const annualizedQuarterlyGuidanceM = quarterGuide * 4;
+    const boundedAnnualized = clamp(annualizedQuarterlyGuidanceM, base * 0.55, base * maxScale);
+    const guidanceWeight = clamp(settings.quarterlyGuidanceWeight ?? 0.65, 0.25, 0.85);
+    return {
+      valuationRevenue: boundedAnnualized * guidanceWeight + formula * (1 - guidanceWeight),
+      annualGuidanceM: null,
+      quarterlyGuidanceM: quarterGuide,
+      annualizedQuarterlyGuidanceM,
+      boundedAnnualizedQuarterlyGuidanceM: boundedAnnualized,
+      quarterlyGuidanceWeight: guidanceWeight,
+      source: "quarterly_guidance_blend",
+      scope: explicitQuarter ? "explicit_quarter" : "inferred_quarter"
+    };
+  }
+
+  const unscopedAnnualGuidanceM = plausibleGuidanceAmount(
+    unscopedAmount,
+    base,
+    settings.guidanceRevenueMinScale || 0.9,
+    maxScale
+  );
+  if (unscopedAnnualGuidanceM) {
+    return {
+      valuationRevenue: unscopedAnnualGuidanceM,
+      annualGuidanceM: unscopedAnnualGuidanceM,
+      quarterlyGuidanceM: null,
+      annualizedQuarterlyGuidanceM: null,
+      boundedAnnualizedQuarterlyGuidanceM: null,
+      quarterlyGuidanceWeight: null,
+      source: "unscoped_annual_guidance",
+      scope: "unscoped_annual"
+    };
+  }
+
+  return {
+    valuationRevenue: formula,
+    annualGuidanceM: null,
+    quarterlyGuidanceM: null,
+    annualizedQuarterlyGuidanceM: null,
+    boundedAnnualizedQuarterlyGuidanceM: null,
+    quarterlyGuidanceWeight: null,
+    source: "formula_forward",
+    scope: "missing_or_implausible"
+  };
 }
 
 function forwardGuidanceVisibleForRow(row, settings) {
@@ -2569,19 +2666,27 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
 
   const growthPct = normalizedGrowthPct(row, youtubeEvidence, settings);
   const formulaForwardScale = forwardScaleFromGrowth(growthPct, settings);
+  const formulaForwardRevenue = ttmRevenue * formulaForwardScale;
   const revenueGuidanceMode = youtubeEvidence?.guidanceSelection?.revenue?.mode;
-  const revenueGuidanceMinScale = revenueGuidanceMode === "explicit_full_year"
-    ? 0.65
-    : growthPct >= 0
-      ? (settings.guidanceRevenueMinScale || 0.9)
-      : 0.65;
-  const revenueGuidanceM = plausibleGuidanceAmount(
-    youtubeEvidence?.revenueGuidanceM,
+  const revenueGuidance = resolveForwardRevenueGuidance({
     ttmRevenue,
-    revenueGuidanceMinScale,
-    settings.guidanceRevenueMaxScale || Math.max(1.5, settings.forwardScaleCap || 2.1)
-  );
-  const valuationRevenue = revenueGuidanceM || ttmRevenue * formulaForwardScale;
+    formulaForwardRevenue,
+    annualGuidanceM: youtubeEvidence?.revenueGuidanceM,
+    quarterlyGuidanceM: youtubeEvidence?.revenueQuarterGuidanceM,
+    guidanceMode: revenueGuidanceMode,
+    settings
+  });
+  const revenueGuidanceM = revenueGuidance.annualGuidanceM;
+  const valuationRevenue = revenueGuidance.valuationRevenue;
+  const revenueBasisLabel = revenueGuidance.source === "full_year_guidance"
+    ? "FY guidance"
+    : revenueGuidance.source === "unscoped_annual_guidance"
+      ? "Guidance"
+      : revenueGuidance.source === "quarterly_guidance_blend"
+        ? "Quarterly-guidance blended forward"
+        : settings.forwardRevenueYears
+          ? "Forward"
+          : "TTM";
   const forwardScale = valuationRevenue / ttmRevenue;
   const grossMarginPct = finiteNumber(ttm.gross_margin_pct ?? row.gross_margin_pct) ?? finiteNumber(settings.defaultGrossMarginPct);
   const baseNormalizedMargin = normalizedMarginRatio(ttm, settings);
@@ -2648,7 +2753,7 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
         label: "EV/sales equity value",
         value: salesValue,
         format: "currency",
-        description: `${revenueGuidanceM ? "FY guidance" : settings.forwardRevenueYears ? "Forward" : "TTM"} revenue x ${evSales.toFixed(1)}x EV/sales plus ${netCash >= 0 ? "net cash" : "net debt"} bridge, divided by shares.`
+        description: `${revenueBasisLabel} revenue x ${evSales.toFixed(1)}x EV/sales plus ${netCash >= 0 ? "net cash" : "net debt"} bridge, divided by shares.`
       },
       {
         key: "normalized-earnings-power",
@@ -2656,7 +2761,7 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
         value: earningsValue,
         format: "currency",
         description: earningsValue
-          ? `${revenueGuidanceM ? "FY guidance" : settings.forwardRevenueYears ? "Forward" : "TTM"} revenue x ${(normalizedEarnings.normalizedNetMargin * 100).toFixed(1)}% normalized net margin after the observed below-operating burden / shares x ${pe.toFixed(1)}x P/E.`
+          ? `${revenueBasisLabel} revenue x ${(normalizedEarnings.normalizedNetMargin * 100).toFixed(1)}% normalized net margin after the observed below-operating burden / shares x ${pe.toFixed(1)}x P/E.`
           : "Normalized earnings were not usable, so the row relies on sales and/or FCF value."
       },
       {
@@ -2684,6 +2789,13 @@ function buildMultiMethodGrowthModel({ row, ttm, settings, youtubeEvidence }) {
       formulaForwardScale,
       forwardRevenueYears: settings.forwardRevenueYears || 0,
       revenueGuidanceM,
+      reportedRevenueGuidanceM: finiteNumber(youtubeEvidence?.revenueGuidanceM),
+      quarterlyRevenueGuidanceM: revenueGuidance.quarterlyGuidanceM,
+      annualizedQuarterlyRevenueGuidanceM: revenueGuidance.annualizedQuarterlyGuidanceM,
+      boundedAnnualizedQuarterlyRevenueGuidanceM: revenueGuidance.boundedAnnualizedQuarterlyGuidanceM,
+      quarterlyRevenueGuidanceWeight: revenueGuidance.quarterlyGuidanceWeight,
+      revenueGuidanceScope: revenueGuidance.scope,
+      forwardRevenueSource: revenueGuidance.source,
       ttmNetIncome: finiteNumber(ttm.net_income_m),
       marginBasedNetIncome,
       normalizedNetIncome,
@@ -3762,13 +3874,22 @@ function selectFullYearGuidanceM(metrics, { excludePatterns = [] } = {}) {
     return annualPatterns.some((pattern) => pattern.test(evidence));
   });
   const selected = explicitAnnual.length ? explicitAnnual : scopedCandidates;
+  const quarterCandidates = candidates.filter((metric) => {
+    const evidence = metricEvidenceText(metric);
+    return quarterPatterns.some((pattern) => pattern.test(evidence));
+  });
   const values = selected
+    .map(metricAmountM)
+    .filter((value) => value != null && value > 0);
+  const quarterValues = quarterCandidates
     .map(metricAmountM)
     .filter((value) => value != null && value > 0);
   return {
     amountM: median(values),
+    quarterlyAmountM: median(quarterValues),
     mode: explicitAnnual.length ? "explicit_full_year" : values.length ? "unscoped_fallback" : "missing",
     acceptedCount: values.length,
+    acceptedQuarterCount: quarterValues.length,
     rejectedQuarterCount: candidates.length - scopedCandidates.length
   };
 }
@@ -3821,6 +3942,7 @@ export function digestGuidanceMetrics(metrics, { sourceDatabase = YOUTUBE_DB_PAT
     operatingMargin,
     grossMargin,
     revenueGuidanceM: revenueGuidance.amountM,
+    revenueQuarterGuidanceM: revenueGuidance.quarterlyAmountM,
     operatingIncomeGuidanceM: operatingIncomeGuidance.amountM,
     fcfGuidanceM: fcfGuidance.amountM,
     guidanceSelection: {
