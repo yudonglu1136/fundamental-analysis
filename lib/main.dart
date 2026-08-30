@@ -937,73 +937,88 @@ class LoginScreen extends StatelessWidget {
             colors: [Color(0xFF0A1220), Color(0xFF0D1F24)],
           ),
         ),
-        child: Center(
-          child: Container(
-            width: 520,
-            padding: const EdgeInsets.all(32),
-            decoration: panelDecoration(palette),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: LanguageSegment(
-                    language: language,
-                    onLanguage: onLanguage,
-                    palette: palette,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Container(
+                  key: const ValueKey('login-panel'),
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(32),
+                  decoration: panelDecoration(palette),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: LanguageSegment(
+                          language: language,
+                          onLanguage: onLanguage,
+                          palette: palette,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      BadgeLabel(
+                        text: 'GURU INTELLIGENCE',
+                        color: palette.accent,
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        context.tr('研究终端', 'Research Terminal'),
+                        style: Theme.of(context).textTheme.displaySmall
+                            ?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0,
+                            ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        context.tr(
+                          '面向买方研究的终端，整合 13F 资金流、内部人交易、组合模拟与估值分析。',
+                          'A buy-side terminal for 13F flows, insider activity, copy simulation, and valuation context.',
+                        ),
+                        style: TextStyle(color: palette.muted, height: 1.35),
+                      ),
+                      const SizedBox(height: 28),
+                      FilledButton.icon(
+                        onPressed: authConfigured ? onGoogle : null,
+                        icon: const Icon(Icons.login_rounded),
+                        label: Text(
+                          context.tr('使用 Google 继续', 'Continue with Google'),
+                        ),
+                      ),
+                      if (localBypassEnabled) ...[
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: onLocal,
+                          icon: const Icon(Icons.terminal_rounded),
+                          label: Text(
+                            context.tr('进入本地工作区', 'Enter Local Workspace'),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 18),
+                      Text(
+                        (authMessage?.isNotEmpty ?? false)
+                            ? authMessage!
+                            : (authConfigured
+                                  ? context.tr(
+                                      '生产环境使用 Supabase Google 身份验证。',
+                                      'Production mode uses Supabase Google auth.',
+                                    )
+                                  : context.tr(
+                                      'Supabase 密钥未配置或身份验证暂不可用；开发环境可进入本地工作区。',
+                                      'Supabase keys are not configured or auth is not reachable; local workspace mode is available for development.',
+                                    )),
+                        style: TextStyle(color: palette.faint, fontSize: 12),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                BadgeLabel(text: 'GURU INTELLIGENCE', color: palette.accent),
-                const SizedBox(height: 18),
-                Text(
-                  context.tr('研究终端', 'Research Terminal'),
-                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  context.tr(
-                    '面向买方研究的终端，整合 13F 资金流、内部人交易、组合模拟与估值分析。',
-                    'A buy-side terminal for 13F flows, insider activity, copy simulation, and valuation context.',
-                  ),
-                  style: TextStyle(color: palette.muted, height: 1.35),
-                ),
-                const SizedBox(height: 28),
-                FilledButton.icon(
-                  onPressed: authConfigured ? onGoogle : null,
-                  icon: const Icon(Icons.login_rounded),
-                  label: Text(
-                    context.tr('使用 Google 继续', 'Continue with Google'),
-                  ),
-                ),
-                if (localBypassEnabled) ...[
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: onLocal,
-                    icon: const Icon(Icons.terminal_rounded),
-                    label: Text(context.tr('进入本地工作区', 'Enter Local Workspace')),
-                  ),
-                ],
-                const SizedBox(height: 18),
-                Text(
-                  (authMessage?.isNotEmpty ?? false)
-                      ? authMessage!
-                      : (authConfigured
-                            ? context.tr(
-                                '生产环境使用 Supabase Google 身份验证。',
-                                'Production mode uses Supabase Google auth.',
-                              )
-                            : context.tr(
-                                'Supabase 密钥未配置或身份验证暂不可用；开发环境可进入本地工作区。',
-                                'Supabase keys are not configured or auth is not reachable; local workspace mode is available for development.',
-                              )),
-                  style: TextStyle(color: palette.faint, fontSize: 12),
-                ),
-              ],
+              ),
             ),
           ),
         ),

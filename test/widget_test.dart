@@ -180,6 +180,37 @@ void main() {
     expect(find.text('研究终端'), findsNothing);
   });
 
+  testWidgets('auth shell fits a 390px mobile viewport without overflow', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LanguageScope(
+          language: AppLanguage.en,
+          child: LoginScreen(
+            authConfigured: true,
+            localBypassEnabled: false,
+            language: AppLanguage.en,
+            onLanguage: (_) {},
+            onGoogle: () {},
+            onLocal: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final panel = tester.getRect(find.byKey(const ValueKey('login-panel')));
+    expect(panel.left, greaterThanOrEqualTo(16));
+    expect(panel.right, lessThanOrEqualTo(374));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'representative data widgets contain no Chinese in English mode',
     (WidgetTester tester) async {

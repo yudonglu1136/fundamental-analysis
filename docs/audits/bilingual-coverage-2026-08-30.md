@@ -48,6 +48,7 @@ Scope: Flutter application, standalone Ontology explorer, dynamic API labels, de
 | Reverse translation could mutate legal names containing a status token, such as `COMPASS` | Replaced raw substring rewrites with ASCII word-boundary matching and added a non-corruption regression assertion. |
 | Browser cache could retain stale Ontology translations | Versioned Ontology CSS, application JavaScript, and translation assets as one release unit. |
 | Admin nested Portfolio detail was not represented in language regression tests | Added an API-backed widget fixture and English zero-CJK assertion over the full rendered tree. |
+| The unauthenticated shell used a fixed 520px panel and widened a 390px mobile document | Replaced the fixed width with a safe-area constrained layout, verified a 390px document width in a real browser, and added a widget regression assertion. |
 
 ## Automated Gates
 
@@ -63,4 +64,4 @@ npm run build
 node scripts/verify-ontology-module.mjs --built
 ```
 
-Browser verification must exercise both languages on desktop and 390x844 mobile viewports, including Ontology dialogs and the Guru, Valuation, Portfolio, and Admin routes. A release is blocked by CJK copy in English mode, untranslated UI English in Chinese mode, a translation fallback warning, or a layout overflow.
+Browser verification must exercise both languages on desktop and 390x844 mobile viewports, including the unauthenticated shell, Ontology dialogs, and the Guru, Valuation, Portfolio, and Admin routes. A release is blocked by CJK copy in English mode, untranslated UI English in Chinese mode, a translation fallback warning, or a layout overflow.
