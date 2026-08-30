@@ -147,3 +147,16 @@ When valuation financials, management guidance, or historical fair values are re
 - Generate the persistent all-ticker audit ledger with `SQLITE_DB_PATH=<candidate.sqlite> npm run audit:valuation:ledger`. Commit `server/reports/valuation-audit-ledger.json` and `.md`; production is blocked while the ledger contains any unresolved P0/P1 finding. Price/fair-value divergence is a watch item, never a reason to feed market price into fair value.
 - Build the production artifact from one audited candidate with `python3 scripts/build-pit-migration-artifact.py --database <run1.sqlite> --release-audit <release-audit.json> --output <valuation-pit-migration.sqlite.gz>`. The generated manifest owns the artifact SHA-256, model version, strict-audit signatures, and expected table counts; never hand-edit those release values into the deployment hook.
 - Deploy only a strict-audit candidate. Record the pre-deploy Elastic Beanstalk version, create a fresh compressed database backup and EBS snapshot, stage the six valuation tables, replace them in one `BEGIN IMMEDIATE` transaction, and retain the prior version and backup for rollback. Re-run health, coverage, valuation, Portfolio, Guru, Ontology, and Transcript checks against production before declaring the update complete.
+
+## Bilingual UI Contract
+
+Chinese and English are release-critical product modes, not best-effort labels.
+
+- Route all Flutter UI copy through `context.tr`, `context.ui`, or the shared localization helpers. Route all standalone Ontology copy through `web/ontology/i18n.js`. Do not add visible hard-coded copy outside those layers.
+- Translate API-supplied statuses, sectors, industries, strategy names, model labels, error messages, and dynamic sentence templates in both directions. Do not assume a backend value is already presentation-ready.
+- English mode must contain zero CJK UI copy. Chinese mode must contain zero untranslated interface copy; official company names, tickers, brands, source titles, and standard financial acronyms are the only allowed exceptions.
+- Include navigation, filters, buttons, charts, tables, dialogs, tooltips, placeholders, loading, empty, disabled, warning, and error states in every language review.
+- Preserve language across Flutter/Ontology navigation and URL state. The compact mobile header must always expose a language switch without requiring horizontal scrolling.
+- Whenever `web/ontology/styles.css`, `web/ontology/i18n.js`, or `web/ontology/app.js` changes, bump their shared query-string asset version in `web/ontology/index.html` to prevent stale mixed-language clients.
+- Before publishing a UI change, run `npm run audit:i18n`, `flutter analyze`, `flutter test`, `npm run verify:ontology-module`, `npm run test:ontology`, and `npm run build`. Verify both languages on desktop and a 390x844 mobile viewport, including dynamically opened Ontology panels and dialogs.
+- Keep the current release ledger in `docs/audits/bilingual-coverage-2026-08-30.md` and update it whenever a new user-facing surface is added.

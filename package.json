@@ -27,6 +27,7 @@
     "audit:valuation:ledger": "node server/valuationAuditLedger.js",
     "audit:valuation:refresh": "VALUATION_CONSENSUS_REFRESH=1 node server/unifiedValuationAudit.js",
     "audit:pit-release": "node server/verifyPitValuationRelease.js",
+    "audit:i18n": "node scripts/audit-i18n.mjs",
     "build:pit-migration": "python3 scripts/build-pit-migration-artifact.py",
     "build": "bash scripts/flutter-build.sh",
     "package:aws": "bash scripts/package-aws-backend.sh",

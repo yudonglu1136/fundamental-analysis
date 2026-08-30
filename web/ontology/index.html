@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ontology Intelligence</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=4" />
+    <link rel="stylesheet" href="./styles.css?v=20260830-8" />
   </head>
   <body>
     <header class="topbar">
@@ -27,6 +27,10 @@
 
       <div class="top-controls">
         <button id="mobile-filter-toggle" class="mobile-filter-button" aria-expanded="false" aria-controls="filter-rail">筛选</button>
+        <div class="language-switch" aria-label="语言 / Language">
+          <button class="active" data-language="zh">中文</button>
+          <button data-language="en">EN</button>
+        </div>
         <div class="segmented ai-only-control" aria-label="价值流方向">
           <button class="segment active" data-flow="product">产品流</button>
           <button class="segment" data-flow="capital">资金流</button>
@@ -371,7 +375,7 @@
               <div>
                 <span class="section-kicker">US LISTED EQUITIES</span>
                 <h2>全市场行业与公司图谱</h2>
-                <p id="market-home-note">按行业、主题和市场分组检查收入、利润与 margin 的变化。</p>
+                <p id="market-home-note">按行业、主题和市场分组检查收入、利润与利润率的变化。</p>
               </div>
               <div class="market-asof"><span>财务数据截至</span><strong id="market-asof">--</strong></div>
             </header>
@@ -621,7 +625,7 @@
                 <option value="operating_margin_delta">营业利润率变化</option>
                 <option value="gross_margin_delta">毛利率变化</option>
                 <option value="fcf_yoy">FCF同比</option>
-                <option value="capex_yoy">Capex同比</option>
+                <option value="capex_yoy">资本开支同比</option>
                 <option value="marketcap">市值</option>
               </select>
             </label>
@@ -638,7 +642,7 @@
                   <th>营业利润同比</th>
                   <th>毛利率变化</th>
                   <th>营业率变化</th>
-                  <th>Capex同比</th>
+                  <th>资本开支同比</th>
                 </tr>
               </thead>
               <tbody id="ranking-body"></tbody>
@@ -663,7 +667,7 @@
       <aside id="detail-panel" class="detail-panel" aria-label="公司详情">
         <div class="detail-empty">
           <span>选择一家公司</span>
-          <p>查看收入、利润、margin、现金流、资本开支及变化原因。</p>
+          <p>查看收入、利润、利润率、现金流、资本开支及变化原因。</p>
         </div>
       </aside>
     </div>
@@ -673,6 +677,7 @@
     </dialog>
 
     <div id="loading" class="loading-state">载入本地 ontology…</div>
-    <script src="./app.js?v=4" defer></script>
+    <script src="./i18n.js?v=20260830-8"></script>
+    <script src="./app.js?v=20260830-8" defer></script>
   </body>
 </html>

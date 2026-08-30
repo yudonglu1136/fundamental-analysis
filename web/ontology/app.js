@@ -175,7 +175,7 @@ function metricLabel(metric) {
     revenue_acceleration: "收入加速",
     operating_income_yoy: "营业利润",
     operating_margin_delta_yoy: "营业率变化",
-    capex_yoy: "Capex同比",
+    capex_yoy: "资本开支同比",
     heat_score: "热度",
   }[metric] || metric;
 }
@@ -2124,8 +2124,8 @@ async function selectCompany(ticker) {
         <div class="metric-box"><span>营业利润率</span><strong>${fmtPct(company.operating_margin)}</strong></div>
         <div class="metric-box"><span>毛利率</span><strong>${fmtPct(company.gross_margin)}</strong></div>
         <div class="metric-box"><span>FCF率</span><strong>${fmtPct(company.fcf_margin)}</strong></div>
-        <div class="metric-box"><span>Capex</span><strong>${fmtMoney(company.capex_usd)}</strong></div>
-        <div class="metric-box"><span>Capex同比</span><strong class="${metricClass(company.capex_yoy)}">${fmtPct(company.capex_yoy)}</strong></div>
+        <div class="metric-box"><span>资本开支</span><strong>${fmtMoney(company.capex_usd)}</strong></div>
+        <div class="metric-box"><span>资本开支同比</span><strong class="${metricClass(company.capex_yoy)}">${fmtPct(company.capex_yoy)}</strong></div>
       </div>
       <div class="chart-shell"><div class="chart-title">TTM 收入（USD）</div><div id="revenue-chart"></div></div>
       <div class="chart-shell"><div class="chart-title">毛利率 / 营业利润率 / FCF率</div><div id="margin-chart"></div></div>
@@ -2162,7 +2162,7 @@ function closeDetail() {
   panel.innerHTML = `
     <div class="detail-empty">
       <span>选择一家公司</span>
-      <p>查看收入、利润、margin、现金流、资本开支及变化原因。</p>
+      <p>查看收入、利润、利润率、现金流、资本开支及变化原因。</p>
     </div>
   `;
   renderGraph();
@@ -2173,7 +2173,7 @@ function renderMethodology() {
   $("#methodology-content").innerHTML = `
     <div class="method-card"><h3>财务热度</h3><p>${definitions.heat_score}</p></div>
     <div class="method-card"><h3>爆发状态</h3><p>${definitions.surging}</p></div>
-    <div class="method-card"><h3>Point-in-time边界</h3><p>${definitions.point_in_time}</p></div>
+    <div class="method-card"><h3>时点边界</h3><p>${definitions.point_in_time}</p></div>
     <div class="method-card"><h3>历史时间轴</h3><p>${definitions.timeline_replay}</p></div>
     <div class="method-card"><h3>Ontology关系边界</h3><p>${definitions.relationship_caveat}</p></div>
     <div class="method-card"><h3>指标字典</h3><p>${state.methodology.field_notes.map((field) => `${field.label}（${field.unit}）`).join(" · ")}</p></div>

@@ -33,6 +33,22 @@ AppLanguage parseAppLanguage(String? value) =>
 String trFor(AppLanguage language, String zh, String en) =>
     language == AppLanguage.en ? en : zh;
 
+String ontologyPathForLanguage(
+  AppLanguage language, [
+  String value = '/ontology/',
+]) {
+  final uri = Uri.tryParse(value) ?? Uri(path: '/ontology/');
+  final params = Map<String, String>.from(uri.queryParameters);
+  if (language == AppLanguage.en) {
+    params['lang'] = 'en';
+  } else {
+    params.remove('lang');
+  }
+  return uri
+      .replace(queryParameters: params.isEmpty ? null : params)
+      .toString();
+}
+
 String? ontologyReturnPath(String? value) {
   final candidate = value?.trim() ?? '';
   if (candidate.isEmpty) return null;
@@ -75,6 +91,594 @@ extension LanguageContext on BuildContext {
   bool get isEnglish => language == AppLanguage.en;
   bool get isChinese => language == AppLanguage.zh;
   String tr(String zh, String en) => trFor(language, zh, en);
+  String ui(String english) => localizeUiText(language, english);
+}
+
+const _uiChinese = <String, String>{
+  'Guru Intelligence Executive Summary': 'Guru Intelligence 研究终端',
+  'GURU INTELLIGENCE': 'GURU INTELLIGENCE',
+  '13F copy simulation': '13F 复制模拟',
+  'STOCK Act copy simulation': 'STOCK Act 复制模拟',
+  'Not eligible for 13F copy': '不进行 13F 复制',
+  '13F market value': '13F 市值',
+  'latest disclosed': '最新披露',
+  'waiting filing': '等待申报',
+  'vs quarter end': '相对季度末',
+  'Form 4 tickers tracked': '已跟踪 Form 4 股票',
+  'latest post-transaction': '最近交易后持仓',
+  'Form 4 trail': 'Form 4 记录',
+  'profile': '资料',
+  'local_missing': '本地缺失',
+  'Concentrated activist compounders': '集中型维权复利股',
+  'Founder-controlled liquidity': '创始人控制与流动性',
+  'Control holder + liquidity signals': '控股人与流动性信号',
+  'Tech and growth public equities': '科技与成长型公开市场股票',
+  'Social Capital public 13F proxy': 'Social Capital 公开 13F 代理组合',
+  'Macro-informed concentrated 13F': '宏观驱动的集中型 13F',
+  'Concentrated technology and travel compounders': '集中型科技与旅行复利股',
+  'Tiger Cub technology and global growth equities': 'Tiger Cub 科技与全球成长股',
+  'Tiger Cub technology and growth equities': 'Tiger Cub 科技与成长股',
+  'Concentrated value compounders': '集中型价值复利股',
+  'Three-legged-stool quality compounding': '三支柱高质量复利策略',
+  'Concentrated quality compounders': '集中型高质量复利股',
+  'Value discipline and Berkshire-oriented quality': '价值纪律与伯克希尔导向的高质量策略',
+  'Patient concentrated value and growth': '耐心持有的集中型价值与成长策略',
+  'Long-duration disruptive growth strategy': '长周期颠覆式成长策略',
+  'Quality compounders, long holding periods': '高质量复利股与长期持有',
+  'Quality growth compounders': '高质量成长复利股',
+  'Patient growth and innovation platforms': '耐心持有的成长与创新平台',
+  'Founder and board disclosures': '创始人与董事会披露',
+  'Congressional trading disclosure lag': '国会交易披露滞后',
+  'Venture operator Form 4 disclosures': '创投运营者 Form 4 披露',
+  'Sparse operating-founder Form 4 disclosures': '稀疏的运营型创始人 Form 4 披露',
+  'Venture and board-level Form 4 disclosures': '创投与董事会层面 Form 4 披露',
+  'Founder CEO Form 4 selling and ownership': '创始人 CEO Form 4 减持与持股',
+  'Insurance float and concentrated value compounders': '保险浮存金与集中型价值复利股',
+  'Insurance float and long-term quality/value equities': '保险浮存金与长期高质量价值股',
+  'Archived long-term compounder case study': '归档的长期复利股案例研究',
+  'Multi-strategy public equities': '多策略公开市场股票',
+  'This disclosure is not a complete quarterly 13F portfolio; copied rebalancing would be misleading.':
+      '该披露不是完整季度13F组合，复制调仓会失真。',
+  'Copy public 13F long-only weights on filing publication dates and backtest the full history against SPY.':
+      '按披露发布日复制公开13F长仓权重，并和SPY做全历史回测。',
+  'Approximate copied trades using public disclosure dates and transaction-value ranges, then compare with SPY.':
+      '按公开披露日和交易金额区间做近似复制，并和SPY对比。',
+  'Counterpoint Global does not publish a clean standalone team-level 13F feed, so the app does not run proportional 13F copy-trading for this profile.':
+      'Counterpoint Global 没有发布独立、干净的团队级 13F 数据，因此本档案不进行按比例的 13F 复制交易。',
+  'Nomad is closed and has no current quarterly 13F feed; historical holdings are useful for case study work but not for live five-year copy-trading.':
+      'Nomad 已关闭，也没有当前季度 13F 数据；历史持仓适合案例研究，不适合实时五年复制交易。',
+  'Account': '账户',
+  'Logout': '退出登录',
+  'Refresh': '刷新',
+  'Color contrast': '色彩对比',
+  'Guru Stock Analysis': 'Guru 股票研究',
+  'Local SQLite': '本地 SQLite',
+  'Local': '本地',
+  'Gurus': '投资人',
+  'Firms': '机构',
+  'Search guru / firm / ticker': '搜索投资人、机构或股票',
+  'All': '全部',
+  'Profile': '资料',
+  '13F fund': '13F 基金',
+  'Form 4': 'Form 4 高管交易',
+  'STOCK Act': '国会交易',
+  'Disclosure': '公开披露',
+  'All Strategies': '全部策略',
+  'All Status': '全部状态',
+  'GURU UNIVERSE': '投资人名单',
+  'Select Guru': '选择投资人',
+  'No gurus match this filter.': '没有符合当前筛选的投资人。',
+  'Select a guru to inspect.': '请选择一位投资人查看详情。',
+  'AUM': '管理规模',
+  'Holdings': '持仓数',
+  'Latest Quarter': '最新季度',
+  'Filing Lag': '披露滞后',
+  'Strategy': '策略',
+  'Stocks': '股票数',
+  'Held shares': '持有股数',
+  'Cum sold': '累计卖出',
+  'Latest': '最新',
+  'Focus': '关注方向',
+  'Source': '数据来源',
+  'Activity': '动态',
+  'RESEARCH PROFILE': '研究档案',
+  'COPY SIMULATION': '组合模拟',
+  'Backtest is not ready.': '回测尚未准备完成。',
+  'Excess': '超额收益',
+  'MDD': '最大回撤',
+  'No buy/sell rows available.': '暂无买卖记录。',
+  'No disclosure rows available.': '暂无披露记录。',
+  'Search ticker / company': '搜索股票或公司',
+  'Clear': '清除',
+  'NEW / EXIT': '新买入 / 清仓',
+  'QUARTERLY ATTRIBUTION': '季度贡献',
+  'No quarterly attribution available.': '暂无季度贡献数据。',
+  'QUICK LINKS': '快捷入口',
+  'OVERVIEW': '概览',
+  'SIGNAL BOARD': '信号板',
+  'No fresh signals in the current local database.': '当前数据库暂无最新信号。',
+  'TICKER HEATMAP': '股票热力图',
+  'No external consensus exposure after filtering.': '筛选后没有外部共识敞口。',
+  'LATEST FILINGS': '最新申报',
+  'ADD RANKING': '加仓排行',
+  'TRIM RANKING': '减仓排行',
+  'No recent 13F filings in the current local database.': '当前数据库暂无近期 13F 申报。',
+  'No add/new rows in the current local database.': '当前数据库暂无新增或加仓记录。',
+  'No reduce/sell-out rows in the current local database.': '当前数据库暂无减仓或清仓记录。',
+  'What changed in the public tape': '公开信息发生了什么变化',
+  'Crowded external consensus': '拥挤的外部共识',
+  'founders filtered': '已排除创始人',
+  'LATEST FLOW': '最新资金流',
+  'DISCLOSURE TRAIL': '披露记录',
+  'Quarterly operations': '季度操作',
+  'Recent records': '近期记录',
+  'Top holdings': '前几大持仓',
+  'No activity rows available.': '暂无动态记录。',
+  'Not copy-tradable': '不可复制交易',
+  'Portfolio vs SPY': '组合与 SPY 对比',
+  'New Buys & Sells': '新买入 / 卖出',
+  'Quarterly Contribution': '季度贡献',
+  'No equity curve available.': '暂无净值曲线。',
+  'OWNER ADMIN': '管理员',
+  'Portfolio admin console': '组合管理后台',
+  'View all user-scoped IBKR/Yodlee portfolio databases in read-only mode.':
+      '以只读方式查看所有用户独立的 IBKR/Yodlee 组合数据库。',
+  'Users': '用户数',
+  'Accounts': '账户数',
+  'Latest NAV': '最新净值',
+  'Errors': '错误',
+  'SYSTEM HEALTH': '系统健康',
+  'Refresh health': '刷新系统状态',
+  'Loading system health...': '正在载入系统状态…',
+  'No background jobs were reported yet.': '尚未收到后台任务报告。',
+  'USER DATABASES': '用户数据库',
+  'Refresh admin index': '刷新用户索引',
+  'Search email / name / hash': '搜索邮箱、姓名或哈希',
+  'No portfolio users found yet.': '尚未找到组合用户。',
+  'Select a portfolio user to inspect.': '请选择一位组合用户查看详情。',
+  'Portfolio detail has not loaded yet.': '组合详情尚未载入。',
+  'SELECTED USER': '所选用户',
+  'Refresh detail': '刷新详情',
+  'PORTFOLIO MANAGEMENT': '组合管理',
+  'Portfolio cockpit': '组合驾驶舱',
+  'IBKR holdings synced through Yodlee.': 'IBKR 持仓已通过 Yodlee 同步。',
+  'Yodlee / IBKR connector is ready; credentials are not configured yet.':
+      'Yodlee / IBKR 连接器已就绪，但尚未配置凭证。',
+  'Net liquidation': '净清算价值',
+  'Day P/L': '当日盈亏',
+  'Unrealized': '未实现盈亏',
+  'Cash': '现金',
+  'Top weight': '最大持仓权重',
+  'PERFORMANCE': '表现',
+  'IBKR did not return real portfolio NAV history for this query.':
+      'IBKR 未为本次查询返回真实组合净值历史。',
+  'ADMIN READ-ONLY': '管理员只读',
+  'No linked accounts are visible yet.': '暂未看到已连接账户。',
+  'PRIVATE PORTFOLIO': '私人组合',
+  'Latest sync failed.': '最近一次同步失败。',
+  'Disconnecting': '正在断开',
+  'Disconnect all': '断开全部账户',
+  'PORTFOLIO ACCOUNT': '组合账户',
+  'Close': '关闭',
+  'Account label': '账户名称',
+  'Yodlee Token': 'Yodlee Token',
+  'Hide token': '隐藏 Token',
+  'Show token': '显示 Token',
+  'Yodlee Query ID': 'Yodlee Query ID',
+  'Cancel': '取消',
+  'Adding': '正在添加',
+  'Add & update': '添加并更新',
+  'Connecting': '正在连接',
+  'Save & sync': '保存并同步',
+  'HOLDING MIX': '持仓构成',
+  'positive MV': '正市值',
+  'Other': '其他',
+  'Other holdings': '其他持仓',
+  'No positive holdings to chart.': '暂无可绘制的正持仓。',
+  'PORTFOLIO ANALYTICS': '组合分析',
+  'Portfolio analytics are not available yet.': '组合分析暂不可用。',
+  'Historical risk uses one-year daily returns; forward return is a model-implied scenario.':
+      '历史风险采用过去一年日收益；前瞻回报为模型推演情景。',
+  'No portfolio holdings are available for valuation analysis.':
+      '暂无可用于估值分析的组合持仓。',
+  'DIVIDENDS': '股息',
+  'Dividend calendar': '股息日历',
+  'Current portfolio feed did not return dividend calendar events.':
+      '当前组合数据源未返回股息日历事件。',
+  'Previous month': '上个月',
+  'Next month': '下个月',
+  'No dividend events match this filter.': '没有符合当前筛选的股息事件。',
+  'Search ticker': '搜索股票',
+  'Monthly': '每月',
+  'Daily': '每日',
+  'Yield': '股息率',
+  'No payout bars for this window.': '当前区间没有股息柱状数据。',
+  'No 2025/2026 dividend history for this filter.': '当前筛选没有 2025/2026 股息历史。',
+  'Calendar': '日历',
+  'List': '列表',
+  'One year ahead': '未来一年',
+  '2025 paid history': '2025 已支付历史',
+  '2026 paid + forecast': '2026 已支付 + 预测',
+  'Date': '日期',
+  'Payout': '股息',
+  'Base': '本币',
+  'Holdings:': '持仓：',
+  'base': '本币',
+  'per share': '每股',
+  'SUN': '周日',
+  'MON': '周一',
+  'TUE': '周二',
+  'WED': '周三',
+  'THU': '周四',
+  'FRI': '周五',
+  'SAT': '周六',
+  'Jan': '1 月',
+  'Feb': '2 月',
+  'Mar': '3 月',
+  'Apr': '4 月',
+  'May': '5 月',
+  'Jun': '6 月',
+  'Jul': '7 月',
+  'Aug': '8 月',
+  'Sep': '9 月',
+  'Oct': '10 月',
+  'Nov': '11 月',
+  'Dec': '12 月',
+  'ACCOUNTS': '账户',
+  'IBKR accounts': 'IBKR 账户',
+  'No linked accounts yet.': '尚未连接账户。',
+  'ALLOCATION': '资产配置',
+  'RISK': '风险',
+  'HOLDINGS': '持仓',
+  'No holdings from Yodlee yet.': 'Yodlee 尚未返回持仓。',
+  'FV gap': '估值差距',
+  'EVENT ONTOLOGY V2': '事件 ONTOLOGY V2',
+  'Ontology Intelligence': 'Ontology 智能研究',
+  'PIT fundamentals, peer value capture, and graph-confirmed decisions.':
+      'PIT 基本面、同行价值捕获与图谱确认决策。',
+  'Current Signals': '当前信号',
+  'Model Holdings': '模型持仓',
+  'Evaluation CAGR': '评估期复合年化收益',
+  'Max Drawdown': '最大回撤',
+  'tradable candidates': '可交易候选',
+  'current 12M book': '当前 12 个月组合',
+  'evaluation period': '评估期',
+  'Historical': '历史',
+  'peer-confirmed': '同行确认',
+  'graph-confirmed': '图谱确认',
+  'monthly snapshots': '月度快照',
+  '2018–2026 evaluation': '2018–2026 评估期',
+  '2010–2016 development': '2010–2016 开发期',
+  'Daily · net of modeled costs': '日频 · 已扣模拟成本',
+  'Strategy return': '策略收益',
+  'SPY return': 'SPY 收益',
+  'Strategy CAGR': '策略年化收益',
+  'Max drawdown': '最大回撤',
+  'Period': '期间',
+  'Model': '模型',
+  'Alpha': '超额',
+  'graph confirmed': '图谱确认',
+  'peer capture': '同行确认',
+  'observe': '观察',
+  'PIT REPLAY': 'PIT 回放',
+  'Decision history': '决策历史',
+  'No PIT history is available.': '暂无 PIT 历史。',
+  'Latest snapshot': '最新快照',
+  'REALIZED BACKTEST': '真实回测',
+  'Historical NAV vs SPY': '历史净值与 SPY 对比',
+  'Historical NAV is not present in this snapshot.': '当前快照没有历史净值。',
+  'DECISION BOARD': '决策板',
+  'Latest PIT signals': '最新 PIT 信号',
+  'Historical PIT signals': '历史 PIT 信号',
+  'No tradable PIT signals for this month.': '本月没有可交易的 PIT 信号。',
+  'CURRENT BOOK': '当前组合',
+  'Model holdings': '模型持仓',
+  'VALIDATION': '验证',
+  'Strategy vs SPY': '策略与 SPY 对比',
+  'POINT-IN-TIME BOOK': '时点组合',
+  'INDUSTRY MAP': '行业地图',
+  'TICKER RESEARCH': '个股研究',
+  'SELECTED RESEARCH': '当前研究',
+  'Select a ticker from the matrix.': '请从矩阵中选择一只股票。',
+  'No historical valuation or price series available.': '暂无历史估值或股价序列。',
+  'Fair value': '公允价值',
+  'Quarter price': '季度股价',
+  'Daily price': '每日股价',
+  'No quarterly valuation history.': '暂无季度估值历史。',
+  'Recent quarterly valuation history': '近期季度估值历史',
+  'QUARTERLY MODEL BOOK': '季度模型档案',
+  'MODEL INPUTS': '模型输入',
+  'Revenue': '收入',
+  'Revenue growth': '收入增速',
+  'Operating margin': '营业利润率',
+  'Normalized margin': '标准化利润率',
+  'FCF after capex': '资本开支后自由现金流',
+  'Shares': '股数',
+  'Guidance used by model': '模型采用的管理层指引',
+  'Revenue guide': '收入指引',
+  'Margin guide': '利润率指引',
+  'MODEL OUTPUT': '模型输出',
+  'Price at date': '当期股价',
+  'Upside': '上涨空间',
+  '3Y target': '三年目标价',
+  'PODCAST RADAR': '播客雷达',
+  'CALL TRANSCRIPT Q&A': '电话会问答',
+  'evidence strength': '证据强度',
+  'DISTRIBUTION': '估值分布',
+  'Where the model sees value': '模型认为价值在哪里',
+  'Deep value': '深度低估',
+  'Fair range': '合理区间',
+  'Expensive': '偏贵',
+  'MODEL CONTROL': '模型控制',
+  'Price excluded from fair value': '市场价格不参与公允价值计算',
+  'Retry': '重试',
+  'Coverage': '覆盖范围',
+  'gurus': '位投资人',
+  '13F AUM': '13F 管理规模',
+  'long equity': '多头股票',
+  'Spread': '信号差',
+  'buy minus sell': '买入减卖出',
+  'Quarter': '季度',
+  'latest filing': '最新申报',
+  'Report': '报告日期',
+  'Filed': '申报日期',
+  'shares': '股',
+  'owner only': '仅管理员',
+  'read-only detail': '详情只读',
+  'encrypted tokens hidden': '加密 Token 已隐藏',
+  'linked': '已连接',
+  'IBKR/Yodlee saved': '已保存 IBKR/Yodlee',
+  'sum of latest stored NAV': '最新已存净值合计',
+  'sync or decrypt issues': '同步或解密问题',
+  'healthy': '健康',
+  'running': '运行中',
+  'failed': '失败',
+  'unknown': '未知',
+  'Data jobs': '数据任务',
+  'Uptime': '运行时长',
+  'Origins': '允许来源',
+  'No completed run': '尚无已完成运行',
+  'Job': '任务',
+  'Guru dashboard data': 'Guru 仪表盘数据',
+  'Guru simulation / backtests': 'Guru 模拟 / 回测',
+  'Valuation models': '估值模型',
+  'Podcast / YouTube insights': '播客 / YouTube 洞察',
+  'User portfolio sync': '用户组合同步',
+  'Portfolio NAV recorder': '组合净值记录器',
+  'Run started but no completion was recorded.': '任务已开始，但没有完成记录。',
+  'No recorded run yet.': '尚无运行记录。',
+  'Latest run is getting stale.': '最近一次运行数据开始陈旧。',
+  'Status': '状态',
+  'Paid': '已支付',
+  'Declared': '已宣布',
+  'Estimated': '预估',
+  'Payout type': '日期类型',
+  'Pay date': '支付日',
+  'Ex-date': '除息日',
+  'Annual income': '年度收入',
+  'events': '事件',
+  'current-weight backsolve': '按当前权重回溯',
+  'Portfolio': '组合',
+  'Positions': '持仓数',
+  'Ticker': '股票代码',
+  '1Y / Vol': '一年收益 / 波动',
+  'Forward': '前瞻回报',
+  'Weight': '权重',
+  'Top 5 weight': '前五大持仓权重',
+  'Cash weight': '现金权重',
+  'Unrealized P/L': '未实现盈亏',
+  'No model': '无模型',
+  'USD Cash': '美元现金',
+  'Brokerage': '经纪账户',
+  'Technology': '科技',
+  'Semiconductors': '半导体',
+  'Consumer Internet': '消费互联网',
+  'Communication Services': '通信服务',
+  'Software': '软件',
+  'Media': '媒体',
+  'Healthcare': '医疗保健',
+  'Financial Services': '金融服务',
+  'Industrials': '工业',
+  'Consumer Cyclical': '周期消费',
+  'Consumer Defensive': '防御性消费',
+  'Energy': '能源',
+  'Utilities': '公用事业',
+  'Real Estate': '房地产',
+  'Basic Materials': '原材料',
+  'No real portfolio NAV history was returned by the upstream source.':
+      '上游数据源未返回真实的组合净值历史。',
+  'Current-weight reconstruction; historical risk from one-year daily returns; forward return from partial fair-value gap convergence, 3Y model IRR, and capped momentum.':
+      '按当前权重重建；历史风险来自过去一年日收益；前瞻回报综合部分估值差收敛、三年模型 IRR 与封顶动量。',
+  'IBKR/Yodlee credentials are not configured. Showing local sample structure.':
+      '尚未配置 IBKR / Yodlee 凭证，当前显示本地示例结构。',
+  'Local SQLite valuation database': '本地 SQLite 估值数据库',
+  'Portfolio module sample': '组合模块示例',
+  'Nasdaq dividend calendar': 'Nasdaq 股息日历',
+  'Yahoo dividend history': 'Yahoo 历史股息',
+  'Yahoo dividend history estimate': 'Yahoo 历史股息预估',
+  'Paid dividend': '已支付股息',
+  'Declared dividend': '已宣布股息',
+  'Estimated dividend': '预估股息',
+  'SEC CompanyFacts + YouTube earnings-call transcript metric database':
+      'SEC CompanyFacts + YouTube 财报电话会逐字稿指标数据库',
+  'Jansen Sharadar as-reported PIT financials + event-visible management guidance':
+      'Jansen Sharadar 原始披露口径的 PIT 财务数据 + 当时可见的管理层指引',
+  'Jansen Sharadar PIT financials + event-visible guidance':
+      'Jansen Sharadar PIT 财务数据 + 当时可见的管理层指引',
+  'methodology': '方法说明',
+  'FV coverage': '估值覆盖率',
+  'price coverage': '股价覆盖率',
+  'gap close': '估值差收敛',
+  'COMPANY': '公司',
+  'UPSIDE / DOWNSIDE': '上涨 / 下跌空间',
+  'PRICE / FV': '股价 / 公允价值',
+  'QUALITY': '质量',
+  '3Y TARGET': '三年目标价',
+  'not configured': '未配置',
+  'no_database': '无数据库',
+  'Unknown user': '未知用户',
+  'Email': '邮箱',
+  'concentration': '集中度',
+  'Admin view reads the selected user portfolio database without exposing saved credentials.':
+      '管理员视图只读所选用户的组合数据库，不会暴露已保存凭证。',
+  'IBKR account': 'IBKR 账户',
+  'per-user encrypted DB': '用户独立加密数据库',
+  'IBKR host allowlisted': 'IBKR 主机已加入白名单',
+  'no browser token storage': '浏览器不保存 Token',
+  'one-time setup': '仅需设置一次',
+  'Current IBKR report has fewer than two NAV points.':
+      '当前 IBKR 报告中的净值数据点少于两个。',
+  'saved': '已保存',
+  'pass': '通过',
+  'watch': '观察',
+  'quarterly': '季度',
+  'model': '模型',
+  'audit': '审计',
+  'no consensus guardrail': '无外部共识校验',
+  'no_external_consensus': '无外部共识',
+  'consensus': '外部共识',
+  'street': '市场共识',
+  'live': '实时',
+  'cached': '缓存',
+};
+
+final _uiEnglish = <String, String>{
+  for (final entry in _uiChinese.entries) entry.value: entry.key,
+};
+
+String localizeUiText(AppLanguage language, String source) {
+  if (source.trim().isEmpty) return source;
+  final enumLabel = switch (source) {
+    'not_configured' => trFor(language, '未配置', 'Not configured'),
+    'no_database' => trFor(language, '无数据库', 'No database'),
+    'local_missing' => trFor(language, '本地缺失', 'Missing locally'),
+    'not_available' => trFor(language, '暂不可用', 'Not available'),
+    'ready' => trFor(language, '就绪', 'Ready'),
+    'healthy' => trFor(language, '正常', 'Healthy'),
+    'stale' => trFor(language, '数据陈旧', 'Stale'),
+    'sample' => trFor(language, '示例', 'Sample'),
+    'full' => trFor(language, '完整', 'Full'),
+    'neutral' => trFor(language, '中性', 'Neutral'),
+    _ => null,
+  };
+  if (enumLabel != null) return enumLabel;
+  if (source == '13F copy 模拟') {
+    return trFor(language, '13F 复制模拟', '13F copy simulation');
+  }
+  if (source == 'STOCK Act copy 模拟') {
+    return trFor(language, 'STOCK Act 复制模拟', 'STOCK Act copy simulation');
+  }
+  if (source == '不做13F复制') {
+    return trFor(language, '不进行 13F 复制', 'Not eligible for 13F copy');
+  }
+  final genericAccountCount = RegExp(r'^(\d+) accounts$').firstMatch(source);
+  if (genericAccountCount != null) {
+    final count = genericAccountCount.group(1)!;
+    return trFor(
+      language,
+      '$count 个账户',
+      '$count ${count == '1' ? 'account' : 'accounts'}',
+    );
+  }
+  if (language == AppLanguage.en) return _uiEnglish[source] ?? source;
+  final exact = _uiChinese[source];
+  if (exact != null) return exact;
+  if (source.startsWith('No ticker matched "') && source.endsWith('".')) {
+    return '没有找到匹配的股票 ${source.substring(18, source.length - 2)}。';
+  }
+  if (source.startsWith('Next: ')) {
+    return '下一项：${source.substring(6)}';
+  }
+  if (source.startsWith('No dividend events in ')) {
+    return '当前月份没有股息事件：${source.substring(22)}';
+  }
+  final timeoutMatch = RegExp(
+    r'^API request timed out after (\d+)s\. Please retry\.$',
+  ).firstMatch(source);
+  if (timeoutMatch != null) {
+    return 'API 请求在 ${timeoutMatch.group(1)} 秒后超时，请重试。';
+  }
+  final httpStatusMatch = RegExp(r'^API (\d{3})$').firstMatch(source);
+  if (httpStatusMatch != null) {
+    return 'API 请求失败（状态码 ${httpStatusMatch.group(1)}）';
+  }
+  final nonJsonMatch = RegExp(
+    r'^API returned non-JSON from (.+) \((.+)\)$',
+  ).firstMatch(source);
+  if (nonJsonMatch != null) {
+    return 'API ${nonJsonMatch.group(1)} 返回了非 JSON 内容（${nonJsonMatch.group(2)}）';
+  }
+  if (source == 'API returned a non-object payload') {
+    return 'API 返回的数据不是有效对象';
+  }
+  if (source.startsWith('Top discount: ')) {
+    return source
+        .replaceFirst('Top discount: ', '最大折价：')
+        .replaceFirst(' at ', '，幅度 ');
+  }
+  if (source.startsWith('Most stretched: ')) {
+    return source
+        .replaceFirst('Most stretched: ', '估值最贵：')
+        .replaceFirst(' at ', '，幅度 ');
+  }
+  if (source.contains(' · filed ')) {
+    return source.replaceFirst(' · filed ', ' · 申报于 ');
+  }
+  if (source.endsWith(' Portfolio')) {
+    return '${source.substring(0, source.length - 10)} 组合';
+  }
+  final visibleMatch = RegExp(r'^(\d+) visible$').firstMatch(source);
+  if (visibleMatch != null) return '${visibleMatch.group(1)} 个可见';
+  final countMatch = RegExp(
+    r'^(\S+) (stocks|trades|holdings|shares)$',
+  ).firstMatch(source);
+  if (countMatch != null) {
+    final unit = switch (countMatch.group(2)) {
+      'stocks' => '只股票',
+      'trades' => '笔交易',
+      'holdings' => '项持仓',
+      _ => '股',
+    };
+    return '${countMatch.group(1)} $unit';
+  }
+  final dayCountMatch = RegExp(r'^(\S+) days$').firstMatch(source);
+  if (dayCountMatch != null) return '${dayCountMatch.group(1)} 天';
+  if (source.startsWith('sold ')) return '累计卖出 ${source.substring(5)}';
+  final accountCountMatch = RegExp(r'^(\S+) accounts$').firstMatch(source);
+  if (accountCountMatch != null) return '${accountCountMatch.group(1)} 个账户';
+  final eventCountMatch = RegExp(r'^(\S+) events$').firstMatch(source);
+  if (eventCountMatch != null) return '${eventCountMatch.group(1)} 个事件';
+  final companyCountMatch = RegExp(r'^(\S+) companies$').firstMatch(source);
+  if (companyCountMatch != null) return '${companyCountMatch.group(1)} 家公司';
+  final moreCountMatch = RegExp(r'^\+(\d+) more$').firstMatch(source);
+  if (moreCountMatch != null) return '另有 ${moreCountMatch.group(1)} 项';
+  final modelPnlMatch = RegExp(r'^(.*) model P/L$').firstMatch(source);
+  if (modelPnlMatch != null) return '${modelPnlMatch.group(1)} 模型盈亏';
+  final sharpeMatch = RegExp(r'^Sharpe (.+)$').firstMatch(source);
+  if (sharpeMatch != null) return '夏普比率 ${sharpeMatch.group(1)}';
+  final storedDividendMatch = RegExp(
+    r'^Stored dividend calendar: (\d+) event\(s\), including paid history, declared events, and history-based estimates\.$',
+  ).firstMatch(source);
+  if (storedDividendMatch != null) {
+    return '已保存股息日历：${storedDividendMatch.group(1)} 个事件，包含已支付历史、已宣布事件与基于历史的预估。';
+  }
+  if (source.startsWith('rf ')) return '无风险利率 ${source.substring(3)}';
+  if (source.startsWith('FV coverage ')) {
+    return '估值覆盖率 ${source.substring(12)}';
+  }
+  if (source.startsWith('price coverage ')) {
+    return '股价覆盖率 ${source.substring(15)}';
+  }
+  if (source.startsWith('gap close ')) {
+    return '估值差收敛 ${source.substring(10)}';
+  }
+  if (source.startsWith('PIT as of ')) {
+    return 'PIT 截至 ${source.substring(10)}';
+  }
+  if (source.startsWith('Report ')) return '报告日期 ${source.substring(7)}';
+  if (source.startsWith('Filed ')) return '申报日期 ${source.substring(6)}';
+  if (source.startsWith('filed ')) return '申报于 ${source.substring(6)}';
+  return source;
 }
 
 bool _supabaseReady = false;
@@ -105,32 +709,55 @@ Future<void> main() async {
   runApp(const GuruTerminalApp());
 }
 
-class GuruTerminalApp extends StatelessWidget {
+class GuruTerminalApp extends StatefulWidget {
   const GuruTerminalApp({super.key});
 
   @override
+  State<GuruTerminalApp> createState() => _GuruTerminalAppState();
+}
+
+class _GuruTerminalAppState extends State<GuruTerminalApp> {
+  AppLanguage _language = parseAppLanguage(readBrowserQuery()['lang']);
+
+  void _setLanguage(AppLanguage language) {
+    if (_language == language) return;
+    setState(() => _language = language);
+    replaceBrowserQuery({'lang': language == AppLanguage.en ? 'en' : null});
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Guru Intelligence Executive Summary',
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0B111D),
-        fontFamily: 'Inter',
-        colorScheme: ColorScheme.fromSeed(
-          brightness: Brightness.dark,
-          seedColor: const Color(0xFF22D3A6),
-          surface: const Color(0xFF111827),
+    return LanguageScope(
+      language: _language,
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: trFor(
+          _language,
+          'Guru Intelligence 研究终端',
+          'Guru Intelligence Research Terminal',
         ),
+        theme: ThemeData(
+          useMaterial3: true,
+          brightness: Brightness.dark,
+          scaffoldBackgroundColor: const Color(0xFF0B111D),
+          fontFamily: 'Inter',
+          colorScheme: ColorScheme.fromSeed(
+            brightness: Brightness.dark,
+            seedColor: const Color(0xFF22D3A6),
+            surface: const Color(0xFF111827),
+          ),
+        ),
+        home: AuthGate(language: _language, onLanguage: _setLanguage),
       ),
-      home: const AuthGate(),
     );
   }
 }
 
 class AuthGate extends StatefulWidget {
-  const AuthGate({super.key});
+  const AuthGate({super.key, required this.language, required this.onLanguage});
+
+  final AppLanguage language;
+  final ValueChanged<AppLanguage> onLanguage;
 
   @override
   State<AuthGate> createState() => _AuthGateState();
@@ -139,7 +766,8 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool _loading = true;
   bool _localWorkspace = !_authConfigured && _authDevBypass == 'true';
-  String? _authMessage;
+  String? _authMessageZh;
+  String? _authMessageEn;
   Session? _session;
   StreamSubscription<AuthState>? _authSub;
   late final String? _returnTo = ontologyReturnPath(
@@ -169,7 +797,10 @@ class _AuthGateState extends State<AuthGate> {
           if (_session?.isExpired ?? false) {
             await client.auth.signOut();
             _session = null;
-            _authMessage = 'Your session expired. Sign in again to continue.';
+            _setAuthMessage(
+              '登录会话已过期，请重新登录后继续。',
+              'Your session expired. Sign in again to continue.',
+            );
           }
         }
         if (_session != null) {
@@ -178,8 +809,10 @@ class _AuthGateState extends State<AuthGate> {
         }
       }
     } else if (_authConfigured) {
-      _authMessage =
-          'Supabase auth did not initialize. Check DNS/network and Supabase URL.';
+      _setAuthMessage(
+        'Supabase 身份验证初始化失败，请检查网络、DNS 与 Supabase URL。',
+        'Supabase auth did not initialize. Check DNS/network and Supabase URL.',
+      );
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -194,8 +827,10 @@ class _AuthGateState extends State<AuthGate> {
     if (!await _ensureSupabaseReady()) {
       if (!mounted) return;
       setState(() {
-        _authMessage =
-            'Supabase auth is not reachable yet. Refresh after network/DNS is back.';
+        _setAuthMessage(
+          '暂时无法连接 Supabase 身份验证，请在网络或 DNS 恢复后刷新。',
+          'Supabase auth is not reachable yet. Refresh after network/DNS is back.',
+        );
       });
       return;
     }
@@ -218,40 +853,55 @@ class _AuthGateState extends State<AuthGate> {
     });
   }
 
+  void _setAuthMessage(String zh, String en) {
+    _authMessageZh = zh;
+    _authMessageEn = en;
+  }
+
   @override
   Widget build(BuildContext context) {
     final token = _localWorkspace ? _localDevToken : _session?.accessToken;
     final authenticated = token != null && token.isNotEmpty;
 
+    Widget content;
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    if (!authenticated) {
-      return LoginScreen(
+      content = const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    } else if (!authenticated) {
+      content = LoginScreen(
         authConfigured: _authConfigured && _supabaseReady,
         localBypassEnabled: _authDevBypass == 'true',
-        authMessage: _authMessage ?? _supabaseInitError?.toString(),
+        authMessage: trFor(
+          widget.language,
+          _authMessageZh ?? _supabaseInitError?.toString() ?? '',
+          _authMessageEn ?? _supabaseInitError?.toString() ?? '',
+        ),
+        language: widget.language,
+        onLanguage: widget.onLanguage,
         onGoogle: _signInWithGoogle,
         onLocal: () => setState(() => _localWorkspace = true),
       );
+    } else {
+      final user = _localWorkspace
+          ? trFor(widget.language, '本地工作区', 'Local Workspace')
+          : (_session?.user.userMetadata?['full_name']?.toString() ??
+                _session?.user.email ??
+                trFor(widget.language, '研究用户', 'Research user'));
+      final userEmail = _localWorkspace
+          ? 'local-dev@guru-analysis.test'
+          : (_session?.user.email ?? '');
+      content = TerminalHome(
+        accessToken: token,
+        userName: user,
+        userEmail: userEmail,
+        language: widget.language,
+        onLanguage: widget.onLanguage,
+        onLogout: _logout,
+      );
     }
 
-    final user = _localWorkspace
-        ? 'Local Workspace'
-        : (_session?.user.userMetadata?['full_name']?.toString() ??
-              _session?.user.email ??
-              'Research user');
-    final userEmail = _localWorkspace
-        ? 'local-dev@guru-analysis.test'
-        : (_session?.user.email ?? '');
-
-    return TerminalHome(
-      accessToken: token,
-      userName: user,
-      userEmail: userEmail,
-      onLogout: _logout,
-    );
+    return content;
   }
 }
 
@@ -261,6 +911,8 @@ class LoginScreen extends StatelessWidget {
     required this.authConfigured,
     required this.localBypassEnabled,
     this.authMessage,
+    required this.language,
+    required this.onLanguage,
     required this.onGoogle,
     required this.onLocal,
   });
@@ -268,6 +920,8 @@ class LoginScreen extends StatelessWidget {
   final bool authConfigured;
   final bool localBypassEnabled;
   final String? authMessage;
+  final AppLanguage language;
+  final ValueChanged<AppLanguage> onLanguage;
   final VoidCallback onGoogle;
   final VoidCallback onLocal;
 
@@ -292,10 +946,19 @@ class LoginScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: LanguageSegment(
+                    language: language,
+                    onLanguage: onLanguage,
+                    palette: palette,
+                  ),
+                ),
+                const SizedBox(height: 16),
                 BadgeLabel(text: 'GURU INTELLIGENCE', color: palette.accent),
                 const SizedBox(height: 18),
                 Text(
-                  'Executive Summary',
+                  context.tr('研究终端', 'Research Terminal'),
                   style: Theme.of(context).textTheme.displaySmall?.copyWith(
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0,
@@ -303,29 +966,41 @@ class LoginScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'A buy-side terminal for 13F flows, insider activity, copy-simulation, and valuation context.',
+                  context.tr(
+                    '面向买方研究的终端，整合 13F 资金流、内部人交易、组合模拟与估值分析。',
+                    'A buy-side terminal for 13F flows, insider activity, copy simulation, and valuation context.',
+                  ),
                   style: TextStyle(color: palette.muted, height: 1.35),
                 ),
                 const SizedBox(height: 28),
                 FilledButton.icon(
                   onPressed: authConfigured ? onGoogle : null,
                   icon: const Icon(Icons.login_rounded),
-                  label: const Text('Continue with Google'),
+                  label: Text(
+                    context.tr('使用 Google 继续', 'Continue with Google'),
+                  ),
                 ),
                 if (localBypassEnabled) ...[
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: onLocal,
                     icon: const Icon(Icons.terminal_rounded),
-                    label: const Text('Enter Local Workspace'),
+                    label: Text(context.tr('进入本地工作区', 'Enter Local Workspace')),
                   ),
                 ],
                 const SizedBox(height: 18),
                 Text(
-                  authMessage ??
-                      (authConfigured
-                          ? 'Production mode uses Supabase Google auth.'
-                          : 'Supabase keys are not configured or auth is not reachable; local workspace mode is available for development.'),
+                  (authMessage?.isNotEmpty ?? false)
+                      ? authMessage!
+                      : (authConfigured
+                            ? context.tr(
+                                '生产环境使用 Supabase Google 身份验证。',
+                                'Production mode uses Supabase Google auth.',
+                              )
+                            : context.tr(
+                                'Supabase 密钥未配置或身份验证暂不可用；开发环境可进入本地工作区。',
+                                'Supabase keys are not configured or auth is not reachable; local workspace mode is available for development.',
+                              )),
                   style: TextStyle(color: palette.faint, fontSize: 12),
                 ),
               ],
@@ -343,12 +1018,16 @@ class TerminalHome extends StatefulWidget {
     required this.accessToken,
     required this.userName,
     required this.userEmail,
+    required this.language,
+    required this.onLanguage,
     required this.onLogout,
   });
 
   final String accessToken;
   final String userName;
   final String userEmail;
+  final AppLanguage language;
+  final ValueChanged<AppLanguage> onLanguage;
   final VoidCallback onLogout;
 
   @override
@@ -376,7 +1055,6 @@ class _TerminalHomeState extends State<TerminalHome>
   String? _error;
   String? _secondaryError;
   bool _colorBlind = false;
-  AppLanguage _language = AppLanguage.zh;
   Timer? _secondaryRecoveryTimer;
   bool _secondaryRecoveryScheduled = false;
   int _guruRequestSerial = 0;
@@ -400,7 +1078,9 @@ class _TerminalHomeState extends State<TerminalHome>
     );
     if (_mode == 'ontology') {
       _mode = 'guru';
-      scheduleMicrotask(() => openBrowserPath('/ontology/'));
+      scheduleMicrotask(
+        () => openBrowserPath(ontologyPathForLanguage(widget.language)),
+      );
     }
     if (_mode == 'admin' && !_adminEnabled) _mode = 'guru';
     _selectedGuruId = cleanRouteValue(route['guru']);
@@ -408,7 +1088,6 @@ class _TerminalHomeState extends State<TerminalHome>
     _guruTradeTicker = cleanRouteValue(route['trade'])?.toUpperCase() ?? '';
     _guruQuarterId = cleanRouteValue(route['quarter']) ?? '';
     _valuationTicker = cleanRouteValue(route['valuation'])?.toUpperCase() ?? '';
-    _language = parseAppLanguage(route['lang']);
     _loadGurus();
     if (_mode != 'guru') {
       unawaited(_loadSecondary(_mode));
@@ -549,7 +1228,7 @@ class _TerminalHomeState extends State<TerminalHome>
   void _changeMode(String mode) {
     if (mode == 'admin' && !_adminEnabled) return;
     if (mode == 'ontology') {
-      openBrowserPath('/ontology/');
+      openBrowserPath(ontologyPathForLanguage(widget.language));
       return;
     }
     setState(() {
@@ -577,14 +1256,8 @@ class _TerminalHomeState extends State<TerminalHome>
       'valuation': _mode == 'valuation' && _valuationTicker.isNotEmpty
           ? _valuationTicker
           : null,
-      'lang': _language == AppLanguage.en ? 'en' : null,
+      'lang': widget.language == AppLanguage.en ? 'en' : null,
     });
-  }
-
-  void _setLanguage(AppLanguage language) {
-    if (_language == language) return;
-    setState(() => _language = language);
-    _persistRouteState();
   }
 
   void _selectGuru(String id) {
@@ -600,7 +1273,7 @@ class _TerminalHomeState extends State<TerminalHome>
   Widget build(BuildContext context) {
     _scheduleSecondaryRecoveryIfStale();
     return LanguageScope(
-      language: _language,
+      language: widget.language,
       child: Scaffold(
         body: SafeArea(
           child: Column(
@@ -614,14 +1287,14 @@ class _TerminalHomeState extends State<TerminalHome>
                 ),
                 generatedAt: text(_guruPayload?['generatedAt']),
                 colorBlind: _colorBlind,
-                language: _language,
+                language: widget.language,
                 showAdmin: _adminEnabled,
                 onMode: _changeMode,
                 onRefresh: () => _mode == 'guru'
                     ? _loadGurus(refresh: true)
                     : _loadSecondary(_mode, refresh: true),
                 onColorBlind: (value) => setState(() => _colorBlind = value),
-                onLanguage: _setLanguage,
+                onLanguage: widget.onLanguage,
                 onLogout: widget.onLogout,
                 palette: palette,
               ),
@@ -854,7 +1527,7 @@ class TerminalHeader extends StatelessWidget {
       ),
     );
     final accountMenu = PopupMenuButton<String>(
-      tooltip: 'Account',
+      tooltip: context.ui('Account'),
       color: palette.card,
       onSelected: (value) {
         if (value == 'logout') onLogout();
@@ -862,7 +1535,10 @@ class TerminalHeader extends StatelessWidget {
       itemBuilder: (context) => [
         PopupMenuItem(
           value: 'logout',
-          child: Text('Logout', style: TextStyle(color: palette.text)),
+          child: Text(
+            context.ui('Logout'),
+            style: TextStyle(color: palette.text),
+          ),
         ),
       ],
       child: Row(
@@ -889,13 +1565,13 @@ class TerminalHeader extends StatelessWidget {
       ),
     );
     final refreshButton = _ToolbarIconButton(
-      tooltip: 'Refresh',
+      tooltip: context.ui('Refresh'),
       icon: Icons.refresh_rounded,
       palette: palette,
       onPressed: onRefresh,
     );
     final contrastButton = _ToolbarIconButton(
-      tooltip: 'Color contrast',
+      tooltip: context.ui('Color contrast'),
       icon: Icons.contrast_rounded,
       active: colorBlind,
       palette: palette,
@@ -922,8 +1598,8 @@ class TerminalHeader extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               compact
-                  ? '${toolbarDateLabel(generatedAt)} · ${sourceLabel.replaceAll(' database', '')}'
-                  : 'Guru Stock Analysis',
+                  ? '${toolbarDateLabel(generatedAt, context.language)} · ${context.ui(sourceLabel.replaceAll(' database', ''))}'
+                  : context.ui('Guru Stock Analysis'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -961,6 +1637,12 @@ class TerminalHeader extends StatelessWidget {
                           Expanded(child: titleBlock),
                           const SizedBox(width: 8),
                           StatusDot(status: 'live', palette: palette),
+                          const SizedBox(width: 6),
+                          _CompactLanguageButton(
+                            language: language,
+                            palette: palette,
+                            onLanguage: onLanguage,
+                          ),
                           const SizedBox(width: 8),
                           accountMenu,
                         ],
@@ -980,12 +1662,6 @@ class TerminalHeader extends StatelessWidget {
                               showAdmin: showAdmin,
                             ),
                             const SizedBox(width: 8),
-                            LanguageSegment(
-                              language: language,
-                              onLanguage: onLanguage,
-                              palette: palette,
-                            ),
-                            const SizedBox(width: 8),
                             refreshButton,
                             const SizedBox(width: 6),
                             contrastButton,
@@ -1003,7 +1679,7 @@ class TerminalHeader extends StatelessWidget {
                     Container(width: 1, height: 34, color: palette.border),
                     const SizedBox(width: 16),
                     Text(
-                      toolbarDateLabel(generatedAt),
+                      toolbarDateLabel(generatedAt, context.language),
                       style: TextStyle(
                         color: palette.muted,
                         fontSize: 13,
@@ -1087,6 +1763,56 @@ class _ToolbarIconButton extends StatelessWidget {
   }
 }
 
+class _CompactLanguageButton extends StatelessWidget {
+  const _CompactLanguageButton({
+    required this.language,
+    required this.palette,
+    required this.onLanguage,
+  });
+
+  final AppLanguage language;
+  final Palette palette;
+  final ValueChanged<AppLanguage> onLanguage;
+
+  @override
+  Widget build(BuildContext context) {
+    final nextLanguage = language == AppLanguage.zh
+        ? AppLanguage.en
+        : AppLanguage.zh;
+    final label = language == AppLanguage.zh ? 'EN' : 'ZH';
+    final tooltip = language == AppLanguage.zh ? '切换至英文' : 'Switch to Chinese';
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        label: tooltip,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => onLanguage(nextLanguage),
+          child: Container(
+            width: 36,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: palette.card.withValues(alpha: .8),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: palette.border),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: palette.accent,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ModeSegment extends StatelessWidget {
   const ModeSegment({
     super.key,
@@ -1106,9 +1832,9 @@ class ModeSegment extends StatelessWidget {
     final modes = [
       ('guru', 'Guru'),
       ('ontology', 'Ontology'),
-      ('valuation', 'Valuation'),
-      ('portfolio', 'Portfolio'),
-      if (showAdmin) ('admin', 'Admin'),
+      ('valuation', context.tr('估值', 'Valuation')),
+      ('portfolio', context.tr('组合', 'Portfolio')),
+      if (showAdmin) ('admin', context.tr('管理', 'Admin')),
     ];
     return Container(
       padding: const EdgeInsets.all(4),
@@ -1264,7 +1990,7 @@ class GuruUniversePanel extends StatelessWidget {
               onChanged: onSearch,
               style: TextStyle(color: palette.text, fontSize: 13),
               decoration: InputDecoration(
-                hintText: 'Search guru / firm / ticker',
+                hintText: context.ui('Search guru / firm / ticker'),
                 hintStyle: TextStyle(color: palette.faint),
                 prefixIcon: Icon(Icons.search_rounded, color: palette.muted),
                 suffixIcon: Icon(
@@ -1295,7 +2021,7 @@ class GuruUniversePanel extends StatelessWidget {
                 FilterChip(
                   selected: filter == item.$1,
                   onSelected: (_) => onFilter(item.$1),
-                  label: Text(item.$2),
+                  label: Text(context.ui(item.$2)),
                 ),
             ],
           ),
@@ -1373,7 +2099,7 @@ class MobileGuruPicker extends StatelessWidget {
             kicker: 'GURU UNIVERSE',
             title: context.tr('选择大佬', 'Select Guru'),
             trailing: Text(
-              '${gurus.length} visible',
+              context.ui('${gurus.length} visible'),
               style: TextStyle(
                 color: palette.faint,
                 fontSize: 11,
@@ -1389,7 +2115,7 @@ class MobileGuruPicker extends StatelessWidget {
               onChanged: onSearch,
               style: TextStyle(color: palette.text, fontSize: 13),
               decoration: InputDecoration(
-                hintText: 'Search guru / firm / ticker',
+                hintText: context.ui('Search guru / firm / ticker'),
                 hintStyle: TextStyle(color: palette.faint),
                 prefixIcon: Icon(
                   Icons.search_rounded,
@@ -1421,7 +2147,7 @@ class MobileGuruPicker extends StatelessWidget {
                     child: FilterChip(
                       selected: filter == item.$1,
                       onSelected: (_) => onFilter(item.$1),
-                      label: Text(item.$2),
+                      label: Text(context.ui(item.$2)),
                     ),
                   ),
                 ],
@@ -1478,13 +2204,21 @@ class _MobileGuruCard extends StatelessWidget {
     final metric = type == 'manager13f'
         ? formatMoney(number(summary['totalValue']))
         : type == 'insider'
-        ? '${formatNumber(number(summary['trackedTickers']))} stocks'
-        : '${formatNumber(number(summary['recentTransactions']))} trades';
+        ? context.ui(
+            '${formatNumber(number(summary['trackedTickers']))} stocks',
+          )
+        : context.ui(
+            '${formatNumber(number(summary['recentTransactions']))} trades',
+          );
     final sub = type == 'manager13f'
-        ? '${formatNumber(number(summary['totalPositions']))} holdings'
+        ? context.ui(
+            '${formatNumber(number(summary['totalPositions']))} holdings',
+          )
         : type == 'insider'
-        ? 'sold ${formatMoney(number(summary['cumulativeSoldValue']))}'
-        : disclosureLabel(type);
+        ? context.ui(
+            'sold ${formatMoney(number(summary['cumulativeSoldValue']))}',
+          )
+        : disclosureLabel(type, context.language);
     return InkWell(
       borderRadius: BorderRadius.circular(10),
       onTap: onTap,
@@ -1540,7 +2274,7 @@ class _MobileGuruCard extends StatelessWidget {
             ),
             const Spacer(),
             Text(
-              text(guru['entityName'], disclosureLabel(type)),
+              text(guru['entityName'], disclosureLabel(type, context.language)),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: palette.faint, fontSize: 10),
@@ -1550,7 +2284,7 @@ class _MobileGuruCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '${disclosureLabel(type)} · $sub',
+                    '${disclosureLabel(type, context.language)} · $sub',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -1608,7 +2342,7 @@ class MobileOverviewBar extends StatelessWidget {
       palette: palette,
       padding: const EdgeInsets.all(12),
       child: SizedBox(
-        height: 70,
+        height: 76,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: cards.length,
@@ -1617,7 +2351,7 @@ class MobileOverviewBar extends StatelessWidget {
             final card = cards[index];
             return Container(
               width: 142,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
               decoration: BoxDecoration(
                 color: palette.card,
                 borderRadius: BorderRadius.circular(10),
@@ -1633,7 +2367,7 @@ class MobileOverviewBar extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          card.label,
+                          context.ui(card.label),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -1655,7 +2389,7 @@ class MobileOverviewBar extends StatelessWidget {
                         ),
                         const SizedBox(height: 1),
                         Text(
-                          card.sub,
+                          context.ui(card.sub),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(color: palette.faint, fontSize: 9),
@@ -1701,7 +2435,7 @@ class _UniverseTopTabs extends StatelessWidget {
                 ),
               ),
               child: Text(
-                'Gurus',
+                context.ui('Gurus'),
                 style: TextStyle(
                   color: palette.accent,
                   fontWeight: FontWeight.w900,
@@ -1713,7 +2447,7 @@ class _UniverseTopTabs extends StatelessWidget {
           Expanded(
             child: Center(
               child: Text(
-                'Firms',
+                context.ui('Firms'),
                 style: TextStyle(
                   color: palette.muted,
                   fontWeight: FontWeight.w900,
@@ -1748,7 +2482,7 @@ class _SidebarSelectChip extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              label,
+              context.ui(label),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -1790,15 +2524,23 @@ class GuruListTile extends StatelessWidget {
     final metric = type == 'manager13f'
         ? formatMoney(number(summary['totalValue']))
         : type == 'profile'
-        ? 'Profile'
+        ? context.ui('Profile')
         : type == 'insider'
-        ? '${formatNumber(number(summary['trackedTickers']))} stocks'
-        : '${formatNumber(number(summary['recentTransactions']))} trades';
+        ? context.ui(
+            '${formatNumber(number(summary['trackedTickers']))} stocks',
+          )
+        : context.ui(
+            '${formatNumber(number(summary['recentTransactions']))} trades',
+          );
     final sub = type == 'manager13f'
-        ? '${formatNumber(number(summary['totalPositions']))} holdings'
+        ? context.ui(
+            '${formatNumber(number(summary['totalPositions']))} holdings',
+          )
         : type == 'insider'
-        ? 'sold ${formatMoney(number(summary['cumulativeSoldValue']))}'
-        : text(guru['sourceLabel'], text(guru['disclosureKind']));
+        ? context.ui(
+            'sold ${formatMoney(number(summary['cumulativeSoldValue']))}',
+          )
+        : context.ui(text(guru['sourceLabel'], text(guru['disclosureKind'])));
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: InkWell(
@@ -1838,7 +2580,7 @@ class GuruListTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${disclosureLabel(type)} · $sub',
+                      '${disclosureLabel(type, context.language)} · $sub',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: palette.muted, fontSize: 12),
@@ -2305,7 +3047,7 @@ class GuruWorkspaceHeader extends StatelessWidget {
                   Positioned(
                     bottom: -8,
                     child: BadgeLabel(
-                      text: disclosureLabel(type),
+                      text: disclosureLabel(type, context.language),
                       color: palette.accent,
                     ),
                   ),
@@ -2383,7 +3125,7 @@ class GuruWorkspaceHeader extends StatelessWidget {
                   ),
                   _GuruHeaderMetric(
                     label: 'Strategy',
-                    value: compactStrategy(strategy),
+                    value: compactStrategy(context.ui(strategy)),
                     sub: text(guru['disclosureKind'], 'High Conviction'),
                     palette: palette,
                   ),
@@ -2432,7 +3174,7 @@ class GuruWorkspaceHeader extends StatelessWidget {
               : [
                   _GuruHeaderMetric(
                     label: 'Source',
-                    value: disclosureLabel(type),
+                    value: disclosureLabel(type, context.language),
                     sub: text(guru['sourceLabel'], text(guru['profileUrl'])),
                     palette: palette,
                   ),
@@ -2526,7 +3268,7 @@ class _GuruHeaderMetric extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
+            context.ui(label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -2537,7 +3279,7 @@ class _GuruHeaderMetric extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            value,
+            context.ui(value),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -2548,7 +3290,7 @@ class _GuruHeaderMetric extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            sub,
+            context.ui(sub),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -2704,7 +3446,7 @@ class _ModuleTabButton extends StatelessWidget {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          sublabel,
+                          context.ui(sublabel),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -2859,9 +3601,11 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
       return Panel(
         palette: widget.palette,
         child: Text(
-          text(
-            sim['description'],
-            'This profile is not suitable for proportional 13F copy trading.',
+          context.ui(
+            text(
+              sim['description'],
+              'This profile is not suitable for proportional 13F copy trading.',
+            ),
           ),
           style: TextStyle(color: widget.palette.muted),
         ),
@@ -2913,10 +3657,7 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
           PanelTitle(
             icon: Icons.stacked_line_chart_rounded,
             kicker: 'COPY SIMULATION',
-            title: context.tr(
-              '模拟：Portfolio vs SPY',
-              'Simulation: Portfolio vs SPY',
-            ),
+            title: context.tr('模拟：组合与 SPY 对比', 'Simulation: Portfolio vs SPY'),
             palette: widget.palette,
             trailing: _RetryIconButton(
               onPressed: widget.onRetry,
@@ -3130,7 +3871,7 @@ class _RangePresetButton extends StatelessWidget {
           border: Border.all(color: selected ? palette.accent : palette.border),
         ),
         child: Text(
-          label,
+          context.ui(label),
           style: TextStyle(
             color: selected ? palette.accent : palette.muted,
             fontWeight: FontWeight.w900,
@@ -3170,7 +3911,7 @@ class _PerformanceLegendItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              label,
+              context.ui(label),
               style: TextStyle(
                 color: palette.muted,
                 fontSize: 11,
@@ -3413,7 +4154,7 @@ class SimulationRangeBar extends StatelessWidget {
                   Icons.keyboard_double_arrow_left_rounded,
                   size: 16,
                 ),
-                label: const Text('All'),
+                label: Text(context.ui('All')),
                 style: TextButton.styleFrom(
                   foregroundColor: palette.accent,
                   minimumSize: const Size(58, 34),
@@ -3657,7 +4398,7 @@ class _GuruTradeModuleState extends State<GuruTradeModule> {
         controller: _tickerController,
         onChanged: (value) => setState(() => _tickerQuery = value),
         decoration: InputDecoration(
-          hintText: 'Search ticker / company',
+          hintText: context.ui('Search ticker / company'),
           prefixIcon: const Icon(Icons.search_rounded),
           suffixIcon: _tickerQuery.isEmpty
               ? null
@@ -3667,7 +4408,7 @@ class _GuruTradeModuleState extends State<GuruTradeModule> {
                     setState(() => _tickerQuery = '');
                   },
                   icon: const Icon(Icons.close_rounded),
-                  tooltip: 'Clear',
+                  tooltip: context.ui('Clear'),
                 ),
           filled: true,
           fillColor: widget.palette.card,
@@ -3791,7 +4532,7 @@ class _GuruTradeModuleState extends State<GuruTradeModule> {
             icon: Icons.swap_vert_rounded,
             kicker: tradeWorkspace
                 ? 'NEW / EXIT'
-                : disclosureLabel(type).toUpperCase(),
+                : disclosureLabel(type, context.language).toUpperCase(),
             title: tradeWorkspace
                 ? context.tr('新买入 / 卖出股票', 'New Buys / Sells')
                 : context.tr('披露轨迹 / 股价走势', 'Disclosure Trail / Price Chart'),
@@ -4053,7 +4794,10 @@ class InsiderPositionRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${formatNumber(heldShares)} sh',
+                  context.tr(
+                    '${formatNumber(heldShares)} 股',
+                    '${formatNumber(heldShares)} sh',
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -4063,7 +4807,10 @@ class InsiderPositionRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'sold ${formatMoney(soldValue)}',
+                  context.tr(
+                    '累计卖出 ${formatMoney(soldValue)}',
+                    'sold ${formatMoney(soldValue)}',
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: palette.negative, fontSize: 11),
@@ -4075,7 +4822,10 @@ class InsiderPositionRow extends StatelessWidget {
           SizedBox(
             width: 96,
             child: Text(
-              '${formatNumber(soldShares)} sold · ${formatNumber(boughtShares)} bought',
+              context.tr(
+                '卖出 ${formatNumber(soldShares)} 股 · 买入 ${formatNumber(boughtShares)} 股',
+                '${formatNumber(soldShares)} sold · ${formatNumber(boughtShares)} bought',
+              ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.end,
@@ -4708,7 +5458,10 @@ class QuarterTimelineSelector extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                '${quarters.length} quarters',
+                context.tr(
+                  '${quarters.length} 个季度',
+                  '${quarters.length} quarters',
+                ),
                 style: TextStyle(
                   color: palette.faint,
                   fontSize: 11,
@@ -4947,7 +5700,7 @@ class _TinyStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      '$label $value',
+      '${context.ui(label)} $value',
       style: TextStyle(
         color: color ?? palette.muted,
         fontWeight: FontWeight.w800,
@@ -4966,7 +5719,7 @@ class _RetryIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton.filledTonal(
-      tooltip: 'Refresh',
+      tooltip: context.ui('Refresh'),
       onPressed: onPressed,
       icon: const Icon(Icons.refresh_rounded),
       style: IconButton.styleFrom(
@@ -5458,7 +6211,7 @@ class CompactSignalBoard extends StatelessWidget {
               kicker: 'SIGNAL BOARD',
               title: context.tr('最新信号', 'Latest Signals'),
               trailing: Text(
-                '${signals.length} visible',
+                context.ui('${signals.length} visible'),
                 style: TextStyle(color: palette.muted, fontSize: 12),
               ),
               palette: palette,
@@ -5556,7 +6309,9 @@ class CompactSignalRow extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                signal.value > 0 ? formatMoney(signal.value) : signal.detail,
+                signal.value > 0
+                    ? formatMoney(signal.value)
+                    : context.ui(signal.detail),
                 style: TextStyle(
                   color: palette.text,
                   fontWeight: FontWeight.w900,
@@ -6032,7 +6787,10 @@ class _CrowdedHoldingDeckRow extends StatelessWidget {
               const SizedBox(width: 82),
               Expanded(
                 child: Text(
-                  '${item.guruCount} gurus · $guruNames$suffix',
+                  context.tr(
+                    '${item.guruCount} 位投资人 · $guruNames$suffix',
+                    '${item.guruCount} gurus · $guruNames$suffix',
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: palette.faint, fontSize: 10),
@@ -6113,7 +6871,7 @@ class _ActivityRankingDeckPage extends StatelessWidget {
                   : context.tr('减仓汇总', 'Trim Summary');
               return _DeckListRow(
                 title: '${item.ticker} · $titleLabel',
-                subtitle: activityRankSubtitle(item),
+                subtitle: activityRankSubtitle(item, context.language),
                 meta: activityRankActionSummary(item, context.language),
                 value: formatMoney(item.amount),
                 tone: tone,
@@ -6174,7 +6932,7 @@ class _DeckListRow extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        title,
+                        context.ui(title),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -6202,7 +6960,7 @@ class _DeckListRow extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        subtitle,
+                        context.ui(subtitle),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: palette.muted, fontSize: 10),
@@ -6211,7 +6969,7 @@ class _DeckListRow extends StatelessWidget {
                     if (meta != null && meta!.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       Text(
-                        meta!,
+                        context.ui(meta!),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -6338,7 +7096,7 @@ class SignalBoard extends StatelessWidget {
             kicker: 'SIGNAL BOARD',
             title: 'What changed in the public tape',
             trailing: Text(
-              '${signals.length} visible',
+              context.ui('${signals.length} visible'),
               style: TextStyle(color: palette.muted),
             ),
             palette: palette,
@@ -6398,7 +7156,7 @@ class SignalBoard extends StatelessWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${signal.guruName} · ${signal.type} · ${actionLabel(signal.actionLabel, context.language)}',
+                                '${signal.guruName} · ${context.ui(signal.type)} · ${actionLabel(signal.actionLabel, context.language)}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(color: palette.muted),
@@ -6413,7 +7171,7 @@ class SignalBoard extends StatelessWidget {
                             Text(
                               signal.value > 0
                                   ? formatMoney(signal.value)
-                                  : signal.detail,
+                                  : context.ui(signal.detail),
                               style: TextStyle(
                                 color: palette.text,
                                 fontWeight: FontWeight.w900,
@@ -6466,7 +7224,7 @@ class TickerHeatmap extends StatelessWidget {
             kicker: 'TICKER HEATMAP',
             title: 'Crowded external consensus',
             trailing: Text(
-              'founders filtered',
+              context.ui('founders filtered'),
               style: TextStyle(color: palette.muted),
             ),
             palette: palette,
@@ -6589,7 +7347,7 @@ class GuruInspector extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         BadgeLabel(
-                          text: disclosureLabel(type),
+                          text: disclosureLabel(type, context.language),
                           color: palette.accent,
                         ),
                         const SizedBox(height: 10),
@@ -6711,7 +7469,7 @@ class GuruInspector extends StatelessWidget {
               if (holdings.isNotEmpty) ...[
                 const Divider(height: 28),
                 Text(
-                  'Top holdings',
+                  context.ui('Top holdings'),
                   style: TextStyle(
                     color: palette.text,
                     fontWeight: FontWeight.w900,
@@ -7545,7 +8303,7 @@ class SecondaryModeHeader extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      kicker,
+                      context.ui(kicker),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -7556,7 +8314,7 @@ class SecondaryModeHeader extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      title,
+                      context.ui(title),
                       maxLines: compact ? 2 : 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -7567,7 +8325,7 @@ class SecondaryModeHeader extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      subtitle,
+                      context.ui(subtitle),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -7583,7 +8341,7 @@ class SecondaryModeHeader extends StatelessWidget {
                         runSpacing: 7,
                         children: [
                           for (final chip in chips)
-                            InfoChip(chip, palette: palette),
+                            InfoChip(context.ui(chip), palette: palette),
                         ],
                       ),
                     ],
@@ -7915,10 +8673,13 @@ class _AdminSystemHealthPanel extends StatelessWidget {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                BadgeLabel(text: _adminHealthLabel(status), color: statusColor),
+                BadgeLabel(
+                  text: _adminHealthLabel(status, context.language),
+                  color: statusColor,
+                ),
                 const SizedBox(width: 8),
                 IconButton(
-                  tooltip: 'Refresh health',
+                  tooltip: context.ui('Refresh health'),
                   onPressed: loading ? null : () => unawaited(onRefresh()),
                   icon: loading
                       ? SizedBox(
@@ -7948,7 +8709,7 @@ class _AdminSystemHealthPanel extends StatelessWidget {
               children: [
                 MiniMetric(
                   'API',
-                  _adminHealthLabel(status),
+                  _adminHealthLabel(status, context.language),
                   Icons.cloud_done_rounded,
                   palette,
                 ),
@@ -7972,7 +8733,10 @@ class _AdminSystemHealthPanel extends StatelessWidget {
                 ),
                 MiniMetric(
                   'Uptime',
-                  _formatDuration(number(service['uptimeSeconds'])),
+                  _formatDuration(
+                    number(service['uptimeSeconds']),
+                    context.language,
+                  ),
                   Icons.av_timer_rounded,
                   palette,
                 ),
@@ -7987,9 +8751,14 @@ class _AdminSystemHealthPanel extends StatelessWidget {
             const SizedBox(height: 14),
             if (text(database['updatedAt']).isNotEmpty)
               Text(
-                'DB updated ${_formatAdminDateTime(text(database['updatedAt']))} · '
-                '${text(service['environment'], 'env unknown')} · '
-                '${text(auth['apiCorsConfigured']) == 'true' ? 'CORS ok' : 'check CORS'}',
+                context.tr(
+                  '数据库更新于 ${_formatAdminDateTime(text(database['updatedAt']))} · '
+                      '${text(service['environment'], '环境未知')} · '
+                      '${text(auth['apiCorsConfigured']) == 'true' ? 'CORS 正常' : '检查 CORS'}',
+                  'DB updated ${_formatAdminDateTime(text(database['updatedAt']))} · '
+                      '${text(service['environment'], 'env unknown')} · '
+                      '${text(auth['apiCorsConfigured']) == 'true' ? 'CORS ok' : 'check CORS'}',
+                ),
                 style: TextStyle(
                   color: palette.muted,
                   fontWeight: FontWeight.w800,
@@ -8032,19 +8801,40 @@ class _AdminJobHealthTile extends StatelessWidget {
     final details = asMap(job['details']);
     final detailPieces = <String>[
       if (number(details['rows']) > 0)
-        '${formatNumber(number(details['rows']))} rows',
+        context.tr(
+          '${formatNumber(number(details['rows']))} 行',
+          '${formatNumber(number(details['rows']))} rows',
+        ),
       if (number(details['tickerRows']) > 0)
-        '${formatNumber(number(details['tickerRows']))} tickers',
+        context.tr(
+          '${formatNumber(number(details['tickerRows']))} 只股票',
+          '${formatNumber(number(details['tickerRows']))} tickers',
+        ),
       if (number(details['eventCount']) > 0)
-        '${formatNumber(number(details['eventCount']))} events',
+        context.tr(
+          '${formatNumber(number(details['eventCount']))} 个事件',
+          '${formatNumber(number(details['eventCount']))} events',
+        ),
       if (number(details['holdings']) > 0)
-        '${formatNumber(number(details['holdings']))} holdings',
+        context.tr(
+          '${formatNumber(number(details['holdings']))} 项持仓',
+          '${formatNumber(number(details['holdings']))} holdings',
+        ),
       if (text(details['latestBacktestEndDate']).isNotEmpty)
-        'through ${formatDate(text(details['latestBacktestEndDate']))}',
+        context.tr(
+          '截至 ${formatDate(text(details['latestBacktestEndDate']))}',
+          'through ${formatDate(text(details['latestBacktestEndDate']))}',
+        ),
       if (text(details['maxExDate']).isNotEmpty)
-        'through ${formatDate(text(details['maxExDate']))}',
+        context.tr(
+          '截至 ${formatDate(text(details['maxExDate']))}',
+          'through ${formatDate(text(details['maxExDate']))}',
+        ),
       if (text(details['observedThrough']).isNotEmpty)
-        'through ${formatDate(text(details['observedThrough']))}',
+        context.tr(
+          '截至 ${formatDate(text(details['observedThrough']))}',
+          'through ${formatDate(text(details['observedThrough']))}',
+        ),
     ];
     final message = text(job['message']);
     final finishedAt = text(job['finishedAt']);
@@ -8069,7 +8859,7 @@ class _AdminJobHealthTile extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  text(job['label'], text(job['id'], 'Job')),
+                  context.ui(text(job['label'], text(job['id'], 'Job'))),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -8079,14 +8869,21 @@ class _AdminJobHealthTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              _AdminTinyChip(_adminHealthLabel(status), color, palette),
+              _AdminTinyChip(
+                _adminHealthLabel(status, context.language),
+                color,
+                palette,
+              ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             finishedAt.isEmpty
-                ? 'No completed run'
-                : 'Last ${_formatAdminDateTime(finishedAt)}',
+                ? context.ui('No completed run')
+                : context.tr(
+                    '最近运行 ${_formatAdminDateTime(finishedAt)}',
+                    'Last ${_formatAdminDateTime(finishedAt)}',
+                  ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -8111,7 +8908,7 @@ class _AdminJobHealthTile extends StatelessWidget {
           if (message.isNotEmpty) ...[
             const SizedBox(height: 7),
             Text(
-              message,
+              context.ui(message),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -8137,13 +8934,20 @@ Color _adminHealthColor(String status, Palette palette) {
   return palette.negative;
 }
 
-String _adminHealthLabel(String status) {
+String _adminHealthLabel(
+  String status, [
+  AppLanguage language = AppLanguage.en,
+]) {
   final normalized = status.toLowerCase();
-  if (normalized == 'success' || normalized == 'ok') return 'healthy';
-  if (normalized == 'running') return 'running';
-  if (normalized == 'warning') return 'watch';
-  if (normalized == 'failed' || normalized == 'error') return 'failed';
-  return 'unknown';
+  if (normalized == 'success' || normalized == 'ok') {
+    return trFor(language, '健康', 'healthy');
+  }
+  if (normalized == 'running') return trFor(language, '运行中', 'running');
+  if (normalized == 'warning') return trFor(language, '观察', 'watch');
+  if (normalized == 'failed' || normalized == 'error') {
+    return trFor(language, '失败', 'failed');
+  }
+  return trFor(language, '未知', 'unknown');
 }
 
 String _formatBytes(double bytes) {
@@ -8154,13 +8958,26 @@ String _formatBytes(double bytes) {
   return '${bytes.toStringAsFixed(0)} B';
 }
 
-String _formatDuration(double seconds) {
+String _formatDuration(
+  double seconds, [
+  AppLanguage language = AppLanguage.en,
+]) {
   if (!seconds.isFinite || seconds <= 0) return '-';
   final duration = Duration(seconds: seconds.round());
-  if (duration.inDays > 0) return '${duration.inDays}d';
-  if (duration.inHours > 0) return '${duration.inHours}h';
-  if (duration.inMinutes > 0) return '${duration.inMinutes}m';
-  return '${duration.inSeconds}s';
+  if (duration.inDays > 0) {
+    return trFor(language, '${duration.inDays} 天', '${duration.inDays}d');
+  }
+  if (duration.inHours > 0) {
+    return trFor(language, '${duration.inHours} 小时', '${duration.inHours}h');
+  }
+  if (duration.inMinutes > 0) {
+    return trFor(
+      language,
+      '${duration.inMinutes} 分钟',
+      '${duration.inMinutes}m',
+    );
+  }
+  return trFor(language, '${duration.inSeconds} 秒', '${duration.inSeconds}s');
 }
 
 String _formatAdminDateTime(String value) {
@@ -8204,7 +9021,7 @@ class _AdminUserListPanel extends StatelessWidget {
             title: context.tr('所有账户组合', 'All Portfolios'),
             palette: palette,
             trailing: IconButton(
-              tooltip: 'Refresh admin index',
+              tooltip: context.ui('Refresh admin index'),
               onPressed: () => unawaited(onRefresh()),
               icon: Icon(Icons.refresh_rounded, color: palette.accent),
             ),
@@ -8216,7 +9033,7 @@ class _AdminUserListPanel extends StatelessWidget {
             style: TextStyle(color: palette.text, fontWeight: FontWeight.w800),
             decoration: InputDecoration(
               prefixIcon: Icon(Icons.search_rounded, color: palette.muted),
-              hintText: 'Search email / name / hash',
+              hintText: context.ui('Search email / name / hash'),
               hintStyle: TextStyle(color: palette.faint),
               filled: true,
               fillColor: palette.card,
@@ -8273,7 +9090,10 @@ class _AdminUserTile extends StatelessWidget {
     final nav = asMap(user['nav']);
     final status = text(connection['status'], 'not configured');
     final email = text(user['email']);
-    final name = text(user['name'], email.isEmpty ? 'Unknown user' : email);
+    final name = text(
+      user['name'],
+      email.isEmpty ? context.ui('Unknown user') : email,
+    );
     final hash = text(user['userHash']);
     final tone = status == 'linked'
         ? palette.positive
@@ -8325,7 +9145,12 @@ class _AdminUserTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    email.isEmpty ? 'hash ${shortText(hash, 10)}' : email,
+                    email.isEmpty
+                        ? context.tr(
+                            '哈希 ${shortText(hash, 10)}',
+                            'hash ${shortText(hash, 10)}',
+                          )
+                        : email,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -8341,7 +9166,10 @@ class _AdminUserTile extends StatelessWidget {
                     children: [
                       _AdminTinyChip(status, tone, palette),
                       _AdminTinyChip(
-                        '${formatNumber(number(connection['accountCount']))} accts',
+                        context.tr(
+                          '${formatNumber(number(connection['accountCount']))} 个账户',
+                          '${formatNumber(number(connection['accountCount']))} accts',
+                        ),
                         palette.secondary,
                         palette,
                       ),
@@ -8389,7 +9217,7 @@ class _AdminTinyChip extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: .28)),
       ),
       child: Text(
-        label,
+        context.ui(label),
         style: TextStyle(
           color: color == palette.muted ? palette.muted : color,
           fontSize: 10,
@@ -8482,7 +9310,7 @@ class _AdminPortfolioDetailPanel extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.refresh_rounded, size: 18),
-                  label: const Text('Refresh detail'),
+                  label: Text(context.ui('Refresh detail')),
                 ),
               ),
               const SizedBox(height: 12),
@@ -8492,7 +9320,7 @@ class _AdminPortfolioDetailPanel extends StatelessWidget {
                 children: [
                   MiniMetric(
                     'Email',
-                    text(user['email'], 'unknown'),
+                    text(user['email'], context.ui('unknown')),
                     Icons.alternate_email_rounded,
                     palette,
                   ),
@@ -8510,7 +9338,7 @@ class _AdminPortfolioDetailPanel extends StatelessWidget {
                   ),
                   MiniMetric(
                     'Status',
-                    text(connection['status'], 'unknown'),
+                    context.ui(text(connection['status'], 'unknown')),
                     Icons.shield_rounded,
                     palette,
                   ),
@@ -8526,8 +9354,10 @@ class _AdminPortfolioDetailPanel extends StatelessWidget {
           palette: palette,
           onRefresh: onRefresh,
           readOnly: true,
-          readOnlyNotice:
-              'Admin read-only view for ${text(user['email'], selectedHash)}. Credentials remain encrypted in that user database.',
+          readOnlyNotice: context.tr(
+            '${text(user['email'], selectedHash)} 的管理员只读视图。凭证仍加密保存在该用户数据库中。',
+            'Admin read-only view for ${text(user['email'], selectedHash)}. Credentials remain encrypted in that user database.',
+          ),
         ),
       ],
     );
@@ -8779,8 +9609,10 @@ class PortfolioAdminReadOnlyPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            notice ??
-                'Admin view reads the selected user portfolio database without exposing saved credentials.',
+            context.ui(
+              notice ??
+                  'Admin view reads the selected user portfolio database without exposing saved credentials.',
+            ),
             style: TextStyle(color: palette.muted, height: 1.35),
           ),
           const SizedBox(height: 12),
@@ -8816,7 +9648,9 @@ class PortfolioAdminReadOnlyPanel extends StatelessWidget {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                text(account['label'], 'IBKR account'),
+                                context.ui(
+                                  text(account['label'], 'IBKR account'),
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -8831,7 +9665,7 @@ class PortfolioAdminReadOnlyPanel extends StatelessWidget {
                         Text(
                           [
                             if (text(account['queryId']).isNotEmpty)
-                              'Query ${text(account['queryId'])}',
+                              '${context.tr('查询', 'Query')} ${text(account['queryId'])}',
                             if (text(account['tokenPreview']).isNotEmpty)
                               text(account['tokenPreview']),
                           ].join(' · '),
@@ -9070,7 +9904,9 @@ class _PortfolioConnectionStatusPanelState
                       )
                     : const Icon(Icons.link_off_rounded),
                 label: Text(
-                  _disconnecting ? 'Disconnecting' : 'Disconnect all',
+                  context.ui(
+                    _disconnecting ? 'Disconnecting' : 'Disconnect all',
+                  ),
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: palette.muted,
@@ -9184,7 +10020,7 @@ class _PortfolioConnectionStatusPanelState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  label,
+                  context.ui(label),
                   style: TextStyle(
                     color: palette.text,
                     fontWeight: FontWeight.w900,
@@ -9306,7 +10142,7 @@ class _PortfolioAddAccountDialogState extends State<PortfolioAddAccountDialog> {
                 ),
                 palette: palette,
                 trailing: IconButton(
-                  tooltip: 'Close',
+                  tooltip: context.ui('Close'),
                   onPressed: _saving ? null : () => Navigator.of(context).pop(),
                   icon: Icon(Icons.close_rounded, color: palette.muted),
                 ),
@@ -9340,7 +10176,7 @@ class _PortfolioAddAccountDialogState extends State<PortfolioAddAccountDialog> {
                 icon: Icons.key_rounded,
                 obscure: !_showToken,
                 suffix: IconButton(
-                  tooltip: _showToken ? 'Hide token' : 'Show token',
+                  tooltip: context.ui(_showToken ? 'Hide token' : 'Show token'),
                   onPressed: () => setState(() => _showToken = !_showToken),
                   icon: Icon(
                     _showToken
@@ -9384,7 +10220,7 @@ class _PortfolioAddAccountDialogState extends State<PortfolioAddAccountDialog> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text('Cancel'),
+                      child: Text(context.ui('Cancel')),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -9398,7 +10234,9 @@ class _PortfolioAddAccountDialogState extends State<PortfolioAddAccountDialog> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.cloud_upload_rounded),
-                      label: Text(_saving ? 'Adding' : 'Add & update'),
+                      label: Text(
+                        context.ui(_saving ? 'Adding' : 'Add & update'),
+                      ),
                       style: FilledButton.styleFrom(
                         backgroundColor: palette.accent,
                         foregroundColor: palette.background,
@@ -9434,7 +10272,7 @@ class _PortfolioAddAccountDialogState extends State<PortfolioAddAccountDialog> {
       cursorColor: palette.accent,
       style: TextStyle(color: palette.text, fontWeight: FontWeight.w800),
       decoration: InputDecoration(
-        labelText: label,
+        labelText: context.ui(label),
         hintText: hint,
         labelStyle: TextStyle(color: palette.muted),
         hintStyle: TextStyle(color: palette.faint),
@@ -9555,7 +10393,7 @@ class _PortfolioConnectionPanelState extends State<PortfolioConnectionPanel> {
               icon: Icons.key_rounded,
               obscure: !_showToken,
               suffix: IconButton(
-                tooltip: _showToken ? 'Hide token' : 'Show token',
+                tooltip: context.ui(_showToken ? 'Hide token' : 'Show token'),
                 onPressed: () => setState(() => _showToken = !_showToken),
                 icon: Icon(
                   _showToken
@@ -9643,7 +10481,9 @@ class _PortfolioConnectionPanelState extends State<PortfolioConnectionPanel> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.cloud_sync_rounded),
-                    label: Text(_saving ? 'Connecting' : 'Save & sync'),
+                    label: Text(
+                      context.ui(_saving ? 'Connecting' : 'Save & sync'),
+                    ),
                     style: FilledButton.styleFrom(
                       backgroundColor: palette.accent,
                       foregroundColor: palette.background,
@@ -9831,7 +10671,7 @@ class _PortfolioConnectionPanelState extends State<PortfolioConnectionPanel> {
       cursorColor: palette.accent,
       style: TextStyle(color: palette.text, fontWeight: FontWeight.w800),
       decoration: InputDecoration(
-        labelText: label,
+        labelText: context.ui(label),
         hintText: hint,
         labelStyle: TextStyle(color: palette.muted),
         hintStyle: TextStyle(color: palette.faint),
@@ -9894,9 +10734,11 @@ class PortfolioPerformanceChart extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  text(
-                    status['message'],
-                    'Current IBKR report has fewer than two NAV points.',
+                  context.ui(
+                    text(
+                      status['message'],
+                      'Current IBKR report has fewer than two NAV points.',
+                    ),
                   ),
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -9999,7 +10841,7 @@ class PortfolioDataNotice extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              text,
+              context.ui(text),
               style: TextStyle(
                 color: palette.muted,
                 fontSize: 12,
@@ -10129,7 +10971,10 @@ class PortfolioAllocationPieCard extends StatelessWidget {
             title: context.tr('持仓饼图', 'Holding Mix'),
             palette: palette,
             trailing: Text(
-              '${positiveHoldings.length} names',
+              context.tr(
+                '${positiveHoldings.length} 只持仓',
+                '${positiveHoldings.length} names',
+              ),
               style: TextStyle(color: palette.muted, fontSize: 12),
             ),
           ),
@@ -10160,7 +11005,7 @@ class PortfolioAllocationPieCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        'positive MV',
+                        context.ui('positive MV'),
                         style: TextStyle(color: palette.muted, fontSize: 11),
                       ),
                     ],
@@ -10344,7 +11189,7 @@ class PortfolioAnalyticsPanel extends StatelessWidget {
             PanelTitle(
               icon: Icons.insights_rounded,
               kicker: 'PORTFOLIO ANALYTICS',
-              title: context.tr('估值差距 / Sharpe', 'Valuation Gap / Sharpe'),
+              title: context.tr('估值差距 / 夏普比率', 'Valuation Gap / Sharpe'),
               palette: palette,
             ),
             const SizedBox(height: 14),
@@ -10377,12 +11222,14 @@ class PortfolioAnalyticsPanel extends StatelessWidget {
           PanelTitle(
             icon: Icons.analytics_rounded,
             kicker: 'PORTFOLIO ANALYTICS',
-            title: context.tr('估值差距 / Sharpe', 'Valuation Gap / Sharpe'),
+            title: context.tr('估值差距 / 夏普比率', 'Valuation Gap / Sharpe'),
             palette: palette,
             trailing: Tooltip(
-              message: text(
-                source['methodology'],
-                'Historical risk uses one-year daily returns; forward return is a model-implied scenario.',
+              message: context.ui(
+                text(
+                  source['methodology'],
+                  'Historical risk uses one-year daily returns; forward return is a model-implied scenario.',
+                ),
               ),
               child: Icon(
                 Icons.info_outline_rounded,
@@ -10416,16 +11263,21 @@ class PortfolioAnalyticsPanel extends StatelessWidget {
               PortfolioAnalyticsMetricCard(
                 label: context.tr('未来一年情景回报', 'Forward 1Y Scenario Return'),
                 value: formatReturn(number(forward['expectedReturn'])),
-                sub:
-                    '${formatMoney(number(forward['potentialPnl']))} model P/L',
+                sub: context.tr(
+                  '${formatMoney(number(forward['potentialPnl']))} 模型盈亏',
+                  '${formatMoney(number(forward['potentialPnl']))} model P/L',
+                ),
                 icon: Icons.online_prediction_rounded,
                 tone: number(forward['expectedReturn']),
                 palette: palette,
               ),
               PortfolioAnalyticsMetricCard(
-                label: context.tr('未来情景 Sharpe', 'Forward Scenario Sharpe'),
+                label: context.tr('未来情景夏普比率', 'Forward Scenario Sharpe'),
                 value: formatSharpe(number(forward['sharpe'])),
-                sub: 'rf ${formatReturn(riskFreeRate).replaceFirst('+', '')}',
+                sub: context.tr(
+                  '无风险利率 ${formatReturn(riskFreeRate).replaceFirst('+', '')}',
+                  'rf ${formatReturn(riskFreeRate).replaceFirst('+', '')}',
+                ),
                 icon: Icons.speed_rounded,
                 tone: number(forward['sharpe']) - 1,
                 palette: palette,
@@ -10438,15 +11290,24 @@ class PortfolioAnalyticsPanel extends StatelessWidget {
             runSpacing: 8,
             children: [
               InfoChip(
-                'FV coverage ${formatReturn(modelCoverage).replaceFirst('+', '')}',
+                context.tr(
+                  '估值覆盖率 ${formatReturn(modelCoverage).replaceFirst('+', '')}',
+                  'FV coverage ${formatReturn(modelCoverage).replaceFirst('+', '')}',
+                ),
                 palette: palette,
               ),
               InfoChip(
-                'price coverage ${formatReturn(priceCoverage).replaceFirst('+', '')}',
+                context.tr(
+                  '股价覆盖率 ${formatReturn(priceCoverage).replaceFirst('+', '')}',
+                  'price coverage ${formatReturn(priceCoverage).replaceFirst('+', '')}',
+                ),
                 palette: palette,
               ),
               InfoChip(
-                'gap close ${formatReturn(number(assumptions['gapConvergenceOneYear'])).replaceFirst('+', '')}',
+                context.tr(
+                  '估值差收敛 ${formatReturn(number(assumptions['gapConvergenceOneYear'])).replaceFirst('+', '')}',
+                  'gap close ${formatReturn(number(assumptions['gapConvergenceOneYear'])).replaceFirst('+', '')}',
+                ),
                 palette: palette,
               ),
             ],
@@ -10504,7 +11365,7 @@ class PortfolioAnalyticsMetricCard extends StatelessWidget {
           Icon(icon, color: color, size: 18),
           const SizedBox(height: 12),
           Text(
-            label,
+            context.ui(label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -10526,7 +11387,7 @@ class PortfolioAnalyticsMetricCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            sub,
+            context.ui(sub),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(color: palette.faint, fontSize: 11),
@@ -10629,7 +11490,7 @@ class _PortfolioAnalyticsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final child = Text(
-      label,
+      context.ui(label),
       textAlign: alignEnd ? TextAlign.end : TextAlign.start,
       style: TextStyle(
         color: palette.faint,
@@ -10670,11 +11531,17 @@ class PortfolioValuationGapRow extends StatelessWidget {
     final fairValue = nullableNumber(valuation['fairValue']);
     final currency = text(valuation['currency'], 'USD');
     final priceText = price == null
-        ? 'No model price'
-        : '${formatCurrencyValue(price, currency)} price';
+        ? context.tr('无模型股价', 'No model price')
+        : context.tr(
+            '股价 ${formatCurrencyValue(price, currency)}',
+            '${formatCurrencyValue(price, currency)} price',
+          );
     final fairText = fairValue == null
-        ? 'FV -'
-        : 'FV ${formatCurrencyValue(fairValue, currency)}';
+        ? context.tr('公允价值 -', 'FV -')
+        : context.tr(
+            '公允价值 ${formatCurrencyValue(fairValue, currency)}',
+            'FV ${formatCurrencyValue(fairValue, currency)}',
+          );
     final content = compact
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -10904,7 +11771,7 @@ class PortfolioValuationChip extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: .35)),
       ),
       child: Text(
-        label,
+        context.ui(label),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
@@ -11074,7 +11941,7 @@ class _PortfolioDividendCalendarSectionState
             title: 'Dividend calendar',
             palette: widget.palette,
             trailing: Text(
-              '${filtered.length} events',
+              context.tr('${filtered.length} 个事件', '${filtered.length} events'),
               style: TextStyle(color: widget.palette.muted, fontSize: 12),
             ),
           ),
@@ -11157,10 +12024,10 @@ class _PortfolioDividendCalendarSectionState
                           : () => setState(() => _monthOffset -= 1),
                       icon: const Icon(Icons.chevron_left_rounded),
                       color: widget.palette.muted,
-                      tooltip: 'Previous month',
+                      tooltip: context.ui('Previous month'),
                     ),
                     Text(
-                      dividendWindowTitle(calendarStart),
+                      dividendWindowTitle(calendarStart, context.language),
                       style: TextStyle(
                         color: widget.palette.text,
                         fontWeight: FontWeight.w900,
@@ -11173,7 +12040,7 @@ class _PortfolioDividendCalendarSectionState
                           : () => setState(() => _monthOffset += 1),
                       icon: const Icon(Icons.chevron_right_rounded),
                       color: widget.palette.muted,
-                      tooltip: 'Next month',
+                      tooltip: context.ui('Next month'),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -11288,94 +12155,98 @@ class DividendCalendarToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 760;
-    final rangeControls = DividendWindowSelector(
-      value: windowMode,
-      palette: palette,
-      onChanged: onWindowChanged,
-    );
-
-    final search = SizedBox(
-      width: compact ? double.infinity : 220,
-      child: TextField(
-        onChanged: onQueryChanged,
-        style: TextStyle(color: palette.text, fontWeight: FontWeight.w700),
-        decoration: InputDecoration(
-          isDense: true,
-          hintText: 'Search ticker',
-          hintStyle: TextStyle(color: palette.muted),
-          prefixIcon: Icon(Icons.search_rounded, color: palette.muted),
-          filled: true,
-          fillColor: palette.card,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 11,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: palette.border),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: palette.border),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: palette.accent),
-          ),
-        ),
-      ),
-    );
-
-    final filters = Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        DividendDropdown(
-          value: statusFilter,
-          items: const {
-            'all': 'Status',
-            'paid': 'Paid',
-            'declared': 'Declared',
-            'estimated': 'Estimated',
-          },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 1080;
+        final rangeControls = DividendWindowSelector(
+          value: windowMode,
           palette: palette,
-          onChanged: onStatusChanged,
-        ),
-        DividendDropdown(
-          value: dateMode,
-          items: const {
-            'auto': 'Payout type',
-            'pay': 'Pay date',
-            'ex': 'Ex-date',
-          },
-          palette: palette,
-          onChanged: onDateModeChanged,
-        ),
-      ],
-    );
+          onChanged: onWindowChanged,
+        );
 
-    if (compact) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          rangeControls,
-          const SizedBox(height: 10),
-          search,
-          const SizedBox(height: 10),
-          filters,
-        ],
-      );
-    }
-    return Row(
-      children: [
-        rangeControls,
-        const Spacer(),
-        search,
-        const SizedBox(width: 10),
-        filters,
-      ],
+        final search = SizedBox(
+          width: compact ? double.infinity : 220,
+          child: TextField(
+            onChanged: onQueryChanged,
+            style: TextStyle(color: palette.text, fontWeight: FontWeight.w700),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: context.ui('Search ticker'),
+              hintStyle: TextStyle(color: palette.muted),
+              prefixIcon: Icon(Icons.search_rounded, color: palette.muted),
+              filled: true,
+              fillColor: palette.card,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 11,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: palette.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: palette.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: palette.accent),
+              ),
+            ),
+          ),
+        );
+
+        final filters = Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            DividendDropdown(
+              value: statusFilter,
+              items: const {
+                'all': 'Status',
+                'paid': 'Paid',
+                'declared': 'Declared',
+                'estimated': 'Estimated',
+              },
+              palette: palette,
+              onChanged: onStatusChanged,
+            ),
+            DividendDropdown(
+              value: dateMode,
+              items: const {
+                'auto': 'Payout type',
+                'pay': 'Pay date',
+                'ex': 'Ex-date',
+              },
+              palette: palette,
+              onChanged: onDateModeChanged,
+            ),
+          ],
+        );
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              rangeControls,
+              const SizedBox(height: 10),
+              search,
+              const SizedBox(height: 10),
+              filters,
+            ],
+          );
+        }
+        return Row(
+          children: [
+            rangeControls,
+            const Spacer(),
+            search,
+            const SizedBox(width: 10),
+            filters,
+          ],
+        );
+      },
     );
   }
 }
@@ -11423,7 +12294,7 @@ class DividendWindowSelector extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
-                option.label,
+                context.ui(option.label),
                 style: TextStyle(
                   color: selected ? palette.background : palette.muted,
                   fontWeight: FontWeight.w900,
@@ -11469,7 +12340,10 @@ class DividendDropdown extends StatelessWidget {
           style: TextStyle(color: palette.text, fontWeight: FontWeight.w800),
           items: [
             for (final entry in items.entries)
-              DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+              DropdownMenuItem(
+                value: entry.key,
+                child: Text(context.ui(entry.value)),
+              ),
           ],
           onChanged: (next) {
             if (next != null) onChanged(next);
@@ -11518,7 +12392,7 @@ class DividendIncomeSummaryCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Annual income',
+                      context.ui('Annual income'),
                       style: TextStyle(
                         color: palette.text.withValues(alpha: .82),
                         fontWeight: FontWeight.w800,
@@ -11605,7 +12479,7 @@ class DividendSummaryStat extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            label,
+            context.ui(label),
             style: TextStyle(
               color: palette.text.withValues(alpha: .68),
               fontWeight: FontWeight.w800,
@@ -11725,7 +12599,7 @@ class DividendLegendDot extends StatelessWidget {
         ),
         const SizedBox(width: 5),
         Text(
-          label,
+          context.ui(label),
           style: TextStyle(color: palette.muted, fontWeight: FontWeight.w800),
         ),
       ],
@@ -11807,7 +12681,10 @@ class PortfolioDividendBarChart extends StatelessWidget {
                             child: Align(
                               alignment: Alignment.bottomCenter,
                               child: Tooltip(
-                                message: bucket.tooltip(currency),
+                                message: bucket.tooltip(
+                                  currency,
+                                  language: context.language,
+                                ),
                                 child: DividendStackedBar(
                                   bucket: bucket,
                                   maxTotal: maxTotal,
@@ -11818,7 +12695,7 @@ class PortfolioDividendBarChart extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            bucket.label,
+                            context.ui(bucket.label),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -11932,7 +12809,7 @@ class PortfolioDividendYearComparisonChart extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  monthNamesShort[bucket.month - 1],
+                                  context.ui(monthNamesShort[bucket.month - 1]),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
@@ -11995,7 +12872,11 @@ class DividendYearBar extends StatelessWidget {
       ),
     );
     return Tooltip(
-      message: bucket.tooltip(currency, titleYear: year),
+      message: bucket.tooltip(
+        currency,
+        titleYear: year,
+        language: context.language,
+      ),
       child: bar,
     );
   }
@@ -12178,7 +13059,7 @@ class DividendToggleButton extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Text(
-              label,
+              context.ui(label),
               style: TextStyle(
                 color: active ? palette.background : palette.muted,
                 fontWeight: FontWeight.w900,
@@ -12222,7 +13103,10 @@ class DividendEmptyMonthNotice extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              '${dividendWindowTitle(monthStart)} has no dividend events.',
+              context.tr(
+                '${dividendWindowTitle(monthStart, context.language)}没有股息事件。',
+                '${dividendWindowTitle(monthStart, context.language)} has no dividend events.',
+              ),
               style: TextStyle(
                 color: palette.muted,
                 fontWeight: FontWeight.w800,
@@ -12233,7 +13117,12 @@ class DividendEmptyMonthNotice extends StatelessWidget {
             TextButton.icon(
               onPressed: onJumpToNext,
               icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-              label: Text('Next: ${dividendWindowTitle(next)}'),
+              label: Text(
+                context.tr(
+                  '下一个：${dividendWindowTitle(next, context.language)}',
+                  'Next: ${dividendWindowTitle(next, context.language)}',
+                ),
+              ),
               style: TextButton.styleFrom(
                 foregroundColor: palette.accent,
                 textStyle: const TextStyle(fontWeight: FontWeight.w900),
@@ -12312,7 +13201,7 @@ class DividendMonthCalendarGrid extends StatelessWidget {
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Text(
-                          dayName,
+                          context.ui(dayName),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: palette.muted,
@@ -12483,7 +13372,10 @@ class DividendCalendarDayCell extends StatelessWidget {
                 ],
                 if (events.length > 1)
                   Text(
-                    '+${events.length - 1} more',
+                    context.tr(
+                      '另有 ${events.length - 1} 项',
+                      '+${events.length - 1} more',
+                    ),
                     style: TextStyle(
                       color: palette.muted,
                       fontSize: 11,
@@ -12520,12 +13412,25 @@ class DividendCalendarEventChip extends StatelessWidget {
         ? event.payoutBase.abs() / portfolioValue
         : 0.0;
     final tooltip = [
-      '${event.ticker} ${event.statusLabel}',
-      'Date: ${formatDate(event.isoDate)}',
-      'Payout: ${formatDividendMoney(event.payout.abs(), event.currency)}',
+      '${event.ticker} ${context.ui(event.statusLabel)}',
+      context.tr(
+        '日期：${formatDate(event.isoDate)}',
+        'Date: ${formatDate(event.isoDate)}',
+      ),
+      context.tr(
+        '股息：${formatDividendMoney(event.payout.abs(), event.currency)}',
+        'Payout: ${formatDividendMoney(event.payout.abs(), event.currency)}',
+      ),
       if (event.hasCurrencyConversion)
-        'Base: ${formatDividendMoney(event.payoutBase.abs(), event.displayCurrency)} (${event.currency} x ${event.fxRateToBase.toStringAsFixed(4)})',
-      if (event.quantity > 0) 'Shares: ${formatNumber(event.quantity)}',
+        context.tr(
+          '本币：${formatDividendMoney(event.payoutBase.abs(), event.displayCurrency)} (${event.currency} × ${event.fxRateToBase.toStringAsFixed(4)})',
+          'Base: ${formatDividendMoney(event.payoutBase.abs(), event.displayCurrency)} (${event.currency} x ${event.fxRateToBase.toStringAsFixed(4)})',
+        ),
+      if (event.quantity > 0)
+        context.tr(
+          '股数：${formatNumber(event.quantity)}',
+          'Shares: ${formatNumber(event.quantity)}',
+        ),
     ].join('\n');
 
     return Tooltip(
@@ -12651,7 +13556,10 @@ class DividendMonthAgenda extends StatelessWidget {
           border: Border.all(color: palette.border),
         ),
         child: EmptyState(
-          text: 'No dividend events in ${dividendWindowTitle(monthStart)}.',
+          text: context.tr(
+            '${dividendWindowTitle(monthStart, context.language)}没有股息事件。',
+            'No dividend events in ${dividendWindowTitle(monthStart, context.language)}.',
+          ),
           palette: palette,
         ),
       );
@@ -12940,7 +13848,7 @@ class DividendEventRow extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  event.statusLabel,
+                  context.ui(event.statusLabel),
                   style: TextStyle(
                     color: statusColor,
                     fontSize: 11,
@@ -12952,7 +13860,9 @@ class DividendEventRow extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              compact ? formatDate(event.isoDate) : event.subtitle,
+              compact
+                  ? formatDate(event.isoDate)
+                  : event.subtitleFor(context.language),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -12974,7 +13884,10 @@ class DividendEventRow extends StatelessWidget {
               ),
               if (!compact && event.hasCurrencyConversion)
                 Text(
-                  '${formatDividendMoney(event.payoutBase.abs(), event.displayCurrency)} base',
+                  context.tr(
+                    '${formatDividendMoney(event.payoutBase.abs(), event.displayCurrency)} 本币',
+                    '${formatDividendMoney(event.payoutBase.abs(), event.displayCurrency)} base',
+                  ),
                   style: TextStyle(
                     color: palette.muted,
                     fontSize: 11,
@@ -12983,7 +13896,10 @@ class DividendEventRow extends StatelessWidget {
                 ),
               if (!compact && event.quantity > 0)
                 Text(
-                  '${formatDividendMoney(event.amount.abs(), event.currency)} / sh',
+                  context.tr(
+                    '${formatDividendMoney(event.amount.abs(), event.currency)} / 股',
+                    '${formatDividendMoney(event.amount.abs(), event.currency)} / sh',
+                  ),
                   style: TextStyle(color: palette.muted, fontSize: 11),
                 ),
             ],
@@ -13102,9 +14018,13 @@ class DividendDisplayEvent {
     _ => 'Estimated',
   };
 
-  String get subtitle {
+  String subtitleFor(AppLanguage language) {
     final quantityText = quantity > 0
-        ? ' · ${formatNumber(quantity)} shares'
+        ? trFor(
+            language,
+            ' · ${formatNumber(quantity)} 股',
+            ' · ${formatNumber(quantity)} shares',
+          )
         : '';
     return '${compactName(name)} · ${formatDate(isoDate)}$quantityText';
   }
@@ -13135,7 +14055,11 @@ class DividendMonthBucket {
       .where((event) => event.status == status)
       .fold<double>(0, (sum, event) => sum + event.payoutBase.abs());
 
-  String tooltip(String currency, {int? titleYear}) {
+  String tooltip(
+    String currency, {
+    int? titleYear,
+    required AppLanguage language,
+  }) {
     final byTicker = <String, double>{};
     for (final event in events) {
       byTicker[event.ticker] =
@@ -13146,17 +14070,27 @@ class DividendMonthBucket {
     final topContributors = contributors.take(6).map((entry) {
       return '${entry.key}: ${formatDividendMoney(entry.value, currency)}';
     });
+    final month = trFor(
+      language,
+      '${monthStart.month} 月',
+      monthNamesShort[monthStart.month - 1],
+    );
     final title = titleYear == null
-        ? monthNamesShort[monthStart.month - 1]
-        : '${monthNamesShort[monthStart.month - 1]} $titleYear';
+        ? month
+        : trFor(language, '$titleYear 年 $month', '$month $titleYear');
     return [
       '$title: ${formatDividendMoney(total, currency)}',
-      'Paid: ${formatDividendMoney(paid, currency)}',
-      'Declared: ${formatDividendMoney(declared, currency)}',
-      'Estimated: ${formatDividendMoney(estimated, currency)}',
-      if (contributors.isNotEmpty) 'Holdings:',
+      '${trFor(language, '已支付', 'Paid')}: ${formatDividendMoney(paid, currency)}',
+      '${trFor(language, '已宣布', 'Declared')}: ${formatDividendMoney(declared, currency)}',
+      '${trFor(language, '预估', 'Estimated')}: ${formatDividendMoney(estimated, currency)}',
+      if (contributors.isNotEmpty) trFor(language, '持仓：', 'Holdings:'),
       ...topContributors,
-      if (contributors.length > 6) '+${contributors.length - 6} more',
+      if (contributors.length > 6)
+        trFor(
+          language,
+          '另有 ${contributors.length - 6} 项',
+          '+${contributors.length - 6} more',
+        ),
     ].join('\n');
   }
 }
@@ -13579,8 +14513,11 @@ String dividendStatusForEvent(Map<String, dynamic> event, DateTime date) {
   return date.isBefore(normalizedToday) ? 'paid' : 'declared';
 }
 
-String dividendWindowTitle(DateTime start) =>
-    '${monthNamesShort[start.month - 1]} ${start.year}';
+String dividendWindowTitle(DateTime start, AppLanguage language) => trFor(
+  language,
+  '${start.year} 年 ${start.month} 月',
+  '${monthNamesShort[start.month - 1]} ${start.year}',
+);
 
 DateTime? nextDividendMonthAfter(
   DateTime monthStart,
@@ -13678,7 +14615,7 @@ class PortfolioAccountCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            '${text(account['provider'], 'IBKR')} · ${text(account['accountType'])}',
+                            '${text(account['provider'], 'IBKR')} · ${context.ui(text(account['accountType']))}',
                             style: TextStyle(
                               color: palette.muted,
                               fontSize: 12,
@@ -13738,7 +14675,7 @@ class PortfolioSectorCard extends StatelessWidget {
                   SizedBox(
                     width: 110,
                     child: Text(
-                      text(sector['sector'], 'Other'),
+                      context.ui(text(sector['sector'], 'Other')),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -13932,7 +14869,7 @@ class PortfolioHoldingRow extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            compactName(text(row['name'])),
+                            context.ui(compactName(text(row['name']))),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -14031,7 +14968,7 @@ class PortfolioHoldingRow extends StatelessWidget {
               ),
               Expanded(
                 child: Text(
-                  compactName(text(row['name'])),
+                  context.ui(compactName(text(row['name']))),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: palette.muted),
@@ -14111,7 +15048,7 @@ class _HoldingMiniLine extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          context.ui(label),
           style: TextStyle(
             color: palette.faint,
             fontSize: 11,
@@ -14281,13 +15218,13 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
     _ => palette.secondary,
   };
 
-  String _stateLabel(String state) => switch (state) {
-    'green_graph_confirmed' => '图谱确认',
-    'green_peer_capture' => '同行确认',
-    _ => state.isEmpty ? '观察' : state,
+  String _stateLabel(String state, AppLanguage language) => switch (state) {
+    'green_graph_confirmed' => trFor(language, '图谱确认', 'Graph confirmed'),
+    'green_peer_capture' => trFor(language, '同行确认', 'Peer confirmed'),
+    _ => state.isEmpty ? trFor(language, '观察', 'Observe') : state,
   };
 
-  Widget _signalRow(Map<String, dynamic> signal) {
+  Widget _signalRow(BuildContext context, Map<String, dynamic> signal) {
     final state = text(signal['signal_state']);
     final color = _stateColor(state);
     return Container(
@@ -14323,7 +15260,7 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${_stateLabel(state)} · ${text(signal['stage_name'], text(signal['sector'], '-'))}',
+                  '${_stateLabel(state, context.language)} · ${context.ui(text(signal['stage_name'], text(signal['sector'], '-')))}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -14455,14 +15392,14 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
     );
   }
 
-  Widget _navLegend(Color color, String label) {
+  Widget _navLegend(BuildContext context, Color color, String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(width: 18, height: 3, color: color),
         const SizedBox(width: 6),
         Text(
-          label,
+          context.ui(label),
           style: TextStyle(
             color: palette.muted,
             fontSize: 11,
@@ -14473,7 +15410,7 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
     );
   }
 
-  Widget _navPeriodButton(String value, String label) {
+  Widget _navPeriodButton(BuildContext context, String value, String label) {
     final active = _navPeriod == value;
     return InkWell(
       borderRadius: BorderRadius.circular(6),
@@ -14488,7 +15425,7 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
           borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
-          label,
+          context.ui(label),
           style: TextStyle(
             color: active ? palette.accent : palette.muted,
             fontSize: 11,
@@ -14665,8 +15602,14 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
       subtitle:
           'PIT fundamentals, peer value capture, and graph-confirmed decisions.',
       chips: [
-        'PIT as of ${formatDate(asOf)}',
-        '${(number(stats['tickers'])).round()} companies',
+        context.tr(
+          'PIT 截至 ${formatDate(asOf)}',
+          'PIT as of ${formatDate(asOf)}',
+        ),
+        context.tr(
+          '${(number(stats['tickers'])).round()} 家公司',
+          '${(number(stats['tickers'])).round()} companies',
+        ),
       ],
       metrics: [
         _GuruHeaderMetric(
@@ -14709,8 +15652,14 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
             title: 'Decision history',
             trailing: Text(
               _showingLatest
-                  ? 'Latest · ${formatDate(selectedMonth)}'
-                  : 'Historical · ${formatDate(selectedMonth)}',
+                  ? context.tr(
+                      '最新 · ${formatDate(selectedMonth)}',
+                      'Latest · ${formatDate(selectedMonth)}',
+                    )
+                  : context.tr(
+                      '历史 · ${formatDate(selectedMonth)}',
+                      'Historical · ${formatDate(selectedMonth)}',
+                    ),
               style: TextStyle(
                 color: _showingLatest ? palette.accent : palette.secondary,
                 fontSize: 11,
@@ -14726,7 +15675,7 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
             Row(
               children: [
                 IconButton(
-                  tooltip: 'Previous month',
+                  tooltip: context.ui('Previous month'),
                   onPressed: _timelineIndex <= 0
                       ? null
                       : () => _selectTimeline(_timelineIndex - 1),
@@ -14744,14 +15693,14 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Next month',
+                  tooltip: context.ui('Next month'),
                   onPressed: _timelineIndex >= timeline.length - 1
                       ? null
                       : () => _selectTimeline(_timelineIndex + 1),
                   icon: const Icon(Icons.chevron_right_rounded),
                 ),
                 IconButton(
-                  tooltip: 'Latest snapshot',
+                  tooltip: context.ui('Latest snapshot'),
                   onPressed: _showingLatest
                       ? null
                       : () => _selectTimeline(timeline.length - 1),
@@ -14766,19 +15715,31 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
                 runSpacing: 6,
                 children: [
                   Text(
-                    '${(number(selectedTimeline['events'])).round()} events',
+                    context.tr(
+                      '${(number(selectedTimeline['events'])).round()} 个事件',
+                      '${(number(selectedTimeline['events'])).round()} events',
+                    ),
                     style: TextStyle(color: palette.muted, fontSize: 11),
                   ),
                   Text(
-                    '${(number(selectedTimeline['peer_confirmed'])).round()} peer-confirmed',
+                    context.tr(
+                      '${(number(selectedTimeline['peer_confirmed'])).round()} 个同行确认',
+                      '${(number(selectedTimeline['peer_confirmed'])).round()} peer-confirmed',
+                    ),
                     style: TextStyle(color: palette.accent, fontSize: 11),
                   ),
                   Text(
-                    '${(number(selectedTimeline['graph_confirmed'])).round()} graph-confirmed',
+                    context.tr(
+                      '${(number(selectedTimeline['graph_confirmed'])).round()} 个图谱确认',
+                      '${(number(selectedTimeline['graph_confirmed'])).round()} graph-confirmed',
+                    ),
                     style: TextStyle(color: palette.secondary, fontSize: 11),
                   ),
                   Text(
-                    '${timeline.length} monthly snapshots',
+                    context.tr(
+                      '${timeline.length} 个月度快照',
+                      '${timeline.length} monthly snapshots',
+                    ),
                     style: TextStyle(color: palette.faint, fontSize: 11),
                   ),
                 ],
@@ -14795,7 +15756,7 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
             if (_snapshotError != null) ...[
               const SizedBox(height: 8),
               Text(
-                _snapshotError!,
+                context.ui(_snapshotError!),
                 style: TextStyle(color: palette.negative, fontSize: 11),
               ),
             ],
@@ -14832,15 +15793,23 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _navPeriodButton('evaluation', '2018–2026 evaluation'),
-                    _navPeriodButton('development', '2010–2016 development'),
+                    _navPeriodButton(
+                      context,
+                      'evaluation',
+                      '2018–2026 evaluation',
+                    ),
+                    _navPeriodButton(
+                      context,
+                      'development',
+                      '2010–2016 development',
+                    ),
                   ],
                 ),
               ),
-              _navLegend(palette.positive, 'Ontology 6M'),
-              _navLegend(palette.secondary, 'SPY'),
+              _navLegend(context, palette.positive, 'Ontology 6M'),
+              _navLegend(context, palette.secondary, 'SPY'),
               Text(
-                'Daily · net of modeled costs',
+                context.ui('Daily · net of modeled costs'),
                 style: TextStyle(color: palette.faint, fontSize: 10),
               ),
             ],
@@ -14946,7 +15915,7 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
               palette: palette,
             )
           else
-            for (final signal in signals.take(12)) _signalRow(signal),
+            for (final signal in signals.take(12)) _signalRow(context, signal),
         ],
       ),
     );
@@ -14989,13 +15958,13 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      'Period',
+                      context.ui('Period'),
                       style: TextStyle(color: palette.faint, fontSize: 9),
                     ),
                   ),
                   Expanded(
                     child: Text(
-                      'Model',
+                      context.ui('Model'),
                       textAlign: TextAlign.end,
                       style: TextStyle(color: palette.faint, fontSize: 9),
                     ),
@@ -15009,7 +15978,7 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
                   ),
                   Expanded(
                     child: Text(
-                      'Alpha',
+                      context.ui('Alpha'),
                       textAlign: TextAlign.end,
                       style: TextStyle(color: palette.faint, fontSize: 9),
                     ),
@@ -15022,7 +15991,9 @@ class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () => openBrowserPath('/ontology/'),
+                  onPressed: () => openBrowserPath(
+                    ontologyPathForLanguage(context.language),
+                  ),
                   icon: const Icon(Icons.open_in_new_rounded),
                   label: Text(
                     context.tr('打开完整行业图谱', 'Open full ontology explorer'),
@@ -16152,6 +17123,18 @@ ValuationIndustryDefinition valuationIndustryForRow(ValuationRow row) {
   );
 }
 
+String localizedValuationSector(
+  BuildContext context,
+  ValuationRow row, [
+  String? rawValue,
+]) {
+  final raw = (rawValue ?? row.sector).trim();
+  final definition = valuationIndustryForRow(row);
+  final hasChinese = RegExp(r'[\u3400-\u9fff]').hasMatch(raw);
+  if (context.isEnglish) return hasChinese || raw.isEmpty ? definition.en : raw;
+  return hasChinese ? raw : definition.zh;
+}
+
 class ValuationIndustryGroupData {
   ValuationIndustryGroupData({required this.definition, required this.rows});
 
@@ -16506,8 +17489,8 @@ class ValuationIndustryDashboardView extends StatelessWidget {
               Expanded(
                 child: Text(
                   context.tr(
-                    '估值输入：${text(source['upstreamLabel'], 'Jansen Sharadar PIT 财务 + 可见管理层指引')}。市场价格仅用于比较，不参与公允价值计算。',
-                    'Inputs: ${text(source['upstreamLabel'], 'Jansen Sharadar PIT financials + event-visible guidance')}. Market price is comparison-only.',
+                    '估值输入：${context.ui(text(source['upstreamLabel'], 'Jansen Sharadar PIT 财务 + 可见管理层指引'))}。市场价格仅用于比较，不参与公允价值计算。',
+                    'Inputs: ${context.ui(text(source['upstreamLabel'], 'Jansen Sharadar PIT financials + event-visible guidance'))}. Market price is comparison-only.',
                   ),
                   style: TextStyle(
                     color: palette.muted,
@@ -17166,7 +18149,11 @@ class ValuationSelectedOverview extends StatelessWidget {
     final tickerPayload = asMap(payload?['ticker']);
     final ticker = text(tickerPayload['ticker'], selectedRow.ticker);
     final name = text(tickerPayload['name'], selectedRow.name);
-    final sector = text(tickerPayload['sector'], selectedRow.sector);
+    final sector = localizedValuationSector(
+      context,
+      selectedRow,
+      text(tickerPayload['sector'], selectedRow.sector),
+    );
     final currency = text(tickerPayload['currency'], selectedRow.currency);
     final latest = asMap(tickerPayload['latest']);
     final history = asList(tickerPayload['history']).toList()
@@ -17320,7 +18307,7 @@ class ValuationSelectedOverview extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'SELECTED RESEARCH',
+                      context.ui('SELECTED RESEARCH'),
                       style: TextStyle(
                         color: palette.faint,
                         fontSize: 10,
@@ -17729,21 +18716,38 @@ class ValuationWatchlistHeader extends StatelessWidget {
         );
         return Row(
           children: [
-            SizedBox(width: 260, child: Text('COMPANY', style: style)),
-            Expanded(child: Text('UPSIDE / DOWNSIDE', style: style)),
+            SizedBox(
+              width: 260,
+              child: Text(context.ui('COMPANY'), style: style),
+            ),
+            Expanded(
+              child: Text(context.ui('UPSIDE / DOWNSIDE'), style: style),
+            ),
             SizedBox(
               width: 120,
-              child: Text('PRICE / FV', textAlign: TextAlign.end, style: style),
+              child: Text(
+                context.ui('PRICE / FV'),
+                textAlign: TextAlign.end,
+                style: style,
+              ),
             ),
             const SizedBox(width: 18),
             SizedBox(
               width: 120,
-              child: Text('3Y TARGET', textAlign: TextAlign.end, style: style),
+              child: Text(
+                context.ui('3Y TARGET'),
+                textAlign: TextAlign.end,
+                style: style,
+              ),
             ),
             const SizedBox(width: 18),
             SizedBox(
               width: 112,
-              child: Text('QUALITY', textAlign: TextAlign.end, style: style),
+              child: Text(
+                context.ui('QUALITY'),
+                textAlign: TextAlign.end,
+                style: style,
+              ),
             ),
           ],
         );
@@ -17827,7 +18831,10 @@ class ValuationTickerPickerCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'P ${formatCurrencyValue(row.latestPrice, row.currency)}',
+                      context.tr(
+                        '股价 ${formatCurrencyValue(row.latestPrice, row.currency)}',
+                        'Price ${formatCurrencyValue(row.latestPrice, row.currency)}',
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: palette.faint, fontSize: 11),
@@ -17835,7 +18842,10 @@ class ValuationTickerPickerCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'FV ${formatCurrencyValue(row.fairValue, row.currency)}',
+                    context.tr(
+                      '公允价值 ${formatCurrencyValue(row.fairValue, row.currency)}',
+                      'FV ${formatCurrencyValue(row.fairValue, row.currency)}',
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -17909,7 +18919,7 @@ class ValuationWatchlistRow extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              row.sector,
+              localizedValuationSector(context, row),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: palette.faint, fontSize: 11),
@@ -17943,7 +18953,7 @@ class ValuationWatchlistRow extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              row.consensusText,
+              row.consensusTextFor(context),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: palette.faint, fontSize: 11),
@@ -17962,7 +18972,10 @@ class ValuationWatchlistRow extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              'FV ${formatCurrencyValue(row.fairValue, row.currency)}',
+              context.tr(
+                '公允价值 ${formatCurrencyValue(row.fairValue, row.currency)}',
+                'FV ${formatCurrencyValue(row.fairValue, row.currency)}',
+              ),
               style: TextStyle(
                 color: palette.faint,
                 fontSize: 12,
@@ -17983,7 +18996,10 @@ class ValuationWatchlistRow extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              '${formatReturn(row.expectedReturn3Y)} IRR',
+              context.tr(
+                '${formatReturn(row.expectedReturn3Y)} 年化收益',
+                '${formatReturn(row.expectedReturn3Y)} IRR',
+              ),
               style: TextStyle(color: palette.faint, fontSize: 12),
             ),
           ],
@@ -18085,7 +19101,11 @@ class ValuationTickerDetailPanel extends StatelessWidget {
     final tickerPayload = asMap(payload?['ticker']);
     final ticker = text(tickerPayload['ticker'], selectedRow.ticker);
     final name = text(tickerPayload['name'], selectedRow.name);
-    final sector = text(tickerPayload['sector'], selectedRow.sector);
+    final sector = localizedValuationSector(
+      context,
+      selectedRow,
+      text(tickerPayload['sector'], selectedRow.sector),
+    );
     final currency = text(tickerPayload['currency'], selectedRow.currency);
     final latest = asMap(tickerPayload['latest']);
     final history = asList(tickerPayload['history']);
@@ -18643,7 +19663,7 @@ class ValuationHistoryTable extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Recent quarterly valuation history',
+          context.ui('Recent quarterly valuation history'),
           style: TextStyle(color: palette.text, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 10),
@@ -18722,7 +19742,10 @@ class ValuationHistoryLine extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Price ${formatCurrencyValue(price, currency)}',
+                      context.tr(
+                        '股价 ${formatCurrencyValue(price, currency)}',
+                        'Price ${formatCurrencyValue(price, currency)}',
+                      ),
                       style: TextStyle(
                         color: palette.faint,
                         fontSize: 12,
@@ -18731,7 +19754,10 @@ class ValuationHistoryLine extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      'FV ${formatCurrencyValue(fairValue, currency)}',
+                      context.tr(
+                        '公允价值 ${formatCurrencyValue(fairValue, currency)}',
+                        'FV ${formatCurrencyValue(fairValue, currency)}',
+                      ),
                       style: TextStyle(
                         color: palette.text,
                         fontSize: 12,
@@ -18881,7 +19907,7 @@ class _ValuationQuarterResearchPanelState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'QUARTERLY MODEL BOOK',
+                      context.ui('QUARTERLY MODEL BOOK'),
                       style: TextStyle(
                         color: widget.palette.muted,
                         fontSize: 11,
@@ -19233,6 +20259,7 @@ class ValuationInputResearchCard extends StatelessWidget {
                 label: 'Shares',
                 value: formatSharesMillions(
                   firstNumber([fiscal['shares_m'], scoreInputs['sharesM']]),
+                  context.language,
                 ),
                 palette: palette,
               ),
@@ -19241,7 +20268,7 @@ class ValuationInputResearchCard extends StatelessWidget {
           if (guidanceRevenue != null || guidanceMargin != null) ...[
             const SizedBox(height: 12),
             Text(
-              'Guidance used by model',
+              context.ui('Guidance used by model'),
               style: TextStyle(
                 color: palette.muted,
                 fontSize: 12,
@@ -19255,12 +20282,18 @@ class ValuationInputResearchCard extends StatelessWidget {
               children: [
                 if (guidanceRevenue != null)
                   InfoChip(
-                    'Revenue guide ${formatMillions(guidanceRevenue)}',
+                    context.tr(
+                      '收入指引 ${formatMillions(guidanceRevenue)}',
+                      'Revenue guide ${formatMillions(guidanceRevenue)}',
+                    ),
                     palette: palette,
                   ),
                 if (guidanceMargin != null)
                   InfoChip(
-                    'Margin guide ${formatPercentInput(guidanceMargin)}',
+                    context.tr(
+                      '利润率指引 ${formatPercentInput(guidanceMargin)}',
+                      'Margin guide ${formatPercentInput(guidanceMargin)}',
+                    ),
                     palette: palette,
                   ),
                 if (number(snapshot['guidanceCandidateCount']) > 0)
@@ -19442,7 +20475,7 @@ class ValuationResearchCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      kicker,
+                      context.ui(kicker),
                       style: TextStyle(
                         color: palette.muted,
                         fontSize: 10,
@@ -19451,7 +20484,7 @@ class ValuationResearchCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      title,
+                      context.ui(title),
                       style: TextStyle(
                         color: palette.text,
                         fontSize: 15,
@@ -19505,7 +20538,7 @@ class ValuationResearchMetric extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
+            context.ui(label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -19637,7 +20670,7 @@ class ValuationEvidenceSnippet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '$metric evidence · $date',
+            context.tr('$metric 证据 · $date', '$metric evidence · $date'),
             style: TextStyle(
               color: palette.accent,
               fontSize: 11,
@@ -20039,7 +21072,7 @@ class _PodcastConfidenceBar extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'evidence strength',
+          context.ui('evidence strength'),
           style: TextStyle(
             color: palette.faint,
             fontSize: 10,
@@ -20329,7 +21362,7 @@ class ValuationQualityChip extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: .35)),
       ),
       child: Text(
-        label,
+        context.ui(label),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
@@ -20398,12 +21431,16 @@ class ValuationDistribution extends StatelessWidget {
         const SizedBox(height: 10),
         if (best != null)
           Text(
-            'Top discount: ${best!.ticker} at ${formatReturn(best!.upside)}.',
+            context.ui(
+              'Top discount: ${best!.ticker} at ${formatReturn(best!.upside)}.',
+            ),
             style: TextStyle(color: palette.muted, height: 1.35),
           ),
         if (worst != null)
           Text(
-            'Most stretched: ${worst!.ticker} at ${formatReturn(worst!.upside)}.',
+            context.ui(
+              'Most stretched: ${worst!.ticker} at ${formatReturn(worst!.upside)}.',
+            ),
             style: TextStyle(color: palette.muted, height: 1.35),
           ),
       ],
@@ -20436,7 +21473,7 @@ class ValuationBucketRow extends StatelessWidget {
           SizedBox(
             width: 92,
             child: Text(
-              label,
+              context.ui(label),
               style: TextStyle(
                 color: palette.muted,
                 fontWeight: FontWeight.w800,
@@ -20501,7 +21538,9 @@ class ValuationSourceNote extends StatelessWidget {
           runSpacing: 8,
           children: [
             InfoChip(
-              text(source['upstreamLabel'], 'SEC + transcript model'),
+              context.ui(
+                text(source['upstreamLabel'], 'SEC + transcript model'),
+              ),
               palette: palette,
             ),
             InfoChip(
@@ -20733,7 +21772,7 @@ class PanelTitle extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                kicker,
+                context.ui(kicker),
                 style: TextStyle(
                   color: palette.muted,
                   fontWeight: FontWeight.w900,
@@ -20742,7 +21781,7 @@ class PanelTitle extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                title,
+                context.ui(title),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -20789,7 +21828,7 @@ class MiniMetric extends StatelessWidget {
           Icon(icon, color: palette.secondary, size: 17),
           const SizedBox(height: 10),
           Text(
-            label,
+            context.ui(label),
             style: TextStyle(
               color: palette.muted,
               fontWeight: FontWeight.w800,
@@ -20829,7 +21868,7 @@ class BadgeLabel extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: .35)),
       ),
       child: Text(
-        text,
+        context.ui(text),
         style: TextStyle(
           color: color,
           fontSize: 11,
@@ -20858,7 +21897,7 @@ class InfoChip extends StatelessWidget {
         border: Border.all(color: palette.border),
       ),
       child: Text(
-        label,
+        context.ui(label),
         style: TextStyle(
           color: palette.muted,
           fontWeight: FontWeight.w800,
@@ -20890,7 +21929,7 @@ class StatusDot extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Text(
-          status.isEmpty ? 'cached' : status,
+          context.ui(status.isEmpty ? 'cached' : status),
           style: TextStyle(
             color: palette.muted,
             fontSize: 11,
@@ -20918,7 +21957,7 @@ class EmptyState extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: palette.border),
       ),
-      child: Text(text, style: TextStyle(color: palette.muted)),
+      child: Text(context.ui(text), style: TextStyle(color: palette.muted)),
     );
   }
 }
@@ -20939,9 +21978,9 @@ class ErrorCard extends StatelessWidget {
         children: [
           Icon(Icons.error_outline_rounded, color: palette.negative, size: 34),
           const SizedBox(height: 12),
-          Text(message, style: TextStyle(color: palette.text)),
+          Text(context.ui(message), style: TextStyle(color: palette.text)),
           const SizedBox(height: 16),
-          FilledButton(onPressed: onRetry, child: const Text('Retry')),
+          FilledButton(onPressed: onRetry, child: Text(context.ui('Retry'))),
         ],
       ),
     );
@@ -21177,14 +22216,19 @@ class ValuationRow {
 
   String get auditLabel => auditStatus.isEmpty ? 'audit' : auditStatus;
 
-  String get consensusText {
+  String consensusTextFor(BuildContext context) {
     if (consensusUpside == null) {
-      return consensusStatus.isEmpty
-          ? 'no consensus guardrail'
-          : consensusStatus;
+      return context.ui(
+        consensusStatus.isEmpty ? 'no consensus guardrail' : consensusStatus,
+      );
     }
-    final status = consensusStatus.isEmpty ? 'consensus' : consensusStatus;
-    return '$status · street ${formatReturn(consensusUpside!)}';
+    final status = context.ui(
+      consensusStatus.isEmpty ? 'consensus' : consensusStatus,
+    );
+    return context.tr(
+      '$status · 市场 ${formatReturn(consensusUpside!)}',
+      '$status · street ${formatReturn(consensusUpside!)}',
+    );
   }
 }
 
@@ -21496,13 +22540,22 @@ double activityRankAmount(
   return previousValue > 0 ? previousValue : value;
 }
 
-String activityRankSubtitle(GuruActivityRankItem item) {
+String activityRankSubtitle(
+  GuruActivityRankItem item, [
+  AppLanguage language = AppLanguage.en,
+]) {
   final names = item.guruNames.take(3).join(', ');
   final suffix = item.guruCount > 3 ? ' +' : '';
   final quarter = reportQuarterLabel(item.reportDate);
-  final prefix = '${item.guruCount} gurus';
+  final prefix = trFor(
+    language,
+    '${item.guruCount} 位投资人',
+    '${item.guruCount} gurus',
+  );
   final namePart = names.isEmpty ? '' : ' · $names$suffix';
-  final quarterPart = quarter == '-' ? '' : ' · latest $quarter';
+  final quarterPart = quarter == '-'
+      ? ''
+      : trFor(language, ' · 最新 $quarter', ' · latest $quarter');
   return '$prefix$namePart$quarterPart';
 }
 
@@ -21580,13 +22633,14 @@ String compactName(String value) => value
     .replaceAll(RegExp(r' - COMMON STOCK.*$', caseSensitive: false), '')
     .trim();
 
-String disclosureLabel(String type) => switch (type) {
-  'manager13f' => '13F fund',
-  'insider' => 'Form 4',
-  'congress' => 'STOCK Act',
-  'profile' => 'Profile',
-  _ => type.isEmpty ? 'Disclosure' : type,
-};
+String disclosureLabel(String type, [AppLanguage language = AppLanguage.en]) =>
+    switch (type) {
+      'manager13f' => trFor(language, '13F 基金', '13F fund'),
+      'insider' => trFor(language, 'Form 4 高管交易', 'Form 4'),
+      'congress' => trFor(language, '国会交易', 'STOCK Act'),
+      'profile' => trFor(language, '资料', 'Profile'),
+      _ => type.isEmpty ? trFor(language, '公开披露', 'Disclosure') : type,
+    };
 
 String actionLabel(String action, [AppLanguage language = AppLanguage.en]) =>
     switch (action) {
@@ -21600,6 +22654,8 @@ String actionLabel(String action, [AppLanguage language = AppLanguage.en]) =>
       'option_exercise' => trFor(language, '行权', 'Option exercise'),
       'tax_withholding' => trFor(language, '税务扣缴', 'Tax withholding'),
       'gift' => trFor(language, '赠与', 'Gift'),
+      'disposed_to_issuer' => trFor(language, '处置给发行人', 'Disposed to issuer'),
+      'other' => trFor(language, '其他', 'Other'),
       _ => action.isEmpty ? trFor(language, '其他', 'Other') : action,
     };
 
@@ -21734,9 +22790,14 @@ String compactStrategy(String value) {
   return cleaned.length <= 18 ? cleaned : cleaned.substring(0, 18).trim();
 }
 
-String toolbarDateLabel(String generatedAt) {
+String toolbarDateLabel(
+  String generatedAt, [
+  AppLanguage language = AppLanguage.en,
+]) {
   final date = DateTime.tryParse(generatedAt)?.toLocal() ?? DateTime.now();
-  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  final weekdays = language == AppLanguage.zh
+      ? const ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+      : const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   final day = weekdays[date.weekday - 1];
   return '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')} ($day)';
 }
@@ -21852,15 +22913,23 @@ String formatMillions(double? value) {
   return '$sign${abs.toStringAsFixed(abs >= 100 ? 0 : 1)}M';
 }
 
-String formatSharesMillions(double? value) {
+String formatSharesMillions(double? value, AppLanguage language) {
   if (value == null || !value.isFinite) return '-';
   final abs = value.abs();
   final sign = value < 0 ? '-' : '';
   if (abs >= 1000) {
     final scaled = abs / 1000;
-    return '$sign${scaled.toStringAsFixed(scaled >= 10 ? 1 : 2)}B sh';
+    return trFor(
+      language,
+      '$sign${scaled.toStringAsFixed(scaled >= 10 ? 1 : 2)}B 股',
+      '$sign${scaled.toStringAsFixed(scaled >= 10 ? 1 : 2)}B sh',
+    );
   }
-  return '$sign${abs.toStringAsFixed(abs >= 100 ? 0 : 1)}M sh';
+  return trFor(
+    language,
+    '$sign${abs.toStringAsFixed(abs >= 100 ? 0 : 1)}M 股',
+    '$sign${abs.toStringAsFixed(abs >= 100 ? 0 : 1)}M sh',
+  );
 }
 
 String formatPercentInput(double? value) {

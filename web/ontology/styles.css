@@ -118,6 +118,28 @@ button { cursor: pointer; }
 .global-search-results p { margin: 0; padding: 16px; color: var(--muted); font-size: 12px; }
 
 .top-controls { display: flex; align-items: center; gap: 14px; }
+.language-switch {
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+.language-switch button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+.language-switch button.active {
+  color: var(--accent);
+  background: #14384a;
+}
 .mobile-filter-button {
   display: none;
   height: 38px;
@@ -751,8 +773,14 @@ tbody tr:hover { background: var(--accent-soft); }
   .industry-structure { overflow-x: auto; }
   .industry-row { min-width: 720px; }
   .company-heading { display: block; }
-  .company-controls { margin-top: 12px; }
-  .company-controls input { width: min(58vw, 260px); }
+  .company-controls {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    margin-top: 12px;
+  }
+  .company-controls input,
+  .company-controls select { width: 100%; }
   .ontology-lane { grid-template-columns: 130px minmax(500px, 1fr); min-width: 650px; }
   .company-ontology { overflow-x: auto; }
   .dialog-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2013,6 +2041,15 @@ select,
 
   .decision-table {
     min-width: 720px;
+  }
+
+  .decision-timeline-bars {
+    gap: 0;
+    overflow: hidden;
+  }
+
+  .decision-timeline-bar {
+    min-width: 0;
   }
 
   .decision-performance {
@@ -3421,4 +3458,49 @@ tbody tr {
 .guru-back-link:hover,
 .guru-back-link:focus-visible {
   color: var(--accent);
+}
+
+/* Keep the language, flow, and six-view controls inside intermediate widths. */
+@media (min-width: 1280px) and (max-width: 1540px) {
+  .topbar,
+  .topbar.strategy-mode {
+    grid-template-columns: minmax(260px, 1fr) auto;
+  }
+
+  .topbar > .search-box {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .top-controls {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1279px) {
+  .topbar,
+  .topbar.strategy-mode {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .brand-block {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .top-controls {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+  }
+
+  .topbar > .search-box {
+    grid-column: 1;
+    grid-row: 3;
+    width: 100%;
+  }
 }
