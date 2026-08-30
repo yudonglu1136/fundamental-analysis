@@ -6,15 +6,25 @@ import {
   buildValuationRows,
   compactTicker,
   digestGuidanceMetrics,
+  guidancePlusMinusCenterM,
   hasExplicitValuationProfile,
   profileSettings,
   readPriceHistoryFromDb,
   updateTickerSnapshot
 } from "./importSecQuarterlyValuations.js";
+import {
+  guidanceBoundaryAudit,
+  guidanceMetricsBeforeNextFinancialRelease,
+  nextDistinctFinancialReleaseDate
+} from "./pitGuidanceBoundary.js";
+import { valuationMarketPriceSymbol } from "./tickerAliases.js";
+import { nullableFiniteNumber } from "./pitScalar.js";
+import { preserveTranscriptQaByFiscalPeriod } from "./valuationTranscriptQa.js";
 
 const TARGET_DB_PATH = process.env.SQLITE_DB_PATH || path.join(process.cwd(), "server/data/guru-analysis.sqlite");
 const SOURCE_DB_PATH = process.env.PIT_VALUATION_SOURCE_PATH || path.join(process.cwd(), "server/data/valuation-pit-source.sqlite");
-const MODEL_VERSION = process.env.PIT_VALUATION_MODEL_VERSION || "pit-valuation-v15-official-uk-audit-2026-08-29";
+const MODEL_VERSION = process.env.PIT_VALUATION_MODEL_VERSION || "pit-valuation-v55-actual-value-and-owner-audit-2026-08-30";
+const GENERATED_AT_OVERRIDE = process.env.PIT_VALUATION_GENERATED_AT || "";
 const SEC_FACTS_CACHE_DIR = process.env.SEC_FACTS_CACHE_DIR || path.join(process.cwd(), "server/data/sec-companyfacts");
 const PIT_SOURCE_LABEL = "valuation-pit-source";
 const PIT_GUIDANCE_LABEL = "valuation-pit-guidance";
@@ -30,8 +40,16 @@ function parseJson(value, fallback = null) {
 }
 
 function finiteNumber(value) {
-  const result = Number(value);
-  return Number.isFinite(result) ? result : null;
+  return nullableFiniteNumber(value);
+}
+
+function releaseGeneratedAt() {
+  if (!GENERATED_AT_OVERRIDE) return new Date().toISOString();
+  const parsed = new Date(GENERATED_AT_OVERRIDE);
+  if (!Number.isFinite(parsed.getTime())) {
+    throw new Error(`Invalid PIT_VALUATION_GENERATED_AT: ${GENERATED_AT_OVERRIDE}`);
+  }
+  return parsed.toISOString();
 }
 
 function margin(numerator, denominator) {
@@ -42,6 +60,36 @@ function maxDate(...dates) {
   return dates.filter(Boolean).sort().at(-1) || null;
 }
 
+const FISCAL_CALENDAR_TRANSITIONS = {
+  GPN: {
+    start: "2016-06-01",
+    end: "2017-12-31",
+    note: "Global Payments changed its fiscal year end from May 31 to December 31 and reported a seven-month transition period ending December 31, 2016.",
+    source: "https://www.sec.gov/Archives/edgar/data/1123360/000112336018000007/gpn20171231-10k.htm"
+  },
+  MOS: {
+    start: "2013-06-01",
+    end: "2014-12-31",
+    note: "Mosaic changed its fiscal year end from May 31 to December 31 and reported a seven-month transition period ending December 31, 2013.",
+    source: "https://www.sec.gov/Archives/edgar/data/1285785/000161803415000005/mos-20141231x10k.htm"
+  }
+};
+
+function markFiscalCalendarTransition(ticker, row) {
+  const periodEndDate = String(row?.periodEndDate || row?.sourceRecord?.reportperiod || "").slice(0, 10);
+  const transition = FISCAL_CALENDAR_TRANSITIONS[ticker];
+  if (!transition || periodEndDate < transition.start || periodEndDate > transition.end) return row;
+  return {
+    ...row,
+    sourceRecord: {
+      ...(row.sourceRecord || {}),
+      fiscalCalendarTransition: true,
+      fiscalCalendarTransitionNote: `${transition.note} Provider fiscal labels are preserved while valuation nodes remain ordered by first-visible filing date.`,
+      fiscalCalendarTransitionSource: transition.source
+    }
+  };
+}
+
 function mergePriceHistory(existing, incremental) {
   const byDate = new Map();
   for (const point of [...(existing || []), ...(incremental || [])]) {
@@ -49,25 +97,6 @@ function mergePriceHistory(existing, incremental) {
     byDate.set(point.date, point);
   }
   return [...byDate.values()].sort((left, right) => String(left.date).localeCompare(String(right.date)));
-}
-
-function marketPriceConfig(ticker) {
-  if (ticker === "LSEG") return { symbol: "LSEG.L", divisor: 100 };
-  if (ticker === "AZN") return { symbol: "AZN.L", divisor: 100 };
-  if (ticker.endsWith(".L")) return { symbol: ticker, divisor: 100 };
-  return { symbol: ticker, divisor: 1 };
-}
-
-function convertMarketPrices(points, divisor) {
-  if (divisor === 1) return points;
-  return points.map((point) => ({
-    ...point,
-    open: finiteNumber(point.open) == null ? null : finiteNumber(point.open) / divisor,
-    high: finiteNumber(point.high) == null ? null : finiteNumber(point.high) / divisor,
-    low: finiteNumber(point.low) == null ? null : finiteNumber(point.low) / divisor,
-    close: finiteNumber(point.close) / divisor,
-    source: `${point.source || "market price"}; GBp converted to GBP`
-  }));
 }
 
 function sanitizeReleasePayload(value, key = "") {
@@ -202,11 +231,19 @@ function ensurePitTables(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_valuation_pit_model_runs_ticker_asof
       ON valuation_pit_model_runs (ticker, as_of_date);
+    CREATE TABLE IF NOT EXISTS valuation_pit_price_observations (
+      ticker TEXT NOT NULL, fiscal_period TEXT NOT NULL, model_version TEXT NOT NULL,
+      price_symbol TEXT NOT NULL, price_date TEXT NOT NULL, close REAL NOT NULL,
+      quote_currency TEXT, source TEXT, payload_json TEXT NOT NULL, imported_at TEXT NOT NULL,
+      PRIMARY KEY (ticker, fiscal_period, model_version)
+    );
+    CREATE INDEX IF NOT EXISTS idx_valuation_pit_price_observations_symbol_date
+      ON valuation_pit_price_observations (price_symbol, price_date);
   `);
 }
 
-function buildQuarterlyRows(sourceRows, guidanceByPeriod, ticker, sourceTicker) {
-  const parsed = sourceRows.map((row) => parseJson(row.payload_json, {}));
+function buildQuarterlyRows(sourceRows, guidanceByPeriod, guidanceMetricsByPeriod, ticker, sourceTicker) {
+  const parsed = sourceRows.map((row) => markFiscalCalendarTransition(ticker, parseJson(row.payload_json, {})));
   const hasCoreFinancials = (row) =>
     row.revenue_m != null || row.net_income_m != null || row.cfo_m != null;
   const rowsByPeriod = new Map();
@@ -228,19 +265,37 @@ function buildQuarterlyRows(sourceRows, guidanceByPeriod, ticker, sourceTicker) 
       };
     })
     .filter(Boolean);
-  const byPeriod = new Map(selected.map((row) => [`${row.fiscalYear}::${row.fiscalQuarter}`, row]));
-  return selected
+  const releasedRows = selected.map((row) => ({
+    ...row,
+    requiresReportedTrailingBasis: true,
+    financialAvailableAt: maxDate(row.asOfDate, row.trailingTwelveMonthsAvailableAt)
+  }));
+  const byPeriod = new Map(releasedRows.map((row) => [`${row.fiscalYear}::${row.fiscalQuarter}`, row]));
+  return releasedRows
     .map((row) => {
       const prior = byPeriod.get(`${row.fiscalYear - 1}::${row.fiscalQuarter}`);
       const guidanceKey = `${ticker}::Q${String(row.fiscalQuarter).replace("Q", "")}${row.fiscalYear}`;
       const sourceGuidanceKey = `${sourceTicker}::Q${String(row.fiscalQuarter).replace("Q", "")}${row.fiscalYear}`;
-      const guidance = guidanceByPeriod.get(guidanceKey) || guidanceByPeriod.get(sourceGuidanceKey) || null;
-      const financialAvailableAt = maxDate(row.asOfDate, row.trailingTwelveMonthsAvailableAt);
-      const asOfDate = maxDate(financialAvailableAt, guidance?.maxObservedAt);
+      const candidateMetrics = guidanceMetricsByPeriod?.get(guidanceKey) ||
+        guidanceMetricsByPeriod?.get(sourceGuidanceKey) ||
+        [];
+      const nextFinancialAvailableAt = nextDistinctFinancialReleaseDate(releasedRows, row.financialAvailableAt);
+      const boundedMetrics = guidanceMetricsBeforeNextFinancialRelease(candidateMetrics, nextFinancialAvailableAt);
+      let guidance = boundedMetrics.length
+        ? digestGuidanceMetrics(boundedMetrics, { sourceDatabase: PIT_GUIDANCE_LABEL })
+        : null;
+      if (!guidanceMetricsByPeriod && !candidateMetrics.length) {
+        const legacyGuidance = guidanceByPeriod.get(guidanceKey) || guidanceByPeriod.get(sourceGuidanceKey) || null;
+        guidance = nextFinancialAvailableAt && legacyGuidance?.maxObservedAt >= nextFinancialAvailableAt
+          ? null
+          : legacyGuidance;
+      }
+      const asOfDate = maxDate(row.financialAvailableAt, guidance?.maxObservedAt);
       return {
         ...row,
         asOfDate,
-        financialAvailableAt,
+        pitGuidance: guidance,
+        pitGuidanceBoundary: guidanceBoundaryAudit(candidateMetrics, boundedMetrics, nextFinancialAvailableAt),
         revenue_growth_pct: row.revenue_m != null && prior?.revenue_m
           ? (row.revenue_m / prior.revenue_m - 1) * 100
           : null,
@@ -286,7 +341,7 @@ function attachPointInTimeSupplements(ticker, rows, existingSnapshot) {
 function readPitGuidance(source, tickers) {
   const placeholders = tickers.map(() => "?").join(",");
   if (!placeholders) return { rows: [], byPeriod: new Map() };
-  const rows = source.prepare(`
+  const statement = source.prepare(`
     SELECT *
     FROM pit_guidance_events
     WHERE ticker IN (${placeholders})
@@ -294,7 +349,9 @@ function readPitGuidance(source, tickers) {
       AND fiscal_period IS NOT NULL
       AND quality_status IN ('clear', 'ambiguous')
     ORDER BY ticker, fiscal_period, observed_at, id
-  `).all(...tickers);
+  `);
+  const rows = [];
+  for (const row of statement.iterate(...tickers)) rows.push(row);
   const targetCurrencies = new Map(source.prepare(`
     SELECT ticker, MAX(currency) AS currency
     FROM pit_financial_periods
@@ -332,7 +389,12 @@ function readPitGuidance(source, tickers) {
     const key = `${ticker}::${fiscalPeriod}`;
     const targetCurrency = targetCurrencies.get(ticker) || null;
     const sourceCurrency = String(row.currency || "").toUpperCase() || null;
-    let modelAmountM = finiteNumber(row.amount);
+    const sourceAmountM = guidancePlusMinusCenterM(
+      `${row.value_text || ""} ${row.evidence_excerpt || ""}`,
+      row.metric_name
+    ) ??
+      finiteNumber(row.amount);
+    let modelAmountM = sourceAmountM;
     let fxConversion = null;
     if (modelAmountM != null && sourceCurrency && targetCurrency && sourceCurrency !== targetCurrency) {
       const sourceRate = rateAtOrBefore(sourceCurrency, row.observed_at);
@@ -343,7 +405,7 @@ function readPitGuidance(source, tickers) {
         fxConversion = {
           sourceCurrency,
           targetCurrency,
-          sourceAmountM: Number(row.amount),
+          sourceAmountM,
           modelAmountM,
           conversionRate,
           sourceRateDate: sourceRate.rate_date,
@@ -368,7 +430,7 @@ function readPitGuidance(source, tickers) {
   for (const [key, metrics] of grouped) {
     byPeriod.set(key, digestGuidanceMetrics(metrics, { sourceDatabase: PIT_GUIDANCE_LABEL }));
   }
-  return { rows, byPeriod };
+  return { rows, byPeriod, metricsByPeriod: grouped };
 }
 
 function insertRawGuidance(db, rows, importedAt) {
@@ -434,7 +496,7 @@ function updateDashboard(db, previousDashboard, snapshots, generatedAt, sourceMe
     ...previousDashboard,
     generatedAt,
     source: {
-      upstreamLabel: "Jansen Sharadar as-reported PIT financials + official UK issuer PIT disclosures + event-visible management guidance",
+      upstreamLabel: "Jansen Sharadar as-reported PIT financials + audited ECB quote-currency normalization + official UK issuer PIT disclosures + event-visible management guidance",
       modelVersion: MODEL_VERSION,
       sourceFingerprint: sourceMetadata.get("source_fingerprint") || null,
       pitCutoffField: "datekey",
@@ -462,9 +524,12 @@ function main() {
       target.prepare("SELECT payload_json FROM valuation_snapshots WHERE id = 'latest'").get()?.payload_json,
       {}
     );
-    const currentSnapshots = new Map(
-      target.prepare("SELECT ticker, payload_json FROM valuation_ticker_snapshots").all()
-        .map((row) => [String(row.ticker).toUpperCase(), parseJson(row.payload_json, {})])
+    const currentSnapshotStatement = target.prepare(
+      "SELECT payload_json FROM valuation_ticker_snapshots WHERE ticker = ?"
+    );
+    const currentSnapshot = (ticker) => parseJson(
+      currentSnapshotStatement.get(String(ticker).toUpperCase())?.payload_json,
+      null
     );
     const coverage = source.prepare("SELECT * FROM pit_financial_coverage ORDER BY ticker").all();
     const guidanceCoverage = source.prepare("SELECT * FROM pit_guidance_coverage ORDER BY ticker").all();
@@ -508,8 +573,9 @@ function main() {
     const evidenceTickers = [...new Set(modelTickers.flatMap((row) => [row.ticker, row.source_ticker]).filter(Boolean))];
     const pitGuidance = readPitGuidance(source, evidenceTickers);
     const guidanceByPeriod = pitGuidance.byPeriod;
+    const guidanceMetricsByPeriod = pitGuidance.metricsByPeriod;
     const rawGuidance = pitGuidance.rows;
-    const generatedAt = new Date().toISOString();
+    const generatedAt = releaseGeneratedAt();
     const nextSnapshots = [];
     const modelRuns = [];
     const results = [];
@@ -521,7 +587,7 @@ function main() {
         blockers.push({ ticker, status: "missing_valuation_profile", note: "Covered PIT ticker has no explicit valuation profile." });
         continue;
       }
-      const existing = currentSnapshots.get(ticker);
+      const existing = currentSnapshot(ticker);
       if (!existing) {
         blockers.push({ ticker, status: "missing_target_snapshot", note: "No current ticker metadata or price history." });
         continue;
@@ -531,14 +597,14 @@ function main() {
       `).all(ticker);
       const quarterlyRows = attachPointInTimeSupplements(
         ticker,
-        buildQuarterlyRows(sourceRows, guidanceByPeriod, ticker, sourceTicker),
+        buildQuarterlyRows(sourceRows, guidanceByPeriod, guidanceMetricsByPeriod, ticker, sourceTicker),
         existing
       );
       const existingPrices = Array.isArray(existing.priceHistory) ? existing.priceHistory : [];
-      const priceConfig = marketPriceConfig(ticker);
-      const databasePrices = convertMarketPrices(
-        readPriceHistoryFromDb(target, priceConfig.symbol, 10_000),
-        priceConfig.divisor
+      const databasePrices = readPriceHistoryFromDb(
+        target,
+        valuationMarketPriceSymbol(ticker),
+        10_000
       );
       const snapshotBase = cleanSnapshot({
         ...existing,
@@ -565,7 +631,7 @@ function main() {
             annualSourceType: "jansen_pit_annual_model",
             sourceQuality: "jansen-sharadar-as-reported-quarterly",
             annualSourceQuality: "jansen-sharadar-as-reported-annual",
-            sourceName: "Jansen Sharadar SF1 as-reported",
+            sourceName: "Jansen Sharadar SF1 as-reported PIT financials with audited quote-currency normalization",
             eventType: "pit_quarterly_fundamental_guidance_model",
             periodIdPrefix: "jansen-pit",
             modelVersion: MODEL_VERSION
@@ -597,19 +663,23 @@ function main() {
         });
         continue;
       }
+      const snapshotValuationRows = preserveTranscriptQaByFiscalPeriod(
+        valuationRows,
+        existing.history
+      );
       const youtubePeriods = valuationRows.filter((row) => row.dataSnapshot?.youtubeEarnings?.guidanceMetricCount).length;
       const next = updateTickerSnapshot({
         ticker,
         snapshot: snapshotBase,
-        valuationRows,
+        valuationRows: snapshotValuationRows,
         coverage: {
           source: officialIssuerPit ? "Official issuer PIT" : "Jansen Sharadar PIT",
           sourceLabel: officialIssuerPit
             ? "Official issuer as-reported financials + PIT management guidance"
-            : "Jansen Sharadar as-reported financials + PIT management guidance",
+            : "Jansen Sharadar as-reported PIT financials + audited ECB quote-currency normalization + PIT management guidance",
           sourceNote: officialIssuerPit
-            ? "Each historical point uses the issuer result available on that date and only guidance visible at the event."
-            : "Each historical point uses the first as-reported datekey record and guidance observable by that event date.",
+            ? "Each historical point uses the issuer result available on that date and only guidance observed before the next distinct financial release."
+            : "Each historical point uses the first as-reported datekey record, audited nearest-prior ECB FX when quote-currency normalization is required, and only same-period guidance observed before the next distinct financial release.",
           modelType: "Point-in-time Fundamental Analysis model",
           methodCardLabel: "PIT financial + guidance model",
           methodCardDescription: "Constant-method historical replay using only financials and management guidance visible at each event.",
@@ -632,7 +702,7 @@ function main() {
         pitGuidancePeriods: youtubePeriods,
         modelVersion: MODEL_VERSION,
         sourceFingerprint: sourceMetadata.get("source_fingerprint") || null,
-        revisionPolicy: "earliest datekey per fiscal period"
+        revisionPolicy: "earliest datekey per fiscal period; guidance strictly before next distinct financial release"
       };
       nextSnapshots.push(compactSnapshotPriceHistory(next));
       for (const output of valuationRows) {
@@ -653,7 +723,23 @@ function main() {
             sourceRecord: output.dataSnapshot?.financialSource?.record || null,
             trailingTwelveMonthsSourceRecord: output.dataSnapshot?.financialSource?.trailingTwelveMonthsRecord || null
           },
-          output
+          output,
+          priceObservation: finiteNumber(output.priceAtDate) > 0 && output.priceDate
+            ? {
+                priceSymbol: valuationMarketPriceSymbol(ticker),
+                priceDate: String(output.priceDate).slice(0, 10),
+                close: finiteNumber(output.priceAtDate),
+                quoteCurrency: existing.currency || null,
+                source: output.dataSnapshot?.asOfPriceSource?.source || existing.priceSource || "snapshot price history",
+                payload: {
+                  ticker,
+                  sourceTicker,
+                  asOfDate: output.asOfDate,
+                  source: output.dataSnapshot?.asOfPriceSource || null,
+                  policy: "Exact raw market-price observation used only for comparison with the PIT fair-value output."
+                }
+              }
+            : null
         });
       }
       results.push({ ticker, sourceTicker, financialRows: quarterlyRows.length, valuationRows: valuationRows.length, guidancePeriods: youtubePeriods });
@@ -663,7 +749,7 @@ function main() {
     for (const coverageRow of derivedCoverage) {
       const ticker = String(coverageRow.ticker || "").toUpperCase();
       const sourceTicker = String(coverageRow.source_ticker || ticker).toUpperCase();
-      const existing = currentSnapshots.get(ticker);
+      const existing = currentSnapshot(ticker);
       if (!existing) continue;
       const snapshotBase = cleanSnapshot(existing);
       nextSnapshots.push(compactSnapshotPriceHistory({
@@ -724,12 +810,18 @@ function main() {
         DELETE FROM valuation_pit_financials;
         DELETE FROM valuation_pit_guidance;
         DELETE FROM valuation_pit_model_runs;
+        DELETE FROM valuation_pit_price_observations;
         DELETE FROM valuation_ticker_snapshots;
         DELETE FROM valuation_snapshots;
       `);
       const insertMeta = target.prepare("INSERT INTO valuation_pit_source_metadata (key, value, imported_at) VALUES (?, ?, ?)");
       for (const [key, value] of sourceMetadata) insertMeta.run(key, value, generatedAt);
       insertMeta.run("model_version", MODEL_VERSION, generatedAt);
+      insertMeta.run(
+        "market_price_unit_policy",
+        "price_points values are already stored in the quoted security currency; ticker suffixes never trigger an additional unit conversion",
+        generatedAt
+      );
       const insertFinancial = target.prepare(`
         INSERT INTO valuation_pit_financials (
           ticker, source_ticker, fiscal_period, fiscal_year, fiscal_quarter, dimension,
@@ -757,6 +849,27 @@ function main() {
         insertRun.run(
           run.ticker, run.fiscalPeriod, MODEL_VERSION, run.asOfDate, run.financialAvailableAt,
           run.guidanceMaxObservedAt, JSON.stringify(run.input), JSON.stringify(run.output), generatedAt
+        );
+      }
+      const insertPriceObservation = target.prepare(`
+        INSERT INTO valuation_pit_price_observations (
+          ticker, fiscal_period, model_version, price_symbol, price_date, close,
+          quote_currency, source, payload_json, imported_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const run of modelRuns) {
+        if (!run.priceObservation) continue;
+        insertPriceObservation.run(
+          run.ticker,
+          run.fiscalPeriod,
+          MODEL_VERSION,
+          run.priceObservation.priceSymbol,
+          run.priceObservation.priceDate,
+          run.priceObservation.close,
+          run.priceObservation.quoteCurrency,
+          run.priceObservation.source,
+          JSON.stringify(run.priceObservation.payload),
+          generatedAt
         );
       }
       updateDashboard(target, previousDashboard, nextSnapshots, generatedAt, sourceMetadata);

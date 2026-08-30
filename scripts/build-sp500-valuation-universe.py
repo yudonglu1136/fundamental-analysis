@@ -41,6 +41,9 @@ def valuation_profile(ticker: str, sector: str | None, industry: str | None) -> 
     mega-cap catch-all.
     """
 
+    if ticker in {"CPAY", "FI", "FIS", "FISV", "GPN", "PYPL", "XYZ"}:
+        return "payments_processor"
+
     sector = str(sector or "")
     industry = str(industry or "")
     if sector == "Financial Services":

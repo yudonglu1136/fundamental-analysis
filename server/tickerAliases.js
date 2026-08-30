@@ -7,6 +7,11 @@ const explicitLondonAliases = new Map([
   ["LSEG.L", { valuation: "LSEG", market: "LSEG.L", display: "LSEG.L" }]
 ]);
 
+const valuationMarketAliases = new Map([
+  ["AZN", "AZN.L"],
+  ["LSEG", "LSEG.L"]
+]);
+
 export function normalizeTicker(value) {
   return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.-]/g, "");
 }
@@ -139,4 +144,10 @@ export function yahooChartSymbol(value) {
   if (!ticker) return "";
   if (ticker.endsWith(".L")) return ticker;
   return ticker.replace(/\./g, "-");
+}
+
+export function valuationMarketPriceSymbol(value) {
+  const ticker = normalizeTicker(value);
+  if (!ticker) return "";
+  return valuationMarketAliases.get(ticker) || ticker;
 }

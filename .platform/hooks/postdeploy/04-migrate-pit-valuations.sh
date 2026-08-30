@@ -109,6 +109,7 @@ replace_tables = (
     "valuation_pit_financials",
     "valuation_pit_guidance",
     "valuation_pit_model_runs",
+    "valuation_pit_price_observations",
     "valuation_ticker_snapshots",
     "valuation_snapshots",
 )
@@ -227,6 +228,10 @@ try:
     connection.execute(
         "CREATE INDEX idx_valuation_pit_model_runs_ticker_asof "
         "ON valuation_pit_model_runs (ticker, as_of_date)"
+    )
+    connection.execute(
+        "CREATE INDEX idx_valuation_pit_price_observations_symbol_date "
+        "ON valuation_pit_price_observations (price_symbol, price_date)"
     )
 
     after_counts = {

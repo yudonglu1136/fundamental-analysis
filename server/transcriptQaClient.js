@@ -162,11 +162,43 @@ function extractQuestion(body) {
   return cleanText(question, MAX_QUESTION_CHARS);
 }
 
+function isUsableQuestionText(question) {
+  const value = cleanText(question);
+  if (!value || !value.includes("?")) return false;
+  if (
+    /ready to open (?:the )?call to questions|open (?:the )?(?:call|line) (?:to|for) questions|turn (?:the call )?(?:back )?to (?:the )?operator|operator\s*\?\s*$|introduce (?:the )?(?:first|next) question|take (?:the )?(?:first|next) question/i.test(value)
+  ) {
+    return false;
+  }
+  if (/can (?:you|everyone) (?:guys )?hear me|hear me (?:now|okay)|video (?:stream|feed)/i.test(value)) {
+    return false;
+  }
+  const words = value.match(/[A-Za-z0-9$%]+(?:['’-][A-Za-z0-9]+)*/g) || [];
+  if (value.length < 16 || words.length < 4) return false;
+  if (/^[A-Z][A-Za-z.'-]+\s*\?$/.test(value)) return false;
+  return true;
+}
+
+function isUsableAnswerText(answer) {
+  const value = cleanText(answer);
+  const words = value.match(/[A-Za-z0-9$%]+(?:['’-][A-Za-z0-9]+)*/g) || [];
+  if (value.length < 80 || words.length < 12) return false;
+  if (/^(?:Operator|Management)\s*:\s*(?:yes|no|correct|thank you)[.!]?$/i.test(value)) return false;
+  return true;
+}
+
 function isQuestionSegment(segment, context = null, segmentIndex = -1) {
   if (isTranscriptPlaceholderText(segment.text)) return false;
   const parsed = splitSegmentText(segment.text);
   if (isTranscriptPlaceholderText(parsed.speaker) || isTranscriptPlaceholderText(parsed.body)) return false;
   if (!parsed.body.includes("?")) return false;
+  if (
+    context &&
+    Number.isFinite(context.qaStartIndex) &&
+    segmentIndex <= context.qaStartIndex
+  ) {
+    return false;
+  }
   const role = speakerRole(parsed.speaker, parsed.body);
   if (role === "analyst") return true;
   if (role === "ir" && /asks?|question from|received a question/i.test(parsed.body)) return true;
@@ -188,7 +220,16 @@ function answerContextAfter(segments, questionIndex, context = null) {
     if (isTranscriptPlaceholderText(parsed.speaker) || isTranscriptPlaceholderText(parsed.body)) break;
     if (!parsed.body) continue;
     const role = speakerRole(parsed.speaker, parsed.body);
-    if (role === "analyst") break;
+    if (role === "analyst") {
+      const analystWords = parsed.body.match(/[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*/g) || [];
+      const briefGreeting = analystWords.length <= 8 &&
+        /^(?:hi|hello|thanks?|thank you|good (?:morning|afternoon|evening))\b/i.test(parsed.body);
+      if (briefGreeting && !parsed.body.includes("?")) continue;
+      break;
+    }
+    if (role === "operator" || role === "ir") continue;
+    const key = speakerKey(parsed.speaker);
+    if (role !== "management" && (!context || !context.managementSpeakers.has(key))) continue;
     const label = parsed.speaker || "Management";
     pieces.push(`${label}: ${parsed.body}`);
   }
@@ -300,11 +341,11 @@ export function readTranscriptQaBundleByTickerPeriod(db, tickerSet, { limitPerPe
       const parsed = splitSegmentText(segment.text);
       const question = extractQuestion(parsed.body);
       if (isTranscriptPlaceholderText(question)) continue;
-      if (!question) continue;
+      if (!isUsableQuestionText(question)) continue;
       const questionKey = `${key}::${question.toLowerCase()}`;
       if (seenQuestions.has(questionKey)) continue;
       const answer = answerContextAfter(segments, index, context);
-      if (!answer || isTranscriptPlaceholderText(answer)) continue;
+      if (!isUsableAnswerText(answer) || isTranscriptPlaceholderText(answer)) continue;
       seenQuestions.add(questionKey);
       existing.push({
         ticker: call.parsed.ticker,

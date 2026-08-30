@@ -154,23 +154,30 @@ async function translateChunkWithGoogle(chunk) {
   url.searchParams.set("dt", "t");
   url.searchParams.set("q", cleaned);
 
-  const response = await fetch(url, {
-    headers: {
-      "accept": "application/json,text/plain,*/*",
-      "user-agent": "guru-analysis-dashboard/0.1"
+  let lastError;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "accept": "application/json,text/plain,*/*",
+          "user-agent": "guru-analysis-dashboard/0.1"
+        }
+      });
+      if (!response.ok) throw new Error(`translation upstream ${response.status}`);
+      const payload = await response.json();
+      const translated = Array.isArray(payload?.[0])
+        ? payload[0].map((part) => part?.[0] || "").join("").trim()
+        : "";
+      if (!translated) throw new Error("translation upstream returned empty text");
+      const polished = polishChineseTranslation(translated);
+      translationCache.set(key, polished);
+      return polished;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** attempt));
     }
-  });
-  if (!response.ok) {
-    throw new Error(`translation upstream ${response.status}`);
   }
-  const payload = await response.json();
-  const translated = Array.isArray(payload?.[0])
-    ? payload[0].map((part) => part?.[0] || "").join("").trim()
-    : "";
-  if (!translated) throw new Error("translation upstream returned empty text");
-  const polished = polishChineseTranslation(translated);
-  translationCache.set(key, polished);
-  return polished;
+  throw lastError;
 }
 
 async function translateChunkWithOpenAI(chunk) {

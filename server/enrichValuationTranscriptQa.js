@@ -1,14 +1,18 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { normalizeEarningsPeriod, readTranscriptQaBundleByTickerPeriod } from "./transcriptQaClient.js";
-import { translateTextToChinese } from "./translationClient.js";
+import { transcriptQaCoverageSummary } from "./valuationTranscriptQa.js";
 
 const CURRENT_DB_PATH = process.env.SQLITE_DB_PATH || path.join(process.cwd(), "server/data/guru-analysis.sqlite");
 const YOUTUBE_DB_PATH = process.env.YOUTUBE_TRANSCRIPT_DB_PATH || "/Users/yudonglu/Documents/youtube_transcript_db/transcripts.sqlite";
-const SHOULD_TRANSLATE_ZH = process.env.TRANSCRIPT_QA_TRANSLATE_ZH !== "false";
+const SHOULD_TRANSLATE_ZH = process.env.TRANSCRIPT_QA_TRANSLATE_ZH === "true";
 const FORCE_RETRANSLATE_ZH = process.env.TRANSCRIPT_QA_FORCE_RETRANSLATE_ZH === "true";
-const TRANSLATION_CONCURRENCY = Math.max(1, Number(process.env.TRANSCRIPT_QA_TRANSLATION_CONCURRENCY || 6));
+const GENERATED_AT = String(process.env.TRANSCRIPT_QA_GENERATED_AT || "").trim() || null;
+const TRANSLATION_CACHE_PATH = String(process.env.TRANSCRIPT_QA_TRANSLATION_CACHE_PATH || "").trim() || null;
+const TRANSLATION_AUDIT_PATH = String(process.env.TRANSCRIPT_QA_TRANSLATION_AUDIT_PATH || "").trim() || null;
+const ENRICHMENT_VERSION = "valuation-transcript-qa-v3-audited-cache-only";
 const FALLBACK_ANSWER = "Management response context is not available in the structured transcript extract.";
 
 function parseJson(value, fallback = null) {
@@ -116,15 +120,23 @@ function resolvedQaForHistoryRow(ticker, historyRow, qaByPeriod, coverageByPerio
   const qa = qaByPeriod.get(key) || [];
   const existingQa = historyRow.dataSnapshot?.youtubeEarnings?.qa || [];
   const existingCoverage = historyRow.dataSnapshot?.youtubeEarnings?.qaCoverage || {};
+  const hasCurrentSourceCoverage = coverageByPeriod.has(key);
   const coverage = coverageByPeriod.get(key) || missingCoverage(ticker, period, historyRow, existingCoverage);
-  const qaRows = qa.length
-    ? (existingQa.length ? mergeStoredQaTranslations(qa, existingQa) : qa)
+  const qaRows = hasCurrentSourceCoverage
+    ? (qa.length && existingQa.length ? mergeStoredQaTranslations(qa, existingQa) : qa)
     : existingQa;
   const nextCoverage = {
     ...coverage,
     ticker,
     fiscalPeriod: period,
-    qaCount: qaRows.length || Number(coverage.qaCount || 0)
+    qaCount: qaRows.length || Number(coverage.qaCount || 0),
+    researchOnly: true,
+    includedInValuationInputs: false,
+    researchAvailableAt: coverage.callDate || null,
+    availableAfterModelNode: Boolean(
+      coverage.callDate && historyRow.asOfDate &&
+      String(coverage.callDate).slice(0, 10) > String(historyRow.asOfDate).slice(0, 10)
+    )
   };
   if (qaRows.length) {
     nextCoverage.status = "has_qa";
@@ -137,7 +149,7 @@ function resolvedQaForHistoryRow(ticker, historyRow, qaByPeriod, coverageByPerio
     qaRows,
     coverage: nextCoverage,
     hasFreshQa: qa.length > 0,
-    preservedExistingQa: !qa.length && existingQa.length > 0
+    preservedExistingQa: !hasCurrentSourceCoverage && existingQa.length > 0
   };
 }
 
@@ -176,36 +188,89 @@ function collectTranslationSources(qaRows, sources) {
 }
 
 async function translateSourcesToChinese(sources) {
-  const values = [...sources].filter(Boolean);
-  const translatedBySource = new Map();
-  if (!values.length) return translatedBySource;
+  const cachedTranslations = readTranslationCache();
+  const values = [...sources].filter((source) =>
+    source && !enoughChineseForSource(cachedTranslations.get(source), source)
+  );
+  if (values.length) {
+    const sample = values.slice(0, 3).map((value) => value.slice(0, 120));
+    throw new Error(
+      `Audited local transcript translation cache is incomplete: ${values.length} source fields are missing. ` +
+      `Run scripts/translate-valuation-qa-mlx.py first. Samples: ${JSON.stringify(sample)}`
+    );
+  }
+  if (SHOULD_TRANSLATE_ZH && !TRANSLATION_CACHE_PATH) {
+    throw new Error(
+      "TRANSCRIPT_QA_TRANSLATION_CACHE_PATH is required when TRANSCRIPT_QA_TRANSLATE_ZH=true."
+    );
+  }
+  if (SHOULD_TRANSLATE_ZH && !fs.existsSync(TRANSLATION_CACHE_PATH)) {
+    throw new Error(`Audited transcript translation cache not found at ${TRANSLATION_CACHE_PATH}`);
+  }
+  return new Map(cachedTranslations);
+}
 
-  let completed = 0;
-  let cursor = 0;
-  async function worker() {
-    while (cursor < values.length) {
-      const index = cursor;
-      cursor += 1;
-      const source = values[index];
-      try {
-        const translated = await translateTextToChinese(source);
-        translatedBySource.set(source, enoughChineseForSource(translated, source) ? translated : source);
-      } catch (error) {
-        console.warn(`translation failed for item ${index + 1}/${values.length}: ${error.message}`);
-        translatedBySource.set(source, source);
-      } finally {
-        completed += 1;
-        if (completed % 50 === 0 || completed === values.length) {
-          console.log(`translated ${completed}/${values.length} transcript Q&A fields`);
-        }
-      }
+function readTranslationCache() {
+  if (!TRANSLATION_CACHE_PATH || !fs.existsSync(TRANSLATION_CACHE_PATH)) return new Map();
+  const payload = parseJson(fs.readFileSync(TRANSLATION_CACHE_PATH, "utf8"), {});
+  return new Map(
+    Object.entries(payload || {}).filter(([source, translated]) =>
+      enoughChineseForSource(translated, source)
+    )
+  );
+}
+
+function fileSha256(filePath) {
+  return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+}
+
+function auditedTranslationLineage(sources, translations) {
+  if (!SHOULD_TRANSLATE_ZH) return null;
+  if (!TRANSLATION_AUDIT_PATH) {
+    throw new Error(
+      "TRANSCRIPT_QA_TRANSLATION_AUDIT_PATH is required when TRANSCRIPT_QA_TRANSLATE_ZH=true."
+    );
+  }
+  if (!fs.existsSync(TRANSLATION_AUDIT_PATH)) {
+    throw new Error(`Audited transcript translation report not found at ${TRANSLATION_AUDIT_PATH}`);
+  }
+  const payload = parseJson(fs.readFileSync(TRANSLATION_AUDIT_PATH, "utf8"), {});
+  const sourceAudits = payload.sources && typeof payload.sources === "object" ? payload.sources : {};
+  const statusCounts = {};
+  const failures = [];
+  for (const source of sources) {
+    const audit = sourceAudits[source];
+    const status = String(audit?.status || "missing");
+    statusCounts[status] = (statusCounts[status] || 0) + 1;
+    const expectedSourceHash = crypto.createHash("sha256").update(source).digest("hex");
+    if (!audit || !["pass", "approved"].includes(status)) {
+      failures.push({ source: source.slice(0, 160), status });
+      continue;
+    }
+    if (audit.source_sha256 !== expectedSourceHash) {
+      failures.push({ source: source.slice(0, 160), status, code: "source_hash_mismatch" });
+    }
+    if (!enoughChineseForSource(translations.get(source), source)) {
+      failures.push({ source: source.slice(0, 160), status, code: "cache_translation_missing" });
     }
   }
-
-  await Promise.all(
-    Array.from({ length: Math.min(TRANSLATION_CONCURRENCY, values.length) }, () => worker())
-  );
-  return translatedBySource;
+  if (failures.length) {
+    throw new Error(
+      `Transcript translation audit failed for ${failures.length} used source fields. ` +
+      `Samples: ${JSON.stringify(failures.slice(0, 5))}`
+    );
+  }
+  return {
+    status: "pass",
+    model: payload.model || null,
+    numericProtection: payload.numericProtection || null,
+    systemPromptSha256: payload.systemPromptSha256 || null,
+    retrySystemPromptSha256: payload.retrySystemPromptSha256 || null,
+    usedSourceCount: sources.size,
+    statusCounts: Object.fromEntries(Object.entries(statusCounts).sort(([left], [right]) => left.localeCompare(right))),
+    cacheSha256: fileSha256(TRANSLATION_CACHE_PATH),
+    auditSha256: fileSha256(TRANSLATION_AUDIT_PATH)
+  };
 }
 
 function translatedValue(sourceValue, existingValue, translatedBySource) {
@@ -229,15 +294,6 @@ function translateQaRowsToChinese(qaRows, translatedBySource) {
   });
 }
 
-function statusCountsForHistory(history) {
-  const counts = {};
-  for (const historyRow of history) {
-    const status = textValue(historyRow.dataSnapshot?.youtubeEarnings?.qaCoverage?.status, "unknown");
-    counts[status] = (counts[status] || 0) + 1;
-  }
-  return counts;
-}
-
 if (!fs.existsSync(CURRENT_DB_PATH)) {
   throw new Error(`Valuation database not found at ${CURRENT_DB_PATH}`);
 }
@@ -249,14 +305,21 @@ const currentDb = new DatabaseSync(CURRENT_DB_PATH);
 const youtubeDb = new DatabaseSync(YOUTUBE_DB_PATH, { readOnly: true });
 
 try {
-  const rows = currentDb.prepare("SELECT ticker, payload_json FROM valuation_ticker_snapshots").all();
-  const tickerSet = new Set(rows.map((row) => String(row.ticker || "").toUpperCase()).filter(Boolean));
+  const tickerList = currentDb.prepare("SELECT ticker FROM valuation_ticker_snapshots ORDER BY ticker")
+    .all()
+    .map((row) => String(row.ticker || "").toUpperCase())
+    .filter(Boolean);
+  const tickerSet = new Set(tickerList);
+  const snapshotByTicker = currentDb.prepare(`
+    SELECT payload_json
+    FROM valuation_ticker_snapshots
+    WHERE ticker = ?
+  `);
   const { qaByPeriod, coverageByPeriod } = readTranscriptQaBundleByTickerPeriod(youtubeDb, tickerSet);
   const translationSources = new Set();
 
-  for (const row of rows) {
-    const ticker = String(row.ticker || "").toUpperCase();
-    const snapshot = parseJson(row.payload_json, {});
+  for (const ticker of tickerList) {
+    const snapshot = parseJson(snapshotByTicker.get(ticker)?.payload_json, {});
     const history = Array.isArray(snapshot.history) ? snapshot.history : [];
     for (const historyRow of history) {
       const { qaRows } = resolvedQaForHistoryRow(ticker, historyRow, qaByPeriod, coverageByPeriod);
@@ -264,6 +327,7 @@ try {
     }
   }
   const translatedBySource = await translateSourcesToChinese(translationSources);
+  const translationAuditLineage = auditedTranslationLineage(translationSources, translatedBySource);
 
   const statement = currentDb.prepare(`
     INSERT INTO valuation_ticker_snapshots (ticker, generated_at, payload_json)
@@ -284,9 +348,8 @@ try {
   let preservedQaRows = 0;
   currentDb.exec("BEGIN");
   try {
-    for (const row of rows) {
-      const ticker = String(row.ticker || "").toUpperCase();
-      const snapshot = parseJson(row.payload_json, {});
+    for (const ticker of tickerList) {
+      const snapshot = parseJson(snapshotByTicker.get(ticker)?.payload_json, {});
       const history = Array.isArray(snapshot.history) ? snapshot.history : [];
       let tickerChanged = false;
       const nextHistory = [];
@@ -321,27 +384,23 @@ try {
       }
       if (!tickerChanged) continue;
       updatedTickers += 1;
-      const generatedAt = new Date().toISOString();
+      const generatedAt = GENERATED_AT || new Date().toISOString();
+      const coverageSummary = transcriptQaCoverageSummary(nextHistory);
       const nextSnapshot = {
         ...snapshot,
         generatedAt,
         history: nextHistory,
         dataQuality: {
           ...(snapshot.dataQuality || {}),
-          transcriptQaPeriods: nextHistory.filter((historyRow) => historyRow.dataSnapshot?.youtubeEarnings?.qa?.length).length,
-          transcriptQaCoverage: {
-            totalPeriods: nextHistory.length,
-            coveragePeriods: nextHistory.filter((historyRow) => historyRow.dataSnapshot?.youtubeEarnings?.qaCoverage).length,
-            qaPeriods: nextHistory.filter((historyRow) => historyRow.dataSnapshot?.youtubeEarnings?.qa?.length).length,
-            statusCounts: statusCountsForHistory(nextHistory)
-          }
+          transcriptQaPeriods: coverageSummary.qaPeriods,
+          transcriptQaCoverage: coverageSummary
         }
       };
       statement.run(ticker, generatedAt, JSON.stringify(nextSnapshot));
     }
     const dashboard = parseJson(currentDb.prepare("SELECT payload_json FROM valuation_snapshots WHERE id = ?").get("latest")?.payload_json, {});
     if (dashboard && Object.keys(dashboard).length) {
-      const generatedAt = new Date().toISOString();
+      const generatedAt = GENERATED_AT || new Date().toISOString();
       currentDb.prepare(`
         INSERT INTO valuation_snapshots (id, generated_at, payload_json)
         VALUES (?, ?, ?)
@@ -359,6 +418,40 @@ try {
           transcriptQaRowsWithoutQa: rowsWithoutQa
         }
       }));
+    }
+    const enrichmentSummary = {
+      version: ENRICHMENT_VERSION,
+      generatedAt: GENERATED_AT || null,
+      updatedTickers,
+      updatedRows,
+      attachedQa,
+      coverageRows,
+      rowsWithoutQa,
+      lockedPreviewRows,
+      missingTranscriptRows,
+      parseMissRows,
+      preservedQaRows,
+      translationPolicy: SHOULD_TRANSLATE_ZH ? "stored_bilingual" : "english_only"
+    };
+    const metadataStatement = currentDb.prepare(`
+      INSERT INTO valuation_pit_source_metadata (key, value, imported_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        imported_at = excluded.imported_at
+    `);
+    const metadataAt = GENERATED_AT || new Date().toISOString();
+    metadataStatement.run("transcript_qa_enrichment_version", ENRICHMENT_VERSION, metadataAt);
+    metadataStatement.run("transcript_qa_enrichment_summary", JSON.stringify(enrichmentSummary), metadataAt);
+    if (translationAuditLineage) {
+      metadataStatement.run(
+        "transcript_qa_translation_audit",
+        JSON.stringify(translationAuditLineage),
+        metadataAt
+      );
+    } else {
+      currentDb.prepare("DELETE FROM valuation_pit_source_metadata WHERE key = ?")
+        .run("transcript_qa_translation_audit");
     }
     currentDb.exec("COMMIT");
   } catch (error) {

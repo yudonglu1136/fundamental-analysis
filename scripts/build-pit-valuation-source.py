@@ -18,6 +18,23 @@ from pathlib import Path
 
 import pyarrow.dataset as ds
 
+try:
+    from pit_fx_rates import (
+        DEFAULT_CACHE_PATH,
+        FxRateBook,
+        IMPORT_VERSION as FX_IMPORT_VERSION,
+        rate_book_for_range,
+        replace_sqlite_rates,
+    )
+except ModuleNotFoundError:
+    from scripts.pit_fx_rates import (
+        DEFAULT_CACHE_PATH,
+        FxRateBook,
+        IMPORT_VERSION as FX_IMPORT_VERSION,
+        rate_book_for_range,
+        replace_sqlite_rates,
+    )
+
 
 DEFAULT_JANSEN_ROOT = Path(
     os.environ.get(
@@ -84,6 +101,7 @@ def parse_args() -> argparse.Namespace:
         help="Deduplicated S&P 500 manifest to union with existing tracked tickers.",
     )
     parser.add_argument("--start-date", default="2010-01-01")
+    parser.add_argument("--fx-cache", type=Path, default=DEFAULT_CACHE_PATH)
     return parser.parse_args()
 
 
@@ -171,21 +189,6 @@ def target_universe(db_path: Path, sp500_path: Path | None) -> list[dict]:
     return sorted([*companies, *extras], key=lambda row: row["ticker"])
 
 
-def price_at_or_before(db_path: Path, symbol: str, date: str) -> float | None:
-    with sqlite3.connect(db_path) as connection:
-        row = connection.execute(
-            """
-            SELECT close
-            FROM price_points
-            WHERE symbol = ? AND date <= ? AND close IS NOT NULL
-            ORDER BY date DESC
-            LIMIT 1
-            """,
-            (symbol, date),
-        ).fetchone()
-    return number(row[0]) if row else None
-
-
 def first_visible_rows(table_rows: list[dict]) -> list[dict]:
     selected: dict[tuple[str, str], dict] = {}
     for row in table_rows:
@@ -200,19 +203,35 @@ def first_visible_rows(table_rows: list[dict]) -> list[dict]:
     return sorted(selected.values(), key=lambda row: (row["datekey"], row["dimension"]))
 
 
-def statement_scale(
-    ui_ticker: str, row: dict, target_db: Path
-) -> tuple[float, str, str]:
-    fxusd = number(row.get("fxusd")) or 1.0
+def statement_conversion(
+    ui_ticker: str, row: dict, fx_rate_book: FxRateBook | None
+) -> dict:
     if ui_ticker in LONDON_SOURCE_TICKERS:
-        return 1.0, "GBP", "Sharadar as-reported local currency"
+        return {
+            "scale": 1.0,
+            "sourceCurrency": "GBP",
+            "modelCurrency": "GBP",
+            "note": "Sharadar as-reported local currency; no FX conversion",
+            "fxConversion": None,
+        }
     if ui_ticker in LONDON_USD_REPORTERS:
-        local_price = price_at_or_before(target_db, "AZN.L", iso(row["datekey"]))
-        source_price = number(row.get("price"))
-        if local_price and source_price and source_price > 0:
-            return local_price / source_price, "GBP", "PIT AZN.L / USD ordinary-share cross-listing ratio"
-        return 0.75, "GBP", "fallback GBP per USD; requires review"
-    return 1.0, "USD", "Sharadar USD-normalized fundamentals"
+        if fx_rate_book is None:
+            raise RuntimeError("AZN PIT source construction requires official ECB FX rates")
+        conversion = fx_rate_book.conversion("USD", "GBP", row["datekey"])
+        return {
+            "scale": conversion["conversionRate"],
+            "sourceCurrency": "USD",
+            "modelCurrency": "GBP",
+            "note": "ECB PIT reference FX; GBP per USD at the nearest prior business day",
+            "fxConversion": conversion,
+        }
+    return {
+        "scale": 1.0,
+        "sourceCurrency": "USD",
+        "modelCurrency": "USD",
+        "note": "Sharadar USD-normalized fundamentals; no FX conversion",
+        "fxConversion": None,
+    }
 
 
 def metric_value(ui_ticker: str, row: dict, local_key: str, usd_key: str | None, currency_scale: float):
@@ -224,16 +243,43 @@ def metric_value(ui_ticker: str, row: dict, local_key: str, usd_key: str | None,
     return scaled(row.get(local_key), currency_scale / fxusd)
 
 
-def build_period(ui_ticker: str, source_ticker: str, row: dict, target_db: Path) -> dict:
+def build_period(
+    ui_ticker: str,
+    source_ticker: str,
+    row: dict,
+    target_db: Path | None = None,
+    fx_rate_book: FxRateBook | None = None,
+) -> dict:
     fiscal_period = str(row["fiscalperiod"])
     fiscal_year, fiscal_quarter = fiscal_period.split("-", 1)
-    currency_scale, currency, currency_note = statement_scale(ui_ticker, row, target_db)
-    if ui_ticker in LONDON_SOURCE_TICKERS:
-        effective_shares = row.get("shareswadil") or row.get("shareswa") or row.get("sharesbas")
-    else:
-        base_shares = row.get("shareswadil") or row.get("shareswa") or row.get("sharesbas")
-        sharefactor = number(row.get("sharefactor")) or 1.0
-        effective_shares = number(base_shares) * sharefactor if base_shares is not None else None
+    conversion = statement_conversion(ui_ticker, row, fx_rate_book)
+    currency_scale = conversion["scale"]
+    currency = conversion["modelCurrency"]
+    currency_note = conversion["note"]
+    share_candidates = (
+        ("sharesbas", row.get("sharesbas")),
+        ("shareswadil", row.get("shareswadil")),
+        ("shareswa", row.get("shareswa")),
+    )
+    share_basis, base_shares = next(
+        ((name, value) for name, value in share_candidates if value is not None),
+        (None, None),
+    )
+    provider_sharefactor = number(row.get("sharefactor")) or 1.0
+    applied_sharefactor = 1.0 if ui_ticker in LONDON_SOURCE_TICKERS else provider_sharefactor
+    effective_shares = (
+        number(base_shares) * applied_sharefactor
+        if base_shares is not None
+        else None
+    )
+    share_count_policy = (
+        "Period-end basic ordinary shares are the equity-value denominator for the London listing. "
+        "The DEO provider sharefactor converts ordinary shares to US ADR equivalents and is deliberately excluded for DGE.L; "
+        "diluted or weighted-average shares are fallback only and adjacent periods never imply a split."
+        if ui_ticker in LONDON_SOURCE_TICKERS
+        else "Period-end basic shares are the equity-value denominator; diluted or weighted-average shares are fallback only. "
+        "Apply provider sharefactor once for the quoted security basis and never infer splits from adjacent-period changes."
+    )
 
     cfo_m = metric_value(ui_ticker, row, "ncfo", None, currency_scale)
     capex_m = metric_value(ui_ticker, row, "capex", None, currency_scale)
@@ -256,7 +302,7 @@ def build_period(ui_ticker: str, source_ticker: str, row: dict, target_db: Path)
             "net_income_m": "netinc/netinccmnusd",
             "cfo_m": "ncfo",
             "capex_m": "capex",
-            "shares_m": "shareswadil/shareswa/sharesbas x sharefactor",
+            "shares_m": "sharesbas preferred, then shareswadil/shareswa fallback; x applicable quoted-security share factor",
             "equity_m": "equity/equityusd",
             "assets_m": "assets",
             "cash_m": "cashneq/cashnequsd",
@@ -274,6 +320,7 @@ def build_period(ui_ticker: str, source_ticker: str, row: dict, target_db: Path)
         "periodEndDate": iso(row["reportperiod"]),
         "calendarDate": iso(row["calendardate"]),
         "financialStatementCurrency": currency,
+        "sourceFinancialStatementCurrency": conversion["sourceCurrency"],
         "sourceDimension": row["dimension"],
         "revenue_m": metric_value(ui_ticker, row, "revenue", "revenueusd", currency_scale),
         "gross_profit_m": metric_value(ui_ticker, row, "gp", None, currency_scale),
@@ -297,9 +344,21 @@ def build_period(ui_ticker: str, source_ticker: str, row: dict, target_db: Path)
             "calendardate": iso(row["calendardate"]),
             "lastupdatedExcludedFromPitCutoff": iso(row.get("lastupdated")),
             "currency": currency,
+            "sourceCurrency": conversion["sourceCurrency"],
+            "modelCurrency": conversion["modelCurrency"],
             "currencyScale": currency_scale,
             "currencyScaleNote": currency_note,
-            "sharefactor": number(row.get("sharefactor")) or 1.0,
+            "fxConversion": conversion["fxConversion"],
+            "rawProviderFxusd": number(row.get("fxusd")),
+            "sharefactor": provider_sharefactor,
+            "appliedShareFactor": applied_sharefactor,
+            "shareCountBasis": share_basis,
+            "shareCountPolicy": share_count_policy,
+            "rawShareCounts": {
+                "sharesbas": number(row.get("sharesbas")),
+                "shareswadil": number(row.get("shareswadil")),
+                "shareswa": number(row.get("shareswa")),
+            },
             "selectionPolicy": "earliest datekey per ticker/fiscalperiod/dimension",
         },
         "sources": sources,
@@ -344,6 +403,15 @@ def create_database(output_path: Path):
           last_available_at TEXT,
           note TEXT
         );
+        CREATE TABLE pit_fx_reference_rates (
+          currency TEXT NOT NULL,
+          rate_date TEXT NOT NULL,
+          units_per_eur REAL NOT NULL,
+          source_url TEXT NOT NULL,
+          extraction_version TEXT NOT NULL,
+          imported_at TEXT NOT NULL,
+          PRIMARY KEY (currency, rate_date)
+        );
         """
     )
     return connection
@@ -386,6 +454,18 @@ def main():
         row["datekey"] = row.get(provider_pit_cutoff_field)
         by_source.setdefault(row["ticker"], []).append(row)
 
+    fx_dates = sorted(
+        row["datekey"]
+        for ticker in LONDON_USD_REPORTERS
+        for row in by_source.get(source_by_ticker.get(ticker, ticker), [])
+        if row.get("datekey")
+    )
+    fx_rate_book = (
+        rate_book_for_range(fx_dates[0], fx_dates[-1], cache_path=args.fx_cache)
+        if fx_dates
+        else FxRateBook([])
+    )
+
     connection = create_database(args.output_db)
     coverage = []
     inserted = 0
@@ -400,7 +480,10 @@ def main():
             "pit_cutoff_field": "datekey",
             "provider_pit_cutoff_field": provider_pit_cutoff_field,
             "revision_policy": "earliest datekey per fiscal period; lastupdated never used as cutoff",
+            "share_count_policy": "Period-end basic shares preferred; diluted/weighted shares fallback only. Apply provider sharefactor once for the quoted security basis, except cross-listed local ordinary shares such as DGE.L where the US ADR factor is explicitly excluded. Never infer splits from adjacent periods.",
             "target_ticker_count": str(len(tickers)),
+            "pit_fx_policy": "ECB daily reference rates; nearest prior business day at each financial availability date; no price-ratio or fixed-rate fallback",
+            "pit_fx_import_version": FX_IMPORT_VERSION,
         }
         connection.executemany(
             "INSERT INTO pit_source_metadata (key, value) VALUES (?, ?)", metadata.items()
@@ -415,7 +498,16 @@ def main():
                 coverage.append((ticker, None, "external_required", 0, 0, None, None, "Not present in the US Sharadar package; official issuer filings required."))
                 continue
             selected = first_visible_rows(by_source.get(source_ticker, []))
-            periods = [build_period(ticker, source_ticker, row, args.target_db) for row in selected]
+            periods = [
+                build_period(
+                    ticker,
+                    source_ticker,
+                    row,
+                    args.target_db,
+                    fx_rate_book=fx_rate_book,
+                )
+                for row in selected
+            ]
             for period in periods:
                 fiscal_period = f"{period['fiscalYear']}-{period['fiscalQuarter']}"
                 connection.execute(
@@ -464,6 +556,7 @@ def main():
             """,
             coverage,
         )
+        replace_sqlite_rates(connection, fx_rate_book, generated_at)
         connection.commit()
         connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     finally:

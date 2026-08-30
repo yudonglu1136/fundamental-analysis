@@ -772,11 +772,39 @@ def ttm_from_half(current: dict, prior_full: dict | None, prior_half: dict | Non
     return result, "First available H1 annualized x2; no prior H1 existed in the requested history"
 
 
+def event_period_end(event: Event) -> tuple[str, str]:
+    legacy_lseg_calendar = event.ticker == "LSEG" and (
+        event.fiscal_year <= 2013 or
+        (
+            event.fiscal_year == 2014 and
+            (
+                event.event_date <= "2014-03-31" or
+                (event.kind == "full_year" and event.event_date < "2014-07-01")
+            )
+        )
+    )
+    if legacy_lseg_calendar:
+        quarter_end = {
+            "Q1": f"{event.fiscal_year - 1}-06-30",
+            "Q2": f"{event.fiscal_year - 1}-09-30",
+            "Q3": f"{event.fiscal_year - 1}-12-31",
+            "Q4": f"{event.fiscal_year}-03-31",
+        }[event.quarter]
+        basis = "LSEG 31 March fiscal calendar"
+    else:
+        quarter_end = f"{event.fiscal_year}-{('12-31' if event.quarter == 'Q4' else '06-30' if event.quarter == 'Q2' else '03-31' if event.quarter == 'Q1' else '09-30')}"
+        basis = "calendar quarter end"
+    if event.kind == "trading_update" and event.event_date < quarter_end:
+        return event.event_date, "event date; carried prior disclosed TTM before nominal quarter end"
+    return quarter_end, basis
+
+
 def source_payload(event: Event, metrics: dict, method: str, carried_from: dict | None = None) -> dict:
     fiscal_calendar_transition = event.ticker == "LSEG" and event.fiscal_year == 2014
+    period_end, period_end_basis = event_period_end(event)
     metric_source = {
         "filed": event.event_date,
-        "end": f"{event.fiscal_year}-{('12-31' if event.quarter == 'Q4' else '06-30' if event.quarter == 'Q2' else '03-31' if event.quarter == 'Q1' else '09-30')}",
+        "end": period_end,
         "form": "Official issuer result / trading update",
         "dimension": "ART",
         "annualOnly": True,
@@ -802,6 +830,7 @@ def source_payload(event: Event, metrics: dict, method: str, carried_from: dict 
             "issuer": "BAE Systems plc" if event.ticker == "BA.L" else "London Stock Exchange Group plc",
             "eventTitle": event.title,
             "eventDate": event.event_date,
+            "periodEndDate": period_end,
             "sourceUrl": event.source_url,
             "documentUrl": event.document_url,
             "metricsAreTrailingTwelveMonths": True,
@@ -811,6 +840,7 @@ def source_payload(event: Event, metrics: dict, method: str, carried_from: dict 
             "metricDerivation": metrics.get("_metric_derivation"),
             "debtBasis": metrics.get("_debt_basis"),
             "financialBasis": metrics.get("_financial_basis"),
+            "periodEndBasis": period_end_basis,
             "fiscalCalendarTransition": fiscal_calendar_transition,
             "fiscalCalendarNote": (
                 "LSEG changed its financial year end from 31 March to 31 December in 2014; "
@@ -844,6 +874,43 @@ def guidance_module():
     assert spec.loader
     spec.loader.exec_module(module)
     return module
+
+
+def guidance_year_near(text: str, position: int, event: Event) -> int:
+    """Return the full-year target named near an issuer guidance bullet.
+
+    A full-year results event belongs to the fiscal period just reported, but
+    its outlook normally targets the following year.  Keeping those two years
+    separate is required for point-in-time lineage and model selection.
+    """
+    window_start = max(0, position - 1_600)
+    window_end = min(len(text), position + 500)
+    window = text[window_start:window_end]
+    patterns = (
+        re.compile(r"\b(20\d{2})\s+(?:full[- ]year\s+)?(?:guidance|outlook)\b", re.I),
+        re.compile(r"\b(?:guidance|outlook)(?:\s+for)?\s+(20\d{2})\b", re.I),
+    )
+    event_year = int(event.event_date[:4])
+    preceding = []
+    following = []
+    for pattern in patterns:
+        for match in pattern.finditer(window):
+            year = int(match.group(1))
+            if year < event.fiscal_year or year > event_year + 1:
+                continue
+            absolute_position = window_start + match.start()
+            candidate = (abs(absolute_position - position), year)
+            if absolute_position <= position:
+                preceding.append(candidate)
+            else:
+                following.append(candidate)
+    if preceding:
+        return min(preceding)[1]
+    if following:
+        return min(following)[1]
+    if event.kind == "full_year" and event.quarter == "Q4":
+        return max(event.fiscal_year, event_year)
+    return event.fiscal_year
 
 
 def lseg_guidance_overrides(module, event: Event, text: str, speaker: str) -> list[dict]:
@@ -885,6 +952,7 @@ def lseg_guidance_overrides(module, event: Event, text: str, speaker: str) -> li
         if not match:
             continue
         evidence = match.group(0)
+        guidance_year = guidance_year_near(normalized, match.start(), event)
         metric_positions = module.metric_names(evidence)
         position = metric_positions[0][1] if metric_positions else 0
         row = module.extract_event(
@@ -897,10 +965,14 @@ def lseg_guidance_overrides(module, event: Event, text: str, speaker: str) -> li
             evidence,
             metric,
             position,
-            [position],
+            [(metric, position)],
         )
         row["quality_status"] = "clear"
         row["extraction_confidence"] = 0.99
+        row["guidance_scope"] = "full_year"
+        row["guidance_year"] = guidance_year
+        row["value_text"] = f"Full-year {guidance_year} guidance: {evidence}"
+        row["evidence_excerpt"] = row["value_text"]
         if metric == "revenue_guidance":
             row["amount"] = None
             row["unit"] = None
@@ -929,7 +1001,6 @@ def guidance_events(module, event: Event, text: str) -> list[dict]:
         if not module.FORWARD_LANGUAGE.search(sentence):
             continue
         metrics = module.metric_names(sentence)
-        positions = [position for _, position in metrics]
         for metric, position in metrics:
             row = module.extract_event(
                 event.ticker,
@@ -941,7 +1012,7 @@ def guidance_events(module, event: Event, text: str) -> list[dict]:
                 sentence,
                 metric,
                 position,
-                positions,
+                metrics,
             )
             events.append(row)
     if event.ticker == "LSEG":

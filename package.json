@@ -24,6 +24,7 @@
     "refresh:podcast-insights": "node server/generatePodcastValuationInsights.js",
     "audit:valuation": "node server/unifiedValuationAudit.js",
     "audit:valuation:qa": "node server/valuationQaReport.js",
+    "audit:valuation:ledger": "node server/valuationAuditLedger.js",
     "audit:valuation:refresh": "VALUATION_CONSENSUS_REFRESH=1 node server/unifiedValuationAudit.js",
     "audit:pit-release": "node server/verifyPitValuationRelease.js",
     "build:pit-migration": "python3 scripts/build-pit-migration-artifact.py",

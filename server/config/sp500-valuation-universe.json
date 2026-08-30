@@ -3861,7 +3861,7 @@
       "companySite": "http://www.fleetcor.com",
       "priceTicker": "CPAY",
       "membershipTicker": "CPAY",
-      "valuationProfile": "software_platform"
+      "valuationProfile": "payments_processor"
     },
     {
       "ticker": "CPRT",
@@ -6591,7 +6591,7 @@
       "companySite": "http://www.fisglobal.com",
       "priceTicker": "FIS",
       "membershipTicker": "FIS",
-      "valuationProfile": "information_services"
+      "valuationProfile": "payments_processor"
     },
     {
       "ticker": "FISV",
@@ -6626,7 +6626,7 @@
       "companySite": null,
       "priceTicker": "FISV",
       "membershipTicker": "FISV",
-      "valuationProfile": "software_platform"
+      "valuationProfile": "payments_processor"
     },
     {
       "ticker": "FITB",
@@ -7451,7 +7451,7 @@
       "companySite": "http://www.globalpaymentsinc.com",
       "priceTicker": "GPN",
       "membershipTicker": "GPN",
-      "valuationProfile": "information_services"
+      "valuationProfile": "payments_processor"
     },
     {
       "ticker": "GRMN",
@@ -13306,7 +13306,7 @@
       "companySite": "http://www.paypal.com",
       "priceTicker": "PYPL",
       "membershipTicker": "PYPL",
-      "valuationProfile": "credit_services"
+      "valuationProfile": "payments_processor"
     },
     {
       "ticker": "Q",
@@ -17403,7 +17403,7 @@
       "companySite": "http://www.squareup.com",
       "priceTicker": "XYZ",
       "membershipTicker": "XYZ",
-      "valuationProfile": "software_platform"
+      "valuationProfile": "payments_processor"
     },
     {
       "ticker": "YUM",

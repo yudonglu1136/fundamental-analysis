@@ -35,6 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fundamentals-from", default="2026-08-01")
     parser.add_argument("--prices-from", default="2026-08-20")
     parser.add_argument("--batch-size", type=int, default=20)
+    parser.add_argument("--fx-cache", type=Path, default=None)
     return parser.parse_args()
 
 
@@ -120,6 +121,17 @@ def main() -> None:
             api_rows.extend(normalize_fundamental_row(row) for row in rows)
             time.sleep(0.1)
 
+        api_dates = sorted(row["datekey"] for row in api_rows if row.get("datekey"))
+        if api_dates:
+            fx_rate_book = builder.rate_book_for_range(
+                api_dates[0],
+                api_dates[-1],
+                cache_path=args.fx_cache or builder.DEFAULT_CACHE_PATH,
+            )
+            builder.replace_sqlite_rates(source, fx_rate_book, fetched_at)
+        else:
+            fx_rate_book = builder.FxRateBook.from_connection(source)
+
         new_periods = 0
         latest_available_at = None
         for row in api_rows:
@@ -152,7 +164,13 @@ def main() -> None:
                 ),
             )
             for ui_ticker in ui_by_source[source_ticker]:
-                period = builder.build_period(ui_ticker, source_ticker, row, args.target_db)
+                period = builder.build_period(
+                    ui_ticker,
+                    source_ticker,
+                    row,
+                    args.target_db,
+                    fx_rate_book=fx_rate_book,
+                )
                 inserted = source.execute(
                     """
                     INSERT OR IGNORE INTO pit_financial_periods (

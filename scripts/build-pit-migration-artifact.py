@@ -19,6 +19,7 @@ VALUATION_TABLES = (
     "valuation_pit_financials",
     "valuation_pit_guidance",
     "valuation_pit_model_runs",
+    "valuation_pit_price_observations",
     "valuation_ticker_snapshots",
     "valuation_snapshots",
 )

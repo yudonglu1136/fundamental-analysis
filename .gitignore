@@ -27,3 +27,4 @@ server/data/*
 !server/data/.gitkeep
 server/reports/*.json
 !server/reports/.gitkeep
+!server/reports/valuation-audit-ledger.json

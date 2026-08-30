@@ -13,6 +13,7 @@ import collections
 import concurrent.futures
 import datetime as dt
 import hashlib
+import importlib.util
 import json
 import re
 import sqlite3
@@ -30,7 +31,8 @@ DEFAULT_SOURCE_DB = Path("server/data/valuation-pit-source.sqlite")
 DEFAULT_TARGET_DB = Path("server/data/guru-analysis.sqlite")
 DEFAULT_MANIFEST = Path("server/config/sp500-valuation-universe.json")
 SEC_USER_AGENT = "Guru Intelligence data engineering luyudong1136@gmail.com"
-IMPORT_VERSION = "official-sec-guidance-v3-2026-08-28"
+IMPORT_VERSION = "official-sec-guidance-v4-2026-08-30"
+GUIDANCE_EXTRACTOR = Path(__file__).with_name("extract-pit-management-guidance.py")
 SEC_REQUEST_DELAY_SECONDS = 0.36
 ISSUERS = {
     "CCEP": {"cik": "0001650107", "start": "2016-01-01"},
@@ -455,8 +457,70 @@ def build_session():
     return session
 
 
+def guidance_module():
+    spec = importlib.util.spec_from_file_location("pit_guidance_extractor", GUIDANCE_EXTRACTOR)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+def extract_metric_event(
+    guidance_lib,
+    ticker: str,
+    period: str,
+    filing_date: str,
+    source_url: str,
+    source_file: str,
+    metric: str,
+    excerpt: str,
+):
+    metric_positions = guidance_lib.metric_names(excerpt)
+    fallback_match = dict(METRICS)[metric].search(excerpt)
+    position = next(
+        (metric_position for metric_name, metric_position in metric_positions if metric_name == metric),
+        fallback_match.start() if fallback_match else 0,
+    )
+    extracted = guidance_lib.extract_event(
+        ticker,
+        period,
+        filing_date,
+        source_url,
+        Path(source_file),
+        "Issuer management / investor relations filing",
+        excerpt,
+        metric,
+        position,
+        metric_positions or [(metric, position)],
+    )
+    digest = hashlib.sha256(
+        f"{ticker}|{period}|{filing_date}|{metric}|{excerpt}".encode()
+    ).hexdigest()[:24]
+    payload = {
+        **extracted,
+        "id": digest,
+        "ticker": ticker,
+        "fiscal_period": period,
+        "observed_at": filing_date,
+        "metric_name": metric,
+        "actual_or_guidance": "guidance",
+        "value_text": extracted.get("value_text") or excerpt,
+        "quality_status": "clear",
+        "extraction_confidence": 0.96,
+        "speaker": "Issuer management / investor relations filing",
+        "source_url": source_url,
+        "evidence_excerpt": excerpt,
+        "source_file": source_file,
+        "source_type": "official_issuer_sec_filing",
+        "extraction_version": f"{guidance_lib.EXTRACTION_VERSION}+official-sec-v4",
+    }
+    payload["payload_json"] = json.dumps(payload, separators=(",", ":"))
+    return payload
+
+
 def scan_issuer(ticker: str, config: dict, cache_dir: Path):
     session = build_session()
+    guidance_lib = guidance_module()
     events = []
     filing_count = 0
     filing_errors = 0
@@ -525,34 +589,16 @@ def scan_issuer(ticker: str, config: dict, cache_dir: Path):
                     lines = clean_lines(html)
                     period = fiscal_period(lines, filing)
                     for metric, excerpt in guidance_lines(lines, ticker):
-                        amount, currency, margin, growth = metric_values(excerpt, metric)
-                        digest = hashlib.sha256(
-                            f"{ticker}|{period}|{filing['filing_date']}|{metric}|{excerpt}".encode()
-                        ).hexdigest()[:24]
-                        payload = {
-                            "id": digest,
-                            "ticker": ticker,
-                            "fiscal_period": period,
-                            "observed_at": filing["filing_date"],
-                            "metric_name": metric,
-                            "actual_or_guidance": "guidance",
-                            "amount": amount,
-                            "unit": f"{currency or 'reported'} millions" if amount is not None else None,
-                            "currency": currency,
-                            "growth_yoy": growth,
-                            "growth_qoq": None,
-                            "margin_pct": margin,
-                            "value_text": excerpt,
-                            "quality_status": "clear",
-                            "extraction_confidence": 0.96,
-                            "speaker": "Issuer management / investor relations filing",
-                            "source_url": source_url,
-                            "evidence_excerpt": excerpt,
-                            "source_file": f"SEC:{filing['accession']}:{document_name}",
-                            "source_type": "official_issuer_sec_filing",
-                            "extraction_version": IMPORT_VERSION,
-                        }
-                        payload["payload_json"] = json.dumps(payload, separators=(",", ":"))
+                        payload = extract_metric_event(
+                            guidance_lib,
+                            ticker,
+                            period,
+                            filing["filing_date"],
+                            source_url,
+                            f"SEC:{filing['accession']}:{document_name}",
+                            metric,
+                            excerpt,
+                        )
                         events.append(payload)
                         periods.add(period)
         return ticker, events, {

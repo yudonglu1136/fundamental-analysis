@@ -7,6 +7,7 @@ import {
   portfolioDisplayTicker,
   valuationTickerCandidates,
   valuationLookupKeysForSnapshot,
+  valuationMarketPriceSymbol,
   yahooChartSymbol
 } from "./tickerAliases.js";
 
@@ -45,4 +46,12 @@ test("market data keeps Yahoo London suffix but converts US share-class dots", (
   assert.equal(yahooChartSymbol("LSEG.L"), "LSEG.L");
   assert.equal(yahooChartSymbol("BRK.B"), "BRK-B");
   assert.deepEqual(marketTickerCandidates("AZNL"), ["AZN.L", "AZNL", "AZN"]);
+});
+
+test("valuation models map London issuers to the stored local-market price symbol", () => {
+  assert.equal(valuationMarketPriceSymbol("AZN"), "AZN.L");
+  assert.equal(valuationMarketPriceSymbol("LSEG"), "LSEG.L");
+  assert.equal(valuationMarketPriceSymbol("BA.L"), "BA.L");
+  assert.equal(valuationMarketPriceSymbol("DGE.L"), "DGE.L");
+  assert.equal(valuationMarketPriceSymbol("GOOGL"), "GOOGL");
 });

@@ -15,6 +15,45 @@ SPEC.loader.exec_module(MODULE)
 
 
 class LsegParserTest(unittest.TestCase):
+    def test_lseg_legacy_march_fiscal_calendar_uses_real_period_ends(self):
+        cases = (
+            (MODULE.Event("LSEG", 2011, "Q1", "2010-07-14", "Q1", "u", None, "trading_update"), "2010-06-30"),
+            (MODULE.Event("LSEG", 2011, "Q2", "2010-11-18", "H1", "u", None, "half_year"), "2010-09-30"),
+            (MODULE.Event("LSEG", 2011, "Q3", "2011-01-27", "Q3", "u", None, "trading_update"), "2010-12-31"),
+            (MODULE.Event("LSEG", 2011, "Q4", "2011-05-13", "FY", "u", None, "full_year"), "2011-03-31"),
+        )
+
+        for event, expected in cases:
+            with self.subTest(event=event):
+                period_end, basis = MODULE.event_period_end(event)
+                self.assertEqual(period_end, expected)
+                self.assertEqual(basis, "LSEG 31 March fiscal calendar")
+
+    def test_lseg_2014_transition_switches_to_calendar_year(self):
+        legacy_q3 = MODULE.Event(
+            "LSEG", 2014, "Q3", "2014-01-23", "Q3 2013", "u", None, "trading_update"
+        )
+        calendar_q1 = MODULE.Event(
+            "LSEG", 2014, "Q1", "2014-07-16", "Q1 2014", "u", None, "trading_update"
+        )
+        calendar_fy = MODULE.Event(
+            "LSEG", 2014, "Q4", "2015-03-05", "FY 2014", "u", None, "full_year"
+        )
+
+        self.assertEqual(MODULE.event_period_end(legacy_q3)[0], "2013-12-31")
+        self.assertEqual(MODULE.event_period_end(calendar_q1)[0], "2014-03-31")
+        self.assertEqual(MODULE.event_period_end(calendar_fy)[0], "2014-12-31")
+
+    def test_pre_quarter_end_trading_update_uses_event_date(self):
+        event = MODULE.Event(
+            "BA.L", 2014, "Q3", "2014-09-29", "September update", "u", None, "trading_update"
+        )
+
+        period_end, basis = MODULE.event_period_end(event)
+
+        self.assertEqual(period_end, "2014-09-29")
+        self.assertIn("carried prior disclosed TTM", basis)
+
     def test_split_pdf_numbers_and_comparatives(self):
         text = """
 Total income (excl. recoveries) 4,799 4,489
@@ -147,7 +186,37 @@ Equity free cash flow at least £2.7 billion.
         self.assertEqual(metrics["revenue_guidance"]["growth_yoy"], 7.25)
         self.assertEqual(metrics["free_cash_flow_guidance"]["amount"], 2_700)
         self.assertEqual(metrics["free_cash_flow_guidance"]["currency"], "GBP")
+        self.assertEqual(metrics["free_cash_flow_guidance"]["guidance_scope"], "full_year")
+        self.assertEqual(metrics["free_cash_flow_guidance"]["guidance_year"], 2026)
+        self.assertIn("Full-year 2026 guidance", metrics["free_cash_flow_guidance"]["value_text"])
         self.assertEqual(metrics["capex_guidance"]["margin_pct"], 9.5)
+
+    def test_lseg_full_year_results_keep_reported_period_and_forward_guidance_year_separate(self):
+        event = MODULE.Event(
+            "LSEG",
+            2025,
+            "Q4",
+            "2026-02-26",
+            "FY 2025 preliminary results",
+            "https://example.test/fy-2025",
+            "https://example.test/fy-2025.pdf",
+            "full_year",
+        )
+        text = """
+2026 guidance
+Organic constant currency growth in total income excluding recoveries of 6.5-7.5%.
+Capex intensity c 9.5%.
+Equity free cash flow at least £2.7 billion.
+Medium-term guidance 2027-2029
+Capex declining to c. 8% in 2029.
+"""
+
+        rows = MODULE.guidance_events(MODULE.guidance_module(), event, text)
+        metrics = {row["metric_name"]: row for row in rows}
+
+        self.assertEqual(metrics["free_cash_flow_guidance"]["fiscal_period"], "Q42025")
+        self.assertEqual(metrics["free_cash_flow_guidance"]["guidance_year"], 2026)
+        self.assertIn("Full-year 2026 guidance", metrics["free_cash_flow_guidance"]["value_text"])
 
 
 if __name__ == "__main__":
