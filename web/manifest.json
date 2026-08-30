@@ -1,11 +1,11 @@
 {
-    "name": "Guru Intelligence Executive Summary",
+    "name": "Guru Intelligence by ThesisForge",
     "short_name": "Guru Intel",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0B111D",
     "theme_color": "#22D3A6",
-    "description": "Guru stock analysis executive terminal.",
+    "description": "Evidence-first public-equity research, valuation, 13F intelligence, and portfolio analysis.",
     "orientation": "any",
     "prefer_related_applications": false,
     "icons": [

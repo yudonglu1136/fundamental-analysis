@@ -961,9 +961,52 @@ class LoginScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      BadgeLabel(
-                        text: 'GURU INTELLIGENCE',
-                        color: palette.accent,
+                      Row(
+                        children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: palette.accent.withValues(alpha: .12),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: palette.accent.withValues(alpha: .32),
+                              ),
+                            ),
+                            child: Image.asset(
+                              'assets/branding/thesisforge-mark.png',
+                              fit: BoxFit.contain,
+                              semanticLabel: context.tr(
+                                'ThesisForge',
+                                'ThesisForge',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.tr('ThesisForge', 'ThesisForge'),
+                                style: TextStyle(
+                                  color: palette.text,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'GURU INTELLIGENCE',
+                                style: TextStyle(
+                                  color: palette.accent,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 18),
                       Text(
@@ -1526,19 +1569,16 @@ class TerminalHeader extends StatelessWidget {
     final logo = Container(
       width: 36,
       height: 36,
-      alignment: Alignment.center,
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: palette.accent.withValues(alpha: .24),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: palette.accent.withValues(alpha: .32)),
       ),
-      child: Text(
-        'GI',
-        style: TextStyle(
-          color: palette.text,
-          fontSize: 14,
-          fontWeight: FontWeight.w900,
-        ),
+      child: Image.asset(
+        'assets/branding/thesisforge-mark.png',
+        fit: BoxFit.contain,
+        semanticLabel: context.tr('ThesisForge', 'ThesisForge'),
       ),
     );
     final accountMenu = PopupMenuButton<String>(

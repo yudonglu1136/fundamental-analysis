@@ -1,0 +1,27 @@
+{
+  "brand": "ThesisForge",
+  "product": "Guru Intelligence",
+  "generatedAt": "2026-08-30",
+  "source": "docs/brand/2026-08-30/source-mark-imagegen.png",
+  "palette": {
+    "ink": "#0B111D",
+    "panel": "#111827",
+    "line": "#263248",
+    "mint": "#22D3A6",
+    "amber": "#E0B15A",
+    "text": "#F8FAFC",
+    "muted": "#A8B2C4"
+  },
+  "files": {
+    "avatar": "thesisforge-x-avatar-400.png",
+    "avatarHighResolution": "thesisforge-x-avatar-1024.png",
+    "header": "thesisforge-x-header-1500x500.png",
+    "firstPost": "thesisforge-first-post-1600x900.png",
+    "appMark": "../../../assets/branding/thesisforge-mark.png"
+  },
+  "notes": [
+    "Logo concept generated with OpenAI ImageGen, then deterministically cropped and exported.",
+    "Header and launch image use exact SVG typography and platform-safe dimensions.",
+    "The launch image uses the real valuation market-map screenshot; no financial data was invented."
+  ]
+}

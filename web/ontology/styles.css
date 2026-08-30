@@ -72,6 +72,11 @@ button { cursor: pointer; }
   font-weight: 800;
   border-radius: 5px;
 }
+.product-mark img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
 .brand-block h1 { margin: 0; font-size: 18px; line-height: 1.2; letter-spacing: 0; }
 .brand-block p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
 
