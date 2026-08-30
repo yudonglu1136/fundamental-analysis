@@ -10,6 +10,15 @@ This repository is the Guru Intelligence product. Follow this deployment split u
 - Vercel serves the Flutter web build from `dist/`.
 - Vercel proxies only `/api/*` to the AWS Elastic Beanstalk API.
 - After a production deploy, both `https://www.thesisforge.tech` and `https://thesisforge.tech` must alias to the same latest Vercel deployment.
+- The confirmed 2026-08-30 production baseline is Vercel deployment
+  `fundamental-analysis-cqreyaz5s-yudonglu1136s-projects.vercel.app`, built from
+  GitHub `trunk` commit `1a630a8`. Both public domains must remain on this
+  deployment until a newer verified `trunk` deployment replaces it.
+- A split alias is a release blocker. After every production deployment, run
+  `vercel inspect` for both public domains and confirm that they return the same
+  deployment ID and URL. If either domain is stale, explicitly assign both
+  domains to the verified deployment with `vercel alias set`; never update only
+  one of them.
 - AWS API CORS must allow both `https://www.thesisforge.tech` and `https://thesisforge.tech`; stale or diagnostic frontend builds can otherwise receive an HTML 500 from Express instead of JSON.
 - Do not deploy the primary frontend by rsyncing `dist/` to Lightsail.
 - Do not add DNS `A` records for `www.thesisforge.tech` or `thesisforge.tech` that point to the Lightsail IP.
