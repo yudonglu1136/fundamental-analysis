@@ -21,12 +21,17 @@
     "ontologyStrategySocial": "ontology-soft-overlay-6m-en-1600x900.png",
     "ontologyStrategyCopy": "ontology-soft-overlay-6m-copy-en.md",
     "ontologyStrategyCurveData": "ontology-soft-overlay-6m-equity-daily.json",
+    "pltrOntologyCaseStudy": "pltr-ontology-case-study-en-1600x900.png",
+    "pltrOntologyCaseStudyCopy": "pltr-ontology-case-study-copy-en.md",
+    "pltrOntologyCaseStudyData": "pltr-ontology-case-study-data.json",
+    "pltrOntologyCaseStudyManifest": "pltr-ontology-case-study-manifest.json",
     "appMark": "../../../assets/branding/thesisforge-mark.png"
   },
   "notes": [
     "Logo concept generated with OpenAI ImageGen, then deterministically cropped and exported.",
     "Header and launch image use exact SVG typography and platform-safe dimensions.",
     "The launch image uses the real valuation market-map screenshot; no financial data was invented.",
-    "The Ontology social graphic was released on 2026-08-30 using the full 2,165-point strategy and SPY series through 2026-08-13; exact data, methodology, validation status, and provenance are preserved in its JSON and manifest."
+    "The Ontology social graphic was released on 2026-08-30 using the full 2,165-point strategy and SPY series through 2026-08-13; exact data, methodology, validation status, and provenance are preserved in its JSON and manifest.",
+    "The PLTR Ontology V2 case study was released on 2026-08-30 from the frozen point-in-time replay. Its filing data is through 2026-08-04 and its strategy snapshot is 2026-08-13; it is explicitly labeled as a diagnostic replay rather than an archived live alert."
   ]
 }

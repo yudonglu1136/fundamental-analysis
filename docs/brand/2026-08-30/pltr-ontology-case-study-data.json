@@ -1,0 +1,138 @@
+{
+  "title": "PLTR Ontology V2 case study",
+  "releaseDate": "2026-08-30",
+  "ticker": "PLTR",
+  "company": "Palantir Technologies Inc.",
+  "model": {
+    "decisionVersion": "event-ontology-v2",
+    "portfolioReplay": "ontology_context_6m",
+    "period": "evaluation_2018_2026",
+    "contextDefinition": "Broad-stage software peer-context composite; not peer-stock performance and not measured customer contracts or revenue."
+  },
+  "source": {
+    "artifact": "fundamental-analysis/server/data/ontology-snapshot.sqlite",
+    "artifactSha256": "f6defbaa991617744c691b9cf598b30eeae53045e5550625054221dd92857a24",
+    "artifactGeneratedAt": "2026-08-20T19:45:10.222596+00:00",
+    "financialAsOf": "2026-08-19",
+    "filingDataCut": "2026-08-04",
+    "strategySnapshotDate": "2026-08-13",
+    "routeKeys": [
+      "decision_company:PLTR",
+      "company:PLTR",
+      "decision_snapshot:2025-08-29",
+      "decision_snapshot:2026-02-27",
+      "decision_snapshot:2026-05-29",
+      "decision_snapshot:2026-08-13"
+    ]
+  },
+  "peerContextSeries": [
+    {
+      "reportPeriod": "2025-Q2",
+      "informationDate": "2025-08-05",
+      "tradeDate": "2025-08-06",
+      "signalState": "green_peer_capture",
+      "baseEligible": true,
+      "peerContext": 0.3268910813223564,
+      "ontologyScore": 0.8144120230950264
+    },
+    {
+      "reportPeriod": "2025-Q3",
+      "informationDate": "2025-11-04",
+      "tradeDate": "2025-11-05",
+      "signalState": "invalid_or_watch",
+      "baseEligible": false,
+      "peerContext": 0.2710812960055518,
+      "ontologyScore": 0.43737900610369596
+    },
+    {
+      "reportPeriod": "2025-Q4",
+      "informationDate": "2026-02-17",
+      "tradeDate": "2026-02-18",
+      "signalState": "green_peer_capture",
+      "baseEligible": true,
+      "peerContext": 1.0608210381675502,
+      "ontologyScore": 1.015215905643002
+    },
+    {
+      "reportPeriod": "2026-Q1",
+      "informationDate": "2026-05-05",
+      "tradeDate": "2026-05-06",
+      "signalState": "green_peer_capture",
+      "baseEligible": true,
+      "peerContext": 1.238862837045721,
+      "ontologyScore": 1.3182987574956524
+    },
+    {
+      "reportPeriod": "2026-Q2",
+      "informationDate": "2026-08-04",
+      "tradeDate": "2026-08-05",
+      "signalState": "green_peer_capture",
+      "baseEligible": true,
+      "peerContext": 1.190569689234177,
+      "ontologyScore": 1.1663144590132712
+    }
+  ],
+  "milestones": [
+    {
+      "date": "2025-08-06",
+      "label": "FIRST GREEN FLAG",
+      "detail": "Rank 64 of 141; flagged, not selected",
+      "snapshotRoute": "decision_snapshot:2025-08-29"
+    },
+    {
+      "date": "2026-02-18",
+      "label": "PEER-CONTEXT BREAKOUT",
+      "detail": "3.91x quarter over quarter; rank 32 of 124",
+      "snapshotRoute": "decision_snapshot:2026-02-27"
+    },
+    {
+      "date": "2026-05-08",
+      "label": "TOP-20 PORTFOLIO ENTRY",
+      "detail": "Rank 12 of 123; simulated fill $136.005865",
+      "snapshotRoute": "decision_snapshot:2026-05-29"
+    },
+    {
+      "date": "2026-08-13",
+      "label": "HELD BY RANK BUFFER",
+      "detail": "Simulated unrealized return 31.6193%",
+      "snapshotRoute": "decision_snapshot:2026-08-13"
+    }
+  ],
+  "peerBreakout": {
+    "fromDate": "2025-11-04",
+    "toDate": "2026-02-17",
+    "from": 0.2710812960055518,
+    "to": 1.0608210381675502,
+    "multiple": 3.91329484475323,
+    "percentIncrease": 291.329484475323
+  },
+  "latestFundamentals": {
+    "reportPeriod": "2026-Q2",
+    "informationDate": "2026-08-04",
+    "revenueGrowthYoY": 0.7892124221826102,
+    "revenueAccelerationPp": 11.212293587367639,
+    "operatingMargin": 0.4279852584682017,
+    "freeCashFlowMargin": 0.5455334935796168,
+    "roic": 0.451
+  },
+  "portfolioReplay": {
+    "entryDate": "2026-05-08",
+    "entryMarketPrice": 135.865,
+    "modeledFillPrice": 136.005865,
+    "snapshotDate": "2026-08-13",
+    "snapshotPrice": 179.01,
+    "shares": 278,
+    "unrealizedReturn": 0.31619323916656106,
+    "action": "HOLD",
+    "actionReason": "signal_active_inside_life_and_rank_buffer",
+    "maximumHoldingDays": 126
+  },
+  "interpretation": "ThesisForge research interpretation: Palantir is becoming mission-critical software for the AI era.",
+  "caveats": [
+    "This is an August 2026 point-in-time diagnostic replay, not evidence of an archived live alert issued in August 2025.",
+    "The first green flag was not a portfolio buy; the fixed-rule replay entered only after PLTR reached the Top 20 in May 2026.",
+    "The latest-quarter broad-stage peer-context score remained elevated but declined 3.9% from the prior quarter; its actual breakout occurred in February 2026.",
+    "The AI-era mission-critical wording is a ThesisForge interpretation, not a direct model output.",
+    "Independent research; not affiliated with or endorsed by Palantir Technologies. Research only; not investment advice."
+  ]
+}
