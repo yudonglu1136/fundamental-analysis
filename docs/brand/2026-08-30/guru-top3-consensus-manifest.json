@@ -1,0 +1,84 @@
+{
+  "title": "Guru Top 3 Consensus — ThesisForge social graphic",
+  "generatedAt": "2026-08-30",
+  "dimensions": "1600x900",
+  "output": "docs/brand/2026-08-30/guru-top3-consensus-1600x900.png",
+  "background": {
+    "source": "docs/brand/2026-08-30/guru-top3-consensus-background.png",
+    "role": "Low-contrast atmospheric treatment only; all copy, data, logos, and charts are deterministic overlays."
+  },
+  "assets": {
+    "mark": "assets/branding/thesisforge-mark.png",
+    "gavin": "web/guru-avatars/gavin-baker.png",
+    "bill": "web/guru-avatars/bill-ackman.png",
+    "stanley": "web/guru-avatars/stanley-druckenmiller.png"
+  },
+  "strategy": {
+    "id": "guru-top3-consensus",
+    "name": "Guru Top 3 Consensus",
+    "backtestPeriod": [
+      "2020-02-14",
+      "2026-08-27"
+    ],
+    "totalReturn": 475.46,
+    "spyTotalReturn": 128.41,
+    "cagr": 30.72,
+    "spyCagr": 13.48,
+    "sharpe": 1.05,
+    "maxDrawdown": -41.14,
+    "latestRebalance": "2026-08-14",
+    "managers": [
+      {
+        "name": "Gavin Baker",
+        "role": "Atreides Management",
+        "avatar": "/Users/yudonglu/Documents/guru-intelligence/web/guru-avatars/gavin-baker.png",
+        "tickers": [
+          "MU",
+          "ALAB",
+          "CIEN"
+        ]
+      },
+      {
+        "name": "Bill Ackman",
+        "role": "Pershing Square",
+        "avatar": "/Users/yudonglu/Documents/guru-intelligence/web/guru-avatars/bill-ackman.png",
+        "tickers": [
+          "UBER",
+          "BN",
+          "MSFT"
+        ]
+      },
+      {
+        "name": "Stanley Druckenmiller",
+        "role": "Duquesne Family Office",
+        "avatar": "/Users/yudonglu/Documents/guru-intelligence/web/guru-avatars/stanley-druckenmiller.png",
+        "tickers": [
+          "NTRA",
+          "TSM",
+          "STM"
+        ]
+      }
+    ],
+    "latestBuys": [
+      "MU",
+      "MSFT",
+      "STM"
+    ],
+    "latestSells": [
+      "U",
+      "AMZN",
+      "INSM"
+    ]
+  },
+  "methodology": [
+    "After each public 13F disclosure, take the manager top three positions by disclosed market value.",
+    "Merge duplicates and equal-weight the remaining unique securities.",
+    "Rebalance after a new disclosure, with no leverage."
+  ],
+  "caveats": [
+    "13F filings can lag quarter-end by up to 45 days.",
+    "13F does not disclose shorts, cash, non-reportable assets, or intra-quarter trades.",
+    "Backtest excludes commissions, taxes, and slippage.",
+    "Research only; not investment advice."
+  ]
+}
