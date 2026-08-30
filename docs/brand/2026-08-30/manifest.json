@@ -18,11 +18,15 @@
     "header": "thesisforge-x-header-1500x500.png",
     "firstPost": "thesisforge-first-post-1600x900.png",
     "englishProductScreenshot": "valuation-market-map-en-1280x720.png",
+    "ontologyStrategySocial": "ontology-soft-overlay-6m-en-1600x900.png",
+    "ontologyStrategyCopy": "ontology-soft-overlay-6m-copy-en.md",
+    "ontologyStrategyCurveData": "ontology-soft-overlay-6m-equity-daily.json",
     "appMark": "../../../assets/branding/thesisforge-mark.png"
   },
   "notes": [
     "Logo concept generated with OpenAI ImageGen, then deterministically cropped and exported.",
     "Header and launch image use exact SVG typography and platform-safe dimensions.",
-    "The launch image uses the real valuation market-map screenshot; no financial data was invented."
+    "The launch image uses the real valuation market-map screenshot; no financial data was invented.",
+    "The Ontology social graphic was released on 2026-08-30 using the full 2,165-point strategy and SPY series through 2026-08-13; exact data, methodology, validation status, and provenance are preserved in its JSON and manifest."
   ]
 }

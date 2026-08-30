@@ -1,0 +1,70 @@
+{
+  "title": "Ontology Soft Overlay 6M — ThesisForge social graphic",
+  "generatedAt": "2026-08-30",
+  "dimensions": "1600x900",
+  "output": "docs/brand/2026-08-30/ontology-soft-overlay-6m-en-1600x900.png",
+  "curveData": {
+    "source": "docs/brand/2026-08-30/ontology-soft-overlay-6m-equity-daily.json",
+    "frequency": "daily trading observations",
+    "observations": 2165,
+    "period": [
+      "2018-01-02",
+      "2026-08-13"
+    ],
+    "rendering": "All daily observations, shared linear axis, straight SVG line segments without smoothing."
+  },
+  "background": {
+    "source": "docs/brand/2026-08-30/guru-top3-consensus-background.png",
+    "role": "Low-contrast atmospheric treatment only; all copy, data, logo, and charts are deterministic overlays."
+  },
+  "assets": {
+    "mark": "assets/branding/thesisforge-mark.png"
+  },
+  "strategy": {
+    "id": "ontology-soft-overlay-6m",
+    "version": "event-ontology-v4",
+    "period": [
+      "2018-01-02",
+      "2026-08-13"
+    ],
+    "observations": 2165,
+    "totalReturn": 509.1252057247211,
+    "spyTotalReturn": 230.81866072025474,
+    "cagr": 23.40639626780123,
+    "spyCagr": 14.942022841459247,
+    "sharpe": 0.9396205058983732,
+    "spySharpe": 0.8248097713963506,
+    "maxDrawdown": -42.53297671496234,
+    "spyMaxDrawdown": -33.71726769000346,
+    "annualTurnover": 1003.0634392485802,
+    "endingEquity": 609125.2057247235,
+    "modeledCost": 12580.820258165622,
+    "dataCut": "2026-08-13",
+    "releasedAt": "2026-08-30"
+  },
+  "methodology": [
+    "Use only point-in-time financial information public before portfolio formation; execute at the next-session open.",
+    "Company score: 50% operating surprise, 20% cash confirmation, 20% durable quality, 5% valuation support, and 5% balance-sheet/dilution safety.",
+    "Add 25% same-stage peer context and 15% adjacent value-chain graph confirmation to the V2 selection score.",
+    "Select the top 20 with a rank-40 buffer and a maximum 126-trading-day holding period.",
+    "The V4 soft overlay adjusts risk budget after new filings when its factor changes by at least 10%; it does not replace the V2 eligibility or ranking rules."
+  ],
+  "caveats": [
+    "The 2018–2026 evaluation period was previously reviewed and is not a fresh blind test.",
+    "The V4 overlay improved evaluation-period CAGR by approximately 0.7 percentage points versus V2, but its incremental block-bootstrap 95% confidence interval crosses zero.",
+    "The graph is a structural stage map rather than company-level customer revenue weights.",
+    "Includes modeled commissions and slippage; excludes taxes.",
+    "Research only; not investment advice."
+  ],
+  "verification": {
+    "worstDrawdown": {
+      "value": -0.42532976714962345,
+      "peakDate": "2018-08-31",
+      "troughDate": "2020-03-23"
+    },
+    "endingNav": {
+      "ontology": 6.091252057247211,
+      "spy": 3.3081866072025474
+    }
+  }
+}
