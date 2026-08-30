@@ -17,10 +17,14 @@ const root = path.resolve(import.meta.dirname, '..');
 const source =
   process.env.THESISFORGE_MARK_SOURCE ||
   path.join(root, 'docs/brand/2026-08-30/source-mark-imagegen.png');
-const screenshot = path.join(root, 'docs/images/valuation-market-map.png');
+const screenshotSource = path.join(root, 'docs/images/valuation-market-map.png');
 const assetDir = path.join(root, 'assets/branding');
 const webBrandDir = path.join(root, 'web/brand');
 const exportDir = path.join(root, 'docs/brand/2026-08-30');
+const englishScreenshot = path.join(
+  exportDir,
+  'valuation-market-map-en-1280x720.png',
+);
 const iconDir = path.join(root, 'web/icons');
 
 const colors = {
@@ -156,12 +160,71 @@ await sharp(headerSvg)
   .png({ compressionLevel: 9 })
   .toFile(path.join(exportDir, 'thesisforge-x-header-1500x500.png'));
 
+const englishUiOverlay = Buffer.from(`
+  <svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
+    <style>
+      .ui { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; letter-spacing: 0; }
+      .title { font-size: 22px; font-weight: 800; fill: ${colors.text}; }
+      .body { font-size: 12px; font-weight: 500; fill: ${colors.muted}; }
+      .label { font-size: 13px; font-weight: 650; fill: ${colors.text}; }
+      .small { font-size: 10px; font-weight: 650; fill: ${colors.muted}; }
+      .control { font-size: 10.5px; font-weight: 650; fill: ${colors.text}; }
+    </style>
+
+    <rect x="1015" y="8" width="101" height="51" rx="9" fill="#121826" stroke="${colors.line}"/>
+    <rect x="1021" y="14" width="44" height="39" rx="7" fill="#123F3A" stroke="#28675D"/>
+    <text x="1035" y="39" class="ui control" fill="${colors.mint}">EN</text>
+    <text x="1081" y="39" class="ui small">ZH</text>
+
+    <rect x="50" y="88" width="510" height="35" fill="#121826"/>
+    <rect x="24" y="121" width="540" height="26" fill="#121826"/>
+    <text x="52" y="115" class="ui title">Valuation Market Map</text>
+    <text x="25" y="138" class="ui body">533 securities · Prices 2026/08/27 · 532/533 PIT audits passed</text>
+
+    <rect x="604" y="94" width="342" height="45" rx="9" fill="#111727" stroke="${colors.line}"/>
+    <circle cx="625" cy="116" r="5" fill="none" stroke="${colors.muted}" stroke-width="2"/>
+    <path d="M629 120l5 5" stroke="${colors.muted}" stroke-width="2" stroke-linecap="round"/>
+    <text x="646" y="121" class="ui body">Search ticker, company, or industry</text>
+
+    <rect x="953" y="94" width="112" height="45" rx="9" fill="#111727" stroke="${colors.line}"/>
+    <text x="973" y="121" class="ui control">All valuations</text>
+    <path d="M1052 113l4 4 4-4" fill="none" stroke="${colors.muted}" stroke-width="1.5"/>
+    <rect x="1071" y="94" width="137" height="45" rx="9" fill="#111727" stroke="${colors.line}"/>
+    <text x="1092" y="121" class="ui control">All quality</text>
+    <path d="M1195 113l4 4 4-4" fill="none" stroke="${colors.muted}" stroke-width="1.5"/>
+
+    <rect x="30" y="180" width="650" height="25" fill="#121826"/>
+    <text x="39" y="199" class="ui small">INDUSTRY</text>
+    <text x="299" y="199" class="ui small">COVERAGE</text>
+    <text x="405" y="199" class="ui small">MEDIAN GAP</text>
+    <text x="568" y="199" class="ui small">VALUATION MIX</text>
+
+    <rect x="68" y="207" width="222" height="31" fill="#16232C"/>
+    <text x="71" y="228" class="ui label">Software &amp; cloud services</text>
+
+    <rect x="69" y="454" width="220" height="27" fill="#121826"/>
+    <text x="71" y="474" class="ui label">Semiconductors &amp; hardware</text>
+    <rect x="69" y="491" width="220" height="27" fill="#121826"/>
+    <text x="71" y="511" class="ui label">Internet &amp; media</text>
+    <rect x="69" y="528" width="220" height="27" fill="#121826"/>
+    <text x="71" y="548" class="ui label">Healthcare</text>
+    <rect x="69" y="565" width="220" height="27" fill="#121826"/>
+    <text x="71" y="585" class="ui label">Financials &amp; payments</text>
+    <rect x="69" y="602" width="220" height="27" fill="#121826"/>
+    <text x="71" y="622" class="ui label">Consumer</text>
+    <rect x="69" y="639" width="220" height="27" fill="#121826"/>
+    <text x="71" y="659" class="ui label">Industrials &amp; defense</text>
+    <rect x="69" y="676" width="220" height="27" fill="#121826"/>
+    <text x="71" y="696" class="ui label">Energy &amp; utilities</text>
+  </svg>
+`);
 const screenshotBrandMark = await sharp(markBuffer)
   .resize(30, 30, { fit: 'contain' })
   .png()
   .toBuffer();
-const brandedScreenshot = await sharp(screenshot)
+const brandedScreenshot = await sharp(screenshotSource)
   .composite([
+    { input: englishUiOverlay, left: 0, top: 0 },
     {
       input: roundedRect(38, 38, 8, '#123F3A', '#28675D'),
       left: 13,
@@ -171,6 +234,7 @@ const brandedScreenshot = await sharp(screenshot)
   ])
   .png()
   .toBuffer();
+await writeFile(englishScreenshot, brandedScreenshot);
 const screenshotCard = await sharp(brandedScreenshot)
   .resize(820, 461, { fit: 'cover', position: 'top' })
   .composite([
@@ -232,6 +296,7 @@ await writeFile(
         avatarHighResolution: 'thesisforge-x-avatar-1024.png',
         header: 'thesisforge-x-header-1500x500.png',
         firstPost: 'thesisforge-first-post-1600x900.png',
+        englishProductScreenshot: 'valuation-market-map-en-1280x720.png',
         appMark: '../../../assets/branding/thesisforge-mark.png',
       },
       notes: [
