@@ -10,11 +10,9 @@
     <a href="https://thesisforge.tech"><strong>Open the terminal</strong></a>
     &nbsp;&middot;&nbsp;
     <a href="docs/deployment-contract.md">Deployment contract</a>
-    &nbsp;&middot;&nbsp;
-    <a href="docs/ios-app-store-readiness.md">iOS readiness</a>
   </p>
   <p>
-    <img src="https://img.shields.io/badge/Flutter-Web%20%2B%20iOS-54C5F8?logo=flutter&logoColor=white" alt="Flutter Web and iOS" />
+    <img src="https://img.shields.io/badge/Flutter-Web-54C5F8?logo=flutter&logoColor=white" alt="Flutter Web" />
     <img src="https://img.shields.io/badge/Node.js-Express-3C873A?logo=node.js&logoColor=white" alt="Node.js and Express" />
     <img src="https://img.shields.io/badge/Frontend-Vercel-000000?logo=vercel&logoColor=white" alt="Vercel frontend" />
     <img src="https://img.shields.io/badge/API-AWS-FF9900?logo=amazonaws&logoColor=white" alt="AWS API" />
@@ -82,7 +80,7 @@ target price.
 
 ```mermaid
 flowchart LR
-  Client["Flutter Web / iOS"]
+  Client["Flutter Web"]
   Vercel["Vercel static frontend"]
   Proxy["Same-origin /api proxy"]
   Auth["Supabase Auth"]
@@ -113,18 +111,6 @@ The deployment boundary is deliberate:
 
 Read [the deployment contract](docs/deployment-contract.md) before changing
 DNS, Vercel, AWS, CI, CORS, or API routing.
-
-## iOS Direction
-
-![iPhone product design board for the Guru Intelligence app](prototypes/ios-guru-app-design/qa/ios-design-board.png)
-
-The repository includes an iPhone-first product-design prototype and an App
-Store readiness plan. The design adapts the web terminal into focused mobile
-research flows rather than wrapping the desktop layout unchanged. Native iOS
-implementation, signing, and TestFlight packaging remain separate release work.
-
-See the [App Store readiness checklist](docs/ios-app-store-readiness.md) and
-[product design brief](docs/ios-product-design-brief.md).
 
 ## Local Development
 
@@ -209,11 +195,10 @@ Protected routes require a valid Supabase-authenticated request in production.
 | `lib/main.dart` | Flutter terminal UI and responsive workflows |
 | `server/` | Express API, models, clients, importers, audits, and tests |
 | `api/proxy.js` | Vercel same-origin proxy to AWS |
-| `scripts/` | Build, deployment, refresh, migration, and App Store tooling |
+| `scripts/` | Build, deployment, refresh, migration, and audit tooling |
 | `web/ontology/` | Authenticated Ontology research explorer |
 | `web/guru-avatars/` | Public manager avatar assets |
-| `prototypes/ios-guru-app-design/` | iPhone product-design prototype |
-| `docs/` | Architecture, deployment, audits, and product-readiness notes |
+| `docs/` | Architecture, deployment, and audit documentation |
 
 ## Security And Data Boundaries
 
@@ -227,8 +212,7 @@ Protected routes require a valid Supabase-authenticated request in production.
 ## Status
 
 Guru Intelligence is an active private product build. The responsive web
-terminal is the current production surface. The native iOS implementation is
-planned from the included design prototype and App Store readiness checklist.
+terminal is the current production surface.
 
 > **Research software, not investment advice.** Model outputs depend on source
 > quality and stated assumptions. They should be reviewed as research evidence,
