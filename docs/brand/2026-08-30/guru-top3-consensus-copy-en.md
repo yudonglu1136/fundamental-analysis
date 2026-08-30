@@ -10,7 +10,7 @@ Source filings: @SECGov. For 13F data and research discussion: @whalewisdom, @Ko
 
 ## Publishing notes
 
-- Attach `guru-top3-consensus-en-1600x900.png` to the main post.
+- Attach `guru-top3-consensus-en-curve-1600x900.png` to the main post. It is the marketing-led version with the verified Guru Top 3 and SPY daily curves.
 - Do not add hashtags.
 - Avoid tagging the three managers in the main post, which could imply participation or endorsement.
 - If a follow-up specifically discusses the tracked managers, use @GavinSBaker and @BillAckman carefully and state that the analysis relies only on public 13F filings.

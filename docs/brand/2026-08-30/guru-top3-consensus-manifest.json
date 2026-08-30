@@ -4,7 +4,23 @@
   "dimensions": "1600x900",
   "outputs": {
     "chinese": "docs/brand/2026-08-30/guru-top3-consensus-1600x900.png",
-    "english": "docs/brand/2026-08-30/guru-top3-consensus-en-1600x900.png"
+    "english": "docs/brand/2026-08-30/guru-top3-consensus-en-1600x900.png",
+    "englishCurve": "docs/brand/2026-08-30/guru-top3-consensus-en-curve-1600x900.png"
+  },
+  "curveData": {
+    "source": "docs/brand/2026-08-30/guru-top3-consensus-equity-daily.json",
+    "frequency": "daily_trading_observation",
+    "observations": 1642,
+    "normalization": {
+      "baseDate": "2020-02-14",
+      "baseValue": 1,
+      "seriesColumns": [
+        "date",
+        "guruTop3",
+        "spy"
+      ]
+    },
+    "rendering": "All daily observations, shared linear axis, straight SVG line segments without smoothing."
   },
   "background": {
     "source": "docs/brand/2026-08-30/guru-top3-consensus-background.png",

@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const require = createRequire(import.meta.url);
@@ -20,6 +20,10 @@ const englishOutput = path.join(
   outputDir,
   'guru-top3-consensus-en-1600x900.png',
 );
+const englishCurveOutput = path.join(
+  outputDir,
+  'guru-top3-consensus-en-curve-1600x900.png',
+);
 const manifestOutput = path.join(
   outputDir,
   'guru-top3-consensus-manifest.json',
@@ -30,6 +34,10 @@ const backgroundSource =
     root,
     'docs/brand/2026-08-30/guru-top3-consensus-background.png',
   );
+const curveDataSource = path.join(
+  outputDir,
+  'guru-top3-consensus-equity-daily.json',
+);
 
 const assets = {
   mark: path.join(root, 'assets/branding/thesisforge-mark.png'),
@@ -125,12 +133,13 @@ function managerCard(manager, index) {
   `;
 }
 
-async function circularAvatar(source) {
+async function circularAvatar(source, size = 76) {
+  const radius = size / 2;
   const mask = svgBuffer(
-    '<svg width="76" height="76" xmlns="http://www.w3.org/2000/svg"><circle cx="38" cy="38" r="38" fill="white"/></svg>',
+    `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg"><circle cx="${radius}" cy="${radius}" r="${radius}" fill="white"/></svg>`,
   );
   return sharp(source)
-    .resize(76, 76, { fit: 'cover', position: 'centre' })
+    .resize(size, size, { fit: 'cover', position: 'centre' })
     .composite([{ input: mask, blend: 'dest-in' }])
     .png()
     .toBuffer();
@@ -142,6 +151,88 @@ const [mark, gavinAvatar, billAvatar, stanleyAvatar] = await Promise.all([
   circularAvatar(assets.bill),
   circularAvatar(assets.stanley),
 ]);
+const [gavinAvatarSmall, billAvatarSmall, stanleyAvatarSmall] =
+  await Promise.all([
+    circularAvatar(assets.gavin, 46),
+    circularAvatar(assets.bill, 46),
+    circularAvatar(assets.stanley, 46),
+  ]);
+
+const curveData = JSON.parse(await readFile(curveDataSource, 'utf8'));
+const curvePoints = curveData.series.map(([date, guru, spy]) => ({
+  date,
+  guru,
+  spy,
+}));
+
+const curveChart = {
+  x: 130,
+  y: 426,
+  width: 930,
+  height: 286,
+  min: 0.5,
+  max: 6.15,
+};
+const curveStartMs = Date.parse(`${curvePoints[0].date}T00:00:00Z`);
+const curveEndMs = Date.parse(`${curvePoints.at(-1).date}T00:00:00Z`);
+
+function curveCoordinates(point, field) {
+  const time = Date.parse(`${point.date}T00:00:00Z`);
+  const x =
+    curveChart.x +
+    ((time - curveStartMs) / (curveEndMs - curveStartMs)) * curveChart.width;
+  const y =
+    curveChart.y +
+    ((curveChart.max - point[field]) / (curveChart.max - curveChart.min)) *
+      curveChart.height;
+  return [x, y];
+}
+
+function curvePath(field) {
+  return curvePoints
+    .map((point, index) => {
+      const [x, y] = curveCoordinates(point, field);
+      return `${index ? 'L' : 'M'}${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .join(' ');
+}
+
+const guruCurvePath = curvePath('guru');
+const spyCurvePath = curvePath('spy');
+const [guruEndX, guruEndY] = curveCoordinates(curvePoints.at(-1), 'guru');
+const [spyEndX, spyEndY] = curveCoordinates(curvePoints.at(-1), 'spy');
+const guruAreaPath = `${guruCurvePath} L${guruEndX.toFixed(2)} ${(curveChart.y + curveChart.height).toFixed(2)} L${curveChart.x} ${(curveChart.y + curveChart.height).toFixed(2)} Z`;
+
+let runningPeak = curvePoints[0];
+let drawdownPeak = curvePoints[0];
+let drawdownTrough = curvePoints[0];
+let worstDrawdown = 0;
+curvePoints.forEach((point) => {
+  if (point.guru > runningPeak.guru) runningPeak = point;
+  const drawdown = point.guru / runningPeak.guru - 1;
+  if (drawdown < worstDrawdown) {
+    worstDrawdown = drawdown;
+    drawdownPeak = runningPeak;
+    drawdownTrough = point;
+  }
+});
+const [drawdownX, drawdownY] = curveCoordinates(drawdownTrough, 'guru');
+
+function xForDate(date) {
+  const time = Date.parse(`${date}T00:00:00Z`);
+  return (
+    curveChart.x +
+    ((time - curveStartMs) / (curveEndMs - curveStartMs)) * curveChart.width
+  );
+}
+
+function yForValue(value) {
+  return (
+    curveChart.y +
+    ((curveChart.max - value) / (curveChart.max - curveChart.min)) *
+      curveChart.height
+  );
+}
 
 const fontStack = `-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'Microsoft YaHei', sans-serif`;
 const layout = svgBuffer(`
@@ -340,6 +431,151 @@ const englishLayout = svgBuffer(`
   </svg>
 `);
 
+const curveYearTicks = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
+const curveValueTicks = [
+  { value: 1, label: '$100' },
+  { value: 2.5, label: '$250' },
+  { value: 4, label: '$400' },
+  { value: 5.5, label: '$550' },
+];
+
+const englishCurveLayout = svgBuffer(`
+  <svg width="1600" height="900" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="curve-fill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${colors.mint}" stop-opacity=".28"/>
+        <stop offset="100%" stop-color="${colors.mint}" stop-opacity="0"/>
+      </linearGradient>
+      <clipPath id="curve-clip">
+        <rect x="${curveChart.x}" y="${curveChart.y}" width="${curveChart.width}" height="${curveChart.height}" rx="6"/>
+      </clipPath>
+    </defs>
+    <style>
+      text { font-family: ${fontStack}; }
+      .brand { font-size: 25px; font-weight: 800; fill: ${colors.text}; letter-spacing: .8px; }
+      .topMeta { font-size: 16px; font-weight: 650; fill: ${colors.muted}; letter-spacing: .3px; }
+      .eyebrow { font-size: 18px; font-weight: 780; fill: ${colors.mint}; letter-spacing: 1.2px; }
+      .headline { font-size: 48px; font-weight: 820; fill: ${colors.text}; letter-spacing: -.7px; }
+      .subtitle { font-size: 19px; font-weight: 560; fill: ${colors.muted}; }
+      .chartTitle { font-size: 14px; font-weight: 760; fill: ${colors.muted}; letter-spacing: .7px; }
+      .legend { font-size: 13px; font-weight: 720; fill: ${colors.text}; }
+      .axis { font-size: 12px; font-weight: 620; fill: ${colors.subdued}; }
+      .callout { font-size: 13px; font-weight: 800; }
+      .railTitle { font-size: 15px; font-weight: 780; fill: ${colors.mint}; letter-spacing: 1px; }
+      .hero { font-size: 57px; font-weight: 830; fill: ${colors.mint}; letter-spacing: -1.5px; }
+      .railLabel { font-size: 12px; font-weight: 700; fill: ${colors.muted}; letter-spacing: .5px; }
+      .benchmark { font-size: 17px; font-weight: 780; fill: ${colors.amber}; }
+      .stat { font-size: 27px; font-weight: 820; fill: ${colors.text}; }
+      .statRisk { font-size: 27px; font-weight: 820; fill: ${colors.red}; }
+      .managerLabel { font-size: 10px; font-weight: 760; fill: ${colors.muted}; letter-spacing: .4px; }
+      .ticker { font-size: 16px; font-weight: 800; }
+      .fine { font-size: 13px; font-weight: 550; fill: ${colors.muted}; }
+      .url { font-size: 16px; font-weight: 750; fill: ${colors.text}; }
+    </style>
+
+    <rect width="1600" height="900" fill="#06101B" fill-opacity=".62"/>
+    <rect x="52" y="44" width="1496" height="812" rx="30" fill="#0B111D" fill-opacity=".94" stroke="${colors.line}" stroke-width="1.5"/>
+    <rect x="52" y="44" width="8" height="812" rx="4" fill="${colors.mint}"/>
+    <path d="M88 150H1512" stroke="${colors.line}" stroke-width="1"/>
+
+    <text x="156" y="104" class="brand">THESISFORGE</text>
+    <text x="1472" y="104" text-anchor="end" class="topMeta">GURU STRATEGY · DATA CUT AUG 27, 2026</text>
+
+    <text x="104" y="194" class="eyebrow">GURU TOP 3 CONSENSUS</text>
+    <text x="104" y="252" class="headline">3 managers. 9 names.</text>
+    <text x="104" y="307" class="headline">One transparent strategy.</text>
+    <text x="104" y="342" class="subtitle">Public 13F · Top 3 each · Dedupe · Equal-weight · No leverage</text>
+
+    <rect x="88" y="368" width="1018" height="408" rx="22" fill="${colors.panel2}" stroke="${colors.line}"/>
+    <text x="118" y="405" class="chartTitle">GROWTH OF $100 · PRICE BACKTEST</text>
+    <circle cx="762" cy="400" r="5" fill="${colors.mint}"/>
+    <text x="776" y="405" class="legend">GURU TOP 3</text>
+    <circle cx="902" cy="400" r="5" fill="${colors.amber}"/>
+    <text x="916" y="405" class="legend">SPY</text>
+
+    ${curveValueTicks
+      .map(({ value, label }) => {
+        const y = yForValue(value);
+        return `
+          <path d="M${curveChart.x} ${y.toFixed(2)}H${curveChart.x + curveChart.width}" stroke="${colors.line}" stroke-width="1" opacity=".7"/>
+          <text x="118" y="${(y + 4).toFixed(2)}" text-anchor="end" class="axis">${label}</text>
+        `;
+      })
+      .join('')}
+    ${curveYearTicks
+      .map((year) => {
+        const date = year === 2020 ? curvePoints[0].date : `${year}-01-01`;
+        const x = xForDate(date);
+        return `
+          <path d="M${x.toFixed(2)} ${curveChart.y}V${curveChart.y + curveChart.height}" stroke="${colors.line}" stroke-width="1" opacity=".42"/>
+          <text x="${x.toFixed(2)}" y="742" text-anchor="middle" class="axis">${year}</text>
+        `;
+      })
+      .join('')}
+
+    <g clip-path="url(#curve-clip)">
+      <path d="${guruAreaPath}" fill="url(#curve-fill)"/>
+      <path d="${spyCurvePath}" fill="none" stroke="${colors.amber}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>
+      <path d="${guruCurvePath}" fill="none" stroke="${colors.mint}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <circle cx="${guruEndX.toFixed(2)}" cy="${guruEndY.toFixed(2)}" r="6" fill="${colors.mint}" stroke="#D9FFF4" stroke-width="2"/>
+    <path d="M${(guruEndX - 8).toFixed(2)} ${guruEndY.toFixed(2)}H875" stroke="${colors.mint}" stroke-width="1.5" opacity=".75"/>
+    <rect x="872" y="${(guruEndY - 20).toFixed(2)}" width="178" height="38" rx="9" fill="${colors.mintSoft}" stroke="#28675D"/>
+    <text x="961" y="${(guruEndY + 5).toFixed(2)}" text-anchor="middle" class="callout" fill="${colors.mint}">GURU +475.5%</text>
+
+    <circle cx="${spyEndX.toFixed(2)}" cy="${spyEndY.toFixed(2)}" r="5" fill="${colors.amber}" stroke="#FFF2CF" stroke-width="2"/>
+    <path d="M${(spyEndX - 7).toFixed(2)} ${spyEndY.toFixed(2)}H891" stroke="${colors.amber}" stroke-width="1.5" opacity=".75"/>
+    <rect x="888" y="${(spyEndY - 19).toFixed(2)}" width="162" height="36" rx="9" fill="${colors.amberSoft}" stroke="#6A5430"/>
+    <text x="969" y="${(spyEndY + 5).toFixed(2)}" text-anchor="middle" class="callout" fill="${colors.amber}">SPY +128.4%</text>
+
+    <circle cx="${drawdownX.toFixed(2)}" cy="${drawdownY.toFixed(2)}" r="5" fill="${colors.red}" stroke="#FFD6D6" stroke-width="2"/>
+    <path d="M${drawdownX.toFixed(2)} ${(drawdownY - 7).toFixed(2)}V${(drawdownY - 41).toFixed(2)}" stroke="${colors.red}" stroke-width="1.5"/>
+    <rect x="${(drawdownX - 82).toFixed(2)}" y="${(drawdownY - 78).toFixed(2)}" width="164" height="36" rx="9" fill="${colors.redSoft}" stroke="#6B3440"/>
+    <text x="${drawdownX.toFixed(2)}" y="${(drawdownY - 54).toFixed(2)}" text-anchor="middle" class="callout" fill="${colors.red}">−41.1% MAX DD</text>
+
+    <rect x="1130" y="184" width="344" height="592" rx="22" fill="#101826" stroke="${colors.line}"/>
+    <text x="1160" y="220" class="railTitle">BACKTEST RESULT</text>
+    <text x="1160" y="286" class="hero">+475.5%</text>
+    <text x="1162" y="312" class="railLabel">CUMULATIVE PRICE RETURN</text>
+    <rect x="1160" y="329" width="284" height="36" rx="10" fill="${colors.amberSoft}" stroke="#6A5430"/>
+    <text x="1302" y="353" text-anchor="middle" class="benchmark">SPY +128.4%</text>
+    <path d="M1160 388H1444" stroke="${colors.line}" stroke-width="1"/>
+
+    <text x="1160" y="428" class="stat">30.7%</text>
+    <text x="1162" y="450" class="railLabel">ANNUALIZED</text>
+    <text x="1310" y="428" class="stat">1.05</text>
+    <text x="1312" y="450" class="railLabel">SHARPE</text>
+    <text x="1160" y="492" class="statRisk">−41.1%</text>
+    <text x="1162" y="514" class="railLabel">MAX DRAWDOWN</text>
+    <text x="1310" y="492" class="stat">1.24</text>
+    <text x="1312" y="514" class="railLabel">BETA</text>
+    <path d="M1160 532H1444" stroke="${colors.line}" stroke-width="1"/>
+
+    <text x="1160" y="556" class="railTitle">CURRENT · AUG 14, 2026</text>
+    <circle cx="1184" cy="588" r="25" fill="#0E1624" stroke="${colors.mint}" stroke-width="2"/>
+    <circle cx="1288" cy="588" r="25" fill="#0E1624" stroke="${colors.amber}" stroke-width="2"/>
+    <circle cx="1392" cy="588" r="25" fill="#0E1624" stroke="${colors.mint}" stroke-width="2"/>
+    <text x="1184" y="621" text-anchor="middle" class="managerLabel">BAKER</text>
+    <text x="1288" y="621" text-anchor="middle" class="managerLabel">ACKMAN</text>
+    <text x="1392" y="621" text-anchor="middle" class="managerLabel">DRUCK.</text>
+    ${pill(1142, 631, 84, 'MU')}
+    ${pill(1246, 631, 84, 'UBER')}
+    ${pill(1350, 631, 84, 'NTRA')}
+    ${pill(1142, 677, 84, 'ALAB')}
+    ${pill(1246, 677, 84, 'BN')}
+    ${pill(1350, 677, 84, 'TSM')}
+    ${pill(1142, 723, 84, 'CIEN')}
+    ${pill(1246, 723, 84, 'MSFT')}
+    ${pill(1350, 723, 84, 'STM')}
+
+    <path d="M104 808H1474" stroke="${colors.line}" stroke-width="1"/>
+    <text x="104" y="833" class="fine">Price backtest; excludes fees, taxes, slippage and dividend reinvestment. 13F lags up to 45 days; omits shorts, cash and intra-quarter trades. Research only—not advice.</text>
+    <circle cx="1308" cy="828" r="5" fill="${colors.mint}"/>
+    <text x="1322" y="833" class="url">thesisforge.tech</text>
+  </svg>
+`);
+
 const background = await sharp(backgroundSource)
   .resize(1600, 900, { fit: 'cover' })
   .modulate({ brightness: 0.72, saturation: 0.78 })
@@ -360,9 +596,23 @@ async function exportGraphic(overlay, destination) {
     .toFile(destination);
 }
 
+async function exportCurveGraphic() {
+  await sharp(background)
+    .composite([
+      { input: englishCurveLayout, left: 0, top: 0 },
+      { input: mark, left: 88, top: 70 },
+      { input: gavinAvatarSmall, left: 1161, top: 565 },
+      { input: billAvatarSmall, left: 1265, top: 565 },
+      { input: stanleyAvatarSmall, left: 1369, top: 565 },
+    ])
+    .png({ compressionLevel: 9 })
+    .toFile(englishCurveOutput);
+}
+
 await Promise.all([
   exportGraphic(layout, output),
   exportGraphic(englishLayout, englishOutput),
+  exportCurveGraphic(),
 ]);
 
 await writeFile(
@@ -375,6 +625,14 @@ await writeFile(
       outputs: {
         chinese: path.relative(root, output),
         english: path.relative(root, englishOutput),
+        englishCurve: path.relative(root, englishCurveOutput),
+      },
+      curveData: {
+        source: path.relative(root, curveDataSource),
+        frequency: curveData.period.frequency,
+        observations: curveData.period.observations,
+        normalization: curveData.normalization,
+        rendering: 'All daily observations, shared linear axis, straight SVG line segments without smoothing.',
       },
       background: {
         source: path.relative(root, backgroundSource),
@@ -403,4 +661,5 @@ await writeFile(
 
 console.log(`Wrote ${output}`);
 console.log(`Wrote ${englishOutput}`);
+console.log(`Wrote ${englishCurveOutput}`);
 console.log(`Wrote ${manifestOutput}`);
