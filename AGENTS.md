@@ -206,6 +206,13 @@ Chinese and English are release-critical product modes, not best-effort labels.
   Use the Palantir name and PLTR ticker only for editorial identification; do
   not use Palantir logos, interface captures, trade dress, or imply affiliation
   or endorsement. Keep the independent-research and no-affiliation disclosure.
+- Competition and mission-criticality claims in PLTR social copy must be tied to
+  primary evidence: official customer deployment demonstrations plus public
+  procurement, evaluation, justification, or award records. Treat
+  Palantir-produced customer videos as issuer/customer claims and government
+  award records as procurement facts. Do not say every case or tender was
+  reviewed unless a complete source ledger exists, and keep “mission-critical”
+  explicitly framed as the ThesisForge conclusion.
 - Describe the 2018–2026 Ontology result as a diagnostic research evaluation,
   not a live result or fresh blind test. Always disclose the −42.5% historical
   maximum drawdown, high turnover, modeled-cost basis, and that the V4 overlay's
