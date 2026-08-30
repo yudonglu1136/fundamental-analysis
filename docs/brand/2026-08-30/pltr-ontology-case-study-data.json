@@ -1,13 +1,16 @@
 {
-  "title": "PLTR Ontology V2 case study",
+  "title": "PLTR Ontology Q2 confirmation case study",
   "releaseDate": "2026-08-30",
   "ticker": "PLTR",
   "company": "Palantir Technologies Inc.",
   "model": {
-    "decisionVersion": "event-ontology-v2",
-    "portfolioReplay": "ontology_context_6m",
-    "period": "evaluation_2018_2026",
-    "contextDefinition": "Broad-stage software peer-context composite; not peer-stock performance and not measured customer contracts or revenue."
+    "surface": "Ontology historical ranking tab",
+    "metric": "heat_score",
+    "metricLabel": "Ontology heat rank",
+    "sort": "descending heat_score with ticker as the deterministic tie-break",
+    "universe": "74 graph companies with a report period and a normal signal state",
+    "rankDirection": "1 is strongest",
+    "replayType": "point-in-time diagnostic replay"
   },
   "source": {
     "artifact": "fundamental-analysis/server/data/ontology-snapshot.sqlite",
@@ -15,124 +18,132 @@
     "artifactGeneratedAt": "2026-08-20T19:45:10.222596+00:00",
     "financialAsOf": "2026-08-19",
     "filingDataCut": "2026-08-04",
-    "strategySnapshotDate": "2026-08-13",
     "routeKeys": [
-      "decision_company:PLTR",
-      "company:PLTR",
-      "decision_snapshot:2025-08-29",
-      "decision_snapshot:2026-02-27",
-      "decision_snapshot:2026-05-29",
+      "snapshot:2025-08-01",
+      "snapshot:2025-11-14",
+      "snapshot:2026-02-17",
+      "snapshot:2026-05-05",
+      "snapshot:2026-07-31",
+      "snapshot:2026-08-04",
+      "snapshot:2026-08-05",
+      "decision_snapshot:2026-07-31",
       "decision_snapshot:2026-08-13"
     ]
   },
-  "peerContextSeries": [
+  "heatRankSeries": [
     {
-      "reportPeriod": "2025-Q2",
-      "informationDate": "2025-08-05",
-      "tradeDate": "2025-08-06",
-      "signalState": "green_peer_capture",
-      "baseEligible": true,
-      "peerContext": 0.3268910813223564,
-      "ontologyScore": 0.8144120230950264
+      "date": "2025-08-01",
+      "rank": 8,
+      "universe": 74,
+      "heatScore": 71.2,
+      "fiscalPeriod": "2025-Q1",
+      "label": "#8"
     },
     {
-      "reportPeriod": "2025-Q3",
-      "informationDate": "2025-11-04",
-      "tradeDate": "2025-11-05",
-      "signalState": "invalid_or_watch",
-      "baseEligible": false,
-      "peerContext": 0.2710812960055518,
-      "ontologyScore": 0.43737900610369596
+      "date": "2025-11-14",
+      "rank": 1,
+      "universe": 74,
+      "heatScore": 79.8,
+      "fiscalPeriod": "2025-Q3",
+      "label": "#1"
     },
     {
-      "reportPeriod": "2025-Q4",
-      "informationDate": "2026-02-17",
-      "tradeDate": "2026-02-18",
-      "signalState": "green_peer_capture",
-      "baseEligible": true,
-      "peerContext": 1.0608210381675502,
-      "ontologyScore": 1.015215905643002
+      "date": "2026-02-17",
+      "rank": 1,
+      "universe": 74,
+      "heatScore": 86.3,
+      "fiscalPeriod": "2025-Q4",
+      "label": "#1"
     },
     {
-      "reportPeriod": "2026-Q1",
-      "informationDate": "2026-05-05",
-      "tradeDate": "2026-05-06",
-      "signalState": "green_peer_capture",
-      "baseEligible": true,
-      "peerContext": 1.238862837045721,
-      "ontologyScore": 1.3182987574956524
+      "date": "2026-05-05",
+      "rank": 2,
+      "universe": 74,
+      "heatScore": 86.9,
+      "fiscalPeriod": "2026-Q1",
+      "label": "#2"
     },
     {
-      "reportPeriod": "2026-Q2",
-      "informationDate": "2026-08-04",
-      "tradeDate": "2026-08-05",
-      "signalState": "green_peer_capture",
-      "baseEligible": true,
-      "peerContext": 1.190569689234177,
-      "ontologyScore": 1.1663144590132712
+      "date": "2026-07-31",
+      "rank": 2,
+      "universe": 74,
+      "heatScore": 85.2,
+      "fiscalPeriod": "2026-Q1",
+      "label": "#2 PRE-Q2"
+    },
+    {
+      "date": "2026-08-04",
+      "rank": 2,
+      "universe": 74,
+      "heatScore": 85.7,
+      "fiscalPeriod": "2026-Q2",
+      "label": "#2 POST-Q2"
     }
   ],
-  "milestones": [
-    {
-      "date": "2025-08-06",
-      "label": "FIRST GREEN FLAG",
-      "detail": "Rank 64 of 141; flagged, not selected",
-      "snapshotRoute": "decision_snapshot:2025-08-29"
+  "q2RankCheck": {
+    "before": {
+      "date": "2026-07-31",
+      "rank": 2,
+      "universe": 74,
+      "heatScore": 85.2,
+      "layerRank": 1,
+      "layerUniverse": 8
     },
-    {
-      "date": "2026-02-18",
-      "label": "PEER-CONTEXT BREAKOUT",
-      "detail": "3.91x quarter over quarter; rank 32 of 124",
-      "snapshotRoute": "decision_snapshot:2026-02-27"
+    "filing": {
+      "date": "2026-08-04",
+      "fiscalPeriod": "2026-Q2"
     },
-    {
-      "date": "2026-05-08",
-      "label": "TOP-20 PORTFOLIO ENTRY",
-      "detail": "Rank 12 of 123; simulated fill $136.005865",
-      "snapshotRoute": "decision_snapshot:2026-05-29"
+    "after": {
+      "date": "2026-08-04",
+      "rank": 2,
+      "universe": 74,
+      "heatScore": 85.7,
+      "layerRank": 1,
+      "layerUniverse": 8
     },
-    {
-      "date": "2026-08-13",
-      "label": "HELD BY RANK BUFFER",
-      "detail": "Simulated unrealized return 31.6193%",
-      "snapshotRoute": "decision_snapshot:2026-08-13"
-    }
-  ],
-  "peerBreakout": {
-    "fromDate": "2025-11-04",
-    "toDate": "2026-02-17",
-    "from": 0.2710812960055518,
-    "to": 1.0608210381675502,
-    "multiple": 3.91329484475323,
-    "percentIncrease": 291.329484475323
+    "nextTradingDay": {
+      "date": "2026-08-05",
+      "rank": 2,
+      "universe": 74,
+      "heatScore": 85.9
+    },
+    "rankChange": 0,
+    "heatScoreChange": 0.5,
+    "finding": "The latest Q2 filing confirmed an already top-ranked signal; it did not create a rank jump."
   },
   "latestFundamentals": {
     "reportPeriod": "2026-Q2",
     "informationDate": "2026-08-04",
     "revenueGrowthYoY": 0.7892124221826102,
     "revenueAccelerationPp": 11.212293587367639,
+    "operatingIncomeGrowthYoY": 3.62586472079614,
     "operatingMargin": 0.4279852584682017,
+    "freeCashFlowGrowthYoY": 0.9653913141187707,
     "freeCashFlowMargin": 0.5455334935796168,
     "roic": 0.451
   },
-  "portfolioReplay": {
-    "entryDate": "2026-05-08",
-    "entryMarketPrice": 135.865,
-    "modeledFillPrice": 136.005865,
-    "snapshotDate": "2026-08-13",
-    "snapshotPrice": 179.01,
-    "shares": 278,
-    "unrealizedReturn": 0.31619323916656106,
-    "action": "HOLD",
-    "actionReason": "signal_active_inside_life_and_rank_buffer",
-    "maximumHoldingDays": 126
+  "separateDecisionRankCheck": {
+    "metric": "V2 ontology_score ordering in the decision snapshot",
+    "before": {
+      "date": "2026-07-31",
+      "position": 18,
+      "universe": 146,
+      "ontologyScore": 1.3182987574956524
+    },
+    "after": {
+      "date": "2026-08-13",
+      "position": 32,
+      "universe": 177,
+      "ontologyScore": 1.1663144590132712
+    },
+    "warning": "This is a different ranking surface with a changing universe and must not be presented as the heat-rank series."
   },
-  "interpretation": "ThesisForge research interpretation: Palantir is becoming mission-critical software for the AI era.",
+  "interpretation": "ThesisForge research interpretation: Palantir is becoming operational infrastructure for the AI era.",
   "caveats": [
-    "This is an August 2026 point-in-time diagnostic replay, not evidence of an archived live alert issued in August 2025.",
-    "The first green flag was not a portfolio buy; the fixed-rule replay entered only after PLTR reached the Top 20 in May 2026.",
-    "The latest-quarter broad-stage peer-context score remained elevated but declined 3.9% from the prior quarter; its actual breakout occurred in February 2026.",
-    "The AI-era mission-critical wording is a ThesisForge interpretation, not a direct model output.",
+    "This is an August 2026 point-in-time diagnostic replay, not evidence of an archived live alert.",
+    "On the historical ranking tab, PLTR was already rank 2 of 74 before the latest Q2 filing and remained rank 2 afterward; do not claim a post-Q2 rank explosion.",
+    "The heat rank and the V2 decision-snapshot ontology_score ordering are separate surfaces and must not be mixed.",
+    "The AI-era operational-infrastructure wording is a ThesisForge interpretation, not a direct model output.",
     "Independent research; not affiliated with or endorsed by Palantir Technologies. Research only; not investment advice."
   ]
 }

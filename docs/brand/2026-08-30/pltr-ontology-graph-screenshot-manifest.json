@@ -1,0 +1,26 @@
+{
+  "title": "PLTR Ontology product screenshot — ThesisForge branded frame",
+  "releaseDate": "2026-08-30",
+  "dimensions": "1600x900",
+  "output": "docs/brand/2026-08-30/pltr-ontology-graph-screenshot-en-1600x900.png",
+  "outputSha256": "40636c05f05225306880eb803b53107fa04cdae4e8207b55ac1f3e804768b117",
+  "sourceScreenshot": {
+    "path": "docs/brand/2026-08-30/pltr-ontology-graph-source.png",
+    "dimensions": "3022x1606",
+    "sha256": "9d3e81f9ce0166580afb4e0833bbe374807e794aa792a32d85e82fdfea523072",
+    "treatment": "Resized proportionally and rounded only; screenshot pixels, UI copy, PLTR data, and visual hierarchy are otherwise unchanged."
+  },
+  "background": {
+    "path": "docs/brand/2026-08-30/pltr-ontology-frame-background.png",
+    "sha256": "1c43dff84a06f3b9f72786d0ed6e398f5c94c55c2a8e3345b473b8eaa20263ea",
+    "role": "Generated low-contrast ontology atmosphere outside the product screenshot only."
+  },
+  "branding": {
+    "mark": "assets/branding/thesisforge-mark.png",
+    "markSha256": "91eb6662ac5194626b0737e429d82213bd2edb712f53e21ebb23d402689e7eb5",
+    "lockup": "Official ThesisForge mark plus deterministic THESISFORGE wordmark."
+  },
+  "editorial": {
+    "palantirIdentification": "PLTR and Palantir appear only inside the user-supplied product screenshot. No Palantir logo, external UI, or endorsement treatment was added."
+  }
+}

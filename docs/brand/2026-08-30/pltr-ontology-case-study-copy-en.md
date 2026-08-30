@@ -1,22 +1,30 @@
-# PLTR Ontology V2 case study — English social copy
+# PLTR Ontology Q2 confirmation — English social copy
 
-## Main post (270 characters)
+## Main post (under 280 characters)
 
-The quarter made $PLTR obvious. Our PIT replay first flashed green on Aug 6, 2025, reset, then saw broad-stage peer context jump 3.9× in Feb 2026. By Aug: 78.9% growth, 42.8% operating margin. Our read: mission-critical AI software. Independent research; no affiliation.
+Q2 didn’t discover $PLTR. Our Ontology already ranked it #2/74 before the Aug 4 report—and kept it there after. Q2 confirmed the evidence: 78.9% TTM revenue growth, 42.8% operating margin, 54.6% FCF margin. The edge was being early. PIT replay; not advice.
 
-## Suggested first reply — the competition mistake (276 characters)
+## Suggested first reply — the competition mistake
 
-Everyone has a “Palantir killer.” Have they watched Palantir’s YouTube demos and read the public award files—case by case? We have. The pattern: selected, expanded, embedded. Our conclusion: Palantir is mission-critical software for operational AI—not another replaceable app.
+Many investors keep searching for a “Palantir killer.” We reviewed public customer demos and award files case by case. The pattern is selection → expansion → embedded workflows. Competition is real; easy replaceability is the weaker assumption. @PalantirTech
 
-## Suggested second reply — what the timeline means
+## Suggested second reply — what Q2 actually changed
 
-The first green flag was not yet a buy: PLTR ranked 64/141 in the August 2025 snapshot.
-
-The signal reset to watch, rebuilt in February 2026, then reached rank 12 and entered the fixed-rule Top 20 replay on May 8 at a modeled $136.01 fill. By the August 13 snapshot, the simulated position was +31.6% and remained held by the Rank-40 buffer.
+What changed after Q2? Not the rank. PLTR was already #2/74 on Jul 31, stayed #2/74 on Aug 4, and rose from 85.2 to 85.7 in heat. That is the point: the graph was early; the filing added confirmation.
 
 ## Suggested third reply — research honesty
 
-Important: this is a point-in-time diagnostic replay generated in August 2026—not evidence of an archived live alert issued in 2025. “Mission-critical AI software” is our research interpretation, not a model output. Historical simulation; not investment advice.
+Important: this is a PIT diagnostic replay generated in August 2026, not proof of an archived live alert. The heat rank is the AI value-chain financial-change ranking; it is not valuation or the V2 portfolio rank. Historical research; no affiliation; not advice.
+
+## Why the image uses confirmation—not a post-Q2 rank jump
+
+- Historical ranking replay, latest pre-filing snapshot on July 31: PLTR was #2 of 74 by `heat_score`, with a score of 85.2.
+- Filing/information-date snapshot on August 4: PLTR remained #2 of 74, with a score of 85.7.
+- Next-trading-day snapshot on August 5: PLTR remained #2 of 74, with a score of 85.9.
+- Within the software/data model layer, PLTR was #1 of 8 before and after Q2.
+- The separate V2 decision-snapshot ordering moved from #18/146 to #32/177 as `ontology_score` declined from 1.318 to 1.166. It is a different surface with a changing universe and cannot support a positive rank-jump claim.
+
+The stronger, evidence-backed marketing message is that Ontology had already ranked PLTR near the top before the latest filing.
 
 ## Primary evidence checked for the competition reply
 
@@ -27,24 +35,23 @@ Important: this is a point-in-time diagnostic replay generated in August 2026—
 - The U.S. Army’s [TITAN prototype award](https://cpeisw.army.mil/2024/03/06/army-tactical-intelligence-targeting-access-node-titan-ground-station-prototype-award/): Palantir was selected after a competitive prototype phase against Raytheon that included operational requirements, Soldier Touch Points, and a capstone evaluation. The $178.4 million award covers ten prototypes.
 - Palantir’s [2025 Form 10-K](https://investors.palantir.com/files/2025%20FY%20PLTR%2010-K.pdf?mod=article_inline) says its markets are highly competitive and may become more competitive. This is important counter-evidence: the reply argues that deployment depth makes Palantir difficult to displace in selected workflows, not that competition does not exist.
 
-These are representative public examples, not a claim that every Palantir video, contract, or customer outcome has been independently audited. The “mission-critical” conclusion is ThesisForge’s interpretation of the deployment and procurement evidence.
+These are representative public examples, not a claim that every Palantir video, contract, or customer outcome has been independently audited. The “operational infrastructure” conclusion is ThesisForge’s interpretation of the deployment and procurement evidence.
 
 ## Optional tagging
 
 - Keep the main post clean and let `$PLTR` handle discovery.
-- The conviction reply is already 276 characters; do not append a handle to it. If direct company visibility is the goal, put `@PalantirTech` in the following evidence reply.
+- Put `@PalantirTech` in the first reply, where the company-specific evidence appears.
 - Do not tag executives or imply that Palantir reviewed, endorsed, or is affiliated with the research.
 
 ## Accessible image description
 
-Dark navy ThesisForge Ontology V2 case-study graphic for PLTR. A glowing exact line chart shows the broad-stage software peer-context model score moving from 0.33 at the first green flag in August 2025, resetting to 0.27 in November, jumping 3.9 times quarter over quarter to 1.06 in February 2026, and remaining elevated at 1.19 in August. Four timeline cards show the first flag, peer-context breakout, simulated Top-20 entry, and Rank-40 hold buffer. The latest Q2 evidence panel shows 78.9% TTM revenue growth, 42.8% operating margin, and 54.6% free-cash-flow margin. A separate fixed-rule replay panel reports a 31.6% simulated gain from a modeled May 8 entry through August 13. The interpretation reads: “Palantir is becoming mission-critical AI software.”
+Dark navy ThesisForge Ontology social graphic for PLTR. The headline reads, “Q2 didn’t discover PLTR. Ontology was already at #2.” An exact inverted-rank line charts six selected point-in-time snapshots: PLTR rose from #8 of 74 in August 2025 to #1 in November 2025 and February 2026, then held #2 before and after the August 4, 2026 Q2 filing. A before-and-after panel shows heat rising from 85.2 to 85.7 while rank remains #2 of 74. Four Q2 evidence metrics show 78.9% TTM revenue growth, 11.2 percentage points of acceleration, 42.8% operating margin, and 54.6% free-cash-flow margin. The conclusion says the edge was arriving with PLTR already near the top.
 
 ## Publishing and rights notes
 
 - Attach `pltr-ontology-case-study-en-1600x900.png` to the main post.
-- The creative release is dated August 30, 2026. Filing data is through August 4; the strategy snapshot is August 13.
-- `Peer context` is a broad-stage V2 composite model score, not peer-stock performance, measured customer contracts, or revenue.
-- The latest peer-context score stayed elevated but declined 3.9% quarter over quarter; its actual breakout was in February 2026.
+- The creative release is dated August 30, 2026. The Q2 filing data cut is August 4.
+- `Heat rank` is the Ontology AI value-chain financial-change ranking over the fixed 74-company graph universe. It is not valuation, price performance, or the V2 decision/portfolio rank.
 - Palantir’s name and ticker are used for editorial identification. The creative does not use Palantir’s logo, interface, trade dress, or proprietary marketing artwork.
-- Always retain the independent-research, no-affiliation, historical-simulation, and not-investment-advice disclosures.
+- Always retain the point-in-time replay, independent-research, no-affiliation, and not-investment-advice disclosures.
 - This asset has not been published.
