@@ -404,6 +404,14 @@ const RESOLVED_ISSUES = [
     title: "Guidance values could bind to the wrong metric, scope, range endpoint, or revision amount",
     scope: "Structural transcript and filing forms across CDNS, GTLB, APTV, CARR, RTX and every modeled guidance period",
     resolution: "The extractor now binds amounts to explicit economic owners before selection, treats legal ranges and signed ranges as atomic, pairs parallel metric/value lists in source order, gives an explicit quarter label precedence over a nearby fiscal-year token, selects the destination in `raise by X to Y`, and excludes historical or non-periodic owner amounts. An independent audit reconstructed all 18,367 guidance rows used by the model and found zero historical-actual, non-guidance-owner, parallel-pairing, or illegal-midpoint mismatches."
+  },
+  {
+    id: "VAL-047",
+    severity: "P0",
+    status: "fixed",
+    title: "Application restart could replace the full PIT dashboard with a stale bundled snapshot",
+    scope: "Persistent AWS and local runtime databases when the bundled dashboard is older or has lower ticker coverage",
+    resolution: "Bundled valuation snapshots now install monotonically: every row must be newer, and a dashboard update may never reduce tracked-ticker coverage. Regression tests prove that the old zero-ticker bundle cannot overwrite the 533-ticker PIT release after a restart."
   }
 ];
 

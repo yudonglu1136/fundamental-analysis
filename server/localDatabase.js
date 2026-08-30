@@ -2,6 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
+import {
+  shouldInstallBundledValuationDashboard,
+  shouldInstallBundledValuationTicker
+} from "./bundledValuationSnapshotPolicy.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const bundledDataDir = path.join(__dirname, "data");
@@ -191,6 +195,7 @@ function syncBundledValuationSnapshots() {
       ON CONFLICT(id) DO UPDATE SET
         generated_at = excluded.generated_at,
         payload_json = excluded.payload_json
+      WHERE excluded.generated_at > valuation_snapshots.generated_at
     `);
     const writeTicker = db.prepare(`
       INSERT INTO valuation_ticker_snapshots (ticker, generated_at, payload_json)
@@ -198,25 +203,43 @@ function syncBundledValuationSnapshots() {
       ON CONFLICT(ticker) DO UPDATE SET
         generated_at = excluded.generated_at,
         payload_json = excluded.payload_json
+      WHERE excluded.generated_at > valuation_ticker_snapshots.generated_at
+    `);
+    const currentDashboard = db.prepare(`
+      SELECT generated_at, payload_json
+      FROM valuation_snapshots
+      WHERE id = ?
+    `);
+    const currentTicker = db.prepare(`
+      SELECT generated_at
+      FROM valuation_ticker_snapshots
+      WHERE ticker = ?
     `);
 
     db.exec("BEGIN");
     try {
+      let installedDashboardRows = 0;
+      let installedTickerRows = 0;
       for (const row of dashboardRows) {
+        if (!shouldInstallBundledValuationDashboard(row, currentDashboard.get(row.id))) continue;
         writeDashboard.run(row.id, row.generated_at, row.payload_json);
+        installedDashboardRows += 1;
       }
       for (const row of tickerRows) {
+        if (!shouldInstallBundledValuationTicker(row, currentTicker.get(row.ticker))) continue;
         writeTicker.run(row.ticker, row.generated_at, row.payload_json);
+        installedTickerRows += 1;
       }
       db.exec("COMMIT");
+      console.info(
+        `[database] synced bundled valuation snapshots into ${dbPath}: ` +
+        `${installedDashboardRows}/${dashboardRows.length} dashboard rows, ` +
+        `${installedTickerRows}/${tickerRows.length} ticker rows installed`
+      );
     } catch (error) {
       db.exec("ROLLBACK");
       throw error;
     }
-    console.info(
-      `[database] synced bundled valuation snapshots into ${dbPath}: ` +
-      `${dashboardRows.length} dashboard rows, ${tickerRows.length} ticker rows`
-    );
   } catch (error) {
     console.warn(`[database] bundled valuation snapshot sync skipped: ${error.message}`);
   } finally {
