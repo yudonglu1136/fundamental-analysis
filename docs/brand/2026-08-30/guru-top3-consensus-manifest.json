@@ -2,7 +2,10 @@
   "title": "Guru Top 3 Consensus — ThesisForge social graphic",
   "generatedAt": "2026-08-30",
   "dimensions": "1600x900",
-  "output": "docs/brand/2026-08-30/guru-top3-consensus-1600x900.png",
+  "outputs": {
+    "chinese": "docs/brand/2026-08-30/guru-top3-consensus-1600x900.png",
+    "english": "docs/brand/2026-08-30/guru-top3-consensus-en-1600x900.png"
+  },
   "background": {
     "source": "docs/brand/2026-08-30/guru-top3-consensus-background.png",
     "role": "Low-contrast atmospheric treatment only; all copy, data, logos, and charts are deterministic overlays."

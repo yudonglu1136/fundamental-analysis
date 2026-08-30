@@ -16,6 +16,10 @@ try {
 const root = path.resolve(import.meta.dirname, '..');
 const outputDir = path.join(root, 'docs/brand/2026-08-30');
 const output = path.join(outputDir, 'guru-top3-consensus-1600x900.png');
+const englishOutput = path.join(
+  outputDir,
+  'guru-top3-consensus-en-1600x900.png',
+);
 const manifestOutput = path.join(
   outputDir,
   'guru-top3-consensus-manifest.json',
@@ -238,6 +242,104 @@ const layout = svgBuffer(`
   </svg>
 `);
 
+const englishLayout = svgBuffer(`
+  <svg width="1600" height="900" xmlns="http://www.w3.org/2000/svg">
+    <style>
+      text { font-family: ${fontStack}; }
+      .brand { font-size: 25px; font-weight: 800; fill: ${colors.text}; letter-spacing: .8px; }
+      .meta { font-size: 16px; font-weight: 650; fill: ${colors.muted}; letter-spacing: .3px; }
+      .eyebrow { font-size: 18px; font-weight: 750; fill: ${colors.mint}; letter-spacing: 1.1px; }
+      .headline { font-size: 49px; font-weight: 800; fill: ${colors.text}; letter-spacing: -.5px; }
+      .body { font-size: 21px; font-weight: 520; fill: ${colors.muted}; }
+      .step { font-size: 16px; font-weight: 720; fill: ${colors.text}; }
+      .stepNo { font-size: 14px; font-weight: 800; fill: ${colors.ink}; }
+      .kpiHero { font-size: 67px; font-weight: 820; fill: ${colors.mint}; letter-spacing: -2px; }
+      .kpiBenchmark { font-size: 34px; font-weight: 800; fill: ${colors.amber}; letter-spacing: -.5px; }
+      .label { font-size: 15px; font-weight: 680; fill: ${colors.muted}; letter-spacing: .2px; }
+      .stat { font-size: 28px; font-weight: 800; fill: ${colors.text}; }
+      .statRisk { font-size: 28px; font-weight: 800; fill: ${colors.red}; }
+      .section { font-size: 25px; font-weight: 800; fill: ${colors.text}; }
+      .manager { font-size: 22px; font-weight: 780; fill: ${colors.text}; }
+      .role { font-size: 14px; font-weight: 560; fill: ${colors.muted}; }
+      .ticker { font-size: 18px; font-weight: 800; }
+      .change { font-size: 14px; font-weight: 780; letter-spacing: .4px; }
+      .fine { font-size: 13px; font-weight: 550; fill: ${colors.muted}; }
+      .fineStrong { font-size: 13px; font-weight: 720; fill: ${colors.text}; }
+      .url { font-size: 16px; font-weight: 750; fill: ${colors.text}; }
+    </style>
+
+    <rect width="1600" height="900" fill="#06101B" fill-opacity=".62"/>
+    <rect x="52" y="44" width="1496" height="812" rx="30" fill="#0B111D" fill-opacity=".94" stroke="${colors.line}" stroke-width="1.5"/>
+    <rect x="52" y="44" width="8" height="812" rx="4" fill="${colors.mint}"/>
+    <path d="M88 158H1512" stroke="${colors.line}" stroke-width="1"/>
+    <path d="M712 184V784" stroke="${colors.line}" stroke-width="1"/>
+
+    <text x="156" y="104" class="brand">THESISFORGE</text>
+    <text x="1472" y="104" text-anchor="end" class="meta">GURU STRATEGY · DATA CUT AUG 27, 2026</text>
+
+    <text x="104" y="210" class="eyebrow">PUBLIC 13F FILINGS · LOW FREQUENCY · EQUAL WEIGHT</text>
+    <text x="104" y="272" class="headline">A simple rule set</text>
+    <text x="104" y="330" class="headline">any investor can verify</text>
+    <text x="104" y="372" class="body">3 managers · top 3 reported 13F positions each</text>
+
+    <circle cx="117" cy="425" r="15" fill="${colors.mint}"/>
+    <text x="117" y="430" text-anchor="middle" class="stepNo">1</text>
+    <text x="143" y="431" class="step">WAIT FOR 13F</text>
+    <path d="M259 425H279" stroke="${colors.line}" stroke-width="2"/>
+    <circle cx="297" cy="425" r="15" fill="${colors.mint}"/>
+    <text x="297" y="430" text-anchor="middle" class="stepNo">2</text>
+    <text x="323" y="431" class="step">TAKE TOP 3</text>
+    <path d="M423 425H443" stroke="${colors.line}" stroke-width="2"/>
+    <circle cx="461" cy="425" r="15" fill="${colors.mint}"/>
+    <text x="461" y="430" text-anchor="middle" class="stepNo">3</text>
+    <text x="487" y="431" class="step">DEDUPE + EQUAL-WEIGHT</text>
+
+    <rect x="104" y="468" width="568" height="200" rx="20" fill="${colors.panel2}" stroke="${colors.line}"/>
+    <text x="132" y="510" class="label">PRICE BACKTEST · FEB 14, 2020—AUG 27, 2026</text>
+    <text x="132" y="579" class="kpiHero">+475.5%</text>
+    <text x="132" y="612" class="label">GURU TOP 3</text>
+    <text x="638" y="564" text-anchor="end" class="kpiBenchmark">+128.4%</text>
+    <text x="638" y="594" text-anchor="end" class="label">SPY</text>
+    <rect x="132" y="632" width="506" height="8" rx="4" fill="#1E293B"/>
+    <rect x="132" y="632" width="506" height="8" rx="4" fill="${colors.mint}"/>
+    <rect x="132" y="650" width="136" height="6" rx="3" fill="${colors.amber}"/>
+
+    <rect x="104" y="688" width="174" height="90" rx="16" fill="${colors.panel2}" stroke="${colors.line}"/>
+    <text x="124" y="720" class="label">ANNUALIZED</text>
+    <text x="124" y="755" class="stat">30.7%</text>
+    <rect x="293" y="688" width="174" height="90" rx="16" fill="${colors.panel2}" stroke="${colors.line}"/>
+    <text x="313" y="720" class="label">MAX DRAWDOWN</text>
+    <text x="313" y="755" class="statRisk">−41.1%</text>
+    <rect x="482" y="688" width="190" height="90" rx="16" fill="${colors.panel2}" stroke="${colors.line}"/>
+    <text x="502" y="720" class="label">SHARPE</text>
+    <text x="502" y="755" class="stat">1.05</text>
+
+    <text x="756" y="196" class="section">CURRENT POSITIONS</text>
+    <text x="1474" y="196" text-anchor="end" class="meta">REBALANCED AUG 14, 2026 · 9 × ~11.1%</text>
+    ${strategy.managers.map(managerCard).join('')}
+
+    <rect x="756" y="628" width="718" height="76" rx="16" fill="${colors.panel2}" stroke="${colors.line}"/>
+    <text x="780" y="661" class="change" fill="${colors.mint}">LATEST ADDS</text>
+    ${pill(900, 645, 74, 'MU', 'mint')}
+    ${pill(986, 645, 86, 'MSFT', 'mint')}
+    ${pill(1084, 645, 74, 'STM', 'mint')}
+    <text x="1184" y="661" class="change" fill="${colors.red}">EXITS</text>
+    ${pill(1228, 645, 64, 'U', 'red')}
+    ${pill(1304, 645, 78, 'AMZN', 'red')}
+    ${pill(1394, 645, 72, 'INSM', 'red')}
+
+    <rect x="756" y="724" width="718" height="54" rx="14" fill="#1A1820" stroke="#4D3E2F"/>
+    <circle cx="782" cy="751" r="6" fill="${colors.amber}"/>
+    <text x="800" y="756" class="fineStrong">SIMPLE ≠ LOW RISK:</text>
+    <text x="952" y="756" class="fine">45-day filing lag · concentrated portfolio · historical max drawdown −41.1%</text>
+
+    <path d="M104 808H1474" stroke="${colors.line}" stroke-width="1"/>
+    <text x="104" y="833" class="fine">Excludes commissions, taxes and slippage. 13F omits shorts, cash and intra-quarter trades. Research only—not investment advice.</text>
+    <circle cx="1308" cy="828" r="5" fill="${colors.mint}"/>
+    <text x="1322" y="833" class="url">thesisforge.tech</text>
+  </svg>
+`);
+
 const background = await sharp(backgroundSource)
   .resize(1600, 900, { fit: 'cover' })
   .modulate({ brightness: 0.72, saturation: 0.78 })
@@ -245,16 +347,23 @@ const background = await sharp(backgroundSource)
   .toBuffer();
 
 const managerY = [242, 374, 506];
-await sharp(background)
-  .composite([
-    { input: layout, left: 0, top: 0 },
-    { input: mark, left: 88, top: 70 },
-    { input: gavinAvatar, left: 774, top: managerY[0] },
-    { input: billAvatar, left: 774, top: managerY[1] },
-    { input: stanleyAvatar, left: 774, top: managerY[2] },
-  ])
-  .png({ compressionLevel: 9 })
-  .toFile(output);
+async function exportGraphic(overlay, destination) {
+  await sharp(background)
+    .composite([
+      { input: overlay, left: 0, top: 0 },
+      { input: mark, left: 88, top: 70 },
+      { input: gavinAvatar, left: 774, top: managerY[0] },
+      { input: billAvatar, left: 774, top: managerY[1] },
+      { input: stanleyAvatar, left: 774, top: managerY[2] },
+    ])
+    .png({ compressionLevel: 9 })
+    .toFile(destination);
+}
+
+await Promise.all([
+  exportGraphic(layout, output),
+  exportGraphic(englishLayout, englishOutput),
+]);
 
 await writeFile(
   manifestOutput,
@@ -263,7 +372,10 @@ await writeFile(
       title: 'Guru Top 3 Consensus — ThesisForge social graphic',
       generatedAt: '2026-08-30',
       dimensions: '1600x900',
-      output: path.relative(root, output),
+      outputs: {
+        chinese: path.relative(root, output),
+        english: path.relative(root, englishOutput),
+      },
       background: {
         source: path.relative(root, backgroundSource),
         role: 'Low-contrast atmospheric treatment only; all copy, data, logos, and charts are deterministic overlays.',
@@ -290,4 +402,5 @@ await writeFile(
 );
 
 console.log(`Wrote ${output}`);
+console.log(`Wrote ${englishOutput}`);
 console.log(`Wrote ${manifestOutput}`);
