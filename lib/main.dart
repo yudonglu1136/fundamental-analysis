@@ -19475,6 +19475,70 @@ class _ChartLegend extends StatelessWidget {
   }
 }
 
+class ValuationChartWindow {
+  const ValuationChartWindow({
+    required this.valuationPoints,
+    required this.pricePoints,
+  });
+
+  final List<Map<String, dynamic>> valuationPoints;
+  final List<Map<String, dynamic>> pricePoints;
+}
+
+/// Aligns the chart viewport with the first point-in-time fair-value estimate.
+/// Source history remains untouched; only the rows sent to the painter are
+/// trimmed, so a price-only lead-in cannot stretch the chart's x-axis.
+ValuationChartWindow valuationChartWindow(
+  List<Map<String, dynamic>> history,
+  List<Map<String, dynamic>> priceHistory,
+) {
+  final validValuations =
+      history
+          .where((row) => DateTime.tryParse(text(row['asOfDate'])) != null)
+          .toList()
+        ..sort((a, b) => text(a['asOfDate']).compareTo(text(b['asOfDate'])));
+  final pricesByDate = <String, Map<String, dynamic>>{};
+  for (final row in priceHistory) {
+    final date = text(row['date']);
+    if (DateTime.tryParse(date) == null ||
+        (nullableNumber(row['close']) ?? 0) <= 0) {
+      continue;
+    }
+    pricesByDate[date] = row;
+  }
+  final validPrices = pricesByDate.values.toList()
+    ..sort((a, b) => text(a['date']).compareTo(text(b['date'])));
+  final modeledValuations = validValuations.where((row) {
+    final fairValue = nullableNumber(row['fairValue']);
+    return fairValue != null && fairValue > 0;
+  }).toList();
+
+  // A single estimate is not a trend and should not hide otherwise useful
+  // price history. This also protects partial or newly onboarded tickers.
+  if (modeledValuations.length < 2) {
+    return ValuationChartWindow(
+      valuationPoints: validValuations,
+      pricePoints: validPrices,
+    );
+  }
+
+  final windowStart = DateTime.parse(text(modeledValuations.first['asOfDate']));
+  final trimmedPrices = validPrices
+      .where((row) => !DateTime.parse(text(row['date'])).isBefore(windowStart))
+      .toList();
+
+  return ValuationChartWindow(
+    valuationPoints: validValuations
+        .where(
+          (row) => !DateTime.parse(text(row['asOfDate'])).isBefore(windowStart),
+        )
+        .toList(),
+    // If the price series and model do not overlap, preserve the original
+    // price series instead of leaving a misleading empty or one-point line.
+    pricePoints: trimmedPrices.length >= 2 ? trimmedPrices : validPrices,
+  );
+}
+
 class ValuationTrendChart extends StatelessWidget {
   const ValuationTrendChart({
     super.key,
@@ -19527,14 +19591,9 @@ class ValuationTrendPainter extends CustomPainter {
     final right = size.width - 14;
     final top = 16.0;
     final bottom = size.height - 28;
-    final pricePoints = priceHistory
-        .where(
-          (row) => text(row['date']).isNotEmpty && number(row['close']) > 0,
-        )
-        .toList();
-    final valuationPoints =
-        history.where((row) => text(row['asOfDate']).isNotEmpty).toList()
-          ..sort((a, b) => text(a['asOfDate']).compareTo(text(b['asOfDate'])));
+    final chartWindow = valuationChartWindow(history, priceHistory);
+    final valuationPoints = chartWindow.valuationPoints;
+    final pricePoints = chartWindow.pricePoints;
     final dateValues = <int>[
       for (final row in pricePoints)
         ?DateTime.tryParse(text(row['date']))?.millisecondsSinceEpoch,

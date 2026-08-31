@@ -113,6 +113,98 @@ void main() {
     );
   });
 
+  test('valuation chart removes the long price-only lead-in', () {
+    final visible = valuationChartWindow(
+      [
+        {'asOfDate': '2015-01-15', 'fairValue': null, 'currentPrice': 5},
+        {'asOfDate': '2020-01-15', 'fairValue': 24, 'currentPrice': 20},
+        {'asOfDate': '2020-04-15', 'fairValue': 27, 'currentPrice': 23},
+      ],
+      [
+        {'date': '2010-01-04', 'close': 2},
+        {'date': '2019-12-01', 'close': 18},
+        {'date': '2019-12-20', 'close': 19},
+        {'date': '2020-01-15', 'close': 20},
+        {'date': '2020-04-15', 'close': 23},
+      ],
+    );
+
+    expect(visible.pricePoints.map((row) => row['date']), [
+      '2020-01-15',
+      '2020-04-15',
+    ]);
+    expect(visible.valuationPoints.map((row) => row['asOfDate']), [
+      '2020-01-15',
+      '2020-04-15',
+    ]);
+  });
+
+  test('valuation chart preserves price history when no model exists', () {
+    final visible = valuationChartWindow(
+      const [
+        {'asOfDate': '2020-01-15', 'fairValue': null, 'currentPrice': 20},
+      ],
+      [
+        {'date': '2010-01-04', 'close': 2},
+        {'date': '2020-01-15', 'close': 20},
+      ],
+    );
+
+    expect(visible.pricePoints.length, 2);
+    expect(visible.pricePoints.first['date'], '2010-01-04');
+    expect(visible.valuationPoints.length, 1);
+  });
+
+  test('valuation chart preserves price history for one model estimate', () {
+    final visible = valuationChartWindow(
+      const [
+        {'asOfDate': '2020-01-15', 'fairValue': 24, 'currentPrice': 20},
+      ],
+      const [
+        {'date': '2010-01-04', 'close': 2},
+        {'date': '2020-01-15', 'close': 20},
+      ],
+    );
+
+    expect(visible.pricePoints.length, 2);
+    expect(visible.pricePoints.first['date'], '2010-01-04');
+  });
+
+  test('valuation chart does not empty a non-overlapping price series', () {
+    final visible = valuationChartWindow(
+      const [
+        {'asOfDate': '2020-01-15', 'fairValue': 24},
+        {'asOfDate': '2020-04-15', 'fairValue': 27},
+      ],
+      const [
+        {'date': '2010-01-04', 'close': 2},
+        {'date': '2010-02-04', 'close': 3},
+      ],
+    );
+
+    expect(visible.pricePoints.length, 2);
+    expect(visible.pricePoints.last['date'], '2010-02-04');
+  });
+
+  test('valuation chart ignores invalid prices and deduplicates dates', () {
+    final visible = valuationChartWindow(
+      const [
+        {'asOfDate': '2020-01-15', 'fairValue': 24},
+        {'asOfDate': '2020-04-15', 'fairValue': 27},
+      ],
+      const [
+        {'date': 'not-a-date', 'close': 100},
+        {'date': '2020-01-15', 'close': 0},
+        {'date': '2020-01-15', 'close': 20},
+        {'date': '2020-01-15', 'close': 21},
+        {'date': '2020-04-15', 'close': 23},
+      ],
+    );
+
+    expect(visible.pricePoints.length, 2);
+    expect(visible.pricePoints.first['close'], 21);
+  });
+
   test('keeps language while entering the Ontology explorer', () {
     expect(ontologyPathForLanguage(AppLanguage.zh), '/ontology/');
     expect(ontologyPathForLanguage(AppLanguage.en), '/ontology/?lang=en');
