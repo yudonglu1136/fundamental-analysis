@@ -1,0 +1,62 @@
+{
+  "title": "NVDA Looks Undervalued",
+  "releaseDate": "2026-08-30",
+  "underlyingDataCut": {
+    "valuationNode": "2026-08-26",
+    "marketPrice": "2026-08-27",
+    "snapshotGeneratedAt": "2026-08-30T10:30:00.000Z"
+  },
+  "modelVersion": "pit-valuation-v55-actual-value-and-owner-audit-2026-08-30",
+  "outputs": {
+    "card": "docs/brand/2026-08-30/nvda-q2-valuation-card-windowed-en-1600x900.png",
+    "curveSource": "docs/brand/2026-08-30/nvda-q2-valuation-curve-windowed-source.png",
+    "data": "docs/brand/2026-08-30/nvda-q2-valuation-card-windowed-data.json",
+    "copy": "docs/brand/2026-08-30/nvda-q2-valuation-card-windowed-copy-en.md"
+  },
+  "sourceScreenshot": {
+    "path": "output/playwright/nvda-valuation-v55-windowed-tall.png",
+    "width": 1800,
+    "height": 2600,
+    "sha256": "317f5d051be2f6d22b890d902c5e2ae62b300291284ea2b33cc8a6bdfb91cf56",
+    "crop": {
+      "left": 20,
+      "top": 1455,
+      "width": 1070,
+      "height": 390
+    },
+    "policy": "Native chart pixels only; no smoothing, redrawing, relabeling, or curve reshaping."
+  },
+  "officialNvidiaLogo": {
+    "path": "assets/branding/external/nvidia-logo-horiz-wht-16x9-official.png",
+    "sourcePage": "https://nvidianews.nvidia.com/multimedia/corporate/nvidia-logos",
+    "width": 3840,
+    "height": 2160,
+    "sha256": "b4937f65c1f3a07536507865c2947d9c65a66131f2f137c661bb41aa43fce2ca",
+    "transformation": "Empty black-canvas crop plus proportional resizing; logo artwork, colors, and proportions preserved."
+  },
+  "provenance": {
+    "databaseBasename": "valuation-v55-run2.sqlite",
+    "nvdaSnapshotPayloadSha256": "ddd20377cb37bcd50238930164806984a27d67842fb4f85cb31be6dd01060633",
+    "curveSha256": "bc45adac83f71a6ade948ebca881f0a6020e5fa47005f33cce84b0bf47eb6787",
+    "cardSha256": "776b7a733ebaa79a5c46d767f26b6abd391d22e08310a43c01034eed7c086ada",
+    "officialReleaseUrl": "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Announces-Financial-Results-for-Second-Quarter-Fiscal-2027/default.aspx"
+  },
+  "claims": {
+    "currentPrice": 227.97999572753906,
+    "fairValue": 274.8572171026456,
+    "modelGapPct": 20.56198888218681,
+    "targetPrice3Y": 407.21306085512214,
+    "q2RevenueM": 96221,
+    "q2RevenueGrowthPct": 105.85114348672526,
+    "q3RevenueGuideM": 108000,
+    "ttmFcfM": 127006,
+    "forwardFcfM": 182168.1981097241,
+    "fairValueChangePct": 18.009486171476
+  },
+  "disclosures": [
+    "NVIDIA and the NVIDIA logo are trademarks and/or registered trademarks of NVIDIA Corporation.",
+    "Independent research; no NVIDIA affiliation or endorsement.",
+    "Model output is not a guaranteed price target.",
+    "Research only; not investment advice."
+  ]
+}
