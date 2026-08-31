@@ -92,6 +92,27 @@ void main() {
     expect(normalizeRouteMode('valuation', path: '/'), 'valuation');
   });
 
+  test('loads guru data only when the guru route first needs it', () {
+    expect(shouldLoadGuruDashboard('valuation', null), isFalse);
+    expect(shouldLoadGuruDashboard('portfolio', null), isFalse);
+    expect(shouldLoadGuruDashboard('guru', null), isTrue);
+    expect(
+      shouldLoadGuruDashboard('guru', <String, dynamic>{'gurus': []}),
+      isFalse,
+    );
+  });
+
+  test('uses summary valuation data before full research is opened', () {
+    expect(
+      valuationTickerDetailPath('isrg'),
+      '/api/valuation/ISRG?pricePoints=300&detail=summary',
+    );
+    expect(
+      valuationTickerDetailPath('lseg.l', fullResearch: true),
+      '/api/valuation/LSEG.L?pricePoints=900&detail=full',
+    );
+  });
+
   test('keeps language while entering the Ontology explorer', () {
     expect(ontologyPathForLanguage(AppLanguage.zh), '/ontology/');
     expect(ontologyPathForLanguage(AppLanguage.en), '/ontology/?lang=en');

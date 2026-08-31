@@ -170,7 +170,80 @@ db.exec(`
     status TEXT,
     payload_json TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS cache_revisions (
+    scope TEXT PRIMARY KEY,
+    revision INTEGER NOT NULL DEFAULT 0
+  );
+
+  INSERT OR IGNORE INTO cache_revisions (scope, revision) VALUES
+    ('guru_backtests', 0),
+    ('valuation_snapshots', 0),
+    ('valuation_ticker_snapshots', 0),
+    ('valuation_podcast_insights', 0);
+
+  CREATE TRIGGER IF NOT EXISTS guru_backtests_revision_insert
+  AFTER INSERT ON guru_backtests BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_backtests';
+  END;
+  CREATE TRIGGER IF NOT EXISTS guru_backtests_revision_update
+  AFTER UPDATE ON guru_backtests BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_backtests';
+  END;
+  CREATE TRIGGER IF NOT EXISTS guru_backtests_revision_delete
+  AFTER DELETE ON guru_backtests BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_backtests';
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS valuation_snapshots_revision_insert
+  AFTER INSERT ON valuation_snapshots BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'valuation_snapshots';
+  END;
+  CREATE TRIGGER IF NOT EXISTS valuation_snapshots_revision_update
+  AFTER UPDATE ON valuation_snapshots BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'valuation_snapshots';
+  END;
+  CREATE TRIGGER IF NOT EXISTS valuation_snapshots_revision_delete
+  AFTER DELETE ON valuation_snapshots BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'valuation_snapshots';
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS valuation_ticker_snapshots_revision_insert
+  AFTER INSERT ON valuation_ticker_snapshots BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'valuation_ticker_snapshots';
+  END;
+  CREATE TRIGGER IF NOT EXISTS valuation_ticker_snapshots_revision_update
+  AFTER UPDATE ON valuation_ticker_snapshots BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'valuation_ticker_snapshots';
+  END;
+  CREATE TRIGGER IF NOT EXISTS valuation_ticker_snapshots_revision_delete
+  AFTER DELETE ON valuation_ticker_snapshots BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'valuation_ticker_snapshots';
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS valuation_podcast_insights_revision_insert
+  AFTER INSERT ON valuation_podcast_insights BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'valuation_podcast_insights';
+  END;
+  CREATE TRIGGER IF NOT EXISTS valuation_podcast_insights_revision_update
+  AFTER UPDATE ON valuation_podcast_insights BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'valuation_podcast_insights';
+  END;
+  CREATE TRIGGER IF NOT EXISTS valuation_podcast_insights_revision_delete
+  AFTER DELETE ON valuation_podcast_insights BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'valuation_podcast_insights';
+  END;
 `);
+
+const readCacheRevisionStatement = db.prepare(`
+  SELECT revision
+  FROM cache_revisions
+  WHERE scope = ?
+`);
+
+function readCacheRevision(scope) {
+  return Number(readCacheRevisionStatement.get(scope)?.revision) || 0;
+}
 
 function syncBundledValuationSnapshots() {
   if (process.env.SYNC_BUNDLED_VALUATION_SNAPSHOTS === "false") return;
@@ -787,9 +860,40 @@ export function readGuruBacktest(guruId, years = 5) {
   return parsePayload(row?.payload_json);
 }
 
+export function readGuruBacktestVersion(years = 5) {
+  const revision = readCacheRevision("guru_backtests");
+  const rows = db.prepare(`
+    SELECT
+      guru_id,
+      generated_at,
+      start_date,
+      end_date
+    FROM guru_backtests
+    WHERE years = ?
+    ORDER BY guru_id ASC
+  `).all(years);
+  if (!rows.length) return `${revision}:empty`;
+  return `${revision}:` + rows.map((row) => [
+    row.guru_id,
+    row.generated_at,
+    row.start_date || "",
+    row.end_date || ""
+  ].join(":")).join("|");
+}
+
 export function readValuationSnapshot() {
   const row = db.prepare("SELECT payload_json FROM valuation_snapshots WHERE id = ?").get("latest");
   return parsePayload(row?.payload_json);
+}
+
+export function readValuationSnapshotVersion() {
+  const row = db.prepare(`
+    SELECT generated_at
+    FROM valuation_snapshots
+    WHERE id = ?
+  `).get("latest");
+  if (!row) return null;
+  return `${row.generated_at}:${readCacheRevision("valuation_snapshots")}`;
 }
 
 export function writeValuationSnapshot(payload) {
@@ -807,6 +911,41 @@ export function readValuationTickerSnapshot(ticker) {
   if (!normalized) return null;
   const row = db.prepare("SELECT payload_json FROM valuation_ticker_snapshots WHERE ticker = ?").get(normalized);
   return parsePayload(row?.payload_json);
+}
+
+export function readValuationTickerSnapshotVersion(ticker) {
+  const normalized = String(ticker || "").trim().toUpperCase();
+  if (!normalized) return null;
+  const row = db.prepare(`
+    SELECT generated_at
+    FROM valuation_ticker_snapshots
+    WHERE ticker = ?
+  `).get(normalized);
+  if (!row) return null;
+  return `${row.generated_at}:${readCacheRevision("valuation_ticker_snapshots")}`;
+}
+
+export function readValuationPodcastInsightsVersion(tickers = []) {
+  const normalizedTickers = [...new Set((tickers || [])
+    .map((ticker) => String(ticker || "").trim().toUpperCase())
+    .filter(Boolean))];
+  const where = normalizedTickers.length
+    ? `WHERE ticker IN (${normalizedTickers.map(() => "?").join(", ")})`
+    : "";
+  const row = db.prepare(`
+    SELECT
+      COUNT(*) AS row_count,
+      MAX(generated_at) AS generated_at,
+      MAX(observed_at) AS observed_at
+    FROM valuation_podcast_insights
+    ${where}
+  `).get(...normalizedTickers);
+  return [
+    readCacheRevision("valuation_podcast_insights"),
+    Number(row?.row_count) || 0,
+    row?.generated_at || "",
+    row?.observed_at || ""
+  ].join(":");
 }
 
 export function writeValuationTickerSnapshot(ticker, payload) {

@@ -3,6 +3,7 @@ import express from "express";
 
 import { requireAuth } from "./auth/requireAuth.js";
 import { publicOntologySnapshotInfo, registerOntologyRoutes } from "./ontologyClient.js";
+import { installJsonTransport } from "./jsonTransport.js";
 
 const app = express();
 const host = process.env.ONTOLOGY_API_HOST || "127.0.0.1";
@@ -21,9 +22,10 @@ app.use(cors({
     }
     callback(new Error("Origin is not allowed"));
   },
-  allowedHeaders: ["authorization", "content-type"],
+  allowedHeaders: ["authorization", "content-type", "if-none-match"],
   methods: ["GET", "OPTIONS"]
 }));
+installJsonTransport(app);
 
 app.get("/health", (_request, response) => {
   response.json({ service: "ontology-api", ...publicOntologySnapshotInfo() });

@@ -1,7 +1,12 @@
 import { gurus } from "./gurus.js";
 import { load13fHoldingHistory, loadGuruDashboard } from "./secClient.js";
 import { loadPriceSeries } from "./marketData.js";
-import { readGuruBacktest, writeBackgroundJobRun, writeGuruBacktest } from "./localDatabase.js";
+import {
+  readGuruBacktest,
+  readGuruBacktestVersion,
+  writeBackgroundJobRun,
+  writeGuruBacktest
+} from "./localDatabase.js";
 
 const defaultYears = "all";
 const allYearsCacheKey = 0;
@@ -25,12 +30,25 @@ const backtestAutoRefreshInitialDelayMs = Math.max(
   0,
   Number(process.env.BACKTEST_AUTO_REFRESH_INITIAL_DELAY_MS ?? 45000)
 );
+const aggregateBacktestCacheMaxEntries = Math.max(
+  1,
+  Math.min(64, Math.round(Number(process.env.BACKTEST_AGGREGATE_CACHE_MAX_ENTRIES) || 12))
+);
+const aggregateBacktestStaleTtlMs = Math.max(
+  1000,
+  Math.min(
+    5 * 60 * 1000,
+    Math.round(Number(process.env.BACKTEST_AGGREGATE_STALE_TTL_MS) || 30 * 1000)
+  )
+);
 
 let backtestAutoRefreshTimer = null;
 let backtestAutoRefreshKickoffTimer = null;
 let backtestRefreshInFlight = null;
 let staleBacktestRefreshInFlight = null;
 const staleBacktestRefreshKeys = new Set();
+const aggregateBacktestCache = new Map();
+const aggregateBacktestInFlight = new Map();
 let lastBacktestRefreshStatus = {
   running: false,
   startedAt: null,
@@ -80,6 +98,41 @@ function normalizeBacktestWindow(years = defaultYears) {
   };
 }
 
+function normalizeBacktestDetail(detail) {
+  return detail === "full" || detail === "attribution" ? "full" : "compact";
+}
+
+function readAggregateBacktestCache(key, version) {
+  const cached = aggregateBacktestCache.get(key);
+  if (
+    !cached ||
+    cached.version !== version ||
+    Date.now() > cached.expiresAt
+  ) {
+    if (cached) aggregateBacktestCache.delete(key);
+    return null;
+  }
+  aggregateBacktestCache.delete(key);
+  aggregateBacktestCache.set(key, cached);
+  return cached.payload;
+}
+
+function writeAggregateBacktestCache(key, version, payload) {
+  aggregateBacktestCache.delete(key);
+  aggregateBacktestCache.set(key, {
+    version,
+    payload,
+    expiresAt: aggregateBacktestExpiresAt(payload)
+  });
+  while (aggregateBacktestCache.size > aggregateBacktestCacheMaxEntries) {
+    aggregateBacktestCache.delete(aggregateBacktestCache.keys().next().value);
+  }
+}
+
+export function clearGuruBacktestAggregateCache() {
+  aggregateBacktestCache.clear();
+}
+
 async function mapWithConcurrency(items, concurrency, worker) {
   const results = new Array(items.length);
   let cursor = 0;
@@ -110,6 +163,36 @@ function cachedBacktestIsFresh(cached) {
   if (!windowEnd || Date.now() - windowEnd > backtestEndGraceMs) return false;
 
   return true;
+}
+
+function aggregateBacktestPayloadIsFresh(payload) {
+  if (!Array.isArray(payload?.backtests)) return false;
+  return payload.backtests.every((backtest) => (
+    backtest?.status === "unsupported" ||
+    (
+      !backtest?.cache?.stale &&
+      !backtest?.historyWarming &&
+      cachedBacktestIsFresh(backtest)
+    )
+  ));
+}
+
+function aggregateBacktestExpiresAt(payload) {
+  const now = Date.now();
+  if (!aggregateBacktestPayloadIsFresh(payload)) {
+    return now + aggregateBacktestStaleTtlMs;
+  }
+  if (process.env.BACKTEST_CACHE_TTL_HOURS === "0") {
+    return Number.POSITIVE_INFINITY;
+  }
+  const deadlines = payload.backtests
+    .filter((backtest) => backtest?.status !== "unsupported")
+    .flatMap((backtest) => [
+      dateMs(backtest.generatedAt) + backtestCacheTtlMs,
+      dateMs(backtest.window?.end || backtest.endDate) + backtestEndGraceMs
+    ])
+    .filter((deadline) => Number.isFinite(deadline) && deadline > 0);
+  return deadlines.length ? Math.min(...deadlines) : now + backtestCacheTtlMs;
 }
 
 function cachedBacktestIsUsable(cached) {
@@ -1211,16 +1294,55 @@ export async function loadGuruBacktest(
 
 export async function loadGuruBacktests({ refresh = false, years = defaultYears, detail = "compact" } = {}) {
   const window = normalizeBacktestWindow(years);
-  const results = [];
-  for (const guru of gurus.filter((item) => item.type === "manager13f" || item.type === "congress")) {
-    results.push(await loadGuruBacktest(guru.id, { refresh, years, detail }));
+  const normalizedDetail = normalizeBacktestDetail(detail);
+  const cacheKey = `${window.cacheKey}:${normalizedDetail}`;
+  const versionBefore = readGuruBacktestVersion(window.cacheKey);
+
+  if (!refresh) {
+    const cached = readAggregateBacktestCache(cacheKey, versionBefore);
+    if (cached) return cached;
+  } else {
+    clearGuruBacktestAggregateCache();
   }
-  return {
-    generatedAt: new Date().toISOString(),
-    years: window.methodYears,
-    benchmark: "SPY",
-    backtests: results
+
+  const loadAggregate = async () => {
+    const results = [];
+    for (const guru of gurus.filter((item) => item.type === "manager13f" || item.type === "congress")) {
+      results.push(await loadGuruBacktest(guru.id, { refresh, years, detail: normalizedDetail }));
+    }
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      years: window.methodYears,
+      benchmark: "SPY",
+      backtests: results
+    };
+    const versionAfter = readGuruBacktestVersion(window.cacheKey);
+    if (!refresh && versionBefore === versionAfter) {
+      writeAggregateBacktestCache(cacheKey, versionAfter, payload);
+    }
+    return payload;
   };
+
+  if (refresh) {
+    try {
+      return await loadAggregate();
+    } finally {
+      clearGuruBacktestAggregateCache();
+    }
+  }
+
+  const inFlightKey = `${cacheKey}:${versionBefore}`;
+  const existing = aggregateBacktestInFlight.get(inFlightKey);
+  if (existing) return existing;
+  const pending = loadAggregate();
+  aggregateBacktestInFlight.set(inFlightKey, pending);
+  try {
+    return await pending;
+  } finally {
+    if (aggregateBacktestInFlight.get(inFlightKey) === pending) {
+      aggregateBacktestInFlight.delete(inFlightKey);
+    }
+  }
 }
 
 export function guruBacktestRefreshStatus() {
@@ -1242,6 +1364,7 @@ export async function refreshGuruBacktestCache({
     };
   }
 
+  clearGuruBacktestAggregateCache();
   backtestRefreshInFlight = (async () => {
     const startedAt = new Date().toISOString();
     const status = {
@@ -1307,6 +1430,7 @@ export async function refreshGuruBacktestCache({
     return await backtestRefreshInFlight;
   } finally {
     backtestRefreshInFlight = null;
+    clearGuruBacktestAggregateCache();
   }
 }
 

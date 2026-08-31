@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 1,
+  "aggregate": "median",
+  "label": "baseline-5495371-median",
+  "generatedAt": "2026-08-30T21:19:11.474Z",
+  "commit": "5495371a6bdf27670d1749e9d1057b4174d98aac",
+  "workingTreeDirty": true,
+  "runtime": {
+    "node": "v26.7.0",
+    "platform": "darwin 24.6.0",
+    "arch": "arm64"
+  },
+  "inputs": {
+    "databaseBytes": 709148672,
+    "databaseSha256": "f0e5e902eb09a029f2344bf73a6daf65032d6de75707b905fdabb79824875cca",
+    "ontologyBytes": 105721856,
+    "ontologySha256": "f6defbaa991617744c691b9cf598b30eeae53045e5550625054221dd92857a24",
+    "samples": 60,
+    "concurrency": 20,
+    "runs": 3,
+    "sourceReports": [
+      "api-baseline-run-1.json",
+      "api-baseline-run-2.json",
+      "api-baseline-run-3.json"
+    ]
+  },
+  "process": {
+    "startupReadyMs": 216.71304100000003,
+    "rssBytes": 271073280
+  },
+  "routes": [
+    {
+      "route": "/api/valuation",
+      "coldMs": 58.70454199999995,
+      "status": 200,
+      "contentEncoding": "identity",
+      "vary": "Origin",
+      "identityBytes": 252518,
+      "encodedBytes": 252518,
+      "reductionPct": 0,
+      "semanticSha256": "c29544afd4b019e4bb07eacda4bff648f8790eff8e9788f3876ce0cbbe7dc673",
+      "conditionalStatus": 304,
+      "sequential": {
+        "meanMs": 0.9644575999999916,
+        "p50Ms": 0.9323329999999714,
+        "p95Ms": 1.1466249999999718,
+        "p99Ms": 1.4535840000000917,
+        "minMs": 0.8172499999999445,
+        "maxMs": 1.5549160000000484
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 1270.9676565209909,
+        "meanMs": 8.428416033333336,
+        "p50Ms": 8.20358299999998,
+        "p95Ms": 14.772125000000074,
+        "p99Ms": 16.206874999999968,
+        "minMs": 1.042791999999963,
+        "maxMs": 16.82725000000005
+      }
+    },
+    {
+      "route": "/api/valuation/LSEG?pricePoints=900",
+      "coldMs": 6.778667000000041,
+      "status": 200,
+      "contentEncoding": "identity",
+      "vary": "Origin",
+      "identityBytes": 659851,
+      "encodedBytes": 659851,
+      "reductionPct": 0,
+      "semanticSha256": "aa2395826a435276297215602c19192389262d0302fb3740aaded749152582ec",
+      "conditionalStatus": 304,
+      "sequential": {
+        "meanMs": 2.980399333333334,
+        "p50Ms": 2.95054099999993,
+        "p95Ms": 3.092292000000043,
+        "p99Ms": 3.5527909999999565,
+        "minMs": 2.811374999999998,
+        "maxMs": 3.863291000000004
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 344.0463143680191,
+        "meanMs": 30.38764451666666,
+        "p50Ms": 29.762249999999995,
+        "p95Ms": 55.581709000000046,
+        "p99Ms": 58.04699999999991,
+        "minMs": 3.0135420000000295,
+        "maxMs": 58.523250000000075
+      }
+    },
+    {
+      "route": "/api/gurus",
+      "coldMs": 9.881624999999985,
+      "status": 200,
+      "contentEncoding": "identity",
+      "vary": "Origin",
+      "identityBytes": 922900,
+      "encodedBytes": 922900,
+      "reductionPct": 0,
+      "semanticSha256": "d2d218e667031fa16851d3840b8d4ef5497a49ddc247e6cc34b515160fcd3388",
+      "conditionalStatus": 304,
+      "sequential": {
+        "meanMs": 5.916760449999993,
+        "p50Ms": 5.655999999999949,
+        "p95Ms": 7.23758399999997,
+        "p99Ms": 7.36649999999986,
+        "minMs": 5.362540999999965,
+        "maxMs": 7.83987500000012
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 184.92323400445846,
+        "meanMs": 58.482518033333314,
+        "p50Ms": 56.64141700000005,
+        "p95Ms": 105.65700000000015,
+        "p99Ms": 108.17062499999997,
+        "minMs": 5.521541999999954,
+        "maxMs": 110.77520800000002
+      }
+    },
+    {
+      "route": "/api/backtests?years=all&detail=compact",
+      "coldMs": 89.89145899999994,
+      "status": 200,
+      "contentEncoding": "identity",
+      "vary": "Origin",
+      "identityBytes": 1192578,
+      "encodedBytes": 1192578,
+      "reductionPct": 0,
+      "semanticSha256": "110ad2f060000bf078f3932a6071becd1fc4582e187b736a0de19670fa5b4030",
+      "conditionalStatus": 200,
+      "sequential": {
+        "meanMs": 41.63188200000003,
+        "p50Ms": 41.30179099999987,
+        "p95Ms": 43.26104200000009,
+        "p99Ms": 43.86866700000019,
+        "minMs": 40.6088749999999,
+        "maxMs": 47.367167000000336
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 24.22634553501639,
+        "meanMs": 435.1902417333333,
+        "p50Ms": 422.0478329999996,
+        "p95Ms": 791.7167919999993,
+        "p99Ms": 820.9854169999999,
+        "minMs": 41.1038750000007,
+        "maxMs": 832.2517499999994
+      }
+    },
+    {
+      "route": "/api/ontology/overview",
+      "coldMs": 5.4059589999997115,
+      "status": 200,
+      "contentEncoding": "identity",
+      "vary": "Origin",
+      "identityBytes": 626858,
+      "encodedBytes": 626858,
+      "reductionPct": 0,
+      "semanticSha256": "c0d17147e92cde2d843fed020df6ef9935d7e42d1216104c50ccd540975bf636",
+      "conditionalStatus": 304,
+      "sequential": {
+        "meanMs": 1.9893909500000215,
+        "p50Ms": 1.9452919999994265,
+        "p95Ms": 2.3812920000000304,
+        "p99Ms": 2.851459000000432,
+        "minMs": 1.7007080000003043,
+        "maxMs": 3.276415999999699
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 551.183937125788,
+        "meanMs": 19.44736178333337,
+        "p50Ms": 19.054041999999754,
+        "p95Ms": 35.27320799999961,
+        "p99Ms": 36.470290999999634,
+        "minMs": 2.0734580000007554,
+        "maxMs": 38.23212500000045
+      }
+    },
+    {
+      "route": "/api/graph",
+      "coldMs": 1.0383750000000873,
+      "status": 200,
+      "contentEncoding": "identity",
+      "vary": "Origin",
+      "identityBytes": 78819,
+      "encodedBytes": 78819,
+      "reductionPct": 0,
+      "semanticSha256": "552d5857680f1e4c947e0935cef3cc15fe0224d32c6930250d09235816f158c4",
+      "conditionalStatus": 304,
+      "sequential": {
+        "meanMs": 0.4634402333333128,
+        "p50Ms": 0.3847089999999298,
+        "p95Ms": 0.92450000000008,
+        "p99Ms": 1.1192919999994047,
+        "minMs": 0.3159169999998994,
+        "maxMs": 1.348624999999629
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 2507.186432043049,
+        "meanMs": 4.351898549999972,
+        "p50Ms": 4.199541999999383,
+        "p95Ms": 8.15112499999941,
+        "p99Ms": 8.473917000000256,
+        "minMs": 0.49504200000046694,
+        "maxMs": 8.519208000000617
+      }
+    }
+  ]
+}

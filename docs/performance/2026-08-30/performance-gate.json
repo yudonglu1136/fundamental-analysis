@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "failures": [],
+  "improvements": [
+    {
+      "route": "/api/valuation",
+      "p95ImprovementPct": 76.13974969748763
+    },
+    {
+      "route": "/api/valuation/LSEG?pricePoints=900",
+      "p95ImprovementPct": 94.44616573412672
+    },
+    {
+      "route": "/api/gurus",
+      "p95ImprovementPct": 7.634452047663642
+    },
+    {
+      "route": "/api/backtests?years=all&detail=compact",
+      "p95ImprovementPct": 99.56202773074439
+    },
+    {
+      "route": "/api/ontology/overview",
+      "p95ImprovementPct": 94.4631007193905
+    },
+    {
+      "route": "/api/graph",
+      "p95ImprovementPct": 80.19803401370632
+    }
+  ]
+}

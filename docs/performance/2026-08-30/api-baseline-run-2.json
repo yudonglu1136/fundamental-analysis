@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 1,
+  "label": "baseline-5495371",
+  "generatedAt": "2026-08-30T21:18:47.089Z",
+  "commit": "5495371a6bdf27670d1749e9d1057b4174d98aac",
+  "workingTreeDirty": true,
+  "runtime": {
+    "node": "v26.7.0",
+    "platform": "darwin 24.6.0",
+    "arch": "arm64"
+  },
+  "inputs": {
+    "databaseBytes": 709148672,
+    "databaseSha256": "f0e5e902eb09a029f2344bf73a6daf65032d6de75707b905fdabb79824875cca",
+    "ontologyBytes": 105721856,
+    "ontologySha256": "f6defbaa991617744c691b9cf598b30eeae53045e5550625054221dd92857a24",
+    "samples": 60,
+    "concurrency": 20
+  },
+  "process": {
+    "startupReadyMs": 216.71304100000003,
+    "rssBytes": 277200896
+  },
+  "routes": [
+    {
+      "route": "/api/valuation",
+      "coldMs": 57.91733399999998,
+      "status": 200,
+      "contentEncoding": "identity",
+      "vary": "Origin",
+      "identityBytes": 252518,
+      "encodedBytes": 252518,
+      "reductionPct": 0,
+      "semanticSha256": "c29544afd4b019e4bb07eacda4bff648f8790eff8e9788f3876ce0cbbe7dc673",
+      "conditionalStatus": 304,
+      "sequential": {
+        "meanMs": 0.9342284499999987,
+        "p50Ms": 0.8932089999999562,
+        "p95Ms": 1.1441249999999172,
+        "p99Ms": 1.4747500000000855,
+        "minMs": 0.7386659999999665,
+        "maxMs": 1.5292499999999336
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 1299.6753519277186,
+        "meanMs": 8.141629200000008,
+        "p50Ms": 7.992959000000042,
+        "p95Ms": 14.618667000000073,
+        "p99Ms": 15.207042000000001,
+        "minMs": 0.9716669999999112,
+        "maxMs": 15.811374999999998
+      }
+    },
+    {
+      "route": "/api/valuation/LSEG?pricePoints=900",
+      "coldMs": 6.632833000000005,
+      "status": 200,
+      "contentEncoding": "identity",
+      "vary": "Origin",
+      "identityBytes": 659851,
+      "encodedBytes": 659851,
+      "reductionPct": 0,
+      "semanticSha256": "aa2395826a435276297215602c19192389262d0302fb3740aaded749152582ec",
+      "conditionalStatus": 304,
+      "sequential": {
+        "meanMs": 2.9619610833333354,
+        "p50Ms": 2.9348750000000337,
+        "p95Ms": 3.0899579999999105,
+        "p99Ms": 3.467375000000061,
+        "minMs": 2.7994160000000647,
+        "maxMs": 3.863291000000004
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 346.31626448593323,
+        "meanMs": 30.20926734999999,
+        "p50Ms": 29.551917000000003,
+        "p95Ms": 54.94354199999998,
+        "p99Ms": 57.63187499999992,
+        "minMs": 3.0135420000000295,
+        "maxMs": 57.799792000000025
+      }
+    },
+    {
+      "route": "/api/gurus",
+      "coldMs": 13.250375000000076,
+      "status": 200,
+      "contentEncoding": "identity",
+      "vary": "Origin",
+      "identityBytes": 922900,
+      "encodedBytes": 922900,
+      "reductionPct": 0,
+      "semanticSha256": "d2d218e667031fa16851d3840b8d4ef5497a49ddc247e6cc34b515160fcd3388",
+      "conditionalStatus": 304,
+      "sequential": {
+        "meanMs": 5.916760449999993,
+        "p50Ms": 5.695083000000068,
+        "p95Ms": 7.23758399999997,
+        "p99Ms": 7.36649999999986,
+        "minMs": 5.362540999999965,
+        "maxMs": 7.83987500000012
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 184.92323400445846,
+        "meanMs": 57.08010143333334,
+        "p50Ms": 55.04412500000012,
+        "p95Ms": 103.10529199999996,
+        "p99Ms": 108.17062499999997,
+        "minMs": 5.490166000000045,
+        "maxMs": 108.277333
+      }
+    },
+    {
+      "route": "/api/backtests?years=all&detail=compact",
+      "coldMs": 88.76299999999992,
+      "status": 200,
+      "contentEncoding": "identity",
+      "vary": "Origin",
+      "identityBytes": 1192578,
+      "encodedBytes": 1192578,
+      "reductionPct": 0,
+      "semanticSha256": "110ad2f060000bf078f3932a6071becd1fc4582e187b736a0de19670fa5b4030",
+      "conditionalStatus": 200,
+      "sequential": {
+        "meanMs": 41.63188200000003,
+        "p50Ms": 41.30179099999987,
+        "p95Ms": 43.26104200000009,
+        "p99Ms": 43.86866700000019,
+        "minMs": 40.6088749999999,
+        "maxMs": 50.09679200000028
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 24.22634553501639,
+        "meanMs": 435.1902417333333,
+        "p50Ms": 425.85454200000004,
+        "p95Ms": 793.7497089999997,
+        "p99Ms": 820.9854169999999,
+        "minMs": 41.1038750000007,
+        "maxMs": 835.2107500000002
+      }
+    },
+    {
+      "route": "/api/ontology/overview",
+      "coldMs": 5.4059589999997115,
+      "status": 200,
+      "contentEncoding": "identity",
+      "vary": "Origin",
+      "identityBytes": 626858,
+      "encodedBytes": 626858,
+      "reductionPct": 0,
+      "semanticSha256": "c0d17147e92cde2d843fed020df6ef9935d7e42d1216104c50ccd540975bf636",
+      "conditionalStatus": 304,
+      "sequential": {
+        "meanMs": 1.9893909500000215,
+        "p50Ms": 1.9482920000000377,
+        "p95Ms": 2.2203749999998763,
+        "p99Ms": 2.4076249999998254,
+        "minMs": 1.7007080000003043,
+        "maxMs": 3.202624999999898
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 551.6421296707057,
+        "meanMs": 19.222087433333446,
+        "p50Ms": 18.810833000000457,
+        "p95Ms": 35.27320799999961,
+        "p99Ms": 36.075457999999344,
+        "minMs": 2.0734580000007554,
+        "maxMs": 36.84458300000006
+      }
+    },
+    {
+      "route": "/api/graph",
+      "coldMs": 0.9386249999997744,
+      "status": 200,
+      "contentEncoding": "identity",
+      "vary": "Origin",
+      "identityBytes": 78819,
+      "encodedBytes": 78819,
+      "reductionPct": 0,
+      "semanticSha256": "552d5857680f1e4c947e0935cef3cc15fe0224d32c6930250d09235816f158c4",
+      "conditionalStatus": 304,
+      "sequential": {
+        "meanMs": 0.7041041500000119,
+        "p50Ms": 0.40929200000027777,
+        "p95Ms": 1.376459000000068,
+        "p99Ms": 1.804457999999613,
+        "minMs": 0.33995799999956944,
+        "maxMs": 2.061749999999847
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 1222.6454228220737,
+        "meanMs": 8.686895900000021,
+        "p50Ms": 8.492917000000489,
+        "p95Ms": 16.136709000000337,
+        "p99Ms": 16.558083000000806,
+        "minMs": 0.49504200000046694,
+        "maxMs": 17.468165999999655
+      }
+    }
+  ]
+}

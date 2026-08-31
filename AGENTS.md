@@ -75,6 +75,36 @@ For backend changes:
 
 See `docs/deployment-contract.md` for the full runbook.
 
+## Performance Regression Contract (2026-08-30)
+
+- Measure backend changes with `npm run bench:api` against the same SQLite and
+  Ontology snapshots, runtime, sample count, and concurrency. Use at least 60
+  samples and concurrency 20 for a release comparison; run both revisions three
+  times and compare the median results.
+- A performance optimization is complete only when at least one critical path
+  improves p95 latency by 30% or more, no other measured critical path regresses
+  by more than 5%, response semantic hashes remain unchanged, large JSON
+  responses save at least 75% over identity transfer, and conditional requests
+  return 304. Run `npm run check:performance` for the machine-readable gate.
+- Run `npm run test:performance` for every transport, cache, payload-shaping,
+  proxy, or static-cache change. This is additive to the normal server, Flutter,
+  Ontology, i18n, and production-build checks.
+- The Vercel API proxy must preserve streaming, `Accept-Encoding`,
+  `Content-Encoding`, `Content-Length`, `ETag`, and `If-None-Match`; do not
+  re-buffer an upstream response or silently discard its compression metadata.
+- Keep the Valuation landing request on `detail=summary&pricePoints=300`; fetch
+  `detail=full&pricePoints=900` only after the user opens full research. A
+  non-Guru initial route must not fetch `/api/gurus` until Guru is opened.
+- Use immutable caching only for content-versioned URLs. When an immutable
+  avatar or Ontology asset changes, update its URL version in the same release.
+  Keep HTML, Flutter bootstrap/main/service-worker files, and Ontology HTML on
+  revalidation. Legacy service-worker cache cleanup must run once per migration,
+  not on every visit.
+- Store the reproducible benchmark inputs, before/after results, tests, and
+  limitations under `docs/performance/YYYY-MM-DD/`. Do not claim production
+  latency from a local benchmark, and do not deploy as part of an optimization
+  audit unless the user explicitly requests deployment.
+
 ## 13F Update Contract
 
 When the user asks to update 13F, guru holdings, Q2/Q3 data, new buys/sells, quarterly contribution, or position history, treat it as one atomic data-refresh job. Do not update only one cache.
@@ -112,6 +142,7 @@ When valuation financials, management guidance, or historical fair values are re
 - Select financials independently for every fiscal period: prefer an `ARQ` row only when it contains core financials, otherwise use that period's valid `ART` row. Mark `ART` as trailing-twelve-month data so it is never multiplied by four or rolled into another TTM window. Do not use `MRQ`, `MRT`, or `MRY` dimensions for historical replay.
 - BAE Systems (`BA.L`) and LSEG use official issuer releases. FY and H1 disclosures may be converted to TTM; Q1/Q3 trading updates may carry the latest already-disclosed TTM financial base and add only guidance visible on that event date. Record this construction and every source URL in `sourceRecord`.
 - For UK issuer PDFs, normalize split thousands and decimals before parsing (`£9, 982m` means £9,982m; `£2. 2bn` means £2.2bn). Prefer exact table values over rounded headlines. When LSEG presents both pro-forma and statutory tables, use the statutory continuing-operations table for PIT financials and record that basis in `sourceRecord`; pro-forma acquisition comparatives are context, not reported history. Use operating/adjusted net debt from LSEG's management leverage framework before accounting total/net debt fallbacks, and record the selected debt basis. When an H1 release restates the prior H1 comparator, use that event-visible comparator in `current H1 + prior FY - prior H1`; do not reuse the older definition. Treat issuer-reported equity free cash flow as direct FCFE, not as CFO, and retain it when CFO/capex fields are unavailable. If an official issuer release and a transcript extraction provide the same guidance metric in one fiscal period, the official release is model-authoritative while the raw transcript evidence remains stored for audit.
+- The dated LSEG current-valuation overlay (2026-08-28 assumptions, 2026-08-30 release) must keep three amounts distinct: issuer-reported consolidated Equity FCF, analyst-estimated parent-economic FCFE, and any FCFF/enterprise-value cash flow. The parent-economic FCFE DCF uses levered cost of equity, five explicit year-end cash flows, current ordinary shares excluding treasury, and no second deduction for net debt or Tradeweb/NCI. Its standalone DCF value must remain separately visible from the 40% DCF / 30% operating SOTP / 30% adjusted-EPS triangulation and the subsequent risk reserve. The analyst ownership adjustment, SOTP, and risk reserve must be labeled as estimates rather than issuer guidance. Never apply these 2026-08-28 assumptions retroactively to historical PIT rows, never use the 497m H1 weighted-average EPS denominator as the current-share DCF denominator, and never add buybacks or dividends again after valuing FCFE. A persisted valuation node dated after 2026-08-28 supersedes this overlay automatically; replace it only with a newly dated and audited model revision.
 - Guidance must be management or issuer guidance observed on or before the model node date. Do not treat analyst questions, replay boilerplate, prior guidance comparisons, or historical actuals as new guidance.
 - Every extracted guidance metric must identify its economic subject. Only `company_total` or defensibly `company_total_or_unspecified` periodic evidence may enter a company-level revenue, operating-income, or FCF input. Segment, acquisition, contribution, loss, delta, synergy, non-company and non-periodic amounts remain research evidence with a machine-readable exclusion reason.
 - Treat every symbolic or textual plus-minus form (`+/-`, `±`, `plus or minus`, `+ or -`) as a center and uncertainty band, never as a two-endpoint range. For example, `$4.1 billion +/- $100 million` has a model amount of `$4.1 billion`, not `$2.1 billion`. Preserve the complete wording, and block release when a stored scaled monetary amount does not reconcile to the quoted center.

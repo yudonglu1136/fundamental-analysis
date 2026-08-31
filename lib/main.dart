@@ -1100,7 +1100,7 @@ class _TerminalHomeState extends State<TerminalHome>
   Map<String, dynamic>? _portfolioPayload;
   Map<String, dynamic>? _valuationPayload;
   Map<String, dynamic>? _adminPayload;
-  bool _loadingGurus = true;
+  bool _loadingGurus = false;
   bool _loadingSecondary = false;
   String _mode = 'guru';
   String _search = '';
@@ -1134,7 +1134,8 @@ class _TerminalHomeState extends State<TerminalHome>
       route['view'] ?? route['mode'],
       path: readBrowserPath(),
     );
-    if (_mode == 'ontology') {
+    final redirectingToOntology = _mode == 'ontology';
+    if (redirectingToOntology) {
       _mode = 'guru';
       scheduleMicrotask(
         () => openBrowserPath(ontologyPathForLanguage(widget.language)),
@@ -1146,8 +1147,11 @@ class _TerminalHomeState extends State<TerminalHome>
     _guruTradeTicker = cleanRouteValue(route['trade'])?.toUpperCase() ?? '';
     _guruQuarterId = cleanRouteValue(route['quarter']) ?? '';
     _valuationTicker = cleanRouteValue(route['valuation'])?.toUpperCase() ?? '';
-    _loadGurus();
-    if (_mode != 'guru') {
+    if (!redirectingToOntology &&
+        shouldLoadGuruDashboard(_mode, _guruPayload)) {
+      unawaited(_loadGurus());
+    }
+    if (!redirectingToOntology && _mode != 'guru') {
       unawaited(_loadSecondary(_mode));
     }
   }
@@ -1294,7 +1298,11 @@ class _TerminalHomeState extends State<TerminalHome>
       _secondaryError = null;
     });
     _persistRouteState();
-    if (mode != 'guru') unawaited(_loadSecondary(mode));
+    if (shouldLoadGuruDashboard(mode, _guruPayload) && !_loadingGurus) {
+      unawaited(_loadGurus());
+    } else if (mode != 'guru') {
+      unawaited(_loadSecondary(mode));
+    }
   }
 
   void _persistRouteState() {
@@ -2683,7 +2691,7 @@ class GuruAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = publicAssetUrl(guru['avatarUrl']);
+    final url = versionedGuruAvatarUrl(guru['avatarUrl']);
     final name = text(guru['name'], '?');
     final fallback = _AvatarInitial(name: name, palette: palette, size: size);
     return Container(
@@ -6743,6 +6751,7 @@ class _CrowdedHoldingsDeckPage extends StatelessWidget {
             item: exposures[index],
             maxValue: maxValue,
             palette: palette,
+            isLast: index == exposures.length - 1,
           ),
       ],
     );
@@ -6755,12 +6764,14 @@ class _CrowdedHoldingDeckRow extends StatelessWidget {
     required this.item,
     required this.maxValue,
     required this.palette,
+    required this.isLast,
   });
 
   final int rank;
   final ExposureItem item;
   final double maxValue;
   final Palette palette;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
@@ -6770,7 +6781,7 @@ class _CrowdedHoldingDeckRow extends StatelessWidget {
     final guruNames = item.guruNames.take(3).join(', ');
     final suffix = item.guruCount > 3 ? ' +' : '';
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
       child: Column(
         children: [
           Row(
@@ -16741,7 +16752,8 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
   String _expandedIndustryKey = '';
   bool _showFullResearch = false;
   final TextEditingController _tickerSearchController = TextEditingController();
-  final Map<String, Map<String, dynamic>> _detailCache = {};
+  final Map<String, Map<String, dynamic>> _summaryDetailCache = {};
+  final Map<String, Map<String, dynamic>> _fullDetailCache = {};
   Map<String, dynamic>? _localDashboard;
   Map<String, dynamic>? _detailPayload;
   bool _detailLoading = false;
@@ -16781,7 +16793,8 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
     final nextTicker = hasCurrent
         ? _selectedTicker
         : _defaultTicker(widget.data, preferred: widget.initialTicker);
-    _detailCache.clear();
+    _summaryDetailCache.clear();
+    _fullDetailCache.clear();
     setState(() {
       _selectedTicker = nextTicker;
       _detailPayload = null;
@@ -16868,31 +16881,38 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
     return rows.isEmpty ? '' : rows.first.ticker;
   }
 
-  Future<void> _loadTicker(String ticker, {bool refresh = false}) async {
+  Future<void> _loadTicker(
+    String ticker, {
+    bool refresh = false,
+    bool fullResearch = false,
+  }) async {
     if (ticker.isEmpty) return;
     final normalizedTicker = ticker.toUpperCase();
-    final cachedPayload = refresh ? null : _detailCache[normalizedTicker];
+    final cache = fullResearch ? _fullDetailCache : _summaryDetailCache;
+    final cachedPayload = refresh ? null : cache[normalizedTicker];
+    final tickerChanged = _selectedTicker != normalizedTicker;
     final requestId = ++_detailRequestSerial;
     setState(() {
-      if (_selectedTicker != normalizedTicker) _showFullResearch = false;
+      if (tickerChanged) _showFullResearch = false;
       _selectedTicker = normalizedTicker;
-      _detailPayload = cachedPayload;
+      _detailPayload =
+          cachedPayload ??
+          (fullResearch && !tickerChanged ? _detailPayload : null);
       _detailError = null;
       _detailLoading = cachedPayload == null;
     });
     widget.onTickerChanged(normalizedTicker);
     if (cachedPayload != null) return;
     try {
-      final encodedTicker = Uri.encodeComponent(normalizedTicker);
       final payload = await widget.api.getJson(
-        '/api/valuation/$encodedTicker?pricePoints=900',
+        valuationTickerDetailPath(normalizedTicker, fullResearch: fullResearch),
       );
       if (!mounted ||
           requestId != _detailRequestSerial ||
           normalizedTicker != _selectedTicker) {
         return;
       }
-      _detailCache[normalizedTicker] = payload;
+      cache[normalizedTicker] = payload;
       setState(() => _detailPayload = payload);
     } catch (error) {
       if (!mounted ||
@@ -16916,6 +16936,15 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
       _showFullResearch = false;
     });
     _loadTicker(row.ticker);
+  }
+
+  Future<void> _toggleFullResearch() async {
+    if (_showFullResearch) {
+      setState(() => _showFullResearch = false);
+      return;
+    }
+    setState(() => _showFullResearch = true);
+    await _loadTicker(_selectedTicker, fullResearch: true);
   }
 
   Future<void> _importTicker(String ticker) async {
@@ -16942,7 +16971,10 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
         asMap(payload['ticker'])['ticker'],
         normalizedTicker,
       ).toUpperCase();
-      _detailCache
+      _summaryDetailCache
+        ..clear()
+        ..[importedTicker] = payload;
+      _fullDetailCache
         ..clear()
         ..[importedTicker] = payload;
       setState(() {
@@ -17047,10 +17079,12 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
         setState(() => _expandedIndustryKey = value);
       },
       onTickerSelected: _selectTicker,
-      onRefresh: () => _loadTicker(_selectedTicker, refresh: true),
-      onToggleFullResearch: () {
-        setState(() => _showFullResearch = !_showFullResearch);
-      },
+      onRefresh: () => _loadTicker(
+        _selectedTicker,
+        refresh: true,
+        fullResearch: _showFullResearch,
+      ),
+      onToggleFullResearch: () => unawaited(_toggleFullResearch()),
     );
   }
 }
@@ -19194,12 +19228,12 @@ class ValuationTickerDetailPanel extends StatelessWidget {
             palette: palette,
           ),
           const SizedBox(height: 14),
-          if (loading && payload == null)
+          if (loading)
             const SizedBox(
               height: 280,
               child: Center(child: CircularProgressIndicator()),
             )
-          else if (error != null && payload == null)
+          else if (error != null)
             EmptyState(text: error!, palette: palette)
           else if (ticker.isEmpty)
             EmptyState(
@@ -22365,6 +22399,17 @@ String normalizeRouteMode(String? value, {String? path}) {
       : 'guru';
 }
 
+bool shouldLoadGuruDashboard(String mode, Map<String, dynamic>? guruPayload) =>
+    mode == 'guru' && guruPayload == null;
+
+String valuationTickerDetailPath(String ticker, {bool fullResearch = false}) {
+  final normalizedTicker = ticker.trim().toUpperCase();
+  final encodedTicker = Uri.encodeComponent(normalizedTicker);
+  final pricePoints = fullResearch ? 900 : 300;
+  final detail = fullResearch ? 'full' : 'summary';
+  return '/api/valuation/$encodedTicker?pricePoints=$pricePoints&detail=$detail';
+}
+
 int guruModuleIndex(String? value) {
   final module = value?.trim().toLowerCase() ?? '';
   return switch (module) {
@@ -22657,6 +22702,20 @@ String publicAssetUrl(dynamic value) {
     return raw;
   }
   return raw.startsWith('/') ? raw : '/$raw';
+}
+
+const _guruAvatarAssetVersion = '144-20260830';
+
+String versionedGuruAvatarUrl(dynamic value) {
+  final url = publicAssetUrl(value);
+  if (url.isEmpty) return '';
+  final uri = Uri.tryParse(url);
+  if (uri == null || !uri.path.startsWith('/guru-avatars/')) return url;
+  return uri
+      .replace(
+        queryParameters: {...uri.queryParameters, 'v': _guruAvatarAssetVersion},
+      )
+      .toString();
 }
 
 double number(dynamic value) {

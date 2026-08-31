@@ -27,6 +27,7 @@ import {
   startDividendCalendarRefresher
 } from "./dividendClient.js";
 import { buildAdminSystemHealth } from "./systemHealth.js";
+import { installJsonTransport } from "./jsonTransport.js";
 import {
   addPortfolioAccount,
   deletePortfolioConnection,
@@ -65,9 +66,10 @@ app.use(cors({
     callback(new Error("Origin is not allowed"));
   },
   methods: ["GET", "POST", "DELETE", "OPTIONS"],
-  allowedHeaders: ["authorization", "content-type"]
+  allowedHeaders: ["authorization", "content-type", "if-none-match"]
 }));
 app.use(express.json());
+installJsonTransport(app);
 
 const avatarAssetDir = fs.existsSync(path.join(rootDir, "dist", "guru-avatars"))
   ? path.join(rootDir, "dist", "guru-avatars")
@@ -214,6 +216,10 @@ app.get("/api/gurus", async (request, response) => {
   try {
     const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
     const payload = await loadGuruDashboard({ forceRefresh });
+    response.setHeader(
+      "Cache-Control",
+      forceRefresh ? "no-store" : "private, max-age=120, stale-while-revalidate=300"
+    );
     response.json(payload);
   } catch (error) {
     response.status(500).json({ error: error.message });
@@ -440,7 +446,8 @@ app.post("/api/valuation/:ticker/import", async (request, response) => {
 app.get("/api/valuation/:ticker", async (request, response) => {
   try {
     const payload = await loadValuationTicker(request.params.ticker, {
-      pricePoints: request.query.pricePoints
+      pricePoints: request.query.pricePoints,
+      detail: request.query.detail
     });
     response.setHeader("Cache-Control", "private, max-age=120");
     response.json(payload);
@@ -473,14 +480,19 @@ app.post("/api/translate/zh", async (request, response) => {
 
 app.get("/api/gurus/:id", async (request, response) => {
   try {
+    const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
     const payload = await loadGuruDashboard({
-      forceRefresh: request.query.refresh === "1" || request.query.refresh === "true"
+      forceRefresh
     });
     const guru = payload.gurus.find((item) => item.id === request.params.id);
     if (!guru) {
       response.status(404).json({ error: "Guru not found" });
       return;
     }
+    response.setHeader(
+      "Cache-Control",
+      forceRefresh ? "no-store" : "private, max-age=120, stale-while-revalidate=300"
+    );
     response.json({ generatedAt: payload.generatedAt, source: payload.source, guru });
   } catch (error) {
     response.status(500).json({ error: error.message });
@@ -501,11 +513,16 @@ app.get("/api/gurus/:id/context", async (request, response) => {
 
 app.get("/api/gurus/:id/backtest", async (request, response) => {
   try {
+    const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
     const payload = await loadGuruBacktest(request.params.id, {
-      refresh: request.query.refresh === "1" || request.query.refresh === "true",
+      refresh: forceRefresh,
       years: request.query.years,
       detail: request.query.detail
     });
+    response.setHeader(
+      "Cache-Control",
+      forceRefresh ? "no-store" : "private, max-age=120, stale-while-revalidate=300"
+    );
     response.json(payload);
   } catch (error) {
     response.status(500).json({ error: error.message });
@@ -514,11 +531,16 @@ app.get("/api/gurus/:id/backtest", async (request, response) => {
 
 app.get("/api/backtests", async (request, response) => {
   try {
+    const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
     const payload = await loadGuruBacktests({
-      refresh: request.query.refresh === "1" || request.query.refresh === "true",
+      refresh: forceRefresh,
       years: request.query.years,
       detail: request.query.detail
     });
+    response.setHeader(
+      "Cache-Control",
+      forceRefresh ? "no-store" : "private, max-age=120, stale-while-revalidate=300"
+    );
     response.json(payload);
   } catch (error) {
     response.status(500).json({ error: error.message });
