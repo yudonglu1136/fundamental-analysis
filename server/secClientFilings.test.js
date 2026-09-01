@@ -354,7 +354,7 @@ test("a truncated adjusted SQLite series is refreshed for the requested range", 
       requireAdjusted: true
     });
     assert.equal(fetchCalls, 1);
-    assert.equal(series.source, "yahoo");
+    assert.equal(series.source, "yahoo+sqlite-merged");
     assert.equal(series.returnBasis, "total_return_adjusted_close");
     assert.equal(series.points[0]?.date, "2023-01-03");
   } finally {
@@ -404,7 +404,7 @@ test("an adjusted SQLite series with an internal benchmark-session gap is refres
       expectedTradingDates: ["2024-01-02", "2024-01-03", "2024-01-04"]
     });
     assert.equal(fetchCalls, 1);
-    assert.equal(series.source, "yahoo");
+    assert.equal(series.source, "yahoo+sqlite-merged");
     assert.deepEqual(series.points.map((point) => point.date), [
       "2024-01-02",
       "2024-01-03",
@@ -422,6 +422,94 @@ test("an adjusted SQLite series with an internal benchmark-session gap is refres
     });
     assert.equal(cached.source, "sqlite");
     assert.equal(cached.points.length, 3);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("an audited SQLite point is merged after an upstream IPO-range refresh", async () => {
+  writePriceSeriesToDb("AUDITEDMERGEFIXTURE", [
+    {
+      date: "2024-01-02",
+      open: 100,
+      high: 102,
+      low: 99,
+      close: 101,
+      adjustedClose: 101,
+      volume: 1000
+    },
+    {
+      date: "2024-01-03",
+      open: 101,
+      high: 103,
+      low: 100,
+      close: 102,
+      adjustedClose: 102,
+      volume: 1100
+    },
+    {
+      date: "2024-01-04",
+      open: 102,
+      high: 104,
+      low: 101,
+      close: 103,
+      adjustedClose: 103,
+      volume: 1200
+    }
+  ], "audited-fixture");
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return {
+      ok: true,
+      json: async () => ({
+        chart: {
+          result: [{
+            timestamp: [1704153600, 1704326400],
+            indicators: {
+              quote: [{ close: [101, 103] }],
+              adjclose: [{ adjclose: [101, 103] }]
+            }
+          }]
+        }
+      })
+    };
+  };
+
+  try {
+    const series = await loadPriceSeries("AUDITEDMERGEFIXTURE", {
+      start: "2023-01-01",
+      end: "2024-01-04",
+      requireAdjusted: true,
+      expectedTradingDates: ["2024-01-02", "2024-01-03", "2024-01-04"]
+    });
+    assert.equal(fetchCalls, 1);
+    assert.equal(series.source, "yahoo+sqlite-merged");
+    assert.equal(series.cache, "refreshed-merged");
+    assert.deepEqual(series.points.map((point) => point.date), [
+      "2024-01-02",
+      "2024-01-03",
+      "2024-01-04"
+    ]);
+    assert.equal(series.points[1].source, "audited-fixture");
+
+    globalThis.fetch = async () => {
+      throw new Error("the merged JSON cache should satisfy the second request");
+    };
+    const cached = await loadPriceSeries("AUDITEDMERGEFIXTURE", {
+      start: "2023-01-01",
+      end: "2024-01-04",
+      requireAdjusted: true,
+      expectedTradingDates: ["2024-01-02", "2024-01-03", "2024-01-04"]
+    });
+    assert.equal(cached.cache, "hit");
+    assert.equal(fetchCalls, 1);
+    assert.equal(
+      readPriceSeriesFromDb("AUDITEDMERGEFIXTURE", "2024-01-03", "2024-01-03")[0].source,
+      "audited-fixture"
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }

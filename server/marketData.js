@@ -245,8 +245,24 @@ export async function loadPriceSeries(symbol, {
     points
   };
   writePriceSeriesToDb(normalized, points, source);
-  await writeJson(cacheFile, payload);
-  return enforceAdjustedPriceRequirement(payload, {
+  let responsePayload = payload;
+  if (requireAdjusted && source !== "unavailable" && points.length) {
+    const mergedPoints = readPriceSeriesFromDb(normalized, start, end);
+    const mergedUsable = observedAdjustedCloseCovered(mergedPoints) &&
+      expectedInternalSessionsCovered(mergedPoints, expectedTradingDates) &&
+      (!requireFullRange || adjustedRangeCovered(mergedPoints, start, end));
+    if (mergedUsable) {
+      responsePayload = {
+        ...payload,
+        source: `${source}+sqlite-merged`,
+        returnBasis: returnBasis(mergedPoints),
+        cache: "refreshed-merged",
+        points: mergedPoints
+      };
+    }
+  }
+  await writeJson(cacheFile, responsePayload);
+  return enforceAdjustedPriceRequirement(responsePayload, {
     start,
     end,
     requireAdjusted,

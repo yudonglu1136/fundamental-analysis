@@ -1434,7 +1434,7 @@ export function writePriceSeriesToDb(symbol, points, source = "unknown") {
         point.close,
         Number.isFinite(point.adjustedClose) ? point.adjustedClose : null,
         Number.isFinite(point.volume) ? point.volume : null,
-        source,
+        point.source || source,
         updatedAt
       );
     }
