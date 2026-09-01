@@ -116,7 +116,6 @@ function unavailableAuthResult() {
 async function fetchSupabaseUser(supabaseUrl, anonKey, token, timeoutMs) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  timeout.unref?.();
   try {
     const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: {
