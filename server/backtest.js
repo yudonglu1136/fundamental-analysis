@@ -92,9 +92,15 @@ export function assertGuruBacktestRefreshSucceeded(guru, payload, phase = "refre
   const actualStatus = payload?.status || "missing";
   if (actualStatus !== expectedStatus) {
     const reason = String(payload?.method?.reason || "").trim();
-    const diagnostic = payload?.dataQuality?.failure || payload?.dataQuality?.coverageFailures?.[0];
+    const failure = payload?.dataQuality?.failure || payload?.dataQuality?.coverageFailures?.[0];
+    const diagnostic = failure || payload?.dataQuality?.trailingPriceEnd
+      ? {
+          failure: failure || null,
+          trailingPriceEnd: payload?.dataQuality?.trailingPriceEnd || null
+        }
+      : null;
     const diagnosticText = diagnostic
-      ? `; diagnostic ${JSON.stringify(diagnostic).slice(0, 800)}`
+      ? `; diagnostic ${JSON.stringify(diagnostic).slice(0, 2400)}`
       : "";
     throw new Error(
       `${guru?.id || "unknown guru"} ${phase} backtest status is ${actualStatus}; expected ${expectedStatus}${reason ? ` (${reason})` : ""}${diagnosticText}`
