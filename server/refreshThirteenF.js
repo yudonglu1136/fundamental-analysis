@@ -1,7 +1,10 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { loadGuruBacktest } from "./backtest.js";
+import {
+  assertGuruBacktestRefreshSucceeded,
+  loadGuruBacktest
+} from "./backtest.js";
 import { gurus } from "./gurus.js";
 import {
   readDashboardSnapshot,
@@ -29,7 +32,7 @@ function argValue(name, fallback = "") {
 }
 
 function normalizedBacktestYears(value) {
-  const raw = String(value || "all").trim().toLowerCase();
+  const raw = String(value ?? 5).trim().toLowerCase() || "5";
   if (!raw || ["all", "max", "full", "history"].includes(raw)) return 0;
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? Math.max(1, Math.min(40, Math.round(parsed))) : 5;
@@ -58,7 +61,7 @@ function normalizeRequestedIds(value) {
 export async function runThirteenFRefresh({
   guruIds = [],
   reason = "manual-13f-update",
-  years = "all",
+  years = 5,
   detail = "compact",
   exposureLimit = 40
 } = {}) {
@@ -76,7 +79,7 @@ export async function runThirteenFRefresh({
   const normalizedReason =
     String(reason || "manual-13f-update").trim().slice(0, 120) ||
     "manual-13f-update";
-  const normalizedYears = String(years || "all").trim() || "all";
+  const normalizedYears = String(years || 5).trim() || "5";
   const requestedDetail = String(detail || "compact").trim().toLowerCase();
   const normalizedDetail = ["compact", "full", "attribution"].includes(requestedDetail)
     ? requestedDetail
@@ -193,9 +196,7 @@ export async function runThirteenFRefresh({
           `${guru.id} exposure quarter ${exposure.latest?.reportDate || "missing"} does not match latest snapshot ${snapshot.summary?.reportDate || "missing"}`
         );
       }
-      if (!backtest?.status) {
-        throw new Error(`${guru.id} staged backtest verification failed`);
-      }
+      assertGuruBacktestRefreshSucceeded(guru, backtest, "staged");
 
       stagedExposureSnapshots.push({ guruId: guru.id, payload: exposure });
       stagedBacktests.push({
@@ -244,6 +245,7 @@ export async function runThirteenFRefresh({
       ) {
         throw new Error(`${guru.id} post-commit 13F bundle verification failed`);
       }
+      assertGuruBacktestRefreshSucceeded(guru, storedBacktest, "post-commit");
     }
 
     recordJob("success", {
@@ -282,7 +284,7 @@ if (isCommandLineEntry()) {
   const options = {
     guruIds: argValue("guru"),
     reason: argValue("reason", "manual-13f-update"),
-    years: argValue("years", "all"),
+    years: argValue("years", "5"),
     detail: argValue("detail", "compact"),
     exposureLimit: argValue("exposure-limit", "40")
   };

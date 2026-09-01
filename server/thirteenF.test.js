@@ -180,6 +180,13 @@ test("Renaissance's largest previously unresolved Q2 holdings map to tradable ti
   assert.equal(tickerForHolding({ cusip: "G7997R103", issuer: "SEAGATE TECHNOLOGY HLDNGS PL" }), "STX");
 });
 
+test("Ackman successor CUSIPs retain the economically continuous market ticker", () => {
+  assert.equal(tickerForHolding({ cusip: "44267D107", issuer: "HOWARD HUGHES CORP" }), "HHH");
+  assert.equal(tickerForHolding({ cusip: "44267T102", issuer: "HOWARD HUGHES HOLDINGS INC" }), "HHH");
+  assert.equal(tickerForHolding({ cusip: "13645T100", issuer: "CANADIAN PAC RY LTD" }), "CP");
+  assert.equal(tickerForHolding({ cusip: "13646K108", issuer: "CANADIAN PACIFIC KANSAS CITY" }), "CP");
+});
+
 test("a multi-CIK quarter with an orphan amendment is excluded as incomplete", () => {
   const selection = selectManager13fFilings([
     {

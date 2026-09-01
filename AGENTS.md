@@ -117,10 +117,13 @@ Required update surfaces:
 - `guru_backtests`: copy simulation and quarterly contribution.
 - Market prices used by backtests must be current enough for the selected period; refresh latest prices first if the backtest end date is stale.
 - If a manager changes or adds SEC reporting entities, add the new filer to `alternateCiks` in `server/gurus.js` and verify all 13F readers merge every CIK. Do not rely on the original `cik` only. Example: Bill Ackman/Pershing Square uses PSCM plus PERSHING SQUARE INC. after the reporting-entity transition.
+- The product-default manager backtest is the trailing five-year audited window. Keep the 90% adjusted-close execution-coverage gate and leave missing weight in cash; never make a curve appear by lowering the gate or renormalizing only the covered subset. `years=all` remains an explicit forensic mode and must fail closed while legacy text 13F tables or point-in-time security histories are incomplete.
+- Treat issuer and CUSIP continuity as audited security-master data. In particular, Howard Hughes CUSIP `44267D107` continues 1:1 into `HHH`, and Canadian Pacific CUSIPs `13645T100` and `13646K108` use ticker `CP`. Do not revert these to stale or unmapped symbols.
+- A refresh is successful only when an enabled manager's backtest is `ready`; `insufficient_data` is a failed refresh, not a completed one. A manager with `disableSimulation: true` must return `unsupported`.
 
 Use the unified command or endpoint:
 
-- Local/CLI: `npm run refresh:13f -- --reason=manual-13f-update --years=all --detail=compact --exposure-limit=40`
+- Local/CLI: `npm run refresh:13f -- --reason=manual-13f-update --years=5 --detail=compact --exposure-limit=40`
 - Production internal API: `POST https://www.thesisforge.tech/api/internal/gurus/refresh` with `Authorization: Bearer $INTERNAL_CRON_SECRET`.
 - Status check: `GET https://www.thesisforge.tech/api/internal/gurus/refresh/status`.
 
@@ -128,7 +131,7 @@ Verification after every 13F update:
 
 1. Check `/api/health` and confirm the database timestamp moved.
 2. Check `/api/gurus?refresh=1` or the relevant guru detail endpoint and confirm latest quarter, filing date, holdings count, and activity changed together.
-3. Check `/api/gurus/{id}/backtest?years=all&detail=compact` for simulation and quarterly contribution.
+3. Check `/api/gurus/{id}/backtest?years=5&detail=compact` for the product simulation and quarterly contribution. Check `years=all` separately only as a forensic coverage audit.
 4. Check `/api/gurus/{id}/exposure?limit=40` for position history.
 5. Verify the Vercel frontend at `https://www.thesisforge.tech` still talks to AWS through `/api/*` and does not hit the AWS frontend fallback.
 

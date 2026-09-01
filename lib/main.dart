@@ -122,8 +122,7 @@ const _uiChinese = <String, String>{
   'Control holder + liquidity signals': '控股人与流动性信号',
   'Tech and growth public equities': '科技与成长型公开市场股票',
   'Social Capital public 13F proxy': 'Social Capital 公开 13F 代理组合',
-  'Systematic multi-factor U.S. long-equity disclosure':
-      '系统化多因子美股多头披露',
+  'Systematic multi-factor U.S. long-equity disclosure': '系统化多因子美股多头披露',
   'Macro-informed concentrated 13F': '宏观驱动的集中型 13F',
   'Concentrated technology and travel compounders': '集中型科技与旅行复利股',
   'Tiger Cub technology and global growth equities': 'Tiger Cub 科技与全球成长股',
@@ -151,8 +150,8 @@ const _uiChinese = <String, String>{
       '文艺复兴的管理人级 13F 是滞后且高度分散的公开美股多头代理组合，不是 Medallion Fund 持仓。在证券映射和历史执行覆盖率达标前，复制回测保持关闭。',
   'This disclosure is not a complete quarterly 13F portfolio; copied rebalancing would be misleading.':
       '该披露不是完整季度13F组合，复制调仓会失真。',
-  'Copy public 13F long-only weights on filing publication dates and backtest the full history against SPY.':
-      '按披露发布日复制公开13F长仓权重，并和SPY做全历史回测。',
+  'Copy public 13F long-only weights on filing publication dates and backtest the trailing five audited years against SPY.':
+      '按披露发布日复制公开13F长仓权重，并用最近五年可审计数据和 SPY 回测。',
   'Approximate copied trades using public disclosure dates and transaction-value ranges, then compare with SPY.':
       '按公开披露日和交易金额区间做近似复制，并和SPY对比。',
   'Counterpoint Global does not publish a clean standalone team-level 13F feed, so the app does not run proportional 13F copy-trading for this profile.':
@@ -195,6 +194,24 @@ const _uiChinese = <String, String>{
   'RESEARCH PROFILE': '研究档案',
   'COPY SIMULATION': '组合模拟',
   'Backtest is not ready.': '回测尚未准备完成。',
+  'At least one filing falls below the minimum adjusted-close execution coverage; the backtest fails closed instead of renormalizing the covered subset.':
+      '至少一个申报季度的复权收盘价执行覆盖率低于最低要求；为避免对有价格的持仓重新归一化并夸大结果，回测已按严格规则停止。',
+  'Historical filings were found, but no holdings had usable adjusted-close ticker coverage.':
+      '已找到历史申报，但没有持仓具备可用的股票代码和复权收盘价覆盖。',
+  'SPY adjusted-close total-return history is unavailable; the backtest fails closed instead of substituting price return.':
+      'SPY 的复权收盘价总回报历史不可用；回测不会用未复权价格收益替代。',
+  'Not enough historical 13F filings or SPY price points are available.':
+      '历史 13F 申报或 SPY 价格数据不足，无法完成回测。',
+  'A held security lacks an adjusted-close observation while active; the backtest fails closed instead of booking a zero return or carrying a stale quote.':
+      '某只持仓在持有期间缺少复权收盘价；回测不会记作零收益或沿用过期报价。',
+  'The drifted-position return engine did not pass its coverage or attribution reconciliation gate.':
+      '漂移持仓收益引擎未通过覆盖率或归因核对门禁。',
+  'Multiple disclosure events resolve to the same execution date; the backtest fails closed instead of applying ambiguous same-close rebalance order.':
+      '多个披露事件落在同一执行日；因无法确定同一收盘价下的调仓顺序，回测已按严格规则停止。',
+  'Not enough usable disclosed transactions or SPY price points are available.':
+      '可用的已披露交易或 SPY 价格数据不足，无法完成回测。',
+  'Disclosed transactions were found, but no tickers had usable price coverage at disclosure execution dates.':
+      '已找到披露交易，但相关股票在披露执行日均缺少可用价格覆盖。',
   'Excess': '超额收益',
   'MDD': '最大回撤',
   'No buy/sell rows available.': '暂无买卖记录。',
@@ -711,6 +728,17 @@ String localizeUiText(AppLanguage language, String source) {
   if (source.startsWith('Filed ')) return '申报日期 ${source.substring(6)}';
   if (source.startsWith('filed ')) return '申报于 ${source.substring(6)}';
   return source;
+}
+
+String guruBacktestPath(
+  String guruId, {
+  bool fullAttribution = false,
+  bool refresh = false,
+}) {
+  final query = <String>['years=5'];
+  if (fullAttribution) query.add('detail=full');
+  if (refresh) query.add('refresh=1');
+  return '/api/gurus/$guruId/backtest?${query.join('&')}';
 }
 
 bool _supabaseReady = false;
@@ -3262,6 +3290,7 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
   Future<void> _loadBacktest({
     bool quiet = false,
     bool fullAttribution = false,
+    bool forceRefresh = false,
   }) async {
     final id = text(widget.guru['id']);
     final sim = asMap(widget.guru['simulationTag']);
@@ -3275,9 +3304,12 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
       });
     }
     try {
-      final detail = fullAttribution ? '?detail=full' : '';
       final payload = await widget.api.getJson(
-        '/api/gurus/$id/backtest$detail',
+        guruBacktestPath(
+          id,
+          fullAttribution: fullAttribution,
+          refresh: forceRefresh,
+        ),
       );
       if (!mounted || id != text(widget.guru['id'])) return;
       setState(() {
@@ -3395,7 +3427,7 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
                   error: _backtestError,
                   guru: widget.guru,
                   palette: widget.palette,
-                  onRetry: () => _loadBacktest(),
+                  onRetry: () => _loadBacktest(forceRefresh: true),
                 ),
                 1 => GuruTradeModule(
                   guru: widget.guru,
@@ -3418,7 +3450,8 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
                     widget.onQuarterChanged(value);
                   }),
                   palette: widget.palette,
-                  onRetry: () => _loadBacktest(fullAttribution: true),
+                  onRetry: () =>
+                      _loadBacktest(fullAttribution: true, forceRefresh: true),
                 ),
               },
             ),
@@ -4124,9 +4157,11 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
             EmptyState(text: widget.error!, palette: widget.palette)
           else if (text(widget.payload?['status']) != 'ready')
             EmptyState(
-              text: text(
-                asMap(widget.payload?['method'])['reason'],
-                'Backtest is not ready.',
+              text: context.ui(
+                text(
+                  asMap(widget.payload?['method'])['reason'],
+                  'Backtest is not ready.',
+                ),
               ),
               palette: widget.palette,
             )
@@ -4153,20 +4188,6 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
                     ),
                     _RangePresetButton(
                       label: '5Y',
-                      selected:
-                          !isAll && trailingWindowSelected(equity, _range, 5),
-                      palette: widget.palette,
-                      onTap: () => _selectTrailingWindow(equity, 5),
-                    ),
-                    _RangePresetButton(
-                      label: '10Y',
-                      selected:
-                          !isAll && trailingWindowSelected(equity, _range, 10),
-                      palette: widget.palette,
-                      onTap: () => _selectTrailingWindow(equity, 10),
-                    ),
-                    _RangePresetButton(
-                      label: 'All',
                       selected: isAll,
                       palette: widget.palette,
                       onTap: () => _selectAll(equity),
@@ -4228,8 +4249,8 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
             if (warming) ...[
               Text(
                 context.tr(
-                  '正在后台扩展全历史；先显示已缓存区间。',
-                  'Full history is still being expanded in the background; showing the cached window first.',
+                  '正在后台刷新最近五年可审计历史；先显示已缓存区间。',
+                  'The trailing five-year audited history is refreshing; showing the cached window first.',
                 ),
                 style: TextStyle(
                   color: widget.palette.muted,
@@ -9201,7 +9222,7 @@ class _BacktestPreviewState extends State<BacktestPreview> {
     if (id.isEmpty || text(widget.guru['type']) != 'manager13f') return;
     setState(() => _loading = true);
     try {
-      final payload = await widget.api.getJson('/api/gurus/$id/backtest');
+      final payload = await widget.api.getJson(guruBacktestPath(id));
       if (mounted) setState(() => _payload = payload);
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -9262,9 +9283,11 @@ class _BacktestPreviewState extends State<BacktestPreview> {
             EmptyState(text: _error!, palette: widget.palette)
           else if (text(_payload?['status']) != 'ready')
             EmptyState(
-              text: text(
-                asMap(_payload?['method'])['reason'],
-                'Backtest is not ready.',
+              text: context.ui(
+                text(
+                  asMap(_payload?['method'])['reason'],
+                  'Backtest is not ready.',
+                ),
               ),
               palette: widget.palette,
             )

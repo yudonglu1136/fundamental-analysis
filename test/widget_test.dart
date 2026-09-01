@@ -1143,6 +1143,20 @@ void main() {
     expect(
       localizeUiText(
         AppLanguage.zh,
+        'At least one filing falls below the minimum adjusted-close execution coverage; the backtest fails closed instead of renormalizing the covered subset.',
+      ),
+      '至少一个申报季度的复权收盘价执行覆盖率低于最低要求；为避免对有价格的持仓重新归一化并夸大结果，回测已按严格规则停止。',
+    );
+    expect(
+      localizeUiText(
+        AppLanguage.zh,
+        'Multiple disclosure events resolve to the same execution date; the backtest fails closed instead of applying ambiguous same-close rebalance order.',
+      ),
+      '多个披露事件落在同一执行日；因无法确定同一收盘价下的调仓顺序，回测已按严格规则停止。',
+    );
+    expect(
+      localizeUiText(
+        AppLanguage.zh,
         'Jansen Sharadar as-reported PIT financials + event-visible management guidance',
       ),
       'Jansen Sharadar 原始披露口径的 PIT 财务数据 + 当时可见的管理层指引',
@@ -1153,6 +1167,24 @@ void main() {
     );
     expect(dividendWindowTitle(DateTime(2026, 8), AppLanguage.en), 'Aug 2026');
   });
+
+  test(
+    'uses the trailing five-year audited backtest and refreshes only on retry',
+    () {
+      expect(
+        guruBacktestPath('bill-ackman'),
+        '/api/gurus/bill-ackman/backtest?years=5',
+      );
+      expect(
+        guruBacktestPath('bill-ackman', fullAttribution: true),
+        '/api/gurus/bill-ackman/backtest?years=5&detail=full',
+      );
+      expect(
+        guruBacktestPath('bill-ackman', fullAttribution: true, refresh: true),
+        '/api/gurus/bill-ackman/backtest?years=5&detail=full&refresh=1',
+      );
+    },
+  );
 
   testWidgets('renders the auth shell', (WidgetTester tester) async {
     await tester.pumpWidget(const GuruTerminalApp());

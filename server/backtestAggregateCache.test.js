@@ -18,7 +18,9 @@ process.env.BACKTEST_STALE_BACKGROUND_REFRESH = "false";
 const { gurus } = await import("./gurus.js");
 const { writeGuruBacktest } = await import("./localDatabase.js");
 const {
+  assertGuruBacktestRefreshSucceeded,
   clearGuruBacktestAggregateCache,
+  expectedGuruBacktestStatus,
   loadGuruBacktests,
   manager13fBacktestMethodVersion,
   refreshGuruBacktestCache
@@ -162,5 +164,53 @@ test("concurrent aggregate misses share one in-flight build", async () => {
   ));
   for (const result of results.slice(1)) {
     assert.strictEqual(result, results[0]);
+  }
+});
+
+test("backtest refresh status gate accepts only ready, except explicitly disabled managers", () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const renaissance = gurus.find((guru) => guru.id === "renaissance-technologies");
+
+  assert.equal(expectedGuruBacktestStatus(ackman), "ready");
+  assert.equal(expectedGuruBacktestStatus(renaissance), "unsupported");
+  assert.doesNotThrow(() => assertGuruBacktestRefreshSucceeded(ackman, { status: "ready" }));
+  assert.doesNotThrow(() =>
+    assertGuruBacktestRefreshSucceeded(renaissance, { status: "unsupported" })
+  );
+  assert.throws(
+    () => assertGuruBacktestRefreshSucceeded(ackman, {
+      status: "insufficient_data",
+      method: { reason: "Adjusted-close coverage is below the required threshold." }
+    }),
+    /bill-ackman refresh backtest status is insufficient_data; expected ready.*Adjusted-close coverage/i
+  );
+  assert.throws(
+    () => assertGuruBacktestRefreshSucceeded(renaissance, { status: "ready" }),
+    /renaissance-technologies refresh backtest status is ready; expected unsupported/i
+  );
+});
+
+test("cache refresh counts insufficient_data as failed instead of ok", async () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const originalTypes = gurus.map((guru) => [guru, guru.type]);
+  try {
+    for (const [guru] of originalTypes) {
+      if (guru !== ackman) guru.type = "test-disabled";
+    }
+    const result = await refreshGuruBacktestCache({
+      years: 5,
+      reason: "status-gate-test",
+      backtestLoader: async () => ({
+        status: "insufficient_data",
+        method: { reason: "Execution coverage is below 90%." }
+      })
+    });
+
+    assert.equal(result.ok, 0);
+    assert.equal(result.failed, 1);
+    assert.equal(result.errors[0]?.guru, "bill-ackman");
+    assert.match(result.errors[0]?.message || "", /insufficient_data; expected ready/i);
+  } finally {
+    for (const [guru, type] of originalTypes) guru.type = type;
   }
 });

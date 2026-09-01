@@ -21,7 +21,7 @@ import {
 const defaultYears = "all";
 const allYearsCacheKey = 0;
 const maxHoldingsPerFiling = Number(process.env.BACKTEST_MAX_HOLDINGS || 60);
-export const manager13fBacktestMethodVersion = "manager13f-drifted-total-return-v2";
+export const manager13fBacktestMethodVersion = "manager13f-drifted-total-return-v3";
 const minExecutionCoverage = Math.max(
   0,
   Math.min(1, Number(process.env.BACKTEST_MIN_EXECUTION_COVERAGE || 0.9))
@@ -73,6 +73,24 @@ let lastBacktestRefreshStatus = {
   failed: 0,
   errors: []
 };
+
+export function expectedGuruBacktestStatus(guru) {
+  return guru?.type === "manager13f" && guru.disableSimulation
+    ? "unsupported"
+    : "ready";
+}
+
+export function assertGuruBacktestRefreshSucceeded(guru, payload, phase = "refresh") {
+  const expectedStatus = expectedGuruBacktestStatus(guru);
+  const actualStatus = payload?.status || "missing";
+  if (actualStatus !== expectedStatus) {
+    const reason = String(payload?.method?.reason || "").trim();
+    throw new Error(
+      `${guru?.id || "unknown guru"} ${phase} backtest status is ${actualStatus}; expected ${expectedStatus}${reason ? ` (${reason})` : ""}`
+    );
+  }
+  return payload;
+}
 
 function isoDate(value) {
   return new Date(value).toISOString().slice(0, 10);
@@ -1534,9 +1552,10 @@ export function guruBacktestRefreshStatus() {
 }
 
 export async function refreshGuruBacktestCache({
-  years = "all",
+  years = 5,
   detail = "compact",
-  reason = "manual"
+  reason = "manual",
+  backtestLoader = loadGuruBacktest
 } = {}) {
   if (backtestRefreshInFlight) {
     return {
@@ -1570,11 +1589,12 @@ export async function refreshGuruBacktestCache({
 
     for (const guru of gurus.filter((item) => item.type === "manager13f" || item.type === "congress")) {
       try {
-        const payload = await loadGuruBacktest(guru.id, {
+        const payload = await backtestLoader(guru.id, {
           refresh: true,
           years,
           detail
         });
+        assertGuruBacktestRefreshSucceeded(guru, payload, "cache refresh");
         status.ok += 1;
         console.log("[backtest-refresh] refreshed", {
           guru: guru.id,

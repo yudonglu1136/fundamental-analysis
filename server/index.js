@@ -148,7 +148,7 @@ app.get("/api/internal/backtests/status", requireInternalCron, (_request, respon
 app.post("/api/internal/backtests/refresh", requireInternalCron, async (request, response) => {
   try {
     const payload = await refreshGuruBacktestCache({
-      years: request.query.years || request.body?.years || "all",
+      years: request.query.years || request.body?.years || 5,
       detail: request.query.detail || request.body?.detail || "compact",
       reason: "internal-api"
     });
@@ -529,7 +529,7 @@ app.get("/api/admin/backtests/status", requireAdmin, (_request, response) => {
 app.post("/api/admin/backtests/refresh", requireAdmin, async (request, response) => {
   try {
     const payload = await refreshGuruBacktestCache({
-      years: request.query.years || request.body?.years || "all",
+      years: request.query.years || request.body?.years || 5,
       detail: request.query.detail || request.body?.detail || "compact",
       reason: "admin-api"
     });
@@ -657,7 +657,7 @@ app.get("/api/gurus/:id/backtest", async (request, response) => {
     const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
     const payload = await loadGuruBacktest(request.params.id, {
       refresh: forceRefresh,
-      years: request.query.years,
+      years: request.query.years || 5,
       detail: request.query.detail
     });
     response.setHeader(
@@ -675,7 +675,7 @@ app.get("/api/backtests", async (request, response) => {
     const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
     const payload = await loadGuruBacktests({
       refresh: forceRefresh,
-      years: request.query.years,
+      years: request.query.years || 5,
       detail: request.query.detail
     });
     response.setHeader(
