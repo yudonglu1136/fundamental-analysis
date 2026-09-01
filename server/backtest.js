@@ -829,7 +829,11 @@ function buildDisclosureRebalances(transactions, priceMaps, spyPoints) {
   return rebalances;
 }
 
-async function loadDisclosureBacktest(guru, window, { refresh, includeAttribution }) {
+async function loadDisclosureBacktest(
+  guru,
+  window,
+  { refresh, includeAttribution, persist = true }
+) {
   if (guru.disableSimulation) return unsupportedBacktest(guru, window);
 
   const cached = readGuruBacktest(guru.id, window.cacheKey);
@@ -875,8 +879,8 @@ async function loadDisclosureBacktest(guru, window, { refresh, includeAttributio
       rebalances: [],
       quarterContributions: []
     };
-    writeGuruBacktest(guru.id, window.cacheKey, payload);
-    return compactBacktestPayload(payload, { includeAttribution });
+    if (persist) writeGuruBacktest(guru.id, window.cacheKey, payload);
+    return persist ? compactBacktestPayload(payload, { includeAttribution }) : payload;
   }
 
   const universe = [...new Set(transactions.map((row) => row.ticker))]
@@ -921,8 +925,8 @@ async function loadDisclosureBacktest(guru, window, { refresh, includeAttributio
       rebalances: [],
       quarterContributions: []
     };
-    writeGuruBacktest(guru.id, window.cacheKey, payload);
-    return compactBacktestPayload(payload, { includeAttribution });
+    if (persist) writeGuruBacktest(guru.id, window.cacheKey, payload);
+    return persist ? compactBacktestPayload(payload, { includeAttribution }) : payload;
   }
 
   const firstDate = rebalances[0]?.executionDate;
@@ -1018,8 +1022,8 @@ async function loadDisclosureBacktest(guru, window, { refresh, includeAttributio
     }
   };
 
-  writeGuruBacktest(guru.id, window.cacheKey, payload);
-  return compactBacktestPayload(payload, { includeAttribution });
+  if (persist) writeGuruBacktest(guru.id, window.cacheKey, payload);
+  return persist ? compactBacktestPayload(payload, { includeAttribution }) : payload;
 }
 
 function unsupportedBacktest(guru, window) {
@@ -1049,7 +1053,7 @@ function unsupportedBacktest(guru, window) {
 
 export async function loadGuruBacktest(
   guruId,
-  { refresh = false, years = defaultYears, detail = "compact" } = {}
+  { refresh = false, years = defaultYears, detail = "compact", persist = true } = {}
 ) {
   const window = normalizeBacktestWindow(years);
   const includeAttribution = detail === "full" || detail === "attribution";
@@ -1057,7 +1061,11 @@ export async function loadGuruBacktest(
   if (!guru) throw new Error(`Guru not found: ${guruId}`);
 
   if (guru.type === "congress") {
-    return loadDisclosureBacktest(guru, window, { refresh, includeAttribution });
+    return loadDisclosureBacktest(guru, window, {
+      refresh,
+      includeAttribution,
+      persist
+    });
   }
 
   if (guru.type !== "manager13f" || guru.disableSimulation) {
@@ -1155,8 +1163,8 @@ export async function loadGuruBacktest(
       rebalances: [],
       quarterContributions: []
     };
-    writeGuruBacktest(guruId, window.cacheKey, payload);
-    return compactBacktestPayload(payload, { includeAttribution });
+    if (persist) writeGuruBacktest(guruId, window.cacheKey, payload);
+    return persist ? compactBacktestPayload(payload, { includeAttribution }) : payload;
   }
 
   const universe = [...new Set(backtestHistory
@@ -1297,8 +1305,8 @@ export async function loadGuruBacktest(
       rebalances: [],
       quarterContributions: []
     };
-    writeGuruBacktest(guruId, window.cacheKey, payload);
-    return compactBacktestPayload(payload, { includeAttribution });
+    if (persist) writeGuruBacktest(guruId, window.cacheKey, payload);
+    return persist ? compactBacktestPayload(payload, { includeAttribution }) : payload;
   }
 
   const firstDate = rebalances[0]?.executionDate;
@@ -1353,8 +1361,8 @@ export async function loadGuruBacktest(
       rebalances: [],
       quarterContributions: []
     };
-    writeGuruBacktest(guruId, window.cacheKey, payload);
-    return compactBacktestPayload(payload, { includeAttribution });
+    if (persist) writeGuruBacktest(guruId, window.cacheKey, payload);
+    return persist ? compactBacktestPayload(payload, { includeAttribution }) : payload;
   }
 
   const equity = simulation.equity;
@@ -1461,8 +1469,8 @@ export async function loadGuruBacktest(
     }
   };
 
-  writeGuruBacktest(guruId, window.cacheKey, payload);
-  return compactBacktestPayload(payload, { includeAttribution });
+  if (persist) writeGuruBacktest(guruId, window.cacheKey, payload);
+  return persist ? compactBacktestPayload(payload, { includeAttribution }) : payload;
 }
 
 export async function loadGuruBacktests({ refresh = false, years = defaultYears, detail = "compact" } = {}) {

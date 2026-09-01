@@ -1259,6 +1259,88 @@ export function writeGuruBacktest(guruId, years, payload) {
   );
 }
 
+export function writeGuru13fRefreshBundle({
+  dashboard,
+  guruSnapshots = [],
+  exposureSnapshots = [],
+  backtests = []
+} = {}) {
+  if (!dashboard || typeof dashboard !== "object") {
+    throw new Error("A dashboard payload is required for an atomic 13F refresh commit.");
+  }
+
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    // Read the dashboard only after obtaining the write lock. A refresh can spend
+    // tens of seconds staging SEC history, so the dashboard supplied by the
+    // caller may be older than a different manager refresh that committed while
+    // this job was working. Preserve every non-selected manager from the latest
+    // committed dashboard and apply only this bundle's manager patches.
+    const latestDashboard = readDashboardSnapshot();
+    const stagedGuruIds = new Set(guruSnapshots.map((item) => item.guruId));
+    const templateGurus = Array.isArray(dashboard.gurus) ? dashboard.gurus : [];
+    const latestGurus = Array.isArray(latestDashboard?.gurus)
+      ? latestDashboard.gurus
+      : [];
+    const templateById = new Map(templateGurus.map((guru) => [guru.id, guru]));
+    const latestById = new Map(latestGurus.map((guru) => [guru.id, guru]));
+    const stagedById = new Map(
+      guruSnapshots.map((item) => [
+        item.guruId,
+        templateById.get(item.guruId) || item.payload
+      ])
+    );
+    const orderedIds = [];
+    const seenIds = new Set();
+    for (const guru of [...templateGurus, ...latestGurus]) {
+      if (!guru?.id || seenIds.has(guru.id)) continue;
+      seenIds.add(guru.id);
+      orderedIds.push(guru.id);
+    }
+    for (const guruId of stagedGuruIds) {
+      if (seenIds.has(guruId)) continue;
+      seenIds.add(guruId);
+      orderedIds.push(guruId);
+    }
+
+    for (const item of guruSnapshots) {
+      writeGuruSnapshot(item.guruId, item.payload);
+    }
+    for (const item of exposureSnapshots) {
+      writeGuruExposureSnapshot(item.guruId, item.payload);
+    }
+    for (const item of backtests) {
+      writeGuruBacktest(item.guruId, item.years, item.payload);
+    }
+    const committedDashboard = {
+      ...dashboard,
+      ...(latestDashboard || {}),
+      generatedAt: new Date().toISOString(),
+      gurus: orderedIds
+        .map((guruId) => {
+          if (stagedGuruIds.has(guruId)) return stagedById.get(guruId);
+          return latestById.get(guruId) || templateById.get(guruId);
+        })
+        .filter(Boolean)
+    };
+    writeDashboardSnapshot(committedDashboard);
+    db.exec("COMMIT");
+    return {
+      gurus: guruSnapshots.length,
+      exposures: exposureSnapshots.length,
+      backtests: backtests.length,
+      dashboardGeneratedAt: committedDashboard.generatedAt
+    };
+  } catch (error) {
+    try {
+      db.exec("ROLLBACK");
+    } catch {
+      // Preserve the original staging or commit error.
+    }
+    throw error;
+  }
+}
+
 export function readPriceSeriesFromDb(symbol, start, end) {
   const normalized = String(symbol || "").trim().toUpperCase();
   if (!normalized) return [];

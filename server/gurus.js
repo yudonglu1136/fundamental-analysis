@@ -49,6 +49,27 @@ export const gurus = [
     ]
   },
   {
+    id: "renaissance-technologies",
+    name: "Renaissance Technologies",
+    chineseName: "文艺复兴科技",
+    entityName: "RENAISSANCE TECHNOLOGIES LLC",
+    cik: "0001037389",
+    type: "manager13f",
+    role: "Quantitative investment manager / public 13F proxy",
+    thesisTag: "Systematic multi-factor U.S. long-equity disclosure",
+    disableSimulation: true,
+    simulationNote:
+      "Renaissance's manager-level 13F is a delayed, highly diversified public long-equity proxy, not the Medallion Fund portfolio. Copy simulation stays disabled until security mapping and historical execution coverage pass the required threshold.",
+    excludeFromHeatmap: true,
+    heatmapExclusionReason:
+      "Excluded from concentrated-manager consensus because the manager-level filing is a broad systematic book rather than a concentrated conviction portfolio.",
+    notes: [
+      "Renaissance Technologies files quarterly Form 13F-HR reports. The app tracks the manager-level U.S.-reportable long-equity disclosure.",
+      "This is not the Medallion Fund portfolio or a reconstruction of Renaissance's complete quantitative strategy. The 13F omits shorts, futures, swaps, many non-U.S. securities, cash, and intra-quarter trading.",
+      "Because the disclosed book is highly diversified and can turn over quickly, use it as delayed systematic ownership and factor evidence rather than as a literal copy-trade instruction."
+    ]
+  },
+  {
     id: "chamath-palihapitiya",
     name: "Chamath Palihapitiya",
     chineseName: "Chamath",

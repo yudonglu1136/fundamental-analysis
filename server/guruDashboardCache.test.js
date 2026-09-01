@@ -14,14 +14,20 @@ process.env.SYNC_BUNDLED_PODCAST_INSIGHTS = "false";
 
 const { gurus } = await import("./gurus.js");
 const {
+  readDashboardSnapshot,
   readGuruDashboardVersion,
+  readGuruExposureSnapshot,
+  readGuruSnapshot,
   writeDashboardSnapshot,
   writeGuruAsset,
+  writeGuru13fRefreshBundle,
+  writeGuruExposureSnapshot,
   writeGuruSnapshot
 } = await import("./localDatabase.js");
 const {
   clearGuruDashboardMemoryCache,
-  loadGuruDashboard
+  loadGuruDashboard,
+  loadGuruExposureHistory
 } = await import("./secClient.js");
 
 after(() => {
@@ -104,5 +110,97 @@ test("dashboard, Guru snapshot, and avatar writes invalidate the version-keyed c
   assert.equal(
     afterAsset.gurus.find((guru) => guru.id === selected.id)?.avatarUrl,
     "/guru-avatars/cache-test.webp"
+  );
+});
+
+test("exposure views honor the requested limit without shrinking the stored history", async () => {
+  const guruId = "gavin-baker";
+  const history = Array.from({ length: 40 }, (_, index) => ({
+    quarterLabel: `Q${index + 1}`,
+    reportDate: `2026-${String((index % 12) + 1).padStart(2, "0")}-01`
+  }));
+  writeGuruExposureSnapshot(guruId, {
+    generatedAt: new Date().toISOString(),
+    status: "live",
+    history,
+    latest: history.at(-1),
+    meta: { requestedQuarters: 40, returnedQuarters: 40 }
+  });
+
+  const compact = await loadGuruExposureHistory(guruId, { limit: 4 });
+  assert.equal(compact.history.length, 4);
+  assert.equal(compact.history[0].quarterLabel, "Q37");
+  assert.equal(compact.latest.quarterLabel, "Q40");
+  assert.equal(compact.meta.requestedQuarters, 4);
+  assert.equal(compact.meta.returnedQuarters, 4);
+  assert.equal(compact.meta.storedRequestedQuarters, 40);
+
+  const stored = readGuruExposureSnapshot(guruId);
+  assert.equal(stored.history.length, 40);
+  assert.equal(stored.meta.requestedQuarters, 40);
+});
+
+test("an invalid staged 13F bundle rolls back every database surface", () => {
+  const guruId = "atomic-refresh-test";
+  const beforeDashboard = readDashboardSnapshot();
+  const circularExposure = { generatedAt: new Date().toISOString(), history: [] };
+  circularExposure.self = circularExposure;
+
+  assert.throws(
+    () =>
+      writeGuru13fRefreshBundle({
+        dashboard: dashboard("should-not-commit", new Date().toISOString()),
+        guruSnapshots: [
+          {
+            guruId,
+            payload: {
+              id: guruId,
+              type: "manager13f",
+              cik: "0000000000",
+              generatedAt: new Date().toISOString()
+            }
+          }
+        ],
+        exposureSnapshots: [{ guruId, payload: circularExposure }]
+      }),
+    /circular/i
+  );
+
+  assert.equal(readGuruSnapshot(guruId), null);
+  assert.equal(readDashboardSnapshot()?.marker, beforeDashboard?.marker);
+});
+
+test("an atomic 13F bundle preserves another manager committed after staging", () => {
+  const firstGuru = gurus[0];
+  const secondGuru = gurus[1];
+  const stagedDashboard = dashboard("staged-before-concurrent-write", "2026-09-01T00:00:00.000Z");
+  const latestDashboard = dashboard("newer-dashboard", "2026-09-01T00:00:01.000Z");
+  latestDashboard.gurus = latestDashboard.gurus.map((guru) =>
+    guru.id === firstGuru.id ? { ...guru, concurrentMarker: "keep-me" } : guru
+  );
+  writeDashboardSnapshot(latestDashboard);
+
+  stagedDashboard.gurus = stagedDashboard.gurus.map((guru) =>
+    guru.id === secondGuru.id ? { ...guru, refreshMarker: "apply-me" } : guru
+  );
+  writeGuru13fRefreshBundle({
+    dashboard: stagedDashboard,
+    guruSnapshots: [
+      {
+        guruId: secondGuru.id,
+        payload: stagedDashboard.gurus.find((guru) => guru.id === secondGuru.id)
+      }
+    ]
+  });
+
+  const committed = readDashboardSnapshot();
+  assert.equal(committed.marker, "newer-dashboard");
+  assert.equal(
+    committed.gurus.find((guru) => guru.id === firstGuru.id)?.concurrentMarker,
+    "keep-me"
+  );
+  assert.equal(
+    committed.gurus.find((guru) => guru.id === secondGuru.id)?.refreshMarker,
+    "apply-me"
   );
 });

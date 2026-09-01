@@ -15,6 +15,7 @@
     "import:derived-valuations": "node server/importDerivedValuationTickers.js",
     "enrich:valuation-transcript-qa": "node server/enrichValuationTranscriptQa.js",
     "refresh:dividends": "node server/refreshDividendCalendar.js",
+    "refresh:13f": "node server/refreshThirteenF.js",
     "sync:ontology-ui": "python3 scripts/sync-ontology-frontend.py",
     "export:ontology": "python3 scripts/export-ontology-snapshot.py",
     "test:ontology": "python3 scripts/export_ontology_snapshot_test.py && node --test server/ontologyClient.test.js server/guruConsensusStrategy.test.js scripts/ontology-snapshot-state.test.mjs scripts/verify-ontology-module.test.mjs",

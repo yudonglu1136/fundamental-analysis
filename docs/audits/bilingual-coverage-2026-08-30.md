@@ -21,6 +21,7 @@ Scope: Flutter application, standalone Ontology explorer, dynamic API labels, de
 | Guru simulation and backtest | PASS | PASS | PASS | PASS | Period controls, metrics, chart labels, warnings | PASS |
 | Guru buys/sells and contribution | PASS | PASS | PASS | PASS | Activity types, dynamic ticker context, chart labels | PASS |
 | Guru 13F history | PASS | PASS | PASS | PASS | Filing status, quarter labels, exposure states | PASS |
+| Quarterly Market Lens | PASS | PASS | PASS | PASS | Common-quarter coverage, crowded holdings, reported adds/trims, ticker search, manager evidence, valuation and reported-change actions, no-data state | PASS |
 | Ontology strategy view | PASS | PASS | PASS | PASS | Strategy names, descriptions, parameters, validation copy | PASS |
 | Ontology decision history | PASS | PASS | PASS | PASS | Decision drawer, BUY/SELL, reason and risk labels | PASS |
 | Ontology market map | PASS | PASS | PASS | PASS | Sector, industry, company modal, financial drivers | PASS |
@@ -49,6 +50,7 @@ Scope: Flutter application, standalone Ontology explorer, dynamic API labels, de
 | Browser cache could retain stale Ontology translations | Versioned Ontology CSS, application JavaScript, and translation assets as one release unit. |
 | Admin nested Portfolio detail was not represented in language regression tests | Added an API-backed widget fixture and English zero-CJK assertion over the full rendered tree. |
 | The unauthenticated shell used a fixed 520px panel and widened a 390px mobile document | Replaced the fixed width with a safe-area constrained layout, verified a 390px document width in a real browser, and added a widget regression assertion. |
+| Quarterly crowding and activity cards had no bilingual drill-down state | Added a responsive Market Lens with translated tabs, metrics, explanations, caveats, search, manager evidence, empty states, and navigation actions; desktop and 390x844 widget tests guard both layouts. |
 
 ## Automated Gates
 

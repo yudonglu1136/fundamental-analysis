@@ -122,6 +122,8 @@ const _uiChinese = <String, String>{
   'Control holder + liquidity signals': '控股人与流动性信号',
   'Tech and growth public equities': '科技与成长型公开市场股票',
   'Social Capital public 13F proxy': 'Social Capital 公开 13F 代理组合',
+  'Systematic multi-factor U.S. long-equity disclosure':
+      '系统化多因子美股多头披露',
   'Macro-informed concentrated 13F': '宏观驱动的集中型 13F',
   'Concentrated technology and travel compounders': '集中型科技与旅行复利股',
   'Tiger Cub technology and global growth equities': 'Tiger Cub 科技与全球成长股',
@@ -145,6 +147,8 @@ const _uiChinese = <String, String>{
   'Insurance float and long-term quality/value equities': '保险浮存金与长期高质量价值股',
   'Archived long-term compounder case study': '归档的长期复利股案例研究',
   'Multi-strategy public equities': '多策略公开市场股票',
+  "Renaissance's manager-level 13F is a delayed, highly diversified public long-equity proxy, not the Medallion Fund portfolio. Copy simulation stays disabled until security mapping and historical execution coverage pass the required threshold.":
+      '文艺复兴的管理人级 13F 是滞后且高度分散的公开美股多头代理组合，不是 Medallion Fund 持仓。在证券映射和历史执行覆盖率达标前，复制回测保持关闭。',
   'This disclosure is not a complete quarterly 13F portfolio; copied rebalancing would be misleading.':
       '该披露不是完整季度13F组合，复制调仓会失真。',
   'Copy public 13F long-only weights on filing publication dates and backtest the full history against SPY.':
@@ -1216,6 +1220,7 @@ class TerminalHome extends StatefulWidget {
 class _TerminalHomeState extends State<TerminalHome>
     with WidgetsBindingObserver {
   late final ApiClient _api = ApiClient(() => widget.accessToken);
+  final TextEditingController _guruSearchController = TextEditingController();
   Map<String, dynamic>? _guruPayload;
   Map<String, dynamic>? _ontologyPayload;
   Map<String, dynamic>? _portfolioPayload;
@@ -1305,8 +1310,15 @@ class _TerminalHomeState extends State<TerminalHome>
     final nextQuarter = cleanRouteValue(route['quarter']) ?? '';
     final nextValuation =
         cleanRouteValue(route['valuation'])?.toUpperCase() ?? '';
+    final resetGuruUniverse =
+        nextMode == 'guru' && nextGuru != null && nextGuru != _selectedGuruId;
+    if (resetGuruUniverse) _guruSearchController.clear();
     setState(() {
       _mode = nextMode;
+      if (resetGuruUniverse) {
+        _search = '';
+        _filter = 'all';
+      }
       _selectedGuruId = nextGuru;
       _guruModule = nextModule;
       _guruTradeTicker = nextTrade;
@@ -1331,6 +1343,7 @@ class _TerminalHomeState extends State<TerminalHome>
   @override
   void dispose() {
     _secondaryRecoveryTimer?.cancel();
+    _guruSearchController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -1528,6 +1541,39 @@ class _TerminalHomeState extends State<TerminalHome>
     _persistRouteState();
   }
 
+  void _openGuruTrade(String guruId, String ticker) {
+    final target = guruTradeNavigationTarget(guruId, ticker);
+    if (target == null) return;
+    _guruSearchController.clear();
+    setState(() {
+      _mode = 'guru';
+      // Market Lens is built from the full eligible-manager universe. Reset
+      // universe filters before selecting its evidence row so the requested
+      // manager cannot be hidden and silently replaced by the first visible
+      // manager in the filtered list.
+      _search = target.search;
+      _filter = target.filter;
+      _selectedGuruId = target.guruId;
+      _guruModule = 1;
+      _guruTradeTicker = target.ticker;
+      _guruQuarterId = '';
+      _secondaryError = null;
+    });
+    _persistRouteState();
+  }
+
+  void _openValuationTicker(String ticker) {
+    final normalizedTicker = ticker.trim().toUpperCase();
+    if (normalizedTicker.isEmpty) return;
+    setState(() {
+      _mode = 'valuation';
+      _valuationTicker = normalizedTicker;
+      _secondaryError = null;
+    });
+    _persistRouteState();
+    unawaited(_loadSecondary('valuation'));
+  }
+
   void _updateGuruSearch(String value) {
     _updateGuruUniverse(search: value, filter: _filter);
   }
@@ -1655,7 +1701,7 @@ class _TerminalHomeState extends State<TerminalHome>
         final universe = GuruUniversePanel(
           gurus: filtered,
           selectedGuruId: text(selectedGuru['id']),
-          search: _search,
+          searchController: _guruSearchController,
           filter: _filter,
           palette: palette,
           onSearch: _updateGuruSearch,
@@ -1665,7 +1711,7 @@ class _TerminalHomeState extends State<TerminalHome>
         final mobileUniverse = MobileGuruPicker(
           gurus: filtered,
           selectedGuruId: text(selectedGuru['id']),
-          search: _search,
+          searchController: _guruSearchController,
           filter: _filter,
           palette: palette,
           onSearch: _updateGuruSearch,
@@ -1706,10 +1752,12 @@ class _TerminalHomeState extends State<TerminalHome>
         final rightRail = GuruRightRail(
           gurus: gurus,
           signals: signals.take(3).toList(),
-          exposures: exposures.take(mobile ? 12 : 18).toList(),
+          exposures: exposures,
           activeGuruId: text(selectedGuru['id']),
           palette: palette,
           onSelectGuru: _selectGuru,
+          onOpenGuruTrade: _openGuruTrade,
+          onOpenValuation: _openValuationTicker,
           deckHeight: mobile ? 720 : 860,
           deckLimit: mobile ? 12 : 16,
         );
@@ -1862,11 +1910,7 @@ ModuleHeaderState moduleHeaderState({
       payload?['asOf'],
       summary['asOf'],
     ]),
-    _ => firstValidAsOf([
-      source['asOf'],
-      payload?['asOf'],
-      summary['asOf'],
-    ]),
+    _ => firstValidAsOf([source['asOf'], payload?['asOf'], summary['asOf']]),
   };
   final explicitStatus = text(
     payload?['status'],
@@ -2409,7 +2453,7 @@ class GuruUniversePanel extends StatelessWidget {
     super.key,
     required this.gurus,
     required this.selectedGuruId,
-    required this.search,
+    required this.searchController,
     required this.filter,
     required this.palette,
     required this.onSearch,
@@ -2419,7 +2463,7 @@ class GuruUniversePanel extends StatelessWidget {
 
   final List<Map<String, dynamic>> gurus;
   final String selectedGuruId;
-  final String search;
+  final TextEditingController searchController;
   final String filter;
   final Palette palette;
   final ValueChanged<String> onSearch;
@@ -2459,6 +2503,8 @@ class GuruUniversePanel extends StatelessWidget {
           SizedBox(
             height: 42,
             child: TextField(
+              key: const ValueKey('guru-universe-search'),
+              controller: searchController,
               onChanged: onSearch,
               style: TextStyle(color: palette.text, fontSize: 13),
               decoration: InputDecoration(
@@ -2525,7 +2571,7 @@ class MobileGuruPicker extends StatelessWidget {
     super.key,
     required this.gurus,
     required this.selectedGuruId,
-    required this.search,
+    required this.searchController,
     required this.filter,
     required this.palette,
     required this.onSearch,
@@ -2535,7 +2581,7 @@ class MobileGuruPicker extends StatelessWidget {
 
   final List<Map<String, dynamic>> gurus;
   final String selectedGuruId;
-  final String search;
+  final TextEditingController searchController;
   final String filter;
   final Palette palette;
   final ValueChanged<String> onSearch;
@@ -2575,6 +2621,8 @@ class MobileGuruPicker extends StatelessWidget {
           SizedBox(
             height: 40,
             child: TextField(
+              key: const ValueKey('mobile-guru-universe-search'),
+              controller: searchController,
               onChanged: onSearch,
               style: TextStyle(color: palette.text, fontSize: 13),
               decoration: InputDecoration(
@@ -3113,24 +3161,43 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
   @override
   void didUpdateWidget(covariant GuruWorkspace oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (text(oldWidget.guru['id']) == text(widget.guru['id'])) return;
+    final guruChanged = text(oldWidget.guru['id']) != text(widget.guru['id']);
+    final routeChanged =
+        oldWidget.initialModule != widget.initialModule ||
+        oldWidget.initialTicker != widget.initialTicker ||
+        oldWidget.initialQuarterId != widget.initialQuarterId;
+    if (!guruChanged && !routeChanged) return;
     final ticker = _initialTicker();
     _backtestWarmupTimer?.cancel();
     _backtestWarmupPolls = 0;
     setState(() {
-      _backtestPayload = null;
-      _backtestError = null;
-      _backtestLoading = false;
-      _backtestFullAttribution = false;
-      _contextPayload = null;
-      _contextError = null;
-      _contextLoading = false;
+      if (guruChanged) {
+        _backtestPayload = null;
+        _backtestError = null;
+        _backtestLoading = false;
+        _backtestFullAttribution = false;
+        _contextPayload = null;
+        _contextError = null;
+        _contextLoading = false;
+      }
+      _module = widget.initialModule.clamp(0, 2).toInt();
       _selectedTicker = ticker;
       _selectedQuarterId = widget.initialQuarterId;
     });
-    widget.onTickerChanged(ticker);
-    _loadBacktest();
-    if (ticker.isNotEmpty) _loadContext(ticker);
+    scheduleMicrotask(() {
+      if (!mounted) return;
+      if (guruChanged) {
+        widget.onTickerChanged(ticker);
+        _loadBacktest();
+      }
+      if (ticker.isNotEmpty &&
+          (guruChanged || ticker != oldWidget.initialTicker)) {
+        _loadContext(ticker);
+      }
+      if (_module == 2 && !_backtestFullAttribution) {
+        _loadBacktest(fullAttribution: true);
+      }
+    });
   }
 
   @override
@@ -3455,9 +3522,11 @@ class GuruWorkspaceHeader extends StatelessWidget {
                       spacing: 7,
                       runSpacing: 7,
                       children: [
-                        InfoChip(strategy, palette: palette),
+                        InfoChip(context.ui(strategy), palette: palette),
                         InfoChip(
-                          text(asMap(guru['simulationTag'])['label']),
+                          context.ui(
+                            text(asMap(guru['simulationTag'])['label']),
+                          ),
                           palette: palette,
                         ),
                       ],
@@ -6172,6 +6241,8 @@ class GuruRightRail extends StatelessWidget {
     required this.activeGuruId,
     required this.palette,
     required this.onSelectGuru,
+    required this.onOpenGuruTrade,
+    required this.onOpenValuation,
     this.deckHeight = 860,
     this.deckLimit = 16,
   });
@@ -6182,6 +6253,8 @@ class GuruRightRail extends StatelessWidget {
   final String activeGuruId;
   final Palette palette;
   final ValueChanged<String> onSelectGuru;
+  final void Function(String guruId, String ticker) onOpenGuruTrade;
+  final ValueChanged<String> onOpenValuation;
   final double deckHeight;
   final int deckLimit;
 
@@ -6200,6 +6273,8 @@ class GuruRightRail extends StatelessWidget {
           gurus: gurus,
           exposures: exposures,
           palette: palette,
+          onOpenGuruTrade: onOpenGuruTrade,
+          onOpenValuation: onOpenValuation,
           height: deckHeight,
           itemLimit: deckLimit,
         ),
@@ -6773,14 +6848,18 @@ class CompactTickerHeatmap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxValue = exposures.fold<double>(
+    final maxBreadth = exposures.fold<int>(
       0,
-      (max, item) => math.max(max, item.value),
+      (max, item) => math.max(max, item.guruCount),
     );
     final body = Column(
       children: [
         for (final item in exposures)
-          CompactHeatmapRow(item: item, maxValue: maxValue, palette: palette),
+          CompactHeatmapRow(
+            item: item,
+            maxBreadth: maxBreadth,
+            palette: palette,
+          ),
       ],
     );
     return SizedBox(
@@ -6819,6 +6898,8 @@ class _CompactTickerDeck extends StatefulWidget {
     required this.gurus,
     required this.exposures,
     required this.palette,
+    required this.onOpenGuruTrade,
+    required this.onOpenValuation,
     this.height = 860,
     this.itemLimit = 16,
   });
@@ -6826,6 +6907,8 @@ class _CompactTickerDeck extends StatefulWidget {
   final List<Map<String, dynamic>> gurus;
   final List<ExposureItem> exposures;
   final Palette palette;
+  final void Function(String guruId, String ticker) onOpenGuruTrade;
+  final ValueChanged<String> onOpenValuation;
   final double height;
   final int itemLimit;
 
@@ -6854,16 +6937,53 @@ class _CompactTickerDeckState extends State<_CompactTickerDeck> {
     );
   }
 
+  void _openLens({String ticker = '', int? initialView}) {
+    final view =
+        initialView ??
+        switch (_page) {
+          2 => 1,
+          3 => 2,
+          _ => 0,
+        };
+    showQuarterlyMarketLens(
+      context: context,
+      gurus: widget.gurus,
+      palette: widget.palette,
+      initialView: view,
+      initialTicker: ticker,
+      onOpenGuruTrade: widget.onOpenGuruTrade,
+      onOpenValuation: widget.onOpenValuation,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final quarter = defaultGuruDisclosureQuarter(widget.gurus);
+    final quarterKicker = quarter == '-'
+        ? context.tr('等待共同季度', 'AWAITING COMMON QUARTER')
+        : context.tr('$quarter · 市场全景', '$quarter · MARKET LENS');
+    final changeKicker = quarter == '-'
+        ? context.tr('等待共同季度', 'AWAITING COMMON QUARTER')
+        : context.tr('$quarter · 申报变化', '$quarter · REPORTED CHANGES');
+    final addItems = buildActivityRankItems(
+      widget.gurus,
+      positive: true,
+      reportQuarter: quarter,
+    );
+    final trimItems = buildActivityRankItems(
+      widget.gurus,
+      positive: false,
+      reportQuarter: quarter,
+    );
     final pages = [
       _DeckPageSpec(
         icon: Icons.grid_view_rounded,
-        kicker: 'TICKER HEATMAP',
-        title: context.tr('拥挤持仓', 'Crowded Holdings'),
+        kicker: quarterKicker,
+        title: context.tr('本季度集中持仓', 'Quarterly Crowded Holdings'),
         body: _CrowdedHoldingsDeckPage(
           exposures: widget.exposures.take(widget.itemLimit).toList(),
           palette: widget.palette,
+          onOpen: (ticker) => _openLens(ticker: ticker, initialView: 0),
         ),
       ),
       _DeckPageSpec(
@@ -6879,28 +6999,24 @@ class _CompactTickerDeckState extends State<_CompactTickerDeck> {
       ),
       _DeckPageSpec(
         icon: Icons.trending_up_rounded,
-        kicker: 'ADD RANKING',
-        title: context.tr('加仓排名', 'Add Ranking'),
+        kicker: changeKicker,
+        title: context.tr('本季度集中加仓', 'Quarterly Add Ranking'),
         body: _ActivityRankingDeckPage(
-          items: buildActivityRankItems(
-            widget.gurus,
-            positive: true,
-          ).take(widget.itemLimit).toList(),
+          items: addItems.take(widget.itemLimit).toList(),
           positive: true,
           palette: widget.palette,
+          onOpen: (ticker) => _openLens(ticker: ticker, initialView: 1),
         ),
       ),
       _DeckPageSpec(
         icon: Icons.trending_down_rounded,
-        kicker: 'TRIM RANKING',
-        title: context.tr('减仓排名', 'Trim Ranking'),
+        kicker: changeKicker,
+        title: context.tr('本季度集中减仓', 'Quarterly Trim Ranking'),
         body: _ActivityRankingDeckPage(
-          items: buildActivityRankItems(
-            widget.gurus,
-            positive: false,
-          ).take(widget.itemLimit).toList(),
+          items: trimItems.take(widget.itemLimit).toList(),
           positive: false,
           palette: widget.palette,
+          onOpen: (ticker) => _openLens(ticker: ticker, initialView: 2),
         ),
       ),
     ];
@@ -6918,12 +7034,28 @@ class _CompactTickerDeckState extends State<_CompactTickerDeck> {
               icon: current.icon,
               kicker: current.kicker,
               title: current.title,
-              trailing: _DeckNavControls(
-                page: _page,
-                count: pages.length,
-                palette: widget.palette,
-                onPrevious: () => _go(-1),
-                onNext: () => _go(1),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _DeckNavButton(
+                    key: const ValueKey('quarterly-market-lens-expand'),
+                    icon: Icons.open_in_full_rounded,
+                    tooltip: context.tr(
+                      '打开季度全局分析',
+                      'Open quarterly market lens',
+                    ),
+                    onTap: _openLens,
+                    palette: widget.palette,
+                  ),
+                  const SizedBox(width: 3),
+                  _DeckNavControls(
+                    page: _page,
+                    count: pages.length,
+                    palette: widget.palette,
+                    onPrevious: () => _go(-1),
+                    onNext: () => _go(1),
+                  ),
+                ],
               ),
               palette: widget.palette,
             ),
@@ -7027,6 +7159,7 @@ class _DeckNavControls extends StatelessWidget {
 
 class _DeckNavButton extends StatelessWidget {
   const _DeckNavButton({
+    super.key,
     required this.icon,
     required this.tooltip,
     required this.onTap,
@@ -7042,19 +7175,24 @@ class _DeckNavButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(7),
-        onTap: onTap,
-        child: Container(
-          width: 24,
-          height: 24,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: palette.card,
-            borderRadius: BorderRadius.circular(7),
-            border: Border.all(color: palette.border),
+      child: SizedBox.square(
+        dimension: 44,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Center(
+            child: Container(
+              width: 24,
+              height: 24,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: palette.card,
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(color: palette.border),
+              ),
+              child: Icon(icon, color: palette.muted, size: 17),
+            ),
           ),
-          child: Icon(icon, color: palette.muted, size: 17),
         ),
       ),
     );
@@ -7096,10 +7234,12 @@ class _CrowdedHoldingsDeckPage extends StatelessWidget {
   const _CrowdedHoldingsDeckPage({
     required this.exposures,
     required this.palette,
+    required this.onOpen,
   });
 
   final List<ExposureItem> exposures;
   final Palette palette;
+  final ValueChanged<String> onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -7109,9 +7249,9 @@ class _CrowdedHoldingsDeckPage extends StatelessWidget {
         palette: palette,
       );
     }
-    final maxValue = exposures.fold<double>(
+    final maxBreadth = exposures.fold<int>(
       0,
-      (max, item) => math.max(max, item.value),
+      (max, item) => math.max(max, item.guruCount),
     );
     return Column(
       children: [
@@ -7119,9 +7259,10 @@ class _CrowdedHoldingsDeckPage extends StatelessWidget {
           _CrowdedHoldingDeckRow(
             rank: index + 1,
             item: exposures[index],
-            maxValue: maxValue,
+            maxBreadth: maxBreadth,
             palette: palette,
             isLast: index == exposures.length - 1,
+            onTap: () => onOpen(exposures[index].ticker),
           ),
       ],
     );
@@ -7132,109 +7273,131 @@ class _CrowdedHoldingDeckRow extends StatelessWidget {
   const _CrowdedHoldingDeckRow({
     required this.rank,
     required this.item,
-    required this.maxValue,
+    required this.maxBreadth,
     required this.palette,
     required this.isLast,
+    required this.onTap,
   });
 
   final int rank;
   final ExposureItem item;
-  final double maxValue;
+  final int maxBreadth;
   final Palette palette;
   final bool isLast;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final progress = maxValue <= 0
+    final progress = maxBreadth <= 0
         ? 0.0
-        : math.max(.05, item.value / maxValue).clamp(0.0, 1.0).toDouble();
+        : math.max(.05, item.guruCount / maxBreadth).clamp(0.0, 1.0).toDouble();
     final guruNames = item.guruNames.take(3).join(', ');
     final suffix = item.guruCount > 3 ? ' +' : '';
-    return Padding(
-      padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              SizedBox(
-                width: 74,
-                child: Row(
+    return Semantics(
+      button: true,
+      label: context.tr(
+        '打开 ${item.ticker} 的季度集中持仓分析',
+        'Open quarterly crowded-holding analysis for ${item.ticker}',
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: isLast ? 0 : 6),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(9),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            child: Column(
+              children: [
+                Row(
                   children: [
                     SizedBox(
-                      width: 22,
-                      child: Text(
-                        '#$rank',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: palette.faint,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
+                      width: 74,
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 22,
+                            child: Text(
+                              '#$rank',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: palette.faint,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              item.ticker,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: palette.text,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 8,
+                          backgroundColor: palette.border,
+                          color: palette.accent,
                         ),
                       ),
                     ),
-                    Expanded(
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 58,
                       child: Text(
-                        item.ticker,
+                        formatMoney(item.value),
+                        textAlign: TextAlign.end,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: palette.text,
                           fontWeight: FontWeight.w900,
-                          fontSize: 13,
+                          fontSize: 11,
                         ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: palette.faint,
+                      size: 16,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    const SizedBox(width: 82),
+                    Expanded(
+                      child: Text(
+                        context.tr(
+                          '${item.guruCount} 位投资人 · $guruNames$suffix',
+                          '${item.guruCount} gurus · $guruNames$suffix',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: palette.faint, fontSize: 10),
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 8,
-                    backgroundColor: palette.border,
-                    color: palette.accent,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 58,
-                child: Text(
-                  formatMoney(item.value),
-                  textAlign: TextAlign.end,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: palette.text,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 3),
-          Row(
-            children: [
-              const SizedBox(width: 82),
-              Expanded(
-                child: Text(
-                  context.tr(
-                    '${item.guruCount} 位投资人 · $guruNames$suffix',
-                    '${item.guruCount} gurus · $guruNames$suffix',
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: palette.faint, fontSize: 10),
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -7276,11 +7439,13 @@ class _ActivityRankingDeckPage extends StatelessWidget {
     required this.items,
     required this.positive,
     required this.palette,
+    required this.onOpen,
   });
 
   final List<GuruActivityRankItem> items;
   final bool positive;
   final Palette palette;
+  final ValueChanged<String> onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -7294,7 +7459,7 @@ class _ActivityRankingDeckPage extends StatelessWidget {
     }
     final maxAmount = items.fold<double>(
       0,
-      (max, item) => math.max(max, item.amount),
+      (max, item) => item.amountReliable ? math.max(max, item.amount) : max,
     );
     final tone = positive ? palette.positive : palette.negative;
     return Column(
@@ -7309,15 +7474,25 @@ class _ActivityRankingDeckPage extends StatelessWidget {
                 title: '${item.ticker} · $titleLabel',
                 subtitle: activityRankSubtitle(item, context.language),
                 meta: activityRankActionSummary(item, context.language),
-                value: formatMoney(item.amount),
+                value: item.amountReliable
+                    ? context.tr(
+                        '代理 ${formatMoney(item.amount)}',
+                        'proxy ${formatMoney(item.amount)}',
+                      )
+                    : context.tr('代理不可靠', 'proxy N/A'),
                 tone: tone,
-                progress: maxAmount <= 0
+                progress: !item.amountReliable || maxAmount <= 0
                     ? 0.0
                     : math
                           .max(.06, item.amount / maxAmount)
                           .clamp(0.0, 1.0)
                           .toDouble(),
                 palette: palette,
+                onTap: () => onOpen(item.ticker),
+                semanticLabel: context.tr(
+                  '打开 ${item.ticker} 的本季度申报变化分析',
+                  'Open quarterly reported-change analysis for ${item.ticker}',
+                ),
               );
             },
           ),
@@ -7335,6 +7510,8 @@ class _DeckListRow extends StatelessWidget {
     required this.palette,
     this.meta,
     this.progress,
+    this.onTap,
+    this.semanticLabel,
   });
 
   final String title;
@@ -7344,99 +7521,1151 @@ class _DeckListRow extends StatelessWidget {
   final Palette palette;
   final String? meta;
   final double? progress;
+  final VoidCallback? onTap;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 34,
-            decoration: BoxDecoration(
-              color: tone,
-              borderRadius: BorderRadius.circular(999),
-            ),
+    final row = Row(
+      children: [
+        Container(
+          width: 4,
+          height: 34,
+          decoration: BoxDecoration(
+            color: tone,
+            borderRadius: BorderRadius.circular(999),
           ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        context.ui(title),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: palette.text,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      value,
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.ui(title),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: palette.text,
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: palette.text,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.ui(subtitle),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: palette.muted, fontSize: 10),
+                    ),
+                  ),
+                  if (meta != null && meta!.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      context.ui(meta!),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: palette.faint,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                  if (progress != null) ...[
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 52,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 5,
+                          backgroundColor: palette.border,
+                          color: tone,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    final interactive = onTap == null
+        ? row
+        : Semantics(
+            button: true,
+            label: semanticLabel,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(9),
+              onTap: onTap,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 5,
+                  ),
+                  child: row,
+                ),
+              ),
+            ),
+          );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: interactive,
+    );
+  }
+}
+
+Future<void> showQuarterlyMarketLens({
+  required BuildContext context,
+  required List<Map<String, dynamic>> gurus,
+  required Palette palette,
+  required int initialView,
+  required String initialTicker,
+  required void Function(String guruId, String ticker) onOpenGuruTrade,
+  required ValueChanged<String> onOpenValuation,
+}) => showDialog<void>(
+  context: context,
+  barrierColor: Colors.black.withValues(alpha: .72),
+  builder: (dialogContext) => QuarterlyMarketLensDialog(
+    gurus: gurus,
+    palette: palette,
+    initialView: initialView,
+    initialTicker: initialTicker,
+    onOpenGuruTrade: onOpenGuruTrade,
+    onOpenValuation: onOpenValuation,
+  ),
+);
+
+class QuarterlyMarketLensDialog extends StatefulWidget {
+  const QuarterlyMarketLensDialog({
+    super.key,
+    required this.gurus,
+    required this.palette,
+    required this.initialView,
+    required this.initialTicker,
+    required this.onOpenGuruTrade,
+    required this.onOpenValuation,
+  });
+
+  final List<Map<String, dynamic>> gurus;
+  final Palette palette;
+  final int initialView;
+  final String initialTicker;
+  final void Function(String guruId, String ticker) onOpenGuruTrade;
+  final ValueChanged<String> onOpenValuation;
+
+  @override
+  State<QuarterlyMarketLensDialog> createState() =>
+      _QuarterlyMarketLensDialogState();
+}
+
+class _QuarterlyMarketLensDialogState extends State<QuarterlyMarketLensDialog> {
+  late int _view;
+  late String _ticker;
+  late bool _mobileDetail;
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _view = widget.initialView.clamp(0, 2).toInt();
+    _ticker = widget.initialTicker.trim().toUpperCase();
+    _mobileDetail = _ticker.isNotEmpty;
+  }
+
+  void _selectView(int value) {
+    if (value == _view) return;
+    setState(() {
+      _view = value;
+      _ticker = '';
+      _query = '';
+      _mobileDetail = false;
+    });
+  }
+
+  void _selectTicker(String ticker, {required bool compact}) {
+    setState(() {
+      _ticker = ticker;
+      if (compact) _mobileDetail = true;
+    });
+  }
+
+  void _openValuation(String ticker) {
+    Navigator.of(context).pop();
+    widget.onOpenValuation(ticker);
+  }
+
+  void _openGuruTrade(MarketLensManagerPosition position) {
+    Navigator.of(context).pop();
+    widget.onOpenGuruTrade(position.guruId, position.ticker);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = widget.palette;
+    final quarter = defaultGuruDisclosureQuarter(widget.gurus);
+    final exposures = buildExposures(widget.gurus, reportQuarter: quarter);
+    final adds = buildActivityRankItems(
+      widget.gurus,
+      positive: true,
+      reportQuarter: quarter,
+    );
+    final trims = buildActivityRankItems(
+      widget.gurus,
+      positive: false,
+      reportQuarter: quarter,
+    );
+    final eligible = guruDisclosureEligibleCount(widget.gurus);
+    final covered = guruDisclosureQuarterCoverage(widget.gurus, quarter);
+    final quarterLabel = quarter == '-'
+        ? context.tr('暂无共同季度', 'No common quarter')
+        : quarter;
+    final trackedValue = widget.gurus
+        .where(isQuarterLensGuru)
+        .where(
+          (guru) =>
+              reportQuarterLabel(text(asMap(guru['summary'])['reportDate'])) ==
+              quarter,
+        )
+        .fold<double>(0, (sum, guru) => sum + reported13fCommonLongValue(guru));
+    final size = MediaQuery.sizeOf(context);
+    final compact = size.width < 760;
+    final availableHeight = math.max(420.0, size.height - (compact ? 16 : 48));
+    final currentTickers = switch (_view) {
+      0 => [for (final item in exposures) item.ticker],
+      1 => [for (final item in adds) item.ticker],
+      _ => [for (final item in trims) item.ticker],
+    };
+    final selectedTicker = currentTickers.contains(_ticker)
+        ? _ticker
+        : (currentTickers.isEmpty ? '' : currentTickers.first);
+    final selectedExposure = exposures.firstWhere(
+      (item) => item.ticker == selectedTicker,
+      orElse: () => const ExposureItem(
+        ticker: '',
+        value: 0,
+        guruNames: {},
+        positions: [],
+      ),
+    );
+    final selectedActivity = (_view == 1 ? adds : trims).firstWhere(
+      (item) => item.ticker == selectedTicker,
+      orElse: () => const GuruActivityRankItem(
+        ticker: '',
+        actions: {},
+        guruNames: {},
+        reportDate: '',
+        amount: 0,
+        positions: [],
+      ),
+    );
+
+    return Dialog(
+      key: const ValueKey('quarterly-market-lens-dialog'),
+      insetPadding: EdgeInsets.all(compact ? 8 : 24),
+      backgroundColor: Colors.transparent,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 1120, maxHeight: availableHeight),
+        child: Container(
+          decoration: panelDecoration(palette),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  compact ? 14 : 20,
+                  compact ? 12 : 18,
+                  compact ? 8 : 12,
+                  12,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: palette.accent.withValues(alpha: .13),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: palette.accent.withValues(alpha: .30),
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.radar_rounded,
+                        color: palette.accent,
+                        size: 23,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            context.tr('季度市场透镜', 'QUARTERLY MARKET LENS'),
+                            style: TextStyle(
+                              color: palette.accent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: .7,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            context.tr(
+                              '从榜单深入到经理级证据',
+                              'From ranking to manager-level evidence',
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: palette.text,
+                              fontSize: compact ? 17 : 21,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: context.tr('关闭', 'Close'),
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icon(Icons.close_rounded, color: palette.muted),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: palette.border),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  compact ? 12 : 20,
+                  12,
+                  compact ? 12 : 20,
+                  10,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        InfoChip(quarterLabel, palette: palette),
+                        InfoChip(
+                          context.tr(
+                            '$covered/$eligible 位合资格经理已申报',
+                            '$covered/$eligible eligible managers filed',
+                          ),
+                          palette: palette,
+                        ),
+                        InfoChip(
+                          context.tr(
+                            '${exposures.length} 只可识别普通股',
+                            '${exposures.length} mapped common stocks',
+                          ),
+                          palette: palette,
+                        ),
+                        InfoChip(
+                          context.tr(
+                            '覆盖 ${formatMoney(trackedValue)}',
+                            '${formatMoney(trackedValue)} tracked',
+                          ),
+                          palette: palette,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _MarketLensTab(
+                            selected: _view == 0,
+                            icon: Icons.grid_view_rounded,
+                            label: context.tr('集中持仓', 'Crowded Holdings'),
+                            palette: palette,
+                            onTap: () => _selectView(0),
+                          ),
+                          const SizedBox(width: 8),
+                          _MarketLensTab(
+                            selected: _view == 1,
+                            icon: Icons.trending_up_rounded,
+                            label: context.tr('集中加仓', 'Reported Adds'),
+                            palette: palette,
+                            onTap: () => _selectView(1),
+                          ),
+                          const SizedBox(width: 8),
+                          _MarketLensTab(
+                            selected: _view == 2,
+                            icon: Icons.trending_down_rounded,
+                            label: context.tr('集中减仓', 'Reported Trims'),
+                            palette: palette,
+                            onTap: () => _selectView(2),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        context.ui(subtitle),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    compact ? 12 : 20,
+                    0,
+                    compact ? 12 : 20,
+                    compact ? 12 : 20,
+                  ),
+                  child: compact
+                      ? (_mobileDetail && selectedTicker.isNotEmpty
+                            ? _buildCompactDetail(
+                                context,
+                                selectedTicker,
+                                selectedExposure,
+                                selectedActivity,
+                                covered,
+                              )
+                            : _buildRanking(
+                                context,
+                                exposures,
+                                adds,
+                                trims,
+                                selectedTicker,
+                                compact: true,
+                              ))
+                      : Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              width: 390,
+                              child: _buildRanking(
+                                context,
+                                exposures,
+                                adds,
+                                trims,
+                                selectedTicker,
+                                compact: false,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: _buildDetail(
+                                context,
+                                selectedTicker,
+                                selectedExposure,
+                                selectedActivity,
+                                covered,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRanking(
+    BuildContext context,
+    List<ExposureItem> exposures,
+    List<GuruActivityRankItem> adds,
+    List<GuruActivityRankItem> trims,
+    String selectedTicker, {
+    required bool compact,
+  }) {
+    final palette = widget.palette;
+    final query = _query.trim().toUpperCase();
+    final exposureRows = exposures
+        .where((item) => query.isEmpty || item.ticker.contains(query))
+        .take(100)
+        .toList();
+    final activityRows = (_view == 1 ? adds : trims)
+        .where((item) => query.isEmpty || item.ticker.contains(query))
+        .take(100)
+        .toList();
+    final count = _view == 0 ? exposureRows.length : activityRows.length;
+    final description = _view == 0
+        ? context.tr(
+            '优先按独立经理覆盖数排序，再看中位组合权重，避免被超大基金的绝对规模主导。',
+            'Ranks independent-manager breadth first, then median book weight, reducing mega-fund size distortion.',
+          )
+        : context.tr(
+            '优先按同季度申报该变化的经理数排序；金额是季末持仓价值变化代理，并非成交现金。',
+            'Ranks managers reporting the same-quarter change first; value is a quarter-end holding-change proxy, not execution cash.',
+          );
+    final rows = <Widget>[
+      for (var index = 0; index < count; index += 1)
+        if (_view == 0)
+          _MarketLensRankRow(
+            rank: index + 1,
+            ticker: exposureRows[index].ticker,
+            primary: context.tr(
+              '${exposureRows[index].guruCount} 位经理',
+              '${exposureRows[index].guruCount} managers',
+            ),
+            secondary: context.tr(
+              '${formatMoney(exposureRows[index].value)} · 中位权重 ${formatReturn(exposureRows[index].medianWeight).replaceFirst('+', '')}',
+              '${formatMoney(exposureRows[index].value)} · median weight ${formatReturn(exposureRows[index].medianWeight).replaceFirst('+', '')}',
+            ),
+            selected: exposureRows[index].ticker == selectedTicker,
+            tone: palette.accent,
+            palette: palette,
+            onTap: () =>
+                _selectTicker(exposureRows[index].ticker, compact: compact),
+          )
+        else
+          _MarketLensRankRow(
+            rank: index + 1,
+            ticker: activityRows[index].ticker,
+            primary: context.tr(
+              '${activityRows[index].guruCount} 位经理 · ${activityRankActionSummary(activityRows[index], context.language)}',
+              '${activityRows[index].guruCount} managers · ${activityRankActionSummary(activityRows[index], context.language)}',
+            ),
+            secondary: activityRows[index].amountReliable
+                ? context.tr(
+                    '价值变化代理 ${formatMoney(activityRows[index].amount)}',
+                    'Value-change proxy ${formatMoney(activityRows[index].amount)}',
+                  )
+                : context.tr('价值变化代理不可靠', 'Value-change proxy N/A'),
+            selected: activityRows[index].ticker == selectedTicker,
+            tone: _view == 1 ? palette.positive : palette.negative,
+            palette: palette,
+            onTap: () =>
+                _selectTicker(activityRows[index].ticker, compact: compact),
+          ),
+    ];
+    return Panel(
+      palette: palette,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _view == 0
+                ? context.tr('完整持仓排名', 'Full holdings ranking')
+                : _view == 1
+                ? context.tr('完整加仓排名', 'Full reported-add ranking')
+                : context.tr('完整减仓排名', 'Full reported-trim ranking'),
+            style: TextStyle(
+              color: palette.text,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            description,
+            style: TextStyle(color: palette.muted, fontSize: 11, height: 1.35),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 42,
+            child: TextField(
+              key: const ValueKey('quarterly-market-lens-search'),
+              onChanged: (value) => setState(() => _query = value),
+              style: TextStyle(color: palette.text, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: context.tr('搜索股票代码', 'Search ticker'),
+                hintStyle: TextStyle(color: palette.faint),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: palette.muted,
+                  size: 19,
+                ),
+                filled: true,
+                fillColor: palette.card,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: palette.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: palette.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: palette.accent),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (rows.isEmpty)
+            EmptyState(
+              text: context.tr(
+                '当前筛选没有可显示的申报数据。',
+                'No reported data matches the current filter.',
+              ),
+              palette: palette,
+            )
+          else if (compact)
+            Expanded(child: ListView(children: rows))
+          else
+            Expanded(child: ListView(children: rows)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactDetail(
+    BuildContext context,
+    String selectedTicker,
+    ExposureItem exposure,
+    GuruActivityRankItem activity,
+    int covered,
+  ) {
+    return Column(
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            key: const ValueKey('quarterly-market-lens-back'),
+            onPressed: () => setState(() => _mobileDetail = false),
+            icon: const Icon(Icons.arrow_back_rounded),
+            label: Text(context.tr('返回完整排名', 'Back to full ranking')),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Expanded(
+          child: _buildDetail(
+            context,
+            selectedTicker,
+            exposure,
+            activity,
+            covered,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetail(
+    BuildContext context,
+    String selectedTicker,
+    ExposureItem exposure,
+    GuruActivityRankItem activity,
+    int covered,
+  ) {
+    final palette = widget.palette;
+    if (selectedTicker.isEmpty) {
+      return EmptyState(
+        text: context.tr(
+          '选择一只股票查看经理级证据。',
+          'Select a ticker to inspect manager-level evidence.',
+        ),
+        palette: palette,
+      );
+    }
+    final positions =
+        (_view == 0 ? exposure.positions : activity.positions).toList()
+          ..sort((left, right) {
+            final weightCompare = right.currentWeight.compareTo(
+              left.currentWeight,
+            );
+            return weightCompare != 0
+                ? weightCompare
+                : right.currentValue.compareTo(left.currentValue);
+          });
+    final issuer = positions.isEmpty ? '' : positions.first.issuer;
+    final breadth = _view == 0 ? exposure.guruCount : activity.guruCount;
+    final metricCards = _view == 0
+        ? [
+            MiniMetric(
+              context.tr('经理覆盖', 'Manager breadth'),
+              '$breadth/$covered',
+              Icons.groups_2_outlined,
+              palette,
+            ),
+            MiniMetric(
+              context.tr('申报持仓合计', 'Reported value'),
+              formatMoney(exposure.value),
+              Icons.account_balance_wallet_outlined,
+              palette,
+            ),
+            MiniMetric(
+              context.tr('中位组合权重', 'Median book weight'),
+              formatReturn(exposure.medianWeight).replaceFirst('+', ''),
+              Icons.balance_outlined,
+              palette,
+            ),
+            MiniMetric(
+              context.tr('最高组合权重', 'Maximum book weight'),
+              formatReturn(exposure.maxWeight).replaceFirst('+', ''),
+              Icons.vertical_align_top_rounded,
+              palette,
+            ),
+          ]
+        : [
+            MiniMetric(
+              context.tr('一致经理数', 'Managers aligned'),
+              '$breadth',
+              Icons.groups_2_outlined,
+              palette,
+            ),
+            MiniMetric(
+              context.tr('价值变化代理', 'Value-change proxy'),
+              activity.amountReliable ? formatMoney(activity.amount) : 'N/A',
+              Icons.swap_vert_circle_outlined,
+              palette,
+            ),
+            MiniMetric(
+              context.tr('新建仓 / 调整', 'New / adjusted'),
+              _view == 1
+                  ? '${activity.newCount} / ${activity.increasedCount}'
+                  : '${activity.soldOutCount} / ${activity.reducedCount}',
+              Icons.compare_arrows_rounded,
+              palette,
+            ),
+            MiniMetric(
+              context.tr('当前中位权重', 'Median current weight'),
+              formatReturn(activity.medianCurrentWeight).replaceFirst('+', ''),
+              Icons.balance_outlined,
+              palette,
+            ),
+          ];
+    return Panel(
+      palette: palette,
+      padding: const EdgeInsets.all(16),
+      child: ListView(
+        key: const ValueKey('quarterly-market-lens-detail-scroll'),
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stacked = constraints.maxWidth < 420;
+              final heading = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    selectedTicker,
+                    style: TextStyle(
+                      color: palette.text,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  if (issuer.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      issuer,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: palette.muted, fontSize: 12),
+                    ),
+                  ],
+                ],
+              );
+              final action = FilledButton.icon(
+                key: const ValueKey('quarterly-market-lens-valuation'),
+                onPressed: () => _openValuation(selectedTicker),
+                icon: const Icon(Icons.query_stats_rounded, size: 18),
+                label: Text(context.tr('查看估值', 'Open valuation')),
+              );
+              if (stacked) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [heading, const SizedBox(height: 10), action],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: heading),
+                  const SizedBox(width: 10),
+                  action,
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 14),
+          GridWrap(minTileWidth: 145, spacing: 9, children: metricCards),
+          const SizedBox(height: 14),
+          PortfolioDataNotice(
+            icon: Icons.insights_rounded,
+            text: _view == 0
+                ? context.tr(
+                    '集中度来自同一报告季度中独立经理的共同持有，并优先考虑覆盖广度与组合权重，不把大基金的绝对规模误当作共识。',
+                    'Crowding reflects common ownership by independent managers in one report quarter, prioritizing breadth and book weight rather than mistaking mega-fund size for consensus.',
+                  )
+                : context.tr(
+                    '这是多位经理在同一报告季度披露同方向变化的交叉证据；它不能证明同步成交，也不能替代对每位经理投资逻辑的研究。',
+                    'This is cross-manager evidence of same-direction reported changes in one quarter; it does not prove synchronized execution or a shared investment thesis.',
+                  ),
+            palette: palette,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            context.tr('经理级证据', 'Manager-level evidence'),
+            style: TextStyle(
+              color: palette.text,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 9),
+          for (final position in positions)
+            _MarketLensManagerRow(
+              position: position,
+              palette: palette,
+              onTap: position.hasTradeEvidence
+                  ? () => _openGuruTrade(position)
+                  : null,
+            ),
+          const SizedBox(height: 6),
+          PortfolioDataNotice(
+            icon: Icons.info_outline_rounded,
+            text: context.tr(
+              '13F 通常滞后披露。股数变化尚未按拆股等公司行动调整；价值变化还包含价格波动。当价值变化方向与申报动作相反时，金额代理显示为 N/A，不用完整持仓额代替。因此这里展示的是申报变化，不是已确认交易或成交现金。',
+              '13F filings arrive with a delay. Share changes are not adjusted for corporate actions, and value changes also contain price movement. When the value change conflicts with the reported action, the amount proxy is shown as N/A instead of substituting the full position value. These are reported changes, not confirmed trades or execution cash.',
+            ),
+            palette: palette,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MarketLensTab extends StatelessWidget {
+  const _MarketLensTab({
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.palette,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final Palette palette;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = selected ? palette.accent : palette.muted;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 44),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+          decoration: BoxDecoration(
+            color: selected
+                ? palette.accent.withValues(alpha: .15)
+                : palette.card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected
+                  ? palette.accent.withValues(alpha: .52)
+                  : palette.border,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: tone, size: 18),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: TextStyle(
+                  color: tone,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MarketLensRankRow extends StatelessWidget {
+  const _MarketLensRankRow({
+    required this.rank,
+    required this.ticker,
+    required this.primary,
+    required this.secondary,
+    required this.selected,
+    required this.tone,
+    required this.palette,
+    required this.onTap,
+  });
+
+  final int rank;
+  final String ticker;
+  final String primary;
+  final String secondary;
+  final bool selected;
+  final Color tone;
+  final Palette palette;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: context.tr(
+        '第 $rank 名，$ticker，$primary，打开深入分析',
+        'Rank $rank, $ticker, $primary, open deep analysis',
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 7),
+        child: InkWell(
+          key: ValueKey('quarterly-market-lens-row-$ticker'),
+          borderRadius: BorderRadius.circular(11),
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 58),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            decoration: BoxDecoration(
+              color: selected
+                  ? tone.withValues(alpha: .13)
+                  : palette.card.withValues(alpha: .62),
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(
+                color: selected ? tone.withValues(alpha: .46) : palette.border,
+              ),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 28,
+                  child: Text(
+                    '#$rank',
+                    style: TextStyle(
+                      color: selected ? tone : palette.faint,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 58,
+                  child: Text(
+                    ticker,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: palette.text,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        primary,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: palette.text,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        secondary,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: palette.muted, fontSize: 10),
                       ),
-                    ),
-                    if (meta != null && meta!.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        context.ui(meta!),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: palette.faint,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
                     ],
-                    if (progress != null) ...[
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 52,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            minHeight: 5,
-                            backgroundColor: palette.border,
-                            color: tone,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: selected ? tone : palette.faint,
+                  size: 18,
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MarketLensManagerRow extends StatelessWidget {
+  const _MarketLensManagerRow({
+    required this.position,
+    required this.palette,
+    required this.onTap,
+  });
+
+  final MarketLensManagerPosition position;
+  final Palette palette;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final changed = position.action != 'unchanged';
+    final tone = tradeToneColor(position.action, palette);
+    final lag = filingLag({
+      'reportDate': position.reportDate,
+      'filingDate': position.filingDate,
+    });
+    final previousWeight = position.previousValue > 0
+        ? formatReturn(position.previousWeight).replaceFirst('+', '')
+        : '-';
+    final currentWeight = formatReturn(
+      position.currentWeight,
+    ).replaceFirst('+', '');
+    final weightText =
+        position.previousValue > 0 ||
+            position.action == 'new' ||
+            position.action == 'sold_out'
+        ? context.tr(
+            '权重 $previousWeight → $currentWeight',
+            'weight $previousWeight → $currentWeight',
+          )
+        : context.tr('当前权重 $currentWeight', 'current weight $currentWeight');
+    final content = Container(
+      key: ValueKey(
+        'quarterly-market-lens-manager-${position.guruId}-${position.ticker}',
+      ),
+      constraints: const BoxConstraints(minHeight: 66),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: palette.card.withValues(alpha: .62),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: palette.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: tone.withValues(alpha: .13),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.account_balance_outlined, color: tone, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      position.guruName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: palette.text,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    BadgeLabel(
+                      text: changed
+                          ? reported13fActionLabel(
+                              position.action,
+                              context.language,
+                            )
+                          : context.tr('申报持有', 'Reported holding'),
+                      color: tone,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  '${formatMoney(position.currentValue)} · $weightText',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: palette.muted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  context.tr(
+                    '${formatDate(position.filingDate)} 申报 · 季末后 $lag',
+                    'Filed ${formatDate(position.filingDate)} · $lag after quarter end',
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: palette.faint, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+          if (onTap != null) ...[
+            const SizedBox(width: 6),
+            Icon(Icons.arrow_forward_rounded, color: palette.faint, size: 17),
+          ],
         ],
       ),
+    );
+    final row = onTap == null
+        ? content
+        : InkWell(
+            borderRadius: BorderRadius.circular(11),
+            onTap: onTap,
+            child: content,
+          );
+    return Semantics(
+      button: onTap != null,
+      label: onTap != null
+          ? context.tr(
+              '打开 ${position.guruName} 对 ${position.ticker} 的申报变化',
+              'Open ${position.guruName} reported changes for ${position.ticker}',
+            )
+          : context.tr(
+              '${position.guruName} 申报持有 ${position.ticker}，本季无可跳转的变化记录',
+              '${position.guruName} reported holding ${position.ticker}; no linked change record this quarter',
+            ),
+      child: Padding(padding: const EdgeInsets.only(bottom: 8), child: row),
     );
   }
 }
@@ -7445,19 +8674,19 @@ class CompactHeatmapRow extends StatelessWidget {
   const CompactHeatmapRow({
     super.key,
     required this.item,
-    required this.maxValue,
+    required this.maxBreadth,
     required this.palette,
   });
 
   final ExposureItem item;
-  final double maxValue;
+  final int maxBreadth;
   final Palette palette;
 
   @override
   Widget build(BuildContext context) {
-    final progress = maxValue <= 0
+    final progress = maxBreadth <= 0
         ? 0.0
-        : math.max(.05, item.value / maxValue).clamp(0.0, 1.0).toDouble();
+        : math.max(.05, item.guruCount / maxBreadth).clamp(0.0, 1.0).toDouble();
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -7646,9 +8875,9 @@ class TickerHeatmap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxValue = exposures.fold<double>(
+    final maxBreadth = exposures.fold<int>(
       0,
-      (max, item) => math.max(max, item.value),
+      (max, item) => math.max(max, item.guruCount),
     );
     return Panel(
       palette: palette,
@@ -7708,9 +8937,9 @@ class TickerHeatmap extends StatelessWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(999),
                         child: LinearProgressIndicator(
-                          value: maxValue <= 0
+                          value: maxBreadth <= 0
                               ? 0
-                              : math.max(.05, item.value / maxValue),
+                              : math.max(.05, item.guruCount / maxBreadth),
                           minHeight: 9,
                           backgroundColor: palette.border,
                           color: palette.accent,
@@ -7812,9 +9041,12 @@ class GuruInspector extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  InfoChip(text(guru['thesisTag']), palette: palette),
                   InfoChip(
-                    text(asMap(guru['simulationTag'])['label']),
+                    context.ui(text(guru['thesisTag'])),
+                    palette: palette,
+                  ),
+                  InfoChip(
+                    context.ui(text(asMap(guru['simulationTag'])['label'])),
                     palette: palette,
                   ),
                 ],
@@ -23213,17 +24445,60 @@ class SignalItem {
 }
 
 class ExposureItem {
-  ExposureItem({
+  const ExposureItem({
     required this.ticker,
     required this.value,
     required this.guruNames,
+    required this.positions,
   });
 
   final String ticker;
-  double value;
+  final double value;
   final Set<String> guruNames;
+  final List<MarketLensManagerPosition> positions;
 
   int get guruCount => guruNames.length;
+  double get medianWeight =>
+      medianValue([for (final position in positions) position.currentWeight]);
+  double get maxWeight => positions.fold<double>(
+    0,
+    (maximum, position) => math.max(maximum, position.currentWeight),
+  );
+}
+
+class MarketLensManagerPosition {
+  const MarketLensManagerPosition({
+    required this.guruId,
+    required this.guruName,
+    required this.ticker,
+    required this.issuer,
+    required this.action,
+    required this.reportDate,
+    required this.filingDate,
+    required this.currentValue,
+    required this.previousValue,
+    required this.currentWeight,
+    required this.previousWeight,
+    required this.changeShares,
+    this.hasTradeEvidence = false,
+  });
+
+  final String guruId;
+  final String guruName;
+  final String ticker;
+  final String issuer;
+  final String action;
+  final String reportDate;
+  final String filingDate;
+  final double currentValue;
+  final double previousValue;
+  final double currentWeight;
+  final double previousWeight;
+  final double changeShares;
+  final bool hasTradeEvidence;
+
+  double get valueChange => currentValue - previousValue;
+  double get weightChange => currentWeight - previousWeight;
 }
 
 class GuruFilingItem {
@@ -23251,6 +24526,8 @@ class GuruActivityRankItem {
     required this.guruNames,
     required this.reportDate,
     required this.amount,
+    required this.positions,
+    this.amountReliable = true,
   });
 
   final String ticker;
@@ -23258,8 +24535,16 @@ class GuruActivityRankItem {
   final Set<String> guruNames;
   final String reportDate;
   final double amount;
+  final List<MarketLensManagerPosition> positions;
+  final bool amountReliable;
 
   int get guruCount => guruNames.length;
+  int get newCount => actions['new'] ?? 0;
+  int get increasedCount => actions['increased'] ?? 0;
+  int get reducedCount => actions['reduced'] ?? 0;
+  int get soldOutCount => actions['sold_out'] ?? 0;
+  double get medianCurrentWeight =>
+      medianValue([for (final position in positions) position.currentWeight]);
 
   String get primaryAction {
     if (actions.isEmpty) return '';
@@ -23473,6 +24758,19 @@ String? cleanRouteValue(String? value) {
   return cleaned.isEmpty ? null : cleaned;
 }
 
+({String guruId, String ticker, String search, String filter})?
+guruTradeNavigationTarget(String guruId, String ticker) {
+  final normalizedGuruId = guruId.trim();
+  final normalizedTicker = ticker.trim().toUpperCase();
+  if (normalizedGuruId.isEmpty || normalizedTicker.isEmpty) return null;
+  return (
+    guruId: normalizedGuruId,
+    ticker: normalizedTicker,
+    search: '',
+    filter: 'all',
+  );
+}
+
 String shortText(String value, [int length = 10]) {
   final cleaned = value.trim();
   if (cleaned.length <= length) return cleaned;
@@ -23605,30 +24903,228 @@ List<SignalItem> buildSignals(List<Map<String, dynamic>> gurus) {
   return signals;
 }
 
-List<ExposureItem> buildExposures(List<Map<String, dynamic>> gurus) {
-  final byTicker = <String, ExposureItem>{};
-  for (final guru in gurus) {
-    if (text(guru['type']) != 'manager13f') continue;
-    if (truthy(guru['excludeFromHeatmap'])) continue;
-    for (final holding in asList(guru['holdings']).take(24)) {
-      final ticker = text(holding['ticker']).toUpperCase();
-      if (!RegExp(r'^[A-Z][A-Z0-9.-]{0,9}$').hasMatch(ticker)) continue;
-      final current = byTicker.putIfAbsent(
-        ticker,
-        () => ExposureItem(ticker: ticker, value: 0, guruNames: <String>{}),
-      );
-      current.value += number(holding['value']);
-      current.guruNames.add(text(guru['name']));
+bool isQuarterLensGuru(Map<String, dynamic> guru) =>
+    text(guru['type']) == 'manager13f' && !truthy(guru['excludeFromHeatmap']);
+
+String defaultGuruDisclosureQuarter(List<Map<String, dynamic>> gurus) {
+  final coverage = <String, _QuarterCoverage>{};
+  for (final guru in gurus.where(isQuarterLensGuru)) {
+    final reportDate = text(asMap(guru['summary'])['reportDate']);
+    final quarter = reportQuarterLabel(reportDate);
+    if (quarter == '-') continue;
+    final current = coverage.putIfAbsent(
+      quarter,
+      () => _QuarterCoverage(quarter),
+    );
+    current.managerCount += 1;
+    if (reportDate.compareTo(current.latestReportDate) > 0) {
+      current.latestReportDate = reportDate;
     }
   }
-  final rows = byTicker.values.toList()
-    ..sort((a, b) {
-      final valueCompare = b.value.compareTo(a.value);
-      return valueCompare != 0
-          ? valueCompare
-          : b.guruCount.compareTo(a.guruCount);
+  if (coverage.isEmpty) return '-';
+  final rows = coverage.values.toList()
+    ..sort((left, right) {
+      final countCompare = right.managerCount.compareTo(left.managerCount);
+      if (countCompare != 0) return countCompare;
+      final dateCompare = right.latestReportDate.compareTo(
+        left.latestReportDate,
+      );
+      return dateCompare != 0
+          ? dateCompare
+          : right.quarter.compareTo(left.quarter);
     });
+  return rows.first.quarter;
+}
+
+int guruDisclosureEligibleCount(List<Map<String, dynamic>> gurus) =>
+    gurus.where(isQuarterLensGuru).length;
+
+int guruDisclosureQuarterCoverage(
+  List<Map<String, dynamic>> gurus,
+  String quarter,
+) => quarter == '-'
+    ? 0
+    : gurus
+          .where(isQuarterLensGuru)
+          .where(
+            (guru) =>
+                reportQuarterLabel(
+                  text(asMap(guru['summary'])['reportDate']),
+                ) ==
+                quarter,
+          )
+          .length;
+
+String normalizedMarketLensTicker(Map<String, dynamic> row) {
+  final ticker = text(
+    row['ticker'],
+    compactName(text(row['issuer'])),
+  ).toUpperCase();
+  return RegExp(r'^[A-Z][A-Z0-9.-]{0,9}$').hasMatch(ticker) ? ticker : '';
+}
+
+String primaryReportedAction(Iterable<String> actions) {
+  final counts = <String, int>{};
+  for (final raw in actions) {
+    final action = raw.trim().toLowerCase();
+    if (action.isEmpty || action == 'unchanged') continue;
+    counts[action] = (counts[action] ?? 0) + 1;
+  }
+  if (counts.isEmpty) return 'unchanged';
+  const priority = {'new': 0, 'increased': 1, 'reduced': 2, 'sold_out': 3};
+  final rows = counts.entries.toList()
+    ..sort((left, right) {
+      final countCompare = right.value.compareTo(left.value);
+      if (countCompare != 0) return countCompare;
+      return (priority[left.key] ?? 9).compareTo(priority[right.key] ?? 9);
+    });
+  return rows.first.key;
+}
+
+double medianValue(Iterable<double> values) {
+  final rows = values.where((value) => value.isFinite).toList()..sort();
+  if (rows.isEmpty) return 0;
+  final middle = rows.length ~/ 2;
+  if (rows.length.isOdd) return rows[middle];
+  return (rows[middle - 1] + rows[middle]) / 2;
+}
+
+List<ExposureItem> buildExposures(
+  List<Map<String, dynamic>> gurus, {
+  String? reportQuarter,
+}) {
+  final selectedQuarter = text(
+    reportQuarter,
+    defaultGuruDisclosureQuarter(gurus),
+  );
+  if (selectedQuarter == '-') return const [];
+  final byTicker = <String, _ExposureAccumulator>{};
+  for (final guru in gurus.where(isQuarterLensGuru)) {
+    final summary = asMap(guru['summary']);
+    final reportDate = text(summary['reportDate']);
+    if (reportQuarterLabel(reportDate) != selectedQuarter) continue;
+    final guruId = text(guru['id']);
+    final guruName = text(guru['name'], guruId);
+    final commonLongValue = reported13fCommonLongValue(guru);
+    final previousCommonLongValue =
+        firstNumber([
+          summary['previousCommonLongValue'],
+          summary['previousValue'],
+        ]) ??
+        0;
+    final activityByTicker = <String, List<Map<String, dynamic>>>{};
+    for (final activity in asList(guru['activity'])) {
+      final ticker = normalizedMarketLensTicker(activity);
+      if (ticker.isEmpty) continue;
+      activityByTicker.putIfAbsent(ticker, () => []).add(activity);
+    }
+    final holdingsByTicker = <String, List<Map<String, dynamic>>>{};
+    for (final holding in asList(guru['holdings'])) {
+      final ticker = normalizedMarketLensTicker(holding);
+      if (ticker.isEmpty || number(holding['value']) <= 0) continue;
+      holdingsByTicker.putIfAbsent(ticker, () => []).add(holding);
+    }
+    for (final entry in holdingsByTicker.entries) {
+      final holdings = entry.value;
+      final ticker = entry.key;
+      final value = holdings.fold<double>(
+        0,
+        (sum, holding) => sum + number(holding['value']),
+      );
+      final activity = activityByTicker[ticker] ?? const [];
+      final previousValue = activity.fold<double>(
+        0,
+        (sum, row) => sum + number(row['previousValue']),
+      );
+      final action = primaryReportedAction([
+        for (final row in activity) text(row['action']),
+        for (final row in holdings) text(row['action']),
+      ]);
+      final position = MarketLensManagerPosition(
+        guruId: guruId,
+        guruName: guruName,
+        ticker: ticker,
+        issuer: text(
+          holdings.first['issuer'],
+          activity.isEmpty ? ticker : text(activity.first['issuer'], ticker),
+        ),
+        action: action,
+        reportDate: reportDate,
+        filingDate: text(summary['filingDate'], reportDate),
+        currentValue: value,
+        previousValue: previousValue,
+        currentWeight: commonLongValue > 0
+            ? value / commonLongValue
+            : holdings.fold<double>(
+                0,
+                (sum, row) =>
+                    sum +
+                    (firstNumber([row['pctCommonLong'], row['pctPortfolio']]) ??
+                        0),
+              ),
+        previousWeight: previousCommonLongValue > 0 && previousValue > 0
+            ? previousValue / previousCommonLongValue
+            : 0,
+        changeShares: activity.fold<double>(
+          0,
+          (sum, row) => sum + number(row['changeShares']),
+        ),
+        hasTradeEvidence: activity.any(
+          (row) => const {
+            'new',
+            'increased',
+            'reduced',
+            'sold_out',
+          }.contains(text(row['action'])),
+        ),
+      );
+      final current = byTicker.putIfAbsent(
+        ticker,
+        () => _ExposureAccumulator(ticker),
+      );
+      current.value += value;
+      current.guruNames.add(guruName);
+      current.positions.add(position);
+    }
+  }
+  final rows = byTicker.values
+      .map(
+        (item) => ExposureItem(
+          ticker: item.ticker,
+          value: item.value,
+          guruNames: Set.unmodifiable(item.guruNames),
+          positions: List.unmodifiable(item.positions),
+        ),
+      )
+      .toList();
+  rows.sort((left, right) {
+    final breadthCompare = right.guruCount.compareTo(left.guruCount);
+    if (breadthCompare != 0) return breadthCompare;
+    final weightCompare = right.medianWeight.compareTo(left.medianWeight);
+    if (weightCompare != 0) return weightCompare;
+    final valueCompare = right.value.compareTo(left.value);
+    return valueCompare != 0
+        ? valueCompare
+        : left.ticker.compareTo(right.ticker);
+  });
   return rows;
+}
+
+class _QuarterCoverage {
+  _QuarterCoverage(this.quarter);
+
+  final String quarter;
+  int managerCount = 0;
+  String latestReportDate = '';
+}
+
+class _ExposureAccumulator {
+  _ExposureAccumulator(this.ticker);
+
+  final String ticker;
+  double value = 0;
+  final Set<String> guruNames = <String>{};
+  final List<MarketLensManagerPosition> positions = [];
 }
 
 List<GuruFilingItem> buildRecentFilingItems(List<Map<String, dynamic>> gurus) {
@@ -23660,33 +25156,105 @@ List<GuruFilingItem> buildRecentFilingItems(List<Map<String, dynamic>> gurus) {
 List<GuruActivityRankItem> buildActivityRankItems(
   List<Map<String, dynamic>> gurus, {
   required bool positive,
+  String? reportQuarter,
 }) {
+  final selectedQuarter = text(
+    reportQuarter,
+    defaultGuruDisclosureQuarter(gurus),
+  );
+  if (selectedQuarter == '-') return const [];
   final byTicker = <String, _ActivityRankAccumulator>{};
   final wanted = positive
       ? const {'new', 'increased'}
       : const {'reduced', 'sold_out'};
-  for (final guru in gurus) {
-    if (text(guru['type']) != 'manager13f') continue;
+  for (final guru in gurus.where(isQuarterLensGuru)) {
     final summary = asMap(guru['summary']);
-    final guruName = text(guru['name']);
     final reportDate = text(summary['reportDate']);
+    if (reportQuarterLabel(reportDate) != selectedQuarter) continue;
+    final guruId = text(guru['id']);
+    final guruName = text(guru['name'], guruId);
+    final currentCommonLongValue = reported13fCommonLongValue(guru);
+    final previousCommonLongValue =
+        firstNumber([
+          summary['previousCommonLongValue'],
+          summary['previousValue'],
+        ]) ??
+        0;
+    final activityByTicker = <String, List<Map<String, dynamic>>>{};
     for (final activity in asList(guru['activity'])) {
       final action = text(activity['action']);
       if (!wanted.contains(action)) continue;
-      final ticker = text(
-        activity['ticker'],
-        compactName(text(activity['issuer'])),
-      ).toUpperCase();
-      if (!RegExp(r'^[A-Z][A-Z0-9.-]{0,9}$').hasMatch(ticker)) continue;
-      final amount = activityRankAmount(activity, positive: positive);
-      if (amount <= 0) continue;
+      final ticker = normalizedMarketLensTicker(activity);
+      if (ticker.isEmpty) continue;
+      activityByTicker.putIfAbsent(ticker, () => []).add(activity);
+    }
+    for (final entry in activityByTicker.entries) {
+      final ticker = entry.key;
+      final activities = entry.value;
+      var amount = 0.0;
+      var amountReliable = true;
+      for (final activity in activities) {
+        final proxy = activityRankAmount(activity, positive: positive);
+        if (proxy == null) {
+          amountReliable = false;
+        } else {
+          amount += proxy;
+        }
+      }
+      final currentValue = activities.fold<double>(
+        0,
+        (sum, row) => sum + number(row['value']),
+      );
+      final previousValue = activities.fold<double>(
+        0,
+        (sum, row) => sum + number(row['previousValue']),
+      );
+      final action = primaryReportedAction([
+        for (final activity in activities) text(activity['action']),
+      ]);
       final current = byTicker.putIfAbsent(
         ticker,
         () => _ActivityRankAccumulator(ticker),
       );
       current.amount += amount;
+      current.amountReliable = current.amountReliable && amountReliable;
       current.guruNames.add(guruName);
-      current.actions[action] = (current.actions[action] ?? 0) + 1;
+      if (action.isNotEmpty) {
+        current.actions[action] = (current.actions[action] ?? 0) + 1;
+      }
+      current.positions.add(
+        MarketLensManagerPosition(
+          guruId: guruId,
+          guruName: guruName,
+          ticker: ticker,
+          issuer: text(activities.first['issuer'], ticker),
+          action: action,
+          reportDate: reportDate,
+          filingDate: text(summary['filingDate'], reportDate),
+          currentValue: currentValue,
+          previousValue: previousValue,
+          currentWeight: currentCommonLongValue > 0
+              ? currentValue / currentCommonLongValue
+              : activities.fold<double>(
+                  0,
+                  (sum, row) =>
+                      sum +
+                      (firstNumber([
+                            row['pctCommonLong'],
+                            row['pctPortfolio'],
+                          ]) ??
+                          0),
+                ),
+          previousWeight: previousCommonLongValue > 0 && previousValue > 0
+              ? previousValue / previousCommonLongValue
+              : 0,
+          changeShares: activities.fold<double>(
+            0,
+            (sum, row) => sum + number(row['changeShares']),
+          ),
+          hasTradeEvidence: true,
+        ),
+      );
       if (reportDate.compareTo(current.reportDate) > 0) {
         current.reportDate = reportDate;
       }
@@ -23700,14 +25268,24 @@ List<GuruActivityRankItem> buildActivityRankItems(
           guruNames: Set.unmodifiable(item.guruNames),
           reportDate: item.reportDate,
           amount: item.amount,
+          positions: List.unmodifiable(item.positions),
+          amountReliable: item.amountReliable,
         ),
       )
       .toList();
   rows.sort((a, b) {
-    final amountCompare = b.amount.compareTo(a.amount);
-    return amountCompare != 0
-        ? amountCompare
-        : b.reportDate.compareTo(a.reportDate);
+    final breadthCompare = b.guruCount.compareTo(a.guruCount);
+    if (breadthCompare != 0) return breadthCompare;
+    final reliabilityCompare = (b.amountReliable ? 1 : 0).compareTo(
+      a.amountReliable ? 1 : 0,
+    );
+    if (reliabilityCompare != 0) return reliabilityCompare;
+    if (a.amountReliable && b.amountReliable) {
+      final amountCompare = b.amount.compareTo(a.amount);
+      if (amountCompare != 0) return amountCompare;
+    }
+    final dateCompare = b.reportDate.compareTo(a.reportDate);
+    return dateCompare != 0 ? dateCompare : a.ticker.compareTo(b.ticker);
   });
   return rows;
 }
@@ -23717,12 +25295,14 @@ class _ActivityRankAccumulator {
 
   final String ticker;
   double amount = 0;
+  bool amountReliable = true;
   String reportDate = '';
   final Set<String> guruNames = <String>{};
   final Map<String, int> actions = <String, int>{};
+  final List<MarketLensManagerPosition> positions = [];
 }
 
-double activityRankAmount(
+double? activityRankAmount(
   Map<String, dynamic> activity, {
   required bool positive,
 }) {
@@ -23732,12 +25312,11 @@ double activityRankAmount(
   if (positive) {
     if (action == 'new') return value;
     final delta = value - previousValue;
-    return delta > 0 ? delta : value;
+    return delta >= 0 ? delta : null;
   }
   if (action == 'sold_out') return previousValue > 0 ? previousValue : value;
   final delta = previousValue - value;
-  if (delta > 0) return delta;
-  return previousValue > 0 ? previousValue : value;
+  return delta >= 0 ? delta : null;
 }
 
 String activityRankSubtitle(
@@ -23755,7 +25334,7 @@ String activityRankSubtitle(
   final namePart = names.isEmpty ? '' : ' · $names$suffix';
   final quarterPart = quarter == '-'
       ? ''
-      : trFor(language, ' · 最新 $quarter', ' · latest $quarter');
+      : trFor(language, ' · 申报季度 $quarter', ' · reported $quarter');
   return '$prefix$namePart$quarterPart';
 }
 

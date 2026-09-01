@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { gurus } from "./gurus.js";
+import { tickerForHolding } from "./cusipOverrides.js";
 
 import {
   assessCorporateActionAdjustedShareChange,
@@ -153,6 +154,30 @@ test("Ackman reporting-entity transition retains and groups both CIK components"
   assert.equal(legacyMerged.acceptanceDateTime, null);
   assert.equal(legacyMerged.filingDate, "2026-05-16");
   assert.equal(legacyMerged.componentAcceptanceTimestampsComplete, false);
+});
+
+test("Renaissance Technologies uses the manager 13F entity and discloses the Medallion limitation", () => {
+  const renaissance = gurus.find((guru) => guru.id === "renaissance-technologies");
+
+  assert.ok(renaissance);
+  assert.equal(renaissance.name, "Renaissance Technologies");
+  assert.equal(renaissance.chineseName, "文艺复兴科技");
+  assert.equal(renaissance.entityName, "RENAISSANCE TECHNOLOGIES LLC");
+  assert.equal(renaissance.type, "manager13f");
+  assert.deepEqual(manager13fCiks(renaissance), ["0001037389"]);
+  assert.equal(renaissance.disableSimulation, true);
+  assert.equal(renaissance.excludeFromHeatmap, true);
+  assert.match(renaissance.simulationNote, /security mapping/i);
+  assert.match(renaissance.notes.join(" "), /not the Medallion Fund portfolio/i);
+  assert.match(renaissance.notes.join(" "), /delayed systematic ownership/i);
+});
+
+test("Renaissance's largest previously unresolved Q2 holdings map to tradable tickers", () => {
+  assert.equal(tickerForHolding({ cusip: "30161Q104", issuer: "EXELIXIS INC" }), "EXEL");
+  assert.equal(tickerForHolding({ cusip: "22788C105", issuer: "CROWDSTRIKE HLDGS INC" }), "CRWD");
+  assert.equal(tickerForHolding({ cusip: "859241101", issuer: "STERLING INFRASTRUCTURE INC" }), "STRL");
+  assert.equal(tickerForHolding({ cusip: "218352102", issuer: "CORCEPT THERAPEUTICS INC" }), "CORT");
+  assert.equal(tickerForHolding({ cusip: "G7997R103", issuer: "SEAGATE TECHNOLOGY HLDNGS PL" }), "STX");
 });
 
 test("a multi-CIK quarter with an orphan amendment is excluded as incomplete", () => {

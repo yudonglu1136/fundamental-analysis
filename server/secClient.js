@@ -1999,24 +1999,26 @@ function loadProfileGuru(guru) {
   });
 }
 
-function buildDashboardFromGuruSnapshots() {
-  const localGurus = gurus.map((guru) => {
-    const cachedGuru = readGuruSnapshot(guru.id);
+async function buildDashboardFromGuruSnapshots() {
+  const localGurus = [];
+  for (const guru of gurus) {
+    const cachedGuru = await readGuruCache(guru.id);
     if (
       cachedGuru &&
       cachedGuru.type === guru.type &&
       String(cachedGuru.cik || "") === String(guru.cik || "") &&
       hasUsableGuruData(cachedGuru)
     ) {
-      return withDataStatus(withResolvedGuruTickers(cachedGuru), {
+      localGurus.push(withDataStatus(withResolvedGuruTickers(cachedGuru), {
         status: "local-db",
         reason: "loaded_from_local_database",
         message: "Loaded from the local SQLite database. Click refresh to update from external sources.",
         lastUpdated: cachedGuru.generatedAt || cachedGuru.summary?.filingDate || null
-      });
+      }));
+      continue;
     }
-    return localMissingGuru(guru);
-  });
+    localGurus.push(localMissingGuru(guru));
+  }
 
   if (!localGurus.some((guru) => guru.dataStatus?.status === "local-db")) return null;
 
@@ -2033,7 +2035,22 @@ function buildDashboardFromGuruSnapshots() {
   };
 }
 
-async function loadGuru(guru) {
+export async function rebuildGuruDashboardSnapshotFromLocal({ persist = true } = {}) {
+  const dashboard = await buildDashboardFromGuruSnapshots();
+  if (!dashboard) return null;
+  const payload = {
+    ...dashboard,
+    generatedAt: new Date().toISOString(),
+    gurus: dashboard.gurus.map((guru) => {
+      const { dataStatus: _dataStatus, ...persisted } = guru;
+      return persisted;
+    })
+  };
+  if (persist) await writeCache(payload);
+  return payload;
+}
+
+async function loadGuru(guru, { persist = true } = {}) {
   try {
     let payload;
     if (guru.type === "manager13f") payload = await load13fGuru(guru);
@@ -2041,7 +2058,7 @@ async function loadGuru(guru) {
     else if (guru.type === "profile") payload = loadProfileGuru(guru);
     else payload = await loadInsiderGuru(guru);
 
-    if (hasUsableGuruData(payload)) {
+    if (persist && hasUsableGuruData(payload)) {
       await writeGuruCache(guru.id, payload);
     }
     return payload;
@@ -2096,16 +2113,32 @@ export async function loadGuruExposureHistory(
     throw error;
   }
 
+  const requestedLimit = Math.max(4, Math.min(40, Number(limit) || 24));
   const cached = readGuruExposureSnapshot(guruId);
   if (cached && !forceRefresh) {
-    return {
-      ...cached,
-      cache: {
-        status: exposureCacheIsFresh(cached) ? "hit" : "local-db",
-        ttlHours: 24,
-        lastUpdated: cached.generatedAt || null
-      }
-    };
+    const storedCapacity = Math.max(
+      cached.history?.length || 0,
+      Number(cached.meta?.requestedQuarters) || 0
+    );
+    const expanding = guru.type === "manager13f" && storedCapacity < requestedLimit;
+    if (expanding) {
+      scheduleGuruExposureRefresh(guruId, {
+        limit: requestedLimit,
+        reason: "limit-expansion"
+      });
+    }
+    return exposureHistoryView(cached, requestedLimit, {
+      status: expanding
+        ? "refreshing"
+        : exposureCacheIsFresh(cached)
+          ? "hit"
+          : "local-db",
+      ttlHours: 24,
+      lastUpdated: cached.generatedAt || null,
+      ...(expanding
+        ? { message: "Showing cached quarters while the requested history is expanded." }
+        : {})
+    });
   }
 
   if (guru.type !== "manager13f") {
@@ -2121,44 +2154,70 @@ export async function loadGuruExposureHistory(
   }
 
   if (cached && forceRefresh) {
-    scheduleGuruExposureRefresh(guruId, { limit, reason: "user-refresh" });
-    return {
-      ...cached,
-      cache: {
-        status: "refreshing",
-        ttlHours: 24,
-        lastUpdated: cached.generatedAt || null,
-        message: "Showing the cached exposure book while a background refresh runs."
-      }
-    };
+    const storedCapacity = Math.max(
+      cached.history?.length || 0,
+      Number(cached.meta?.requestedQuarters) || 0
+    );
+    scheduleGuruExposureRefresh(guruId, {
+      limit: Math.max(requestedLimit, storedCapacity),
+      reason: "user-refresh"
+    });
+    return exposureHistoryView(cached, requestedLimit, {
+      status: "refreshing",
+      ttlHours: 24,
+      lastUpdated: cached.generatedAt || null,
+      message: "Showing the cached exposure book while a background refresh runs."
+    });
   }
 
   try {
-    return await refreshGuruExposureSnapshot(guruId, { limit });
+    const refreshed = await refreshGuruExposureSnapshot(guruId, {
+      limit: requestedLimit
+    });
+    return exposureHistoryView(refreshed, requestedLimit, refreshed.cache);
   } catch (error) {
     if (cached) {
-      return {
-        ...cached,
-        cache: {
-          status: "stale",
-          reason: error.message,
-          ttlHours: 24,
-          lastUpdated: cached.generatedAt || null
-        }
-      };
+      return exposureHistoryView(cached, requestedLimit, {
+        status: "stale",
+        reason: error.message,
+        ttlHours: 24,
+        lastUpdated: cached.generatedAt || null
+      });
     }
     throw error;
   }
 }
 
+function exposureHistoryView(payload, limit, cache) {
+  const requestedLimit = Math.max(4, Math.min(40, Number(limit) || 24));
+  const storedHistory = Array.isArray(payload?.history) ? payload.history : [];
+  const history = storedHistory.slice(-requestedLimit);
+  const storedRequestedQuarters = Math.max(
+    storedHistory.length,
+    Number(payload?.meta?.requestedQuarters) || 0
+  );
+  return {
+    ...payload,
+    history,
+    latest: history.at(-1) || null,
+    meta: {
+      ...(payload?.meta || {}),
+      requestedQuarters: requestedLimit,
+      returnedQuarters: history.length,
+      storedRequestedQuarters
+    },
+    cache
+  };
+}
+
 const guruExposureRefreshes = new Map();
 
-function exposureRefreshKey(guruId, limit) {
-  return `${guruId}:${Math.max(4, Math.min(40, Number(limit) || 24))}`;
+function exposureRefreshKey(guruId, limit, persist = true) {
+  return `${guruId}:${Math.max(4, Math.min(40, Number(limit) || 24))}:${persist ? "persist" : "stage"}`;
 }
 
 export function scheduleGuruExposureRefresh(guruId, { limit = 24, reason = "background" } = {}) {
-  const key = exposureRefreshKey(guruId, limit);
+  const key = exposureRefreshKey(guruId, limit, true);
   if (guruExposureRefreshes.has(key)) return guruExposureRefreshes.get(key);
   const promise = refreshGuruExposureSnapshot(guruId, { limit, reason })
     .catch((error) => {
@@ -2172,17 +2231,20 @@ export function scheduleGuruExposureRefresh(guruId, { limit = 24, reason = "back
 
 export async function refreshGuruExposureSnapshot(
   guruId,
-  { limit = 24, reason = "direct" } = {}
+  { limit = 24, reason = "direct", persist = true } = {}
 ) {
-  const key = exposureRefreshKey(guruId, limit);
+  const key = exposureRefreshKey(guruId, limit, persist);
   if (guruExposureRefreshes.has(key)) return guruExposureRefreshes.get(key);
-  const promise = refreshGuruExposureSnapshotNow(guruId, { limit, reason })
+  const promise = refreshGuruExposureSnapshotNow(guruId, { limit, reason, persist })
     .finally(() => guruExposureRefreshes.delete(key));
   guruExposureRefreshes.set(key, promise);
   return promise;
 }
 
-async function refreshGuruExposureSnapshotNow(guruId, { limit = 24 } = {}) {
+async function refreshGuruExposureSnapshotNow(
+  guruId,
+  { limit = 24, persist = true } = {}
+) {
   const guru = gurus.find((item) => item.id === guruId);
   if (!guru) {
     const error = new Error(`Guru not found: ${guruId}`);
@@ -2257,7 +2319,7 @@ async function refreshGuruExposureSnapshotNow(guruId, { limit = 24 } = {}) {
     }
   };
 
-  if (history.length) {
+  if (persist && history.length) {
     writeGuruExposureSnapshot(guruId, payload);
   }
 
@@ -2294,7 +2356,7 @@ async function loadGuruDashboardUncached({ forceRefresh = false } = {}) {
   }
 
   if (!forceRefresh) {
-    const localDashboard = buildDashboardFromGuruSnapshots();
+    const localDashboard = await buildDashboardFromGuruSnapshots();
     if (localDashboard) {
       return {
         ...localDashboard,
@@ -2366,8 +2428,8 @@ export async function loadGuruDashboard({ forceRefresh = false } = {}) {
   return promise;
 }
 
-export async function refreshGuruSnapshot(guruId) {
+export async function refreshGuruSnapshot(guruId, { persist = true } = {}) {
   const guru = gurus.find((item) => item.id === guruId);
   if (!guru) throw new Error(`Guru not found: ${guruId}`);
-  return loadGuru(guru);
+  return loadGuru(guru, { persist });
 }

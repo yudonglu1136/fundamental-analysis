@@ -4,7 +4,11 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadGuruDashboard, loadGuruMarketContext } from "./secClient.js";
+import {
+  loadGuruDashboard,
+  loadGuruExposureHistory,
+  loadGuruMarketContext
+} from "./secClient.js";
 import { loadOperationCommentary } from "./commentarySearch.js";
 import { gurus } from "./gurus.js";
 import { registerOntologyRoutes } from "./ontologyClient.js";
@@ -20,7 +24,11 @@ import {
 import { loadValuationDashboard, loadValuationTicker } from "./valuationClient.js";
 import { importValuationTicker } from "./valuationImporter.js";
 import { translateTextsToChinese } from "./translationClient.js";
-import { writeBackgroundJobRun } from "./localDatabase.js";
+import {
+  readBackgroundJobRun,
+  writeBackgroundJobRun
+} from "./localDatabase.js";
+import { startThirteenFRefresh } from "./refreshThirteenF.js";
 import { loadTickerLogo } from "./logoClient.js";
 import {
   refreshDividendCalendarForTickers,
@@ -118,8 +126,7 @@ function internalCronAuthorized(request) {
     : "";
   const provided =
     String(request.headers["x-cron-secret"] || "") ||
-    bearer ||
-    String(request.query.secret || "");
+    bearer;
   return secureCompare(provided, secret);
 }
 
@@ -149,6 +156,109 @@ app.post("/api/internal/backtests/refresh", requireInternalCron, async (request,
   } catch (error) {
     response.status(500).json({
       error: "backtest_refresh_failed",
+      message: error.message
+    });
+  }
+});
+
+const thirteenFRefreshJobId = "guru_13f_refresh";
+
+function thirteenFRefreshStatus() {
+  return readBackgroundJobRun(thirteenFRefreshJobId) || {
+    jobId: thirteenFRefreshJobId,
+    startedAt: "",
+    finishedAt: "",
+    status: "idle",
+    payload: {}
+  };
+}
+
+function requested13fGuruIds(value) {
+  const values = Array.isArray(value) ? value : String(value || "").split(",");
+  return [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))];
+}
+
+app.get("/api/internal/gurus/refresh/status", requireInternalCron, (_request, response) => {
+  response.setHeader("Cache-Control", "no-store");
+  response.json(thirteenFRefreshStatus());
+});
+
+app.post("/api/internal/gurus/refresh", requireInternalCron, (request, response) => {
+  const previous = thirteenFRefreshStatus();
+  const previousStartedAt = new Date(previous.startedAt || "").getTime();
+  const previousIsActive = ["queued", "running"].includes(previous.status) &&
+    Number.isFinite(previousStartedAt) &&
+    Date.now() - previousStartedAt < 2 * 60 * 60 * 1000;
+  if (previousIsActive) {
+    response.status(409).json({
+      error: "guru_13f_refresh_in_progress",
+      message: "A 13F refresh is already queued or running.",
+      job: previous
+    });
+    return;
+  }
+
+  const guruIds = requested13fGuruIds(request.query.guru || request.body?.guru);
+  const managerIds = new Set(
+    gurus.filter((guru) => guru.type === "manager13f").map((guru) => guru.id)
+  );
+  const unknownIds = guruIds.filter((guruId) => !managerIds.has(guruId));
+  if (unknownIds.length) {
+    response.status(400).json({
+      error: "unknown_13f_guru",
+      message: `Unknown manager 13F guru id(s): ${unknownIds.join(", ")}`
+    });
+    return;
+  }
+
+  const years = String(request.query.years || request.body?.years || "all").trim();
+  const requestedDetail = String(
+    request.query.detail || request.body?.detail || "compact"
+  ).trim().toLowerCase();
+  const detail = ["compact", "full", "attribution"].includes(requestedDetail)
+    ? requestedDetail
+    : "compact";
+  const exposureLimit = Math.max(
+    4,
+    Math.min(
+      40,
+      Math.round(
+        Number(request.query.exposureLimit || request.body?.exposureLimit || 40) || 40
+      )
+    )
+  );
+  const reason = String(
+    request.query.reason || request.body?.reason || "internal-api"
+  ).trim().slice(0, 120) || "internal-api";
+  const startedAt = new Date().toISOString();
+  try {
+    const refresh = startThirteenFRefresh({
+      guruIds,
+      reason,
+      years,
+      detail,
+      exposureLimit
+    });
+    if (!refresh.started) {
+      response.status(409).json({
+        error: "guru_13f_refresh_in_progress",
+        message: "A 13F refresh is already running in this API process.",
+        job: thirteenFRefreshStatus()
+      });
+      return;
+    }
+    void refresh.promise.catch((error) => {
+      console.error(`[13f-refresh] internal refresh failed: ${error.stack || error.message}`);
+    });
+    response.status(202).json({
+      jobId: thirteenFRefreshJobId,
+      status: "running",
+      startedAt,
+      selectedGuruIds: guruIds.length ? guruIds : [...managerIds]
+    });
+  } catch (error) {
+    response.status(500).json({
+      error: "guru_13f_refresh_start_failed",
       message: error.message
     });
   }
@@ -522,6 +632,23 @@ app.get("/api/gurus/:id/context", async (request, response) => {
     response.json(payload);
   } catch (error) {
     response.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/gurus/:id/exposure", async (request, response) => {
+  try {
+    const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
+    const payload = await loadGuruExposureHistory(request.params.id, {
+      forceRefresh,
+      limit: request.query.limit
+    });
+    response.setHeader(
+      "Cache-Control",
+      forceRefresh ? "no-store" : "private, max-age=120, stale-while-revalidate=300"
+    );
+    response.json(payload);
+  } catch (error) {
+    response.status(error.statusCode || 500).json({ error: error.message });
   }
 });
 

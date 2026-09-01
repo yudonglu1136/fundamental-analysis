@@ -119,6 +119,59 @@ ValuationRow _valuationRow(
   consensusUpside: null,
 );
 
+List<Map<String, dynamic>> _marketLensTestGurus() => [
+  {
+    'id': 'manager-a',
+    'name': 'Manager A',
+    'type': 'manager13f',
+    'summary': {
+      'reportDate': '2026-06-30',
+      'filingDate': '2026-08-14',
+      'commonLongValue': 100,
+      'previousCommonLongValue': 90,
+    },
+    'holdings': [
+      {'ticker': 'AAA', 'issuer': 'Alpha Inc', 'value': 40},
+      {'ticker': 'BBB', 'issuer': 'Beta Inc', 'value': 60},
+    ],
+    'activity': [
+      {
+        'ticker': 'AAA',
+        'issuer': 'Alpha Inc',
+        'action': 'increased',
+        'value': 40,
+        'previousValue': 20,
+        'changeShares': 10,
+      },
+    ],
+  },
+  {
+    'id': 'manager-b',
+    'name': 'Manager B',
+    'type': 'manager13f',
+    'summary': {
+      'reportDate': '2026-06-30',
+      'filingDate': '2026-08-13',
+      'commonLongValue': 200,
+      'previousCommonLongValue': 180,
+    },
+    'holdings': [
+      {'ticker': 'AAA', 'issuer': 'Alpha Inc', 'value': 50},
+      {'ticker': 'CCC', 'issuer': 'Gamma Inc', 'value': 150},
+    ],
+    'activity': [
+      {
+        'ticker': 'AAA',
+        'issuer': 'Alpha Inc',
+        'action': 'new',
+        'value': 50,
+        'previousValue': 0,
+        'changeShares': 25,
+      },
+    ],
+  },
+];
+
 void main() {
   test('portfolio recovery countdown rounds up and expires safely', () {
     final now = DateTime.utc(2026, 9, 1, 12);
@@ -158,6 +211,59 @@ void main() {
     expect(normalizeRouteMode(null, path: '/dbmf'), 'ontology');
     expect(normalizeRouteMode(null, path: '/dbmf/history'), 'ontology');
     expect(normalizeRouteMode('valuation', path: '/'), 'valuation');
+  });
+
+  test('market lens navigation clears filters that can hide its manager', () {
+    final target = guruTradeNavigationTarget(' manager-b ', 'aaa');
+
+    expect(target, isNotNull);
+    expect(target!.guruId, 'manager-b');
+    expect(target.ticker, 'AAA');
+    expect(target.search, isEmpty);
+    expect(target.filter, 'all');
+    expect(guruTradeNavigationTarget('', 'AAA'), isNull);
+    expect(guruTradeNavigationTarget('manager-b', ''), isNull);
+  });
+
+  testWidgets('guru search controller reflects a programmatic reset', (
+    WidgetTester tester,
+  ) async {
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+    String search = '';
+
+    await tester.pumpWidget(
+      LanguageScope(
+        language: AppLanguage.en,
+        child: MaterialApp(
+          theme: ThemeData.dark(),
+          home: Scaffold(
+            body: SizedBox(
+              width: 320,
+              child: GuruUniversePanel(
+                gurus: _marketLensTestGurus(),
+                selectedGuruId: 'manager-a',
+                searchController: controller,
+                filter: 'all',
+                palette: Palette(false),
+                onSearch: (value) => search = value,
+                onFilter: (_) {},
+                onSelect: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final field = find.byKey(const ValueKey('guru-universe-search'));
+    await tester.enterText(field, 'Ackman');
+    expect(search, 'Ackman');
+    expect(tester.widget<TextField>(field).controller!.text, 'Ackman');
+
+    controller.clear();
+    await tester.pump();
+    expect(tester.widget<TextField>(field).controller!.text, isEmpty);
   });
 
   test('loads guru data only when the guru route first needs it', () {
@@ -366,6 +472,540 @@ void main() {
       }),
       'cached',
     );
+  });
+
+  test(
+    'quarterly market lens selects widest-covered quarter and breaks ties by recency',
+    () {
+      Map<String, dynamic> manager(
+        String id,
+        String reportDate, {
+        bool excluded = false,
+      }) => <String, dynamic>{
+        'id': id,
+        'name': id,
+        'type': 'manager13f',
+        'excludeFromHeatmap': excluded,
+        'summary': <String, dynamic>{'reportDate': reportDate},
+      };
+
+      final mostCovered = <Map<String, dynamic>>[
+        manager('q1-a', '2026-03-31'),
+        manager('q1-b', '2026-03-31'),
+        manager('q1-c', '2026-03-31'),
+        manager('q2-a', '2026-06-30'),
+        manager('q2-b', '2026-06-30'),
+        manager('excluded-newer', '2026-09-30', excluded: true),
+        <String, dynamic>{
+          'id': 'insider-newer',
+          'name': 'Insider',
+          'type': 'insider',
+          'summary': <String, dynamic>{'reportDate': '2026-12-31'},
+        },
+      ];
+
+      expect(defaultGuruDisclosureQuarter(mostCovered), '2026/Q1');
+      expect(
+        defaultGuruDisclosureQuarter(<Map<String, dynamic>>[
+          ...mostCovered.where((guru) => guru['id'] != 'q1-c'),
+        ]),
+        '2026/Q2',
+      );
+      final missingQuarter = <Map<String, dynamic>>[
+        manager('missing-a', ''),
+        manager('missing-b', ''),
+      ];
+      expect(defaultGuruDisclosureQuarter(missingQuarter), '-');
+      expect(guruDisclosureQuarterCoverage(missingQuarter, '-'), 0);
+    },
+  );
+
+  test(
+    'quarterly exposures exclude stale filings, dedupe managers, and rank breadth before weight',
+    () {
+      Map<String, dynamic> holding(
+        String ticker,
+        double value,
+        double weight,
+      ) => <String, dynamic>{
+        'ticker': ticker,
+        'issuer': '$ticker issuer',
+        'value': value,
+        'pctCommonLong': weight,
+      };
+
+      Map<String, dynamic> manager(
+        String id,
+        String reportDate,
+        List<Map<String, dynamic>> holdings,
+      ) => <String, dynamic>{
+        'id': id,
+        'name': 'Manager $id',
+        'type': 'manager13f',
+        'summary': <String, dynamic>{
+          'reportDate': reportDate,
+          'filingDate': '2026-08-14',
+        },
+        'holdings': holdings,
+        'activity': <Map<String, dynamic>>[],
+      };
+
+      final rows = buildExposures(<Map<String, dynamic>>[
+        manager('A', '2026-06-30', <Map<String, dynamic>>[
+          holding('WIDE', 1, .01),
+          holding('HEAVY', 20, .20),
+          holding('HEAVY', 20, .20),
+          holding('MONEY', 1000, .10),
+        ]),
+        manager('B', '2026-06-30', <Map<String, dynamic>>[
+          holding('WIDE', 1, .01),
+          holding('HEAVY', 40, .40),
+          holding('MONEY', 1000, .10),
+        ]),
+        manager('C', '2026-06-30', <Map<String, dynamic>>[
+          holding('WIDE', 1, .01),
+        ]),
+        manager('OLD', '2026-03-31', <Map<String, dynamic>>[
+          holding('STALE', 1000000, .99),
+        ]),
+      ], reportQuarter: '2026/Q2');
+
+      expect(rows.map((row) => row.ticker), <String>['WIDE', 'HEAVY', 'MONEY']);
+      expect(rows.any((row) => row.ticker == 'STALE'), isFalse);
+
+      final heavy = rows.firstWhere((row) => row.ticker == 'HEAVY');
+      expect(heavy.guruCount, 2);
+      expect(heavy.positions, hasLength(2));
+      expect(heavy.value, 80);
+      expect(heavy.medianWeight, closeTo(.4, 1e-12));
+      expect(
+        heavy.positions
+            .firstWhere((position) => position.guruId == 'A')
+            .currentValue,
+        40,
+      );
+
+      final money = rows.firstWhere((row) => row.ticker == 'MONEY');
+      expect(heavy.medianWeight, greaterThan(money.medianWeight));
+      expect(heavy.value, lessThan(money.value));
+    },
+  );
+
+  test(
+    'quarterly activity excludes stale filings and collapses duplicate manager ticker rows',
+    () {
+      Map<String, dynamic> activity(
+        String ticker,
+        String action,
+        double value,
+        double previousValue,
+      ) => <String, dynamic>{
+        'ticker': ticker,
+        'issuer': '$ticker issuer',
+        'action': action,
+        'value': value,
+        'previousValue': previousValue,
+      };
+
+      Map<String, dynamic> manager(
+        String id,
+        String reportDate,
+        List<Map<String, dynamic>> activityRows,
+      ) => <String, dynamic>{
+        'id': id,
+        'name': 'Manager $id',
+        'type': 'manager13f',
+        'summary': <String, dynamic>{
+          'reportDate': reportDate,
+          'filingDate': '2026-08-14',
+        },
+        'holdings': <Map<String, dynamic>>[],
+        'activity': activityRows,
+      };
+
+      final gurus = <Map<String, dynamic>>[
+        manager('A', '2026-06-30', <Map<String, dynamic>>[
+          activity('AAA', 'new', 10, 0),
+          activity('AAA', 'increased', 20, 5),
+          activity('TRIM', 'reduced', 10, 20),
+          activity('TRIM', 'reduced', 8, 12),
+          activity('MONEY', 'new', 1000, 0),
+        ]),
+        manager('B', '2026-06-30', <Map<String, dynamic>>[
+          activity('AAA', 'increased', 30, 10),
+          activity('TRIM', 'sold_out', 0, 30),
+        ]),
+        manager('OLD', '2026-03-31', <Map<String, dynamic>>[
+          activity('STALEA', 'new', 1000000, 0),
+          activity('STALET', 'sold_out', 0, 1000000),
+        ]),
+      ];
+
+      final adds = buildActivityRankItems(
+        gurus,
+        positive: true,
+        reportQuarter: '2026/Q2',
+      );
+      expect(adds.map((row) => row.ticker), <String>['AAA', 'MONEY']);
+      expect(adds.any((row) => row.ticker == 'STALEA'), isFalse);
+
+      final aaa = adds.firstWhere((row) => row.ticker == 'AAA');
+      expect(aaa.guruCount, 2);
+      expect(aaa.positions, hasLength(2));
+      expect(aaa.amount, 45);
+      expect(aaa.newCount, 1);
+      expect(aaa.increasedCount, 1);
+
+      final trims = buildActivityRankItems(
+        gurus,
+        positive: false,
+        reportQuarter: '2026/Q2',
+      );
+      expect(trims.map((row) => row.ticker), <String>['TRIM']);
+      expect(trims.single.guruCount, 2);
+      expect(trims.single.positions, hasLength(2));
+      expect(trims.single.amount, 44);
+      expect(trims.single.reducedCount, 1);
+      expect(trims.single.soldOutCount, 1);
+    },
+  );
+
+  test(
+    'quarterly activity never substitutes full positions for inverse value moves',
+    () {
+      Map<String, dynamic> activity(
+        String ticker,
+        String action,
+        double value,
+        double previousValue,
+      ) => <String, dynamic>{
+        'ticker': ticker,
+        'issuer': '$ticker issuer',
+        'action': action,
+        'value': value,
+        'previousValue': previousValue,
+      };
+
+      final guru = <String, dynamic>{
+        'id': 'A',
+        'name': 'Manager A',
+        'type': 'manager13f',
+        'summary': <String, dynamic>{
+          'reportDate': '2026-06-30',
+          'filingDate': '2026-08-14',
+        },
+        'holdings': <Map<String, dynamic>>[],
+        'activity': <Map<String, dynamic>>[
+          activity('BADADD', 'increased', 80, 100),
+          activity('BADTRIM', 'reduced', 120, 100),
+        ],
+      };
+
+      final adds = buildActivityRankItems(
+        [guru],
+        positive: true,
+        reportQuarter: '2026/Q2',
+      );
+      final trims = buildActivityRankItems(
+        [guru],
+        positive: false,
+        reportQuarter: '2026/Q2',
+      );
+
+      expect(adds.single.ticker, 'BADADD');
+      expect(adds.single.amount, 0);
+      expect(adds.single.amountReliable, isFalse);
+      expect(trims.single.ticker, 'BADTRIM');
+      expect(trims.single.amount, 0);
+      expect(trims.single.amountReliable, isFalse);
+      expect(
+        activityRankAmount(
+          activity('BADADD', 'increased', 80, 100),
+          positive: true,
+        ),
+        isNull,
+      );
+      expect(
+        activityRankAmount(
+          activity('BADTRIM', 'reduced', 120, 100),
+          positive: false,
+        ),
+        isNull,
+      );
+      expect(
+        activityRankSubtitle(adds.single, AppLanguage.en),
+        contains('reported 2026/Q2'),
+      );
+      expect(
+        activityRankSubtitle(adds.single, AppLanguage.en),
+        isNot(contains('latest')),
+      );
+    },
+  );
+
+  testWidgets('quarterly deck controls meet the compact touch target', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final gurus = _marketLensTestGurus();
+    await tester.pumpWidget(
+      LanguageScope(
+        language: AppLanguage.en,
+        child: MaterialApp(
+          theme: ThemeData.dark(),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 280,
+                child: GuruRightRail(
+                  gurus: gurus,
+                  signals: const [],
+                  exposures: buildExposures(gurus),
+                  activeGuruId: 'manager-a',
+                  palette: Palette(false),
+                  onSelectGuru: (_) {},
+                  onOpenGuruTrade: (_, _) {},
+                  onOpenValuation: (_) {},
+                  deckHeight: 860,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final expand = find.byKey(const ValueKey('quarterly-market-lens-expand'));
+    expect(expand, findsOneWidget);
+    expect(tester.getSize(expand), const Size(44, 44));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'quarterly market lens opens manager evidence and valuation action on desktop',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      String openedTicker = '';
+      await tester.pumpWidget(
+        LanguageScope(
+          language: AppLanguage.en,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: FilledButton(
+                    onPressed: () => showQuarterlyMarketLens(
+                      context: context,
+                      gurus: _marketLensTestGurus(),
+                      palette: Palette(false),
+                      initialView: 0,
+                      initialTicker: 'AAA',
+                      onOpenGuruTrade: (_, _) {},
+                      onOpenValuation: (ticker) => openedTicker = ticker,
+                    ),
+                    child: const Text('Open lens'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open lens'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('quarterly-market-lens-dialog')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('From ranking to manager-level evidence'),
+        findsOneWidget,
+      );
+      expect(find.text('2/2'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Manager-level evidence'),
+        180,
+        scrollable: find.descendant(
+          of: find.byKey(const ValueKey('quarterly-market-lens-detail-scroll')),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      expect(find.text('Manager-level evidence'), findsOneWidget);
+      expect(find.textContaining('not confirmed trades'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(
+        find.byKey(const ValueKey('quarterly-market-lens-valuation')),
+      );
+      await tester.pumpAndSettle();
+      expect(openedTicker, 'AAA');
+    },
+  );
+
+  testWidgets(
+    'unchanged crowded holding stays evidence-only instead of opening a wrong trade',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      String openedGuru = '';
+      String openedTicker = '';
+
+      await tester.pumpWidget(
+        LanguageScope(
+          language: AppLanguage.en,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: FilledButton(
+                    onPressed: () => showQuarterlyMarketLens(
+                      context: context,
+                      gurus: _marketLensTestGurus(),
+                      palette: Palette(false),
+                      initialView: 0,
+                      initialTicker: 'BBB',
+                      onOpenGuruTrade: (guru, ticker) {
+                        openedGuru = guru;
+                        openedTicker = ticker;
+                      },
+                      onOpenValuation: (_) {},
+                    ),
+                    child: const Text('Open lens'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open lens'));
+      await tester.pumpAndSettle();
+      final managerRow = find.byKey(
+        const ValueKey('quarterly-market-lens-manager-manager-a-BBB'),
+      );
+      await tester.scrollUntilVisible(
+        managerRow,
+        180,
+        scrollable: find.descendant(
+          of: find.byKey(const ValueKey('quarterly-market-lens-detail-scroll')),
+          matching: find.byType(Scrollable),
+        ),
+      );
+
+      expect(find.text('Reported holding'), findsOneWidget);
+      await tester.tap(managerRow);
+      await tester.pumpAndSettle();
+      expect(openedGuru, isEmpty);
+      expect(openedTicker, isEmpty);
+      expect(
+        find.byKey(const ValueKey('quarterly-market-lens-dialog')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('quarterly market lens uses a list-to-detail flow on mobile', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    String openedGuru = '';
+    String openedTradeTicker = '';
+
+    await tester.pumpWidget(
+      LanguageScope(
+        language: AppLanguage.en,
+        child: MaterialApp(
+          theme: ThemeData.dark(),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () => showQuarterlyMarketLens(
+                    context: context,
+                    gurus: _marketLensTestGurus(),
+                    palette: Palette(false),
+                    initialView: 1,
+                    initialTicker: '',
+                    onOpenGuruTrade: (guru, ticker) {
+                      openedGuru = guru;
+                      openedTradeTicker = ticker;
+                    },
+                    onOpenValuation: (_) {},
+                  ),
+                  child: const Text('Open lens'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open lens'));
+    await tester.pumpAndSettle();
+    expect(find.text('Full reported-add ranking'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('quarterly-market-lens-back')),
+      findsNothing,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('quarterly-market-lens-row-AAA')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('quarterly-market-lens-back')),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Manager-level evidence'),
+      180,
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey('quarterly-market-lens-detail-scroll')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(find.text('Manager-level evidence'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const ValueKey('quarterly-market-lens-back')));
+    await tester.pumpAndSettle();
+    expect(find.text('Full reported-add ranking'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('quarterly-market-lens-row-AAA')),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Manager A'),
+      180,
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey('quarterly-market-lens-detail-scroll')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(find.text('Manager A'));
+    await tester.pumpAndSettle();
+    expect(openedGuru, 'manager-a');
+    expect(openedTradeTicker, 'AAA');
   });
 
   test('uses summary valuation data before full research is opened', () {
