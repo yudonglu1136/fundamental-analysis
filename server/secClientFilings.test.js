@@ -152,6 +152,55 @@ test("loadPriceSeries cannot publish partially adjusted Yahoo history", async ()
   }
 });
 
+test("a truncated adjusted SQLite series is refreshed for the requested range", async () => {
+  writePriceSeriesToDb("TRUNCATEDFIXTURE", [
+    {
+      date: "2024-01-02",
+      close: 101,
+      adjustedClose: 101
+    },
+    {
+      date: "2024-01-03",
+      close: 102,
+      adjustedClose: 102
+    }
+  ], "truncated-fixture");
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return {
+      ok: true,
+      json: async () => ({
+        chart: {
+          result: [{
+            timestamp: [1672704000, 1704153600, 1704240000],
+            indicators: {
+              quote: [{ close: [80, 101, 102] }],
+              adjclose: [{ adjclose: [79, 101, 102] }]
+            }
+          }]
+        }
+      })
+    };
+  };
+
+  try {
+    const series = await loadPriceSeries("TRUNCATEDFIXTURE", {
+      start: "2023-01-01",
+      end: "2024-01-03",
+      requireAdjusted: true
+    });
+    assert.equal(fetchCalls, 1);
+    assert.equal(series.source, "yahoo");
+    assert.equal(series.returnBasis, "total_return_adjusted_close");
+    assert.equal(series.points[0]?.date, "2023-01-03");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("fully adjusted delisted history can defer endpoint coverage to active-holding checks", () => {
   const payload = {
     symbol: "DELISTED",

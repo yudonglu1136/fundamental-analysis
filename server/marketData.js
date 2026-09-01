@@ -173,9 +173,10 @@ export async function loadPriceSeries(symbol, {
 
   const dbPoints = readPriceSeriesFromDb(normalized, start, end);
   const dbUsable = requireAdjusted
-    ? requireFullRange
-      ? adjustedRangeCovered(dbPoints, start, end)
-      : observedAdjustedCloseCovered(dbPoints)
+    // SQLite rows have no request-range provenance. A fully adjusted but
+    // truncated subset must be refreshed before the active-holding engine
+    // decides whether a shorter IPO/delisting history is legitimate.
+    ? adjustedRangeCovered(dbPoints, start, end)
     : rangeCovered(dbPoints, start, end);
   if (dbUsable) {
     return {

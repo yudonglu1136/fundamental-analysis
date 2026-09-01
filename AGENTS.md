@@ -120,6 +120,7 @@ Required update surfaces:
 - The product-default manager backtest is the trailing five-year audited window. Keep the 90% adjusted-close execution-coverage gate and leave missing weight in cash; never make a curve appear by lowering the gate or renormalizing only the covered subset. `years=all` remains an explicit forensic mode and must fail closed while legacy text 13F tables or point-in-time security histories are incomplete.
 - Treat issuer and CUSIP continuity as audited security-master data. In particular, Howard Hughes CUSIP `44267D107` continues 1:1 into `HHH`, and Canadian Pacific CUSIPs `13645T100` and `13646K108` use ticker `CP`. Do not revert these to stale or unmapped symbols.
 - A refresh is successful only when an enabled manager's backtest is `ready`; `insufficient_data` is a failed refresh, not a completed one. A manager with `disableSimulation: true` must return `unsupported`.
+- An adjusted SQLite price subset is not proof that the requested history is covered. Refresh a truncated database range from the upstream source, then let the active-holding engine decide whether a shorter IPO/delisting history is legitimate; never treat any non-empty adjusted subset as a full-range cache hit.
 
 Use the unified command or endpoint:
 
