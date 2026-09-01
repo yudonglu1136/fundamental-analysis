@@ -162,6 +162,48 @@ app.post("/api/internal/backtests/refresh", requireInternalCron, async (request,
   }
 });
 
+app.post("/api/internal/backtests/:guruId/refresh", requireInternalCron, async (request, response) => {
+  const guru = gurus.find((item) => item.id === request.params.guruId);
+  if (
+    !guru ||
+    !["manager13f", "congress"].includes(guru.type) ||
+    guru.disableSimulation
+  ) {
+    response.status(400).json({
+      error: "backtest_refresh_invalid_guru",
+      message: "The requested guru does not have an enabled audited backtest."
+    });
+    return;
+  }
+
+  try {
+    const payload = await loadGuruBacktest(guru.id, {
+      refresh: true,
+      years: request.query.years || request.body?.years || 5,
+      detail: request.query.detail || request.body?.detail || "compact"
+    });
+    const ready = payload.status === "ready";
+    response.setHeader("Cache-Control", "no-store");
+    response.status(ready ? 200 : 422).json({
+      ...(ready ? {} : {
+        error: "backtest_refresh_not_ready",
+        message: payload.method?.reason || "The audited backtest is not ready."
+      }),
+      guruId: guru.id,
+      status: payload.status,
+      window: payload.window || null,
+      summary: payload.summary || {},
+      dataQuality: payload.dataQuality || {},
+      methodVersion: payload.method?.version || ""
+    });
+  } catch (error) {
+    response.status(500).json({
+      error: "backtest_refresh_failed",
+      message: error.message
+    });
+  }
+});
+
 function requestedPriceRepairGuruIds(value) {
   const values = Array.isArray(value) ? value : value ? [value] : [];
   return [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))];
