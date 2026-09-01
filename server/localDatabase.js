@@ -1603,13 +1603,6 @@ export function writeAuditedPriceRepair(rows, {
         );
       }
     }
-    if (
-      existingValues.volume !== null &&
-      existingValues.volume !== undefined &&
-      Number(existingValues.volume) !== row.volume
-    ) {
-      throw new Error(`Price repair conflicts with existing volume: ${row.symbol} ${row.date}.`);
-    }
     actions.set(key, "complete-null-fields");
     beforeRows.push({
       symbol: row.symbol,

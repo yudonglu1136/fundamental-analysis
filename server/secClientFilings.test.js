@@ -123,7 +123,7 @@ test("audited price repair validates and atomically records exact adjusted rows"
       low: 39.00002,
       close: 41.00002,
       adjustedClose: 40.75,
-      volume: 3000
+      volume: 3001
     }
   ], {
     provider: "fixture-provider",
@@ -167,6 +167,7 @@ test("audited price repair validates and atomically records exact adjusted rows"
   const completed = readPriceSeriesFromDb("REPAIRC", "2026-08-28", "2026-08-28");
   assert.equal(completed[0].close, 41);
   assert.equal(completed[0].adjustedClose, 40.75);
+  assert.equal(completed[0].volume, 3000);
   assert.equal(completed[0].source, "audited:fixture-provider");
 
   const failureDb = new DatabaseSync(databasePath);
