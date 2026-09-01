@@ -10,6 +10,8 @@ import { guruBacktestRefreshStatus } from "./backtest.js";
 import { listAdminPortfolioUsers } from "./userPortfolioStore.js";
 
 const HOUR_MS = 60 * 60 * 1000;
+const DAY_HOURS = 24;
+const FUTURE_TOLERANCE_HOURS = 5 / 60;
 
 const requiredPublicTables = [
   "dashboard_snapshots",
@@ -32,39 +34,55 @@ const publicDataModules = [
     id: "guru_data",
     label: "Guru dashboard data",
     tables: ["guru_snapshots"],
-    warningHours: 48,
-    failedHours: 168
+    cadence: "quarterly_regulatory",
+    freshnessBasis: "source_as_of",
+    warningHours: 100 * DAY_HOURS,
+    failedHours: 130 * DAY_HOURS
   },
   {
     id: "guru_backtests",
     label: "Guru simulation / backtests",
     tables: ["guru_backtests"],
-    warningHours: 36,
-    failedHours: 120
+    cadence: "quarterly_filing_event",
+    freshnessBasis: "source_as_of",
+    warningHours: 100 * DAY_HOURS,
+    failedHours: 130 * DAY_HOURS
   },
   {
     id: "valuation",
     label: "Valuation models",
     tables: ["valuation_ticker_snapshots"],
-    warningHours: 72,
-    failedHours: 240
+    cadence: "quarterly_company_event",
+    freshnessBasis: "source_as_of",
+    warningHours: 45 * DAY_HOURS,
+    failedHours: 120 * DAY_HOURS
   },
   {
     id: "market_prices",
     label: "Market prices",
     tables: ["price_points"],
-    warningHours: 48,
-    failedHours: 120
+    cadence: "market_daily",
+    freshnessBasis: "source_as_of",
+    warningHours: 5 * DAY_HOURS,
+    failedHours: 12 * DAY_HOURS
   }
 ];
 
 function isoOrEmpty(value) {
-  const time = value ? new Date(value).getTime() : 0;
+  let normalized = String(value || "").trim();
+  if (
+    /^\d{4}-\d{2}-\d{2}T/.test(normalized) &&
+    !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized)
+  ) {
+    normalized = `${normalized}Z`;
+  }
+  const time = normalized ? new Date(normalized).getTime() : 0;
   return Number.isFinite(time) && time > 0 ? new Date(time).toISOString() : "";
 }
 
 function hoursSince(value, now = Date.now()) {
-  const time = value ? new Date(value).getTime() : 0;
+  const normalized = isoOrEmpty(value);
+  const time = normalized ? new Date(normalized).getTime() : 0;
   if (!Number.isFinite(time) || time <= 0) return null;
   return (now - time) / HOUR_MS;
 }
@@ -72,6 +90,7 @@ function hoursSince(value, now = Date.now()) {
 export function statusForAge(value, warningHours, failedHours, now = Date.now()) {
   const age = hoursSince(value, now);
   if (age === null) return "unknown";
+  if (age < -FUTURE_TOLERANCE_HOURS) return "unknown";
   if (age > failedHours) return "failed";
   if (age > warningHours) return "warning";
   return "success";
@@ -191,6 +210,14 @@ function latestTimestamp(values) {
     .at(-1) || "";
 }
 
+function earliestTimestamp(values) {
+  return values
+    .map(isoOrEmpty)
+    .filter(Boolean)
+    .sort()
+    .at(0) || "";
+}
+
 function roundedHours(value) {
   return value === null ? null : Math.round(value * 100) / 100;
 }
@@ -226,11 +253,13 @@ function tableModuleHealth(spec, tables, now) {
     .filter((row) => row && !["ok", "success"].includes(row.status))
     .map((row) => row.table);
   const rowCount = rows.reduce((sum, row) => sum + Number(row?.rowCount || 0), 0);
-  const latestAt = latestTimestamp(rows.map((row) => row?.latestAt));
-  const ageHours = hoursSince(latestAt, now);
+  const observedAt = latestTimestamp(rows.map((row) => row?.latestAt));
+  const sourceAsOf = latestTimestamp(rows.map((row) => row?.sourceAt));
+  const referenceAt = spec.freshnessBasis === "source_as_of" ? sourceAsOf : observedAt;
+  const ageHours = hoursSince(referenceAt, now);
   const state = missingTables.length || failedTables.length || rowCount <= 0
     ? "failed"
-    : publicStateForAge(latestAt, spec.warningHours, spec.failedHours, now);
+    : publicStateForAge(referenceAt, spec.warningHours, spec.failedHours, now);
   const message = missingTables.length
     ? `Missing table${missingTables.length === 1 ? "" : "s"}: ${missingTables.join(", ")}`
     : failedTables.length
@@ -238,11 +267,11 @@ function tableModuleHealth(spec, tables, now) {
       : rowCount <= 0
         ? "No persisted rows are available."
         : state === "failed"
-          ? "Persisted data is beyond the failure freshness threshold."
+          ? "Economic source data is beyond the failure cadence threshold."
           : state === "stale"
-            ? "Persisted data is beyond the warning freshness threshold."
+            ? "Economic source data is beyond the warning cadence threshold."
             : state === "unknown"
-              ? "Persisted data has no usable freshness timestamp."
+              ? "Persisted data has no usable economic source date."
               : "";
   return {
     id: spec.id,
@@ -250,7 +279,11 @@ function tableModuleHealth(spec, tables, now) {
     state,
     message,
     freshness: {
-      latestAt,
+      basis: spec.freshnessBasis,
+      cadence: spec.cadence,
+      sourceAsOf,
+      observedAt,
+      latestAt: referenceAt,
       ageHours: roundedHours(ageHours),
       warningHours: spec.warningHours,
       failedHours: spec.failedHours
@@ -265,29 +298,56 @@ function tableModuleHealth(spec, tables, now) {
 }
 
 function ontologyModuleHealth(ontology, now) {
-  const latestAt = isoOrEmpty(ontology?.manifest?.generated_at) || isoOrEmpty(ontology?.updatedAt);
-  const warningHours = 24 * 7;
-  const failedHours = 24 * 30;
-  const ageHours = hoursSince(latestAt, now);
-  const available = Boolean(ontology?.ok && ontology?.exists && Number(ontology?.sizeBytes || 0) > 0);
+  const observedAt = isoOrEmpty(ontology?.manifest?.generated_at) || isoOrEmpty(ontology?.updatedAt);
+  const financialAsOf = isoOrEmpty(ontology?.manifest?.financial_as_of);
+  const decisionLatest = isoOrEmpty(ontology?.manifest?.decision_latest);
+  const sourceAsOf = earliestTimestamp([financialAsOf, decisionLatest]);
+  const warningHours = 45 * DAY_HOURS;
+  const failedHours = 120 * DAY_HOURS;
+  const ageHours = hoursSince(sourceAsOf, now);
+  const delegated = ontology?.mode === "external";
+  const delegationVerified = !delegated || ontology?.verified === true;
+  const sourceDatesComplete = Boolean(financialAsOf && decisionLatest);
+  const sourceDatesPlausible = sourceDatesComplete && [financialAsOf, decisionLatest]
+    .every((value) => {
+      const age = hoursSince(value, now);
+      return age !== null && age >= -FUTURE_TOLERANCE_HOURS;
+    });
+  const available = Boolean(
+    ontology?.ok &&
+    ontology?.exists &&
+    Number(ontology?.sizeBytes || 0) > 0 &&
+    delegationVerified &&
+    sourceDatesPlausible
+  );
   const state = available
-    ? publicStateForAge(latestAt, warningHours, failedHours, now)
+    ? publicStateForAge(sourceAsOf, warningHours, failedHours, now)
     : "failed";
   return {
     id: "ontology",
     label: "Ontology snapshot",
     state,
     message: !available
-      ? "Ontology snapshot is missing or unreadable."
+      ? delegated && !delegationVerified
+        ? "Delegated Ontology service could not be verified."
+        : !sourceDatesComplete
+          ? "Ontology manifest is missing required economic source dates."
+          : !sourceDatesPlausible
+            ? "Ontology manifest has an invalid or future economic source date."
+            : "Ontology snapshot is missing or unreadable."
       : state === "failed"
-        ? "Ontology snapshot is beyond the failure freshness threshold."
+        ? "Ontology economic data is beyond the failure cadence threshold."
         : state === "stale"
-          ? "Ontology snapshot is beyond the warning freshness threshold."
+          ? "Ontology economic data is beyond the warning cadence threshold."
           : state === "unknown"
-            ? "Ontology snapshot has no usable freshness timestamp."
+            ? "Ontology economic source dates are invalid."
             : "",
     freshness: {
-      latestAt,
+      basis: "oldest_required_source_as_of",
+      cadence: "quarterly_company_event",
+      sourceAsOf,
+      observedAt,
+      latestAt: sourceAsOf,
       ageHours: roundedHours(ageHours),
       warningHours,
       failedHours
@@ -295,7 +355,11 @@ function ontologyModuleHealth(ontology, now) {
     details: {
       sizeBytes: Number(ontology?.sizeBytes || 0),
       schemaVersion: ontology?.manifest?.schema_version ?? null,
-      responseCount: Number(ontology?.manifest?.responses || 0)
+      responseCount: Number(ontology?.manifest?.responses || 0),
+      financialAsOf,
+      decisionLatest,
+      deploymentMode: ontology?.mode || "local",
+      delegationVerified
     }
   };
 }
@@ -353,7 +417,8 @@ export function buildPublicSystemHealth({
 
   return {
     generatedAt: new Date(now).toISOString(),
-    ok: status === "healthy",
+    ok: !["failed", "unknown"].includes(status),
+    degraded: status === "stale",
     status,
     service: "guru-analysis-dashboard",
     database: {

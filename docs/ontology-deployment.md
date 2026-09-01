@@ -65,8 +65,21 @@ bash scripts/package-aws-backend.sh <version-label>
 Deploy the resulting zip to a versioned directory below
 `/home/ubuntu/ontology-api/releases`. Start `server/ontologyServer.js` with
 Node 24 on `127.0.0.1:8791`; no Python or DuckDB runtime is required on AWS.
-The Caddy configuration in `ops/caddy/Caddyfile` routes only Ontology paths to
+The Caddy configuration in `ops/caddy/Caddyfile` routes Ontology API paths to
 this service and leaves the existing Guru API on `127.0.0.1:8787` unchanged.
+It also routes the exact unauthenticated `/ontology-health` path to the service's
+`/health` metadata endpoint. That probe exposes only
+`publicOntologySnapshotInfo`; all research payload routes remain authenticated.
+Elastic Beanstalk must set:
+
+```text
+ONTOLOGY_HEALTH_URL=https://api.thesisforge.tech/ontology-health
+```
+
+Deploy and verify the Caddy route before enabling this setting. EB validates
+the remote service identity, schema version, response counts, byte counts, and
+required economic source dates. Delegation is fail-closed and never silently
+falls back to a local snapshot.
 
 ## Deploy frontend
 
@@ -75,6 +88,18 @@ to `/ontology/`, while the Flutter `Ontology` tab provides the compact decision
 dashboard. `/api/*` continues to proxy to AWS.
 
 ## Production checks
+
+Unauthenticated service-identity check:
+
+```text
+GET https://api.thesisforge.tech/ontology-health
+```
+
+The response must identify `service: ontology-api`, report a non-empty valid
+snapshot, and include `manifest.financial_as_of` plus
+`manifest.decision_latest`. Public platform `/api/health` evaluates the older
+of those two economic dates; `manifest.generated_at` is observation metadata,
+not a freshness reset.
 
 Authenticated checks:
 

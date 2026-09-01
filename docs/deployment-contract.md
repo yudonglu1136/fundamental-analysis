@@ -8,8 +8,9 @@ Guru Intelligence is split into a Vercel frontend and an AWS backend.
 | --- | --- | --- |
 | Frontend | Vercel | Builds Flutter Web into `dist/` and serves the product UI. |
 | API backend | AWS Elastic Beanstalk | Runs `server/index.js` and owns SQLite/runtime data. |
+| Ontology read service | AWS Lightsail | Runs `server/ontologyServer.js`; EB verifies it through the dedicated public metadata probe. |
 | Public app domain | Vercel DNS + Vercel deployment | `www.thesisforge.tech` must not point to Lightsail. |
-| API path | Vercel proxy | `/api/*` is proxied to Elastic Beanstalk by `api/proxy.js`. |
+| API path | Vercel proxy | Guru/Valuation routes go to EB; Ontology routes go to the Lightsail read service. |
 
 ## DNS Rules
 
@@ -56,9 +57,18 @@ AWS backend production env must also include both frontend origins:
 
 ```bash
 API_ALLOWED_ORIGINS=https://www.thesisforge.tech,https://thesisforge.tech
+ONTOLOGY_HEALTH_URL=https://api.thesisforge.tech/ontology-health
 ```
 
 Do not omit the `www` origin. Stale or diagnostic frontend builds may call the AWS API directly, and Express will return an HTML 500 for a disallowed CORS origin before the JSON API handler runs.
+
+`ONTOLOGY_HEALTH_URL` is explicit delegation, not an optional fallback. Caddy
+must route the exact public path `/ontology-health` to the Ontology service's
+local `/health` endpoint before this variable is enabled. EB accepts the
+delegated module only when the response identifies `ontology-api` and carries a
+non-empty, schema-v2, internally consistent snapshot manifest. A timeout,
+wrong service, malformed metadata, or non-HTTPS production URL fails closed;
+EB never falls back to a bundled local snapshot after delegation is configured.
 
 ## Frontend Deploy
 
@@ -102,14 +112,31 @@ curl -s https://www.thesisforge.tech/main.dart.js | rg 'supabase.co'
 Expected:
 
 - `server: Vercel` for the app shell.
-- `/api/health` returns JSON from the AWS backend. HTTP 200 means every required
-  database, data, and Ontology module is current. HTTP 503 is an intentional
-  fail-closed signal for a missing/empty database, a missing/unreadable required
-  table, an unavailable Ontology snapshot, or stale core data.
-- Inspect `status`, `ok`, and every entry in `modules[]`; each module exposes a
-  `state` plus `freshness.latestAt`, `ageHours`, `warningHours`, and
-  `failedHours`. A `stale`, `unknown`, or `failed` module is never green.
+- `/api/health` returns JSON from the AWS backend. HTTP 200 with `status: healthy`
+  is green. HTTP 200 with `status: stale`, `ok: true`, and `degraded: true` is
+  explicit but still serviceable. HTTP 503 is reserved for `unknown` or `failed`
+  readiness: a missing/empty database, a missing/unreadable required table, an
+  unverifiable delegated Ontology service, invalid source dates, or data beyond
+  the module's failure cadence.
+- Inspect `status`, `ok`, `degraded`, and every entry in `modules[]`. Data modules
+  expose `freshness.basis`, `cadence`, `sourceAsOf`, `observedAt`, `ageHours`,
+  `warningHours`, and `failedHours`. `observedAt` is ingestion/export time and
+  never cosmetically refreshes `sourceAsOf`.
 - `main.dart.js` contains the Supabase project URL.
+
+Public readiness uses economic dates and source-specific cadence:
+
+| Module | Economic freshness source | Stale after | Failed after |
+| --- | --- | ---: | ---: |
+| Guru dashboard | Latest disclosed filing date | 100 days | 130 days |
+| Guru simulations | Latest completed filing-window end date | 100 days | 130 days |
+| Valuation | Latest point-in-time model `asOfDate` | 45 days | 120 days |
+| Market prices | Latest stored market date | 5 days | 12 days |
+| Ontology | Older of `financial_as_of` and `decision_latest` | 45 days | 120 days |
+
+The quarterly thresholds cover filing and issuer-event cadence. The market
+threshold includes a weekend/holiday buffer. The conservative Ontology date
+prevents a new export timestamp from hiding an old required input family.
 
 ## Backend Deploy
 
@@ -120,6 +147,16 @@ bash scripts/package-aws-backend.sh <version>
 ```
 
 Production must set `SQLITE_DB_PATH` to the intended persistent runtime database.
+When Ontology is deployed separately, production must also set the verified
+delegation URL:
+
+```text
+ONTOLOGY_HEALTH_URL=https://api.thesisforge.tech/ontology-health
+```
+
+Deploy and verify the Caddy `/ontology-health` route before setting this value;
+otherwise `/api/health` correctly returns HTTP 503.
+
 Normal startup must not seed or overwrite that database from the database bundled
 inside the deployment package. Keep these variables unset or explicitly `false`:
 

@@ -4,6 +4,7 @@ export const REQUIRED_ONTOLOGY_FIXED_ROUTES = Object.freeze([
   "fixed:strategies",
   "fixed:decision_overview",
   "fixed:market_home",
+  "fixed:valuation_heatmap",
   "fixed:overview",
   "fixed:graph",
   "fixed:methodology",

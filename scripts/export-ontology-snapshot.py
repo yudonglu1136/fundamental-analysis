@@ -23,6 +23,7 @@ FIXED_ROUTES = {
     "strategies": "/api/strategies",
     "decision_overview": "/api/decision/overview",
     "market_home": "/api/market/home",
+    "valuation_heatmap": "/api/market/valuation-heatmap",
     "overview": "/api/overview",
     "graph": "/api/graph",
     "methodology": "/api/methodology",
@@ -186,6 +187,30 @@ def unique_group_ids(market_home: dict[str, Any]) -> list[str]:
     return ids
 
 
+def valuation_snapshot_requests(
+    valuation_heatmap: dict[str, Any], *, current_only: bool = False
+) -> tuple[list[str], list[str], list[tuple[str, str]]]:
+    dates = [iso_date(value) for value in valuation_heatmap.get("dates") or []]
+    dates = [value for value in dates if value]
+    if current_only and dates:
+        dates = dates[-1:]
+    sector_ids = [
+        str(sector.get("group_id") or "").strip()
+        for sector in valuation_heatmap.get("sectors") or []
+        if str(sector.get("group_id") or "").strip()
+    ]
+    tasks = [
+        (
+            f"valuation_heatmap_snapshot:{group_id}:{as_of}",
+            "/api/market/valuation-heatmap/snapshot?"
+            + urllib.parse.urlencode({"group_id": group_id, "as_of": as_of}),
+        )
+        for as_of in dates
+        for group_id in sector_ids
+    ]
+    return dates, sector_ids, tasks
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -330,6 +355,21 @@ def main() -> int:
     for key, payload in market_company_results:
         writer.put(key, payload)
 
+    valuation_dates, valuation_sector_ids, valuation_snapshot_tasks = (
+        valuation_snapshot_requests(
+            fixed["valuation_heatmap"], current_only=args.current_only
+        )
+    )
+    valuation_results, valuation_errors = parallel_fetch(
+        api,
+        valuation_snapshot_tasks,
+        min(args.workers, 4),
+        "valuation heatmap snapshots",
+    )
+    failures.extend(valuation_errors)
+    for key, payload in valuation_results:
+        writer.put(key, payload)
+
     graph_tickers = {
         str(row.get("ticker") or "").upper()
         for row in fixed["graph"].get("companies") or []
@@ -394,6 +434,9 @@ def main() -> int:
         "strategy_snapshots": len(strategy_results),
         "market_groups": len(group_ids),
         "market_companies": len(market_tickers),
+        "valuation_dates": len(valuation_dates),
+        "valuation_sectors": len(valuation_sector_ids),
+        "valuation_snapshots": len(valuation_results),
         "decision_companies": len(decision_tickers),
         "ai_companies": len(graph_tickers),
         "failures": failures[:200],

@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { loadGuruDashboard, loadGuruMarketContext } from "./secClient.js";
 import { loadOperationCommentary } from "./commentarySearch.js";
 import { gurus } from "./gurus.js";
-import { publicOntologySnapshotInfo, registerOntologyRoutes } from "./ontologyClient.js";
+import { registerOntologyRoutes } from "./ontologyClient.js";
 import { clearPortfolioCache, loadPortfolioDashboard, startPortfolioNavRecorder } from "./portfolioClient.js";
 import { requireAuth } from "./auth/requireAuth.js";
 import {
@@ -27,6 +27,7 @@ import {
   startDividendCalendarRefresher
 } from "./dividendClient.js";
 import { buildAdminSystemHealth, buildPublicSystemHealth } from "./systemHealth.js";
+import { resolvePublicOntologyHealth } from "./publicOntologyHealth.js";
 import { installJsonTransport } from "./jsonTransport.js";
 import {
   addPortfolioAccount,
@@ -82,8 +83,9 @@ if (fs.existsSync(avatarAssetDir)) {
   }));
 }
 
-app.get("/api/health", (_request, response) => {
-  const health = buildPublicSystemHealth({ ontology: publicOntologySnapshotInfo() });
+app.get("/api/health", async (_request, response) => {
+  const ontology = await resolvePublicOntologyHealth();
+  const health = buildPublicSystemHealth({ ontology });
   response.setHeader("Cache-Control", "no-store");
   response.status(health.ok ? 200 : 503).json(health);
 });

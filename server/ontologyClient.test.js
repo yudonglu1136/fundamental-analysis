@@ -53,6 +53,10 @@ put("fixed:rankings_all", {
 put("fixed:decision_overview", { marker: "overview-v1", rows: [{ ticker: "AAA" }] });
 put("fixed:graph", { marker: "graph-v1", nodes: [{ id: "AAA" }] });
 put("fixed:market_home", { metadata: { as_of: "2026-08-01" }, market_groups: [] });
+put("fixed:valuation_heatmap", {
+  dates: ["2026-08-01"],
+  sectors: [{ group_id: "technology", name: "Technology" }]
+});
 put("fixed:overview", { totals: { companies: 1 }, build: { as_of: "2026-08-01" } });
 put("fixed:methodology", { signal_definition: {}, field_notes: [], sources: [] });
 put("fixed:timeline", { points: [] });
@@ -75,7 +79,7 @@ database.prepare("INSERT INTO metadata VALUES (?, ?)").run(
   JSON.stringify({
     schema_version: 2,
     generated_at: "2026-08-01T00:00:00.000Z",
-    responses: 13,
+    responses: 14,
     critical_failure_count: 0
   })
 );
@@ -133,10 +137,16 @@ test("loads strategy catalog, detail and dated portfolio snapshot", () => {
   assert.equal(snapshot.positions[0].ticker, "AAA");
 });
 
+test("loads the required valuation heatmap catalog", () => {
+  const heatmap = ontology.loadValuationHeatmap();
+  assert.deepEqual(heatmap.dates, ["2026-08-01"]);
+  assert.equal(heatmap.sectors[0].group_id, "technology");
+});
+
 test("health validates the embedded manifest, schema and required fixed routes", () => {
   const health = ontology.publicOntologySnapshotInfo();
   assert.equal(health.ok, true);
-  assert.equal(health.responseCount, 13);
+  assert.equal(health.responseCount, 14);
   assert.equal(health.manifest.schema_version, 2);
   assert.equal("path" in health, false);
 });

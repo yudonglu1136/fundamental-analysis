@@ -27,6 +27,11 @@ www.thesisforge.tech {
 }
 
 api.thesisforge.tech {
+  handle /ontology-health {
+    rewrite * /health
+    reverse_proxy 127.0.0.1:8791
+  }
+
   @ontology path \
     /api/ontology/* \
     /api/decision/* \

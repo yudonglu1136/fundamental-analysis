@@ -48,13 +48,13 @@ test("strict verifier accepts a complete deterministic snapshot and reports its 
   const result = verify(fixture("valid.sqlite"));
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Ontology snapshot verified/);
-  assert.match(result.stdout, /"responses":8/);
+  assert.match(result.stdout, /"responses":9/);
   assert.match(result.stdout, /"sha256":"[a-f0-9]{64}"/);
 });
 
-test("strict verifier rejects a snapshot missing a required fixed route", () => {
-  const routes = REQUIRED_ONTOLOGY_FIXED_ROUTES.filter((route) => route !== "fixed:graph");
+test("strict verifier rejects a snapshot missing the valuation heatmap catalog", () => {
+  const routes = REQUIRED_ONTOLOGY_FIXED_ROUTES.filter((route) => route !== "fixed:valuation_heatmap");
   const result = verify(fixture("missing-route.sqlite", routes));
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /required payload is missing: fixed:graph/);
+  assert.match(result.stderr, /required payload is missing: fixed:valuation_heatmap/);
 });

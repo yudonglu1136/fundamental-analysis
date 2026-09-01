@@ -28,6 +28,7 @@ app.use(cors({
 installJsonTransport(app);
 
 app.get("/health", (_request, response) => {
+  response.setHeader("Cache-Control", "no-store");
   response.json({ service: "ontology-api", ...publicOntologySnapshotInfo() });
 });
 
