@@ -76,6 +76,7 @@ db.exec(`
     operator TEXT NOT NULL,
     policy TEXT NOT NULL,
     affected_gurus_json TEXT NOT NULL,
+    before_rows_json TEXT NOT NULL,
     rows_json TEXT NOT NULL,
     row_count INTEGER NOT NULL,
     symbols_json TEXT NOT NULL,
@@ -309,6 +310,7 @@ const priceRepairAuditMigrations = [
   ["operator", "TEXT NOT NULL DEFAULT ''"],
   ["policy", "TEXT NOT NULL DEFAULT 'legacy_unspecified'"],
   ["affected_gurus_json", "TEXT NOT NULL DEFAULT '[]'"],
+  ["before_rows_json", "TEXT NOT NULL DEFAULT '[]'"],
   ["rows_json", "TEXT NOT NULL DEFAULT '[]'"]
 ];
 for (const [column, definition] of priceRepairAuditMigrations) {
@@ -1549,9 +1551,15 @@ export function writeAuditedPriceRepair(rows, {
   }
   const today = new Date().toISOString().slice(0, 10);
   const symbolExists = db.prepare("SELECT 1 FROM price_points WHERE symbol = ? LIMIT 1");
-  const priceExists = db.prepare(
-    "SELECT 1 FROM price_points WHERE symbol = ? AND date = ? LIMIT 1"
-  );
+  const readExistingPrice = db.prepare(`
+    SELECT symbol, date, open, high, low, close, adjusted_close, volume, source, updated_at
+    FROM price_points
+    WHERE symbol = ? AND date = ?
+  `);
+  const beforeRows = [];
+  const actions = new Map();
+  const numericMatches = (left, right) =>
+    Math.abs(Number(left) - Number(right)) <= Math.max(1e-8, Math.abs(Number(right)) * 1e-8);
   for (const row of normalizedRows) {
     const weekday = new Date(`${row.date}T00:00:00.000Z`).getUTCDay();
     if (row.date > today || weekday === 0 || weekday === 6) {
@@ -1563,17 +1571,61 @@ export function writeAuditedPriceRepair(rows, {
     if (!symbolExists.get(row.symbol)) {
       throw new Error(`Price repair symbol ${row.symbol} has no existing price history.`);
     }
-    if (!priceExists.get("SPY", row.date)) {
+    if (!readExistingPrice.get("SPY", row.date)) {
       throw new Error(`Price repair date ${row.date} is not a stored SPY trading session.`);
     }
-    if (priceExists.get(row.symbol, row.date)) {
-      throw new Error(`Price repair may only fill a missing row: ${row.symbol} ${row.date}.`);
+    const existing = readExistingPrice.get(row.symbol, row.date);
+    const key = `${row.symbol}:${row.date}`;
+    if (!existing) {
+      actions.set(key, "insert");
+      beforeRows.push({ symbol: row.symbol, date: row.date, action: "insert", existed: false });
+      continue;
     }
+    const existingValues = {
+      open: existing.open,
+      high: existing.high,
+      low: existing.low,
+      close: existing.close,
+      adjustedClose: existing.adjusted_close,
+      volume: existing.volume
+    };
+    const missingFields = Object.entries(existingValues)
+      .filter(([, value]) => value === null || value === undefined)
+      .map(([field]) => field);
+    if (!missingFields.length) {
+      throw new Error(`Price repair may not overwrite a complete row: ${row.symbol} ${row.date}.`);
+    }
+    for (const field of ["open", "high", "low", "close", "adjustedClose"]) {
+      const value = existingValues[field];
+      if (value !== null && value !== undefined && !numericMatches(value, row[field])) {
+        throw new Error(
+          `Price repair conflicts with existing ${field}: ${row.symbol} ${row.date}.`
+        );
+      }
+    }
+    if (
+      existingValues.volume !== null &&
+      existingValues.volume !== undefined &&
+      Number(existingValues.volume) !== row.volume
+    ) {
+      throw new Error(`Price repair conflicts with existing volume: ${row.symbol} ${row.date}.`);
+    }
+    actions.set(key, "complete-null-fields");
+    beforeRows.push({
+      symbol: row.symbol,
+      date: row.date,
+      action: "complete-null-fields",
+      existed: true,
+      source: existing.source || "",
+      updatedAt: existing.updated_at || "",
+      ...existingValues,
+      missingFields
+    });
   }
 
   const createdAt = new Date().toISOString();
   const source = `audited:${normalizedProvider}`;
-  const policy = "insert_missing_only_verified_spy_session";
+  const policy = "insert_missing_or_complete_null_fields_verified_spy_session";
   const canonicalPayload = {
     provider: normalizedProvider,
     reason: normalizedReason,
@@ -1582,6 +1634,7 @@ export function writeAuditedPriceRepair(rows, {
     operator: normalizedOperator,
     policy,
     affectedGuruIds: normalizedAffectedGuruIds,
+    beforeRows,
     rows: normalizedRows
   };
   const payloadSha256 = crypto
@@ -1597,28 +1650,64 @@ export function writeAuditedPriceRepair(rows, {
     )
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
+  const completePrice = db.prepare(`
+    UPDATE price_points
+    SET open = COALESCE(open, ?),
+      high = COALESCE(high, ?),
+      low = COALESCE(low, ?),
+      close = COALESCE(close, ?),
+      adjusted_close = COALESCE(adjusted_close, ?),
+      volume = COALESCE(volume, ?),
+      source = ?,
+      updated_at = ?
+    WHERE symbol = ? AND date = ?
+      AND (
+        open IS NULL OR high IS NULL OR low IS NULL OR close IS NULL OR
+        adjusted_close IS NULL OR volume IS NULL
+      )
+  `);
   const insertAudit = db.prepare(`
     INSERT INTO price_repair_audits (
       audit_id, created_at, provider, reason, snapshot_id, source_reference, operator,
-      policy, affected_gurus_json, rows_json, row_count, symbols_json, dates_json, payload_sha256
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      policy, affected_gurus_json, before_rows_json, rows_json, row_count, symbols_json,
+      dates_json, payload_sha256
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   db.exec("BEGIN IMMEDIATE");
   try {
     for (const row of normalizedRows) {
-      insertPrice.run(
-        row.symbol,
-        row.date,
-        row.open,
-        row.high,
-        row.low,
-        row.close,
-        row.adjustedClose,
-        row.volume,
-        source,
-        createdAt
-      );
+      const action = actions.get(`${row.symbol}:${row.date}`);
+      if (action === "insert") {
+        insertPrice.run(
+          row.symbol,
+          row.date,
+          row.open,
+          row.high,
+          row.low,
+          row.close,
+          row.adjustedClose,
+          row.volume,
+          source,
+          createdAt
+        );
+      } else {
+        const result = completePrice.run(
+          row.open,
+          row.high,
+          row.low,
+          row.close,
+          row.adjustedClose,
+          row.volume,
+          source,
+          createdAt,
+          row.symbol,
+          row.date
+        );
+        if (result.changes !== 1) {
+          throw new Error(`Price repair lost its null-field guard: ${row.symbol} ${row.date}.`);
+        }
+      }
     }
     insertAudit.run(
       auditId,
@@ -1630,6 +1719,7 @@ export function writeAuditedPriceRepair(rows, {
       normalizedOperator,
       policy,
       JSON.stringify(normalizedAffectedGuruIds),
+      JSON.stringify(beforeRows),
       JSON.stringify(normalizedRows),
       normalizedRows.length,
       JSON.stringify(symbols),
@@ -1655,6 +1745,8 @@ export function writeAuditedPriceRepair(rows, {
     operator: normalizedOperator,
     policy,
     affectedGuruIds: normalizedAffectedGuruIds,
+    insertedRows: beforeRows.filter((row) => row.action === "insert").length,
+    completedRows: beforeRows.filter((row) => row.action === "complete-null-fields").length,
     rowCount: normalizedRows.length,
     symbols,
     dates,
@@ -1667,7 +1759,7 @@ export function readPriceRepairAudit(auditId) {
   if (!normalized) return null;
   const row = db.prepare(`
     SELECT audit_id, created_at, provider, reason, snapshot_id, source_reference,
-      operator, policy, affected_gurus_json, rows_json, row_count, symbols_json,
+      operator, policy, affected_gurus_json, before_rows_json, rows_json, row_count, symbols_json,
       dates_json, payload_sha256
     FROM price_repair_audits
     WHERE audit_id = ?
@@ -1683,6 +1775,7 @@ export function readPriceRepairAudit(auditId) {
     operator: row.operator,
     policy: row.policy,
     affectedGuruIds: parsePayload(row.affected_gurus_json) || [],
+    beforeRows: parsePayload(row.before_rows_json) || [],
     rows: parsePayload(row.rows_json) || [],
     rowCount: Number(row.row_count) || 0,
     symbols: parsePayload(row.symbols_json) || [],

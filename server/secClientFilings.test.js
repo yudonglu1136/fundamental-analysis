@@ -75,7 +75,7 @@ test("audited price repair validates and atomically records exact adjusted rows"
     adjustedClose: 652,
     volume: 50_000_000
   }], "fixture");
-  for (const symbol of ["REPAIRA", "REPAIRB", "NO-PARTIAL-A", "NO-PARTIAL-B"]) {
+  for (const symbol of ["REPAIRA", "REPAIRB", "REPAIRC", "NO-PARTIAL-A", "NO-PARTIAL-B"]) {
     writePriceSeriesToDb(symbol, [{
       date: "2026-08-27",
       open: 10,
@@ -86,6 +86,14 @@ test("audited price repair validates and atomically records exact adjusted rows"
       volume: 1000
     }], "fixture");
   }
+  writePriceSeriesToDb("REPAIRC", [{
+    date: "2026-08-28",
+    open: 40,
+    high: 42,
+    low: 39,
+    close: 41,
+    volume: 3000
+  }], "incomplete-fixture");
   const audit = writeAuditedPriceRepair([
     {
       symbol: "repairb",
@@ -106,6 +114,16 @@ test("audited price repair validates and atomically records exact adjusted rows"
       close: 10.5,
       adjustedClose: 10.25,
       volume: 1000
+    },
+    {
+      symbol: "REPAIRC",
+      date: "2026-08-28",
+      open: 40,
+      high: 42,
+      low: 39,
+      close: 41,
+      adjustedClose: 40.75,
+      volume: 3000
     }
   ], {
     provider: "fixture-provider",
@@ -116,8 +134,10 @@ test("audited price repair validates and atomically records exact adjusted rows"
     affectedGuruIds: ["bill-ackman"]
   });
 
-  assert.equal(audit.rowCount, 2);
-  assert.deepEqual(audit.symbols, ["REPAIRA", "REPAIRB"]);
+  assert.equal(audit.rowCount, 3);
+  assert.equal(audit.insertedRows, 2);
+  assert.equal(audit.completedRows, 1);
+  assert.deepEqual(audit.symbols, ["REPAIRA", "REPAIRB", "REPAIRC"]);
   assert.deepEqual(audit.dates, ["2026-08-28"]);
   assert.match(audit.auditId, /^price-repair-/);
   assert.match(audit.payloadSha256, /^[a-f0-9]{64}$/);
@@ -127,9 +147,27 @@ test("audited price repair validates and atomically records exact adjusted rows"
   assert.equal(repaired[0].source, "audited:fixture-provider");
   const storedAudit = readPriceRepairAudit(audit.auditId);
   assert.equal(storedAudit.snapshotId, "snap-00000000000000000");
-  assert.equal(storedAudit.policy, "insert_missing_only_verified_spy_session");
+  assert.equal(
+    storedAudit.policy,
+    "insert_missing_or_complete_null_fields_verified_spy_session"
+  );
   assert.deepEqual(storedAudit.affectedGuruIds, ["bill-ackman"]);
-  assert.deepEqual(storedAudit.rows.map((row) => row.symbol), ["REPAIRA", "REPAIRB"]);
+  assert.deepEqual(
+    storedAudit.rows.map((row) => row.symbol),
+    ["REPAIRA", "REPAIRB", "REPAIRC"]
+  );
+  assert.deepEqual(
+    storedAudit.beforeRows.map((row) => [row.symbol, row.action]),
+    [
+      ["REPAIRA", "insert"],
+      ["REPAIRB", "insert"],
+      ["REPAIRC", "complete-null-fields"]
+    ]
+  );
+  const completed = readPriceSeriesFromDb("REPAIRC", "2026-08-28", "2026-08-28");
+  assert.equal(completed[0].close, 41);
+  assert.equal(completed[0].adjustedClose, 40.75);
+  assert.equal(completed[0].source, "audited:fixture-provider");
 
   const failureDb = new DatabaseSync(databasePath);
   failureDb.exec(`
