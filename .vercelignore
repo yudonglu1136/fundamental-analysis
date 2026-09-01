@@ -7,7 +7,8 @@ dist
 node_modules
 coverage
 prototypes
-server
+server/*
+!server/ontologySnapshotValidation.js
 *.log
 *.tmp
 .DS_Store
