@@ -118,10 +118,10 @@ test("audited price repair validates and atomically records exact adjusted rows"
     {
       symbol: "REPAIRC",
       date: "2026-08-28",
-      open: 40,
-      high: 42,
-      low: 39,
-      close: 41,
+      open: 40.00002,
+      high: 42.00002,
+      low: 39.00002,
+      close: 41.00002,
       adjustedClose: 40.75,
       volume: 3000
     }

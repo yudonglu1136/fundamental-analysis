@@ -1559,7 +1559,7 @@ export function writeAuditedPriceRepair(rows, {
   const beforeRows = [];
   const actions = new Map();
   const numericMatches = (left, right) =>
-    Math.abs(Number(left) - Number(right)) <= Math.max(1e-8, Math.abs(Number(right)) * 1e-8);
+    Math.abs(Number(left) - Number(right)) <= Math.max(1e-6, Math.abs(Number(right)) * 1e-6);
   for (const row of normalizedRows) {
     const weekday = new Date(`${row.date}T00:00:00.000Z`).getUTCDay();
     if (row.date > today || weekday === 0 || weekday === 6) {
