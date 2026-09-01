@@ -201,6 +201,71 @@ test("a truncated adjusted SQLite series is refreshed for the requested range", 
   }
 });
 
+test("an adjusted SQLite series with an internal benchmark-session gap is refreshed", async () => {
+  writePriceSeriesToDb("GAPFIXTURE", [
+    {
+      date: "2024-01-02",
+      close: 101,
+      adjustedClose: 101
+    },
+    {
+      date: "2024-01-04",
+      close: 103,
+      adjustedClose: 103
+    }
+  ], "gap-fixture");
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return {
+      ok: true,
+      json: async () => ({
+        chart: {
+          result: [{
+            timestamp: [1704153600, 1704240000, 1704326400],
+            indicators: {
+              quote: [{ close: [101, 102, 103] }],
+              adjclose: [{ adjclose: [101, 102, 103] }]
+            }
+          }]
+        }
+      })
+    };
+  };
+
+  try {
+    const series = await loadPriceSeries("GAPFIXTURE", {
+      start: "2024-01-02",
+      end: "2024-01-04",
+      requireAdjusted: true,
+      expectedTradingDates: ["2024-01-02", "2024-01-03", "2024-01-04"]
+    });
+    assert.equal(fetchCalls, 1);
+    assert.equal(series.source, "yahoo");
+    assert.deepEqual(series.points.map((point) => point.date), [
+      "2024-01-02",
+      "2024-01-03",
+      "2024-01-04"
+    ]);
+
+    globalThis.fetch = async () => {
+      throw new Error("complete SQLite history should not refetch");
+    };
+    const cached = await loadPriceSeries("GAPFIXTURE", {
+      start: "2024-01-02",
+      end: "2024-01-04",
+      requireAdjusted: true,
+      expectedTradingDates: ["2024-01-02", "2024-01-03", "2024-01-04"]
+    });
+    assert.equal(cached.source, "sqlite");
+    assert.equal(cached.points.length, 3);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("fully adjusted delisted history can defer endpoint coverage to active-holding checks", () => {
   const payload = {
     symbol: "DELISTED",

@@ -22,7 +22,7 @@ import {
 const defaultYears = "all";
 const allYearsCacheKey = 0;
 const maxHoldingsPerFiling = Number(process.env.BACKTEST_MAX_HOLDINGS || 60);
-export const manager13fBacktestMethodVersion = "manager13f-drifted-total-return-v4";
+export const manager13fBacktestMethodVersion = "manager13f-drifted-total-return-v5";
 const minExecutionCoverage = Math.max(
   0,
   Math.min(1, Number(process.env.BACKTEST_MIN_EXECUTION_COVERAGE || 0.9))
@@ -1153,6 +1153,7 @@ export async function loadGuruBacktest(
   });
   const spyPoints = (spySeries.points || []).filter((point) => point.date >= start && point.date <= end);
   const spyTotalReturnMap = adjustedClosePriceMap(spyPoints);
+  const tradingDates = spyPoints.map((point) => point.date);
 
   if (
     backtestHistory.length < 2 ||
@@ -1222,7 +1223,12 @@ export async function loadGuruBacktest(
 
   await mapWithConcurrency(universe, priceConcurrency, async (ticker) => {
     try {
-      const series = await loadPriceSeries(ticker, { start, end, requireAdjusted: true });
+      const series = await loadPriceSeries(ticker, {
+        start,
+        end,
+        requireAdjusted: true,
+        expectedTradingDates: tradingDates
+      });
       const map = adjustedClosePriceMap(series.points || []);
       priceMaps.set(ticker, map);
       priceSeriesQuality.set(ticker, {
@@ -1241,7 +1247,6 @@ export async function loadGuruBacktest(
     }
   });
 
-  const tradingDates = spyPoints.map((point) => point.date);
   const executionExclusions = [];
   const rebalances = [];
   for (const snapshot of backtestHistory) {

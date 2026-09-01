@@ -36,6 +36,18 @@ function adjustedRangeCovered(points, start, end) {
   return rangeCovered(points, start, end) && observedAdjustedCloseCovered(points);
 }
 
+function expectedInternalSessionsCovered(points, expectedTradingDates) {
+  if (!points.length || !(expectedTradingDates || []).length) return true;
+  const observedDates = new Set(points.map((point) => point?.date).filter(Boolean));
+  const orderedObservedDates = [...observedDates].sort();
+  const firstObservedDate = orderedObservedDates[0];
+  const lastObservedDate = orderedObservedDates.at(-1);
+  return (expectedTradingDates || [])
+    .map((point) => typeof point === "string" ? point : point?.date)
+    .filter((date) => date && date >= firstObservedDate && date <= lastObservedDate)
+    .every((date) => observedDates.has(date));
+}
+
 function observedAdjustedCloseCovered(points) {
   return points.length > 0 && points.every((point) =>
     Number.isFinite(point.adjustedClose) && point.adjustedClose > 0
@@ -166,7 +178,8 @@ export async function loadPriceSeries(symbol, {
   start,
   end,
   requireAdjusted = false,
-  requireFullRange = false
+  requireFullRange = false,
+  expectedTradingDates = []
 }) {
   const normalized = String(symbol || "").trim().toUpperCase();
   if (!normalized) return { symbol: "", source: "missing", points: [] };
@@ -174,9 +187,11 @@ export async function loadPriceSeries(symbol, {
   const dbPoints = readPriceSeriesFromDb(normalized, start, end);
   const dbUsable = requireAdjusted
     // SQLite rows have no request-range provenance. A fully adjusted but
-    // truncated subset must be refreshed before the active-holding engine
-    // decides whether a shorter IPO/delisting history is legitimate.
-    ? adjustedRangeCovered(dbPoints, start, end)
+    // truncated subset or an internal expected-session gap must be refreshed
+    // before the active-holding engine decides whether a shorter IPO/delisting
+    // history or a genuine trading halt is legitimate.
+    ? adjustedRangeCovered(dbPoints, start, end) &&
+      expectedInternalSessionsCovered(dbPoints, expectedTradingDates)
     : rangeCovered(dbPoints, start, end);
   if (dbUsable) {
     return {
@@ -194,8 +209,10 @@ export async function loadPriceSeries(symbol, {
   const cachedPoints = cached?.points || [];
   const cachedUsable = requireAdjusted
     ? requireFullRange
-      ? adjustedRangeCovered(cachedPoints, start, end)
-      : observedAdjustedCloseCovered(cachedPoints)
+      ? adjustedRangeCovered(cachedPoints, start, end) &&
+        expectedInternalSessionsCovered(cachedPoints, expectedTradingDates)
+      : observedAdjustedCloseCovered(cachedPoints) &&
+        expectedInternalSessionsCovered(cachedPoints, expectedTradingDates)
     : true;
   if (
     cached &&
