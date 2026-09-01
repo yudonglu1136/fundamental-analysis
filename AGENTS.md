@@ -121,6 +121,7 @@ Required update surfaces:
 - Treat issuer and CUSIP continuity as audited security-master data. In particular, Howard Hughes CUSIP `44267D107` continues 1:1 into `HHH`, and Canadian Pacific CUSIPs `13645T100` and `13646K108` use ticker `CP`. Do not revert these to stale or unmapped symbols.
 - A refresh is successful only when an enabled manager's backtest is `ready`; `insufficient_data` is a failed refresh, not a completed one. A manager with `disableSimulation: true` must return `unsupported`.
 - An adjusted SQLite price subset is not proof that the requested history is covered. Refresh a truncated database range from the upstream source, then let the active-holding engine decide whether a shorter IPO/delisting history is legitimate; never treat any non-empty adjusted subset as a full-range cache hit.
+- Treat a shared trailing market-data cutoff as a bounded operational heuristic, not proof that no halt or corporate action occurred. It may move the effective backtest end only when the SPY series reaches its requested market end and at least two active holdings share the exact same trailing cutoff, and only within seven calendar days. Persist the requested end, requested market end, effective end, lag, stale tickers, and every active ticker's latest date. A single stale security, mixed cutoff dates, internal price gap, or lag beyond the bound remains fail closed; investigate repeated or issuer-specific gaps rather than widening the heuristic.
 
 Use the unified command or endpoint:
 

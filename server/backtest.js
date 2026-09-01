@@ -4,6 +4,7 @@ import { loadPriceSeries } from "./marketData.js";
 import {
   adjustedClosePriceMap,
   filingExecutionDecision,
+  resolveTrailingCommonPriceEnd,
   simulateDriftedPortfolio
 } from "./backtestEngine.js";
 import {
@@ -21,12 +22,18 @@ import {
 const defaultYears = "all";
 const allYearsCacheKey = 0;
 const maxHoldingsPerFiling = Number(process.env.BACKTEST_MAX_HOLDINGS || 60);
-export const manager13fBacktestMethodVersion = "manager13f-drifted-total-return-v3";
+export const manager13fBacktestMethodVersion = "manager13f-drifted-total-return-v4";
 const minExecutionCoverage = Math.max(
   0,
   Math.min(1, Number(process.env.BACKTEST_MIN_EXECUTION_COVERAGE || 0.9))
 );
 const priceConcurrency = Math.max(1, Math.min(12, Number(process.env.BACKTEST_PRICE_CONCURRENCY || 6)));
+const configuredMaxTrailingPriceLagDays = Number(
+  process.env.BACKTEST_MAX_TRAILING_PRICE_LAG_DAYS || 7
+);
+const maxTrailingPriceLagDays = Number.isFinite(configuredMaxTrailingPriceLagDays)
+  ? Math.max(0, Math.min(14, configuredMaxTrailingPriceLagDays))
+  : 7;
 const responseMaxEquityPoints = Math.max(120, Number(process.env.BACKTEST_RESPONSE_MAX_POINTS || 520));
 const dayMs = 1000 * 60 * 60 * 24;
 const backtestCacheTtlMs = Math.max(
@@ -1332,12 +1339,21 @@ export async function loadGuruBacktest(
   }
 
   const firstDate = rebalances[0]?.executionDate;
+  const trailingPriceEnd = resolveTrailingCommonPriceEnd({
+    rebalances,
+    tradingDates,
+    priceMaps,
+    benchmarkSymbol: "SPY",
+    requestedEnd: end,
+    maxLagDays: maxTrailingPriceLagDays
+  });
+  const effectiveEnd = trailingPriceEnd.effectiveEnd || end;
   const simulation = simulateDriftedPortfolio({
     rebalances,
     tradingDates,
     priceMaps,
     benchmarkSymbol: "SPY",
-    endDate: end
+    endDate: effectiveEnd
   });
   if (!simulation.ok) {
     const payload = {
@@ -1373,6 +1389,7 @@ export async function loadGuruBacktest(
       dataQuality: {
         returnBasis: "total_return_adjusted_close",
         failurePolicy: "fail_closed_without_zero_return_or_forward_fill",
+        trailingPriceEnd,
         failure: simulation.failure || {
           code: "attribution_reconciliation_failed",
           reconciliation: simulation.reconciliation || null
@@ -1414,7 +1431,7 @@ export async function loadGuruBacktest(
     },
     window: {
       start: equity[0]?.date || firstDate || start,
-      end: equity.at(-1)?.date || end
+      end: equity.at(-1)?.date || effectiveEnd
     },
     method: {
       version: manager13fBacktestMethodVersion,
@@ -1440,6 +1457,7 @@ export async function loadGuruBacktest(
         "Put/call rows and other non-SH rows are excluded from common-long weights and reported separately as options notional or other reported value.",
         "Unmapped or missing execution-price rows remain explicit cash; the entire result fails closed below the minimum coverage threshold.",
         "A missing active adjusted close stops the backtest; it is never converted into a zero return or silently forward-filled.",
+        `When the SPY series reaches its requested market end and at least two active holdings share the same trailing vendor cutoff, the effective end may move back by at most ${maxTrailingPriceLagDays} calendar days to that common observed date; a single stale holding or mixed cutoff dates remain fail closed, and requested/effective dates remain auditable.`,
         "SPY must cover the full requested window. A delisted or acquired security may end earlier only if every observed row is adjusted and the position was no longer active before observations stop.",
         "Original/amendment ambiguity is resolved per reporting CIK; an orphan amendment blocks the combined quarter, and every exclusion remains in the audit ledger.",
         "Quarter contributions are generated from the same drifted units as the headline equity curve and must reconcile within the engine tolerance.",
@@ -1471,7 +1489,8 @@ export async function loadGuruBacktest(
       minimumObservedExecutionCoverage: Math.min(...rebalances.map((item) => item.coveragePct)),
       missingExecutionWeightHeldAsCash: true,
       activeMissingPricePolicy: "fail_closed_without_zero_return_or_forward_fill",
-      priceRangePolicy: "benchmark_full_window_security_actual_active_dates",
+      priceRangePolicy: "benchmark_full_window_security_active_dates_bounded_common_trailing_end",
+      trailingPriceEnd,
       acceptanceTimestampFilings: rebalances.filter((item) => !item.usedLegacyFilingDateFallback).length,
       legacyFilingDateFallbacks: rebalances.filter((item) => item.usedLegacyFilingDateFallback).length,
       amendmentPolicy: "original_only_fail_closed",

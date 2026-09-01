@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-const managerMethodVersion = "manager13f-drifted-total-return-v3";
+const managerMethodVersion = "manager13f-drifted-total-return-v4";
 const congressMethodVersion = "stock-act-disclosure-fail-closed-v1";
 
 function argument(name, fallback = "") {

@@ -5,6 +5,7 @@ import {
   adjustedClosePriceMap,
   filingExecutionDecision,
   nextTradingSessionAfter,
+  resolveTrailingCommonPriceEnd,
   simulateDriftedPortfolio
 } from "./backtestEngine.js";
 
@@ -210,4 +211,141 @@ test("multiple 13F rebalances on one execution date fail closed", () => {
   assert.equal(result.failure.code, "duplicate_execution_date");
   assert.equal(result.failure.date, "2024-01-02");
   assert.deepEqual(result.equity, []);
+});
+
+test("multiple active series sharing a bounded trailing vendor lag move the effective end", () => {
+  const result = resolveTrailingCommonPriceEnd({
+    rebalances: [{
+      executionDate: "2026-08-17",
+      weights: [
+        { ticker: "AAA", weight: 0.4 },
+        { ticker: "BBB", weight: 0.4 },
+        { ticker: "CCC", weight: 0.2 }
+      ]
+    }],
+    tradingDates: ["2026-08-27", "2026-08-28", "2026-08-31", "2026-09-01"],
+    priceMaps: new Map([
+      ["SPY", map([["2026-09-01", 100]])],
+      ["AAA", map([["2026-08-27", 50]])],
+      ["BBB", map([["2026-08-27", 75]])],
+      ["CCC", map([["2026-09-01", 125]])]
+    ]),
+    requestedEnd: "2026-09-01",
+    maxLagDays: 7
+  });
+
+  assert.equal(result.effectiveEnd, "2026-08-27");
+  assert.equal(result.adjusted, true);
+  assert.equal(result.lagDays, 5);
+  assert.equal(result.reason, "bounded_trailing_vendor_lag");
+  assert.deepEqual(result.latestDates, [
+    { ticker: "SPY", date: "2026-09-01" },
+    { ticker: "AAA", date: "2026-08-27" },
+    { ticker: "BBB", date: "2026-08-27" },
+    { ticker: "CCC", date: "2026-09-01" }
+  ]);
+  assert.deepEqual(result.staleActiveTickers, ["AAA", "BBB"]);
+});
+
+test("one stale active security is never treated as a common vendor lag", () => {
+  const result = resolveTrailingCommonPriceEnd({
+    rebalances: [{
+      executionDate: "2026-08-17",
+      weights: [
+        { ticker: "AAA", weight: 0.5 },
+        { ticker: "BBB", weight: 0.5 }
+      ]
+    }],
+    tradingDates: ["2026-08-27", "2026-09-01"],
+    priceMaps: new Map([
+      ["SPY", map([["2026-09-01", 100]])],
+      ["AAA", map([["2026-09-01", 50]])],
+      ["BBB", map([["2026-08-27", 75]])]
+    ]),
+    requestedEnd: "2026-09-01",
+    maxLagDays: 7
+  });
+
+  assert.equal(result.effectiveEnd, "2026-09-01");
+  assert.equal(result.adjusted, false);
+  assert.equal(result.lagDays, 5);
+  assert.equal(result.reason, "insufficient_common_lag_evidence");
+  assert.deepEqual(result.staleActiveTickers, ["BBB"]);
+});
+
+test("multiple stale active securities with mixed cutoffs remain fail closed", () => {
+  const result = resolveTrailingCommonPriceEnd({
+    rebalances: [{
+      executionDate: "2026-08-17",
+      weights: [
+        { ticker: "AAA", weight: 0.4 },
+        { ticker: "BBB", weight: 0.4 },
+        { ticker: "CCC", weight: 0.2 }
+      ]
+    }],
+    tradingDates: ["2026-08-26", "2026-08-27", "2026-09-01"],
+    priceMaps: new Map([
+      ["SPY", map([["2026-09-01", 100]])],
+      ["AAA", map([["2026-08-27", 50]])],
+      ["BBB", map([["2026-08-26", 75]])],
+      ["CCC", map([["2026-09-01", 125]])]
+    ]),
+    requestedEnd: "2026-09-01",
+    maxLagDays: 7
+  });
+
+  assert.equal(result.effectiveEnd, "2026-09-01");
+  assert.equal(result.adjusted, false);
+  assert.equal(result.lagDays, 6);
+  assert.equal(result.reason, "mixed_trailing_dates");
+  assert.deepEqual(result.staleActiveTickers, ["AAA", "BBB"]);
+});
+
+test("a benchmark map that does not reach its own market end cannot authorize an adjustment", () => {
+  const result = resolveTrailingCommonPriceEnd({
+    rebalances: [{
+      executionDate: "2026-08-17",
+      weights: [
+        { ticker: "AAA", weight: 0.5 },
+        { ticker: "BBB", weight: 0.5 }
+      ]
+    }],
+    tradingDates: ["2026-08-27", "2026-09-01"],
+    priceMaps: new Map([
+      ["SPY", map([["2026-08-27", 100]])],
+      ["AAA", map([["2026-08-27", 50]])],
+      ["BBB", map([["2026-08-27", 75]])]
+    ]),
+    requestedEnd: "2026-09-01",
+    maxLagDays: 7
+  });
+
+  assert.equal(result.effectiveEnd, "2026-09-01");
+  assert.equal(result.adjusted, false);
+  assert.equal(result.reason, "benchmark_end_missing");
+});
+
+test("a common trailing lag beyond the audit bound remains fail closed", () => {
+  const result = resolveTrailingCommonPriceEnd({
+    rebalances: [{
+      executionDate: "2026-08-01",
+      weights: [
+        { ticker: "AAA", weight: 0.5 },
+        { ticker: "BBB", weight: 0.5 }
+      ]
+    }],
+    tradingDates: ["2026-08-20", "2026-09-01"],
+    priceMaps: new Map([
+      ["SPY", map([["2026-09-01", 100]])],
+      ["AAA", map([["2026-08-20", 50]])],
+      ["BBB", map([["2026-08-20", 75]])]
+    ]),
+    requestedEnd: "2026-09-01",
+    maxLagDays: 7
+  });
+
+  assert.equal(result.effectiveEnd, "2026-09-01");
+  assert.equal(result.adjusted, false);
+  assert.equal(result.lagDays, 12);
+  assert.equal(result.reason, "common_end_exceeds_max_lag");
 });

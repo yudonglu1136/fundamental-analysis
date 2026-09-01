@@ -83,6 +83,124 @@ function normalizedWeights(rebalance) {
   return [...byTicker.values()];
 }
 
+function latestMapDateOnOrBefore(priceMap, endDate) {
+  return [...(priceMap?.keys?.() || [])]
+    .filter((date) => date && (!endDate || date <= endDate))
+    .sort()
+    .at(-1) || null;
+}
+
+export function resolveTrailingCommonPriceEnd({
+  rebalances,
+  tradingDates,
+  priceMaps,
+  benchmarkSymbol = "SPY",
+  requestedEnd = null,
+  maxLagDays = 7
+}) {
+  const marketDates = [...new Set((tradingDates || [])
+    .map((point) => typeof point === "string" ? point : point?.date)
+    .filter((date) => date && (!requestedEnd || date <= requestedEnd)))]
+    .sort();
+  const requestedMarketEnd = marketDates.at(-1) || requestedEnd || null;
+  const orderedRebalances = [...(rebalances || [])]
+    .filter((rebalance) =>
+      rebalance?.executionDate &&
+      (!requestedMarketEnd || rebalance.executionDate <= requestedMarketEnd)
+    )
+    .sort((left, right) => String(left.executionDate).localeCompare(String(right.executionDate)));
+  const latestRebalance = orderedRebalances.at(-1);
+  const activeTickers = normalizedWeights(latestRebalance).map((holding) => holding.ticker);
+  const base = {
+    requestedEnd: requestedEnd || null,
+    requestedMarketEnd,
+    effectiveEnd: requestedMarketEnd,
+    adjusted: false,
+    lagDays: 0,
+    maxLagDays,
+    latestRebalanceDate: latestRebalance?.executionDate || null,
+    activeTickers
+  };
+  if (!requestedMarketEnd || !latestRebalance || !activeTickers.length) {
+    return { ...base, reason: "no_active_rebalance" };
+  }
+
+  const requiredTickers = [benchmarkSymbol, ...activeTickers];
+  const latestDates = requiredTickers.map((ticker) => ({
+    ticker,
+    date: latestMapDateOnOrBefore(priceMaps?.get(ticker), requestedMarketEnd)
+  }));
+  if (latestDates.some((row) => !row.date)) {
+    return { ...base, reason: "active_series_missing", latestDates };
+  }
+  const benchmarkLatestDate = latestDates[0]?.date;
+  if (benchmarkLatestDate !== requestedMarketEnd) {
+    return { ...base, reason: "benchmark_end_missing", latestDates };
+  }
+  const staleActiveRows = latestDates.slice(1)
+    .filter((row) => row.date < requestedMarketEnd);
+  if (!staleActiveRows.length) {
+    return {
+      ...base,
+      reason: "requested_market_end_covered",
+      latestDates,
+      staleActiveTickers: []
+    };
+  }
+  const staleDates = [...new Set(staleActiveRows.map((row) => row.date))];
+  const observedLagDays = Math.max(...staleDates.map((date) =>
+    Math.max(
+      0,
+      Math.round((new Date(requestedMarketEnd).getTime() - new Date(date).getTime()) / dayMs)
+    )
+  ));
+  if (staleActiveRows.length < 2 || staleDates.length !== 1) {
+    return {
+      ...base,
+      lagDays: observedLagDays,
+      reason: staleActiveRows.length < 2
+        ? "insufficient_common_lag_evidence"
+        : "mixed_trailing_dates",
+      latestDates,
+      staleActiveTickers: staleActiveRows.map((row) => row.ticker)
+    };
+  }
+  const commonCeiling = staleDates[0];
+  const effectiveEnd = marketDates.filter((date) => date <= commonCeiling).at(-1) || null;
+  if (!effectiveEnd || effectiveEnd < latestRebalance.executionDate) {
+    return {
+      ...base,
+      reason: "common_end_precedes_latest_rebalance",
+      latestDates,
+      staleActiveTickers: staleActiveRows.map((row) => row.ticker)
+    };
+  }
+  const lagDays = Math.max(
+    0,
+    Math.round((new Date(requestedMarketEnd).getTime() - new Date(effectiveEnd).getTime()) / dayMs)
+  );
+  if (lagDays > Math.max(0, Number(maxLagDays) || 0)) {
+    return {
+      ...base,
+      lagDays,
+      reason: "common_end_exceeds_max_lag",
+      latestDates,
+      staleActiveTickers: staleActiveRows.map((row) => row.ticker)
+    };
+  }
+  return {
+    ...base,
+    effectiveEnd,
+    adjusted: effectiveEnd < requestedMarketEnd,
+    lagDays,
+    reason: effectiveEnd < requestedMarketEnd
+      ? "bounded_trailing_vendor_lag"
+      : "requested_market_end_covered",
+    latestDates,
+    staleActiveTickers: staleActiveRows.map((row) => row.ticker)
+  };
+}
+
 function allocateAtClose(rebalance, portfolioValue, priceMaps) {
   const weights = normalizedWeights(rebalance);
   const weightSum = weights.reduce((sum, holding) => sum + holding.weight, 0);
