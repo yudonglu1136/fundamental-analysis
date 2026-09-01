@@ -169,12 +169,18 @@ function requestedPriceRepairGuruIds(value) {
 
 app.post("/api/internal/prices/repair", requireInternalCron, async (request, response) => {
   const guruIds = requestedPriceRepairGuruIds(request.body?.refreshGuruIds);
-  const knownGuruIds = new Set(gurus.map((guru) => guru.id));
+  const knownGuruIds = new Set(gurus
+    .filter((guru) =>
+      (guru.type === "manager13f" || guru.type === "congress") && !guru.disableSimulation
+    )
+    .map((guru) => guru.id));
   const unknownGuruIds = guruIds.filter((guruId) => !knownGuruIds.has(guruId));
-  if (guruIds.length > 5 || unknownGuruIds.length) {
+  if (!guruIds.length || guruIds.length > 5 || unknownGuruIds.length) {
     response.status(400).json({
       error: "price_repair_invalid_gurus",
-      message: unknownGuruIds.length
+      message: !guruIds.length
+        ? "A price repair must refresh at least one affected guru."
+        : unknownGuruIds.length
         ? `Unknown guru id(s): ${unknownGuruIds.join(", ")}`
         : "A price repair may refresh at most five gurus."
     });
@@ -185,7 +191,11 @@ app.post("/api/internal/prices/repair", requireInternalCron, async (request, res
   try {
     repair = writeAuditedPriceRepair(request.body?.rows, {
       provider: request.body?.provider,
-      reason: request.body?.reason
+      reason: request.body?.reason,
+      snapshotId: request.body?.snapshotId,
+      sourceReference: request.body?.sourceReference,
+      operator: request.body?.operator,
+      affectedGuruIds: guruIds
     });
   } catch (error) {
     response.status(400).json({
@@ -216,11 +226,17 @@ app.post("/api/internal/prices/repair", requireInternalCron, async (request, res
     }
   }
 
+  const allRequestedBacktestsReady =
+    backtests.length === guruIds.length && backtests.every((item) => item.status === "ready");
   response.setHeader("Cache-Control", "no-store");
-  response.status(201).json({
+  response.status(allRequestedBacktestsReady ? 201 : 422).json({
+    ...(allRequestedBacktestsReady ? {} : {
+      error: "price_repair_backtest_refresh_failed",
+      message: "The price rows were repaired, but at least one affected backtest is not ready."
+    }),
     repair,
     backtests,
-    allRequestedBacktestsReady: backtests.every((item) => item.status === "ready")
+    allRequestedBacktestsReady
   });
 });
 

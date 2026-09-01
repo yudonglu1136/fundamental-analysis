@@ -71,6 +71,12 @@ db.exec(`
     created_at TEXT NOT NULL,
     provider TEXT NOT NULL,
     reason TEXT NOT NULL,
+    snapshot_id TEXT NOT NULL,
+    source_reference TEXT NOT NULL,
+    operator TEXT NOT NULL,
+    policy TEXT NOT NULL,
+    affected_gurus_json TEXT NOT NULL,
+    rows_json TEXT NOT NULL,
     row_count INTEGER NOT NULL,
     symbols_json TEXT NOT NULL,
     dates_json TEXT NOT NULL,
@@ -292,6 +298,23 @@ const pricePointColumns = new Set(
 );
 if (!pricePointColumns.has("adjusted_close")) {
   db.exec("ALTER TABLE price_points ADD COLUMN adjusted_close REAL");
+}
+
+const priceRepairAuditColumns = new Set(
+  db.prepare("PRAGMA table_info(price_repair_audits)").all().map((column) => column.name)
+);
+const priceRepairAuditMigrations = [
+  ["snapshot_id", "TEXT NOT NULL DEFAULT ''"],
+  ["source_reference", "TEXT NOT NULL DEFAULT ''"],
+  ["operator", "TEXT NOT NULL DEFAULT ''"],
+  ["policy", "TEXT NOT NULL DEFAULT 'legacy_unspecified'"],
+  ["affected_gurus_json", "TEXT NOT NULL DEFAULT '[]'"],
+  ["rows_json", "TEXT NOT NULL DEFAULT '[]'"]
+];
+for (const [column, definition] of priceRepairAuditMigrations) {
+  if (!priceRepairAuditColumns.has(column)) {
+    db.exec(`ALTER TABLE price_repair_audits ADD COLUMN ${column} ${definition}`);
+  }
 }
 
 const readCacheRevisionStatement = db.prepare(`
@@ -1437,15 +1460,10 @@ function normalizeAuditedPriceDate(value, index) {
 
 function normalizeRequiredPositivePrice(value, field, index) {
   const number = Number(value);
-  if (!Number.isFinite(number) || number <= 0) {
+  if (!Number.isFinite(number) || number <= 0 || number > 10_000_000) {
     throw new Error(`Price repair row ${index} has an invalid ${field}.`);
   }
   return number;
-}
-
-function normalizeOptionalPositivePrice(value, field, index) {
-  if (value === null || value === undefined || value === "") return null;
-  return normalizeRequiredPositivePrice(value, field, index);
 }
 
 function normalizeAuditedPriceRepairRow(row, index) {
@@ -1457,34 +1475,39 @@ function normalizeAuditedPriceRepairRow(row, index) {
     throw new Error(`Price repair row ${index} has an invalid symbol.`);
   }
   const date = normalizeAuditedPriceDate(row.date, index);
-  const open = normalizeOptionalPositivePrice(row.open, "open", index);
-  const high = normalizeOptionalPositivePrice(row.high, "high", index);
-  const low = normalizeOptionalPositivePrice(row.low, "low", index);
+  const open = normalizeRequiredPositivePrice(row.open, "open", index);
+  const high = normalizeRequiredPositivePrice(row.high, "high", index);
+  const low = normalizeRequiredPositivePrice(row.low, "low", index);
   const close = normalizeRequiredPositivePrice(row.close, "close", index);
   const adjustedClose = normalizeRequiredPositivePrice(
     row.adjustedClose,
     "adjustedClose",
     index
   );
-  const volume = row.volume === null || row.volume === undefined || row.volume === ""
-    ? null
-    : Number(row.volume);
-  if (volume !== null && (!Number.isFinite(volume) || volume < 0)) {
+  const volume = Number(row.volume);
+  if (!Number.isSafeInteger(volume) || volume < 0 || volume > 100_000_000_000) {
     throw new Error(`Price repair row ${index} has an invalid volume.`);
   }
-  if (high !== null && low !== null && high < low) {
+  if (high < low) {
     throw new Error(`Price repair row ${index} has a high below its low.`);
   }
-  if (low !== null && (close < low || (open !== null && open < low))) {
+  if (close < low || open < low) {
     throw new Error(`Price repair row ${index} has an open or close below its low.`);
   }
-  if (high !== null && (close > high || (open !== null && open > high))) {
+  if (close > high || open > high) {
     throw new Error(`Price repair row ${index} has an open or close above its high.`);
   }
   return { symbol, date, open, high, low, close, adjustedClose, volume };
 }
 
-export function writeAuditedPriceRepair(rows, { provider, reason } = {}) {
+export function writeAuditedPriceRepair(rows, {
+  provider,
+  reason,
+  snapshotId,
+  sourceReference,
+  operator,
+  affectedGuruIds = []
+} = {}) {
   if (!Array.isArray(rows) || rows.length < 1 || rows.length > 100) {
     throw new Error("Price repair requires between 1 and 100 rows.");
   }
@@ -1496,6 +1519,24 @@ export function writeAuditedPriceRepair(rows, { provider, reason } = {}) {
   if (normalizedReason.length < 8 || normalizedReason.length > 240) {
     throw new Error("Price repair reason must contain between 8 and 240 characters.");
   }
+  const normalizedSnapshotId = String(snapshotId || "").trim().toLowerCase();
+  if (!/^snap-[a-f0-9]{8,32}$/.test(normalizedSnapshotId)) {
+    throw new Error("Price repair requires the completed pre-write EBS snapshot id.");
+  }
+  const normalizedSourceReference = String(sourceReference || "").trim();
+  if (normalizedSourceReference.length < 8 || normalizedSourceReference.length > 240) {
+    throw new Error("Price repair source reference must contain between 8 and 240 characters.");
+  }
+  const normalizedOperator = String(operator || "").trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:@/-]{2,79}$/.test(normalizedOperator)) {
+    throw new Error("Price repair operator is invalid.");
+  }
+  const normalizedAffectedGuruIds = [...new Set(
+    affectedGuruIds.map((guruId) => String(guruId || "").trim()).filter(Boolean)
+  )].sort();
+  if (!normalizedAffectedGuruIds.length || normalizedAffectedGuruIds.length > 5) {
+    throw new Error("Price repair requires between one and five affected gurus.");
+  }
 
   const normalizedRows = rows
     .map((row, index) => normalizeAuditedPriceRepairRow(row, index))
@@ -1506,14 +1547,48 @@ export function writeAuditedPriceRepair(rows, { provider, reason } = {}) {
   if (new Set(keys).size !== keys.length) {
     throw new Error("Price repair contains duplicate symbol/date rows.");
   }
+  const today = new Date().toISOString().slice(0, 10);
+  const symbolExists = db.prepare("SELECT 1 FROM price_points WHERE symbol = ? LIMIT 1");
+  const priceExists = db.prepare(
+    "SELECT 1 FROM price_points WHERE symbol = ? AND date = ? LIMIT 1"
+  );
+  for (const row of normalizedRows) {
+    const weekday = new Date(`${row.date}T00:00:00.000Z`).getUTCDay();
+    if (row.date > today || weekday === 0 || weekday === 6) {
+      throw new Error(`Price repair date ${row.date} is not an eligible completed weekday.`);
+    }
+    if (row.symbol === "SPY") {
+      throw new Error("The audited gap-fill route cannot modify the SPY benchmark.");
+    }
+    if (!symbolExists.get(row.symbol)) {
+      throw new Error(`Price repair symbol ${row.symbol} has no existing price history.`);
+    }
+    if (!priceExists.get("SPY", row.date)) {
+      throw new Error(`Price repair date ${row.date} is not a stored SPY trading session.`);
+    }
+    if (priceExists.get(row.symbol, row.date)) {
+      throw new Error(`Price repair may only fill a missing row: ${row.symbol} ${row.date}.`);
+    }
+  }
 
   const createdAt = new Date().toISOString();
   const source = `audited:${normalizedProvider}`;
+  const policy = "insert_missing_only_verified_spy_session";
+  const canonicalPayload = {
+    provider: normalizedProvider,
+    reason: normalizedReason,
+    snapshotId: normalizedSnapshotId,
+    sourceReference: normalizedSourceReference,
+    operator: normalizedOperator,
+    policy,
+    affectedGuruIds: normalizedAffectedGuruIds,
+    rows: normalizedRows
+  };
   const payloadSha256 = crypto
     .createHash("sha256")
-    .update(JSON.stringify({ provider: normalizedProvider, rows: normalizedRows }))
+    .update(JSON.stringify(canonicalPayload))
     .digest("hex");
-  const auditId = `price-repair-${createdAt.replace(/[^0-9]/g, "").slice(0, 17)}-${payloadSha256.slice(0, 12)}`;
+  const auditId = `price-repair-${crypto.randomUUID()}`;
   const symbols = [...new Set(normalizedRows.map((row) => row.symbol))];
   const dates = [...new Set(normalizedRows.map((row) => row.date))];
   const insertPrice = db.prepare(`
@@ -1521,20 +1596,12 @@ export function writeAuditedPriceRepair(rows, { provider, reason } = {}) {
       symbol, date, open, high, low, close, adjusted_close, volume, source, updated_at
     )
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(symbol, date) DO UPDATE SET
-      open = excluded.open,
-      high = excluded.high,
-      low = excluded.low,
-      close = excluded.close,
-      adjusted_close = excluded.adjusted_close,
-      volume = excluded.volume,
-      source = excluded.source,
-      updated_at = excluded.updated_at
   `);
   const insertAudit = db.prepare(`
     INSERT INTO price_repair_audits (
-      audit_id, created_at, provider, reason, row_count, symbols_json, dates_json, payload_sha256
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      audit_id, created_at, provider, reason, snapshot_id, source_reference, operator,
+      policy, affected_gurus_json, rows_json, row_count, symbols_json, dates_json, payload_sha256
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   db.exec("BEGIN IMMEDIATE");
@@ -1558,6 +1625,12 @@ export function writeAuditedPriceRepair(rows, { provider, reason } = {}) {
       createdAt,
       normalizedProvider,
       normalizedReason,
+      normalizedSnapshotId,
+      normalizedSourceReference,
+      normalizedOperator,
+      policy,
+      JSON.stringify(normalizedAffectedGuruIds),
+      JSON.stringify(normalizedRows),
       normalizedRows.length,
       JSON.stringify(symbols),
       JSON.stringify(dates),
@@ -1577,10 +1650,44 @@ export function writeAuditedPriceRepair(rows, { provider, reason } = {}) {
     auditId,
     createdAt,
     provider: normalizedProvider,
+    snapshotId: normalizedSnapshotId,
+    sourceReference: normalizedSourceReference,
+    operator: normalizedOperator,
+    policy,
+    affectedGuruIds: normalizedAffectedGuruIds,
     rowCount: normalizedRows.length,
     symbols,
     dates,
     payloadSha256
+  };
+}
+
+export function readPriceRepairAudit(auditId) {
+  const normalized = String(auditId || "").trim();
+  if (!normalized) return null;
+  const row = db.prepare(`
+    SELECT audit_id, created_at, provider, reason, snapshot_id, source_reference,
+      operator, policy, affected_gurus_json, rows_json, row_count, symbols_json,
+      dates_json, payload_sha256
+    FROM price_repair_audits
+    WHERE audit_id = ?
+  `).get(normalized);
+  if (!row) return null;
+  return {
+    auditId: row.audit_id,
+    createdAt: row.created_at,
+    provider: row.provider,
+    reason: row.reason,
+    snapshotId: row.snapshot_id,
+    sourceReference: row.source_reference,
+    operator: row.operator,
+    policy: row.policy,
+    affectedGuruIds: parsePayload(row.affected_gurus_json) || [],
+    rows: parsePayload(row.rows_json) || [],
+    rowCount: Number(row.row_count) || 0,
+    symbols: parsePayload(row.symbols_json) || [],
+    dates: parsePayload(row.dates_json) || [],
+    payloadSha256: row.payload_sha256
   };
 }
 

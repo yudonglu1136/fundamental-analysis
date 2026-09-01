@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import test, { after } from "node:test";
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "guru-sec-filings-test-"));
@@ -17,6 +18,7 @@ process.env.PRICE_CACHE_DIR = path.join(tempDir, "prices");
 const { filingsFromRecentShape } = await import("./secClient.js");
 const {
   readPriceSeriesFromDb,
+  readPriceRepairAudit,
   writeAuditedPriceRepair,
   writePriceSeriesToDb
 } = await import("./localDatabase.js");
@@ -64,6 +66,26 @@ test("adjusted close survives the SQLite price cache round trip", () => {
 });
 
 test("audited price repair validates and atomically records exact adjusted rows", () => {
+  writePriceSeriesToDb("SPY", [{
+    date: "2026-08-28",
+    open: 650,
+    high: 655,
+    low: 645,
+    close: 652,
+    adjustedClose: 652,
+    volume: 50_000_000
+  }], "fixture");
+  for (const symbol of ["REPAIRA", "REPAIRB", "NO-PARTIAL-A", "NO-PARTIAL-B"]) {
+    writePriceSeriesToDb(symbol, [{
+      date: "2026-08-27",
+      open: 10,
+      high: 11,
+      low: 9,
+      close: 10,
+      adjustedClose: 10,
+      volume: 1000
+    }], "fixture");
+  }
   const audit = writeAuditedPriceRepair([
     {
       symbol: "repairb",
@@ -87,7 +109,11 @@ test("audited price repair validates and atomically records exact adjusted rows"
     }
   ], {
     provider: "fixture-provider",
-    reason: "Restore an independently verified missing trading session."
+    reason: "Restore an independently verified missing trading session.",
+    snapshotId: "snap-00000000000000000",
+    sourceReference: "Fixture provider request dated 2026-08-28.",
+    operator: "node-test",
+    affectedGuruIds: ["bill-ackman"]
   });
 
   assert.equal(audit.rowCount, 2);
@@ -99,26 +125,58 @@ test("audited price repair validates and atomically records exact adjusted rows"
   assert.equal(repaired.length, 1);
   assert.equal(repaired[0].adjustedClose, 10.25);
   assert.equal(repaired[0].source, "audited:fixture-provider");
+  const storedAudit = readPriceRepairAudit(audit.auditId);
+  assert.equal(storedAudit.snapshotId, "snap-00000000000000000");
+  assert.equal(storedAudit.policy, "insert_missing_only_verified_spy_session");
+  assert.deepEqual(storedAudit.affectedGuruIds, ["bill-ackman"]);
+  assert.deepEqual(storedAudit.rows.map((row) => row.symbol), ["REPAIRA", "REPAIRB"]);
+
+  const failureDb = new DatabaseSync(databasePath);
+  failureDb.exec(`
+    CREATE TRIGGER abort_test_price_repair
+    BEFORE INSERT ON price_points
+    WHEN NEW.symbol = 'NO-PARTIAL-B'
+    BEGIN
+      SELECT RAISE(ABORT, 'forced transaction failure');
+    END;
+  `);
+  failureDb.close();
 
   assert.throws(() => writeAuditedPriceRepair([
     {
       symbol: "NO-PARTIAL-A",
       date: "2026-08-28",
+      open: 30,
+      high: 31,
+      low: 29,
       close: 30,
-      adjustedClose: 30
+      adjustedClose: 30,
+      volume: 1000
     },
     {
       symbol: "NO-PARTIAL-B",
       date: "2026-08-28",
-      close: -1,
-      adjustedClose: 31
+      open: 31,
+      high: 32,
+      low: 30,
+      close: 31,
+      adjustedClose: 31,
+      volume: 2000
     }
   ], {
     provider: "fixture-provider",
-    reason: "This invalid batch must not partially write any row."
-  }), /invalid close/);
+    reason: "This database failure must roll back every inserted row.",
+    snapshotId: "snap-00000000000000000",
+    sourceReference: "Fixture provider request dated 2026-08-28.",
+    operator: "node-test",
+    affectedGuruIds: ["bill-ackman"]
+  }), /forced transaction failure/);
   assert.deepEqual(
     readPriceSeriesFromDb("NO-PARTIAL-A", "2026-08-28", "2026-08-28"),
+    []
+  );
+  assert.deepEqual(
+    readPriceSeriesFromDb("NO-PARTIAL-B", "2026-08-28", "2026-08-28"),
     []
   );
 });
