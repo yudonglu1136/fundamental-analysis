@@ -428,7 +428,12 @@ test("an adjusted SQLite series with an internal benchmark-session gap is refres
 });
 
 test("an audited SQLite point is merged after an upstream IPO-range refresh", async () => {
-  writePriceSeriesToDb("AUDITEDMERGEFIXTURE", [
+  writePriceSeriesToDb("SPY", [
+    { date: "2024-01-02", close: 470, adjustedClose: 470 },
+    { date: "2024-01-03", close: 471, adjustedClose: 471 },
+    { date: "2024-01-04", close: 472, adjustedClose: 472 }
+  ], "fixture");
+  writePriceSeriesToDb("AUDMERGE", [
     {
       date: "2024-01-02",
       open: 100,
@@ -439,15 +444,6 @@ test("an audited SQLite point is merged after an upstream IPO-range refresh", as
       volume: 1000
     },
     {
-      date: "2024-01-03",
-      open: 101,
-      high: 103,
-      low: 100,
-      close: 102,
-      adjustedClose: 102,
-      volume: 1100
-    },
-    {
       date: "2024-01-04",
       open: 102,
       high: 104,
@@ -456,7 +452,24 @@ test("an audited SQLite point is merged after an upstream IPO-range refresh", as
       adjustedClose: 103,
       volume: 1200
     }
-  ], "audited-fixture");
+  ], "old-yahoo-cache");
+  writeAuditedPriceRepair([{
+    symbol: "AUDMERGE",
+    date: "2024-01-03",
+    open: 101,
+    high: 103,
+    low: 100,
+    close: 102,
+    adjustedClose: 102,
+    volume: 1100
+  }], {
+    provider: "fixture-provider",
+    reason: "Restore the independently verified missing internal session.",
+    snapshotId: "snap-00000000000000000",
+    sourceReference: "Fixture provider request dated 2024-01-03.",
+    operator: "node-test",
+    affectedGuruIds: ["bill-ackman"]
+  });
 
   const originalFetch = globalThis.fetch;
   let fetchCalls = 0;
@@ -479,7 +492,7 @@ test("an audited SQLite point is merged after an upstream IPO-range refresh", as
   };
 
   try {
-    const series = await loadPriceSeries("AUDITEDMERGEFIXTURE", {
+    const series = await loadPriceSeries("AUDMERGE", {
       start: "2023-01-01",
       end: "2024-01-04",
       requireAdjusted: true,
@@ -493,12 +506,12 @@ test("an audited SQLite point is merged after an upstream IPO-range refresh", as
       "2024-01-03",
       "2024-01-04"
     ]);
-    assert.equal(series.points[1].source, "audited-fixture");
+    assert.equal(series.points[1].source, "audited:fixture-provider");
 
     globalThis.fetch = async () => {
       throw new Error("the merged JSON cache should satisfy the second request");
     };
-    const cached = await loadPriceSeries("AUDITEDMERGEFIXTURE", {
+    const cached = await loadPriceSeries("AUDMERGE", {
       start: "2023-01-01",
       end: "2024-01-04",
       requireAdjusted: true,
@@ -507,9 +520,87 @@ test("an audited SQLite point is merged after an upstream IPO-range refresh", as
     assert.equal(cached.cache, "hit");
     assert.equal(fetchCalls, 1);
     assert.equal(
-      readPriceSeriesFromDb("AUDITEDMERGEFIXTURE", "2024-01-03", "2024-01-03")[0].source,
-      "audited-fixture"
+      readPriceSeriesFromDb("AUDMERGE", "2024-01-03", "2024-01-03")[0].source,
+      "audited:fixture-provider"
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("an unledgered stale SQLite point cannot fill a fresh upstream gap", async () => {
+  writePriceSeriesToDb("UNTRUSTEDMERGEFIXTURE", [
+    { date: "2024-01-02", close: 101, adjustedClose: 101 },
+    { date: "2024-01-03", close: 102, adjustedClose: 102 },
+    { date: "2024-01-04", close: 103, adjustedClose: 103 }
+  ], "old-yahoo-cache");
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      chart: {
+        result: [{
+          timestamp: [1704153600, 1704326400],
+          indicators: {
+            quote: [{ close: [101, 103] }],
+            adjclose: [{ adjclose: [101, 103] }]
+          }
+        }]
+      }
+    })
+  });
+
+  try {
+    const series = await loadPriceSeries("UNTRUSTEDMERGEFIXTURE", {
+      start: "2023-01-01",
+      end: "2024-01-04",
+      requireAdjusted: true,
+      expectedTradingDates: ["2024-01-02", "2024-01-03", "2024-01-04"]
+    });
+    assert.equal(series.source, "yahoo");
+    assert.deepEqual(series.points.map((point) => point.date), [
+      "2024-01-02",
+      "2024-01-04"
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a fresh upstream row without adjusted close cannot inherit a stale DB value", async () => {
+  writePriceSeriesToDb("FRESHNULL", [{
+    date: "2024-01-02",
+    close: 101,
+    adjustedClose: 99
+  }], "old-yahoo-cache");
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      chart: {
+        result: [{
+          timestamp: [1704153600],
+          indicators: {
+            quote: [{ close: [101] }],
+            adjclose: [{ adjclose: [null] }]
+          }
+        }]
+      }
+    })
+  });
+
+  try {
+    const series = await loadPriceSeries("FRESHNULL", {
+      start: "2023-01-01",
+      end: "2024-01-02",
+      requireAdjusted: true
+    });
+    assert.equal(series.source, "unavailable");
+    assert.equal(series.returnBasis, "unavailable");
+    assert.deepEqual(series.points, []);
+    assert.equal(series.failure.adjustedPointCount, 0);
   } finally {
     globalThis.fetch = originalFetch;
   }

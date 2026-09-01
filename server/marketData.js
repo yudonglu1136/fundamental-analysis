@@ -1,7 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { readPriceSeriesFromDb, writePriceSeriesToDb } from "./localDatabase.js";
+import {
+  filterLedgerAuditedPriceRepairPoints,
+  readPriceSeriesFromDb,
+  writePriceSeriesToDb
+} from "./localDatabase.js";
 import { yahooChartSymbol } from "./tickerAliases.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -246,8 +250,23 @@ export async function loadPriceSeries(symbol, {
   };
   writePriceSeriesToDb(normalized, points, source);
   let responsePayload = payload;
-  if (requireAdjusted && source !== "unavailable" && points.length) {
-    const mergedPoints = readPriceSeriesFromDb(normalized, start, end);
+  if (
+    requireAdjusted &&
+    source !== "unavailable" &&
+    points.length &&
+    observedAdjustedCloseCovered(points)
+  ) {
+    const freshDates = new Set(points.map((point) => point.date).filter(Boolean));
+    const storedPoints = readPriceSeriesFromDb(normalized, start, end);
+    const auditedSupplements = filterLedgerAuditedPriceRepairPoints(
+      storedPoints.filter((point) => !freshDates.has(point.date))
+    );
+    const auditedSupplementKeys = new Set(
+      auditedSupplements.map((point) => `${point.symbol}:${point.date}`)
+    );
+    const mergedPoints = storedPoints.filter((point) =>
+      freshDates.has(point.date) || auditedSupplementKeys.has(`${point.symbol}:${point.date}`)
+    );
     const mergedUsable = observedAdjustedCloseCovered(mergedPoints) &&
       expectedInternalSessionsCovered(mergedPoints, expectedTradingDates) &&
       (!requireFullRange || adjustedRangeCovered(mergedPoints, start, end));

@@ -1400,6 +1400,31 @@ export function readPriceSeriesFromDb(symbol, start, end) {
   }));
 }
 
+const auditedPriceRepairPointStatement = db.prepare(`
+  SELECT 1
+  FROM price_repair_audits AS audit,
+    json_each(audit.rows_json) AS repaired
+  WHERE audit.provider = ?
+    AND json_extract(repaired.value, '$.symbol') = ?
+    AND json_extract(repaired.value, '$.date') = ?
+  LIMIT 1
+`);
+
+export function filterLedgerAuditedPriceRepairPoints(points = []) {
+  return (points || []).filter((point) => {
+    const source = String(point?.source || "");
+    if (!source.startsWith("audited:")) return false;
+    const provider = source.slice("audited:".length);
+    const symbol = String(point?.symbol || "").trim().toUpperCase();
+    const date = String(point?.date || "").trim();
+    return Boolean(provider && symbol && date && auditedPriceRepairPointStatement.get(
+      provider,
+      symbol,
+      date
+    ));
+  });
+}
+
 export function writePriceSeriesToDb(symbol, points, source = "unknown") {
   const normalized = String(symbol || "").trim().toUpperCase();
   if (!normalized || !points?.length) return;
