@@ -1,0 +1,79 @@
+{
+  "generatedAt": "2026-08-30",
+  "basis": "Berkshire Hathaway public 13F securities ranked by disclosed market value",
+  "filing": {
+    "reportDate": "2026-06-30",
+    "filingDate": "2026-08-14",
+    "accession": "0001193125-26-352200",
+    "totalValueUsd": 299253556246,
+    "totalPositions": 29,
+    "top10Weight": 0.8846890527822717,
+    "primaryDocument": "https://www.sec.gov/Archives/edgar/data/1067983/000119312526352200/xslForm13F_X02/primary_doc.xml",
+    "informationTable": "https://www.sec.gov/Archives/edgar/data/1067983/000119312526352200/56757.xml"
+  },
+  "holdings": [
+    {
+      "ticker": "AAPL",
+      "company": "APPLE",
+      "weight": 22.04,
+      "valueUsd": 65950296923
+    },
+    {
+      "ticker": "AXP",
+      "company": "AMERICAN EXPRESS",
+      "weight": 17.14,
+      "valueUsd": 51282319275
+    },
+    {
+      "ticker": "KO",
+      "company": "COCA-COLA",
+      "weight": 10.86,
+      "valueUsd": 32508000000
+    },
+    {
+      "ticker": "GOOGL",
+      "company": "ALPHABET · CLASS A",
+      "weight": 9.41,
+      "valueUsd": 28157599351,
+      "action": "INCREASED"
+    },
+    {
+      "ticker": "BAC",
+      "company": "BANK OF AMERICA",
+      "weight": 9.2,
+      "valueUsd": 27543790975,
+      "action": "TRIMMED"
+    },
+    {
+      "ticker": "CVX",
+      "company": "CHEVRON",
+      "weight": 4.67,
+      "valueUsd": 13986141890
+    },
+    {
+      "ticker": "OXY",
+      "company": "OCCIDENTAL",
+      "weight": 4.3,
+      "valueUsd": 12868205304
+    },
+    {
+      "ticker": "CB",
+      "company": "CHUBB",
+      "weight": 3.9,
+      "valueUsd": 11670066615
+    },
+    {
+      "ticker": "MCO",
+      "company": "MOODY'S",
+      "weight": 3.73,
+      "valueUsd": 11173435852
+    },
+    {
+      "ticker": "GOOG",
+      "company": "ALPHABET · CLASS C",
+      "weight": 3.21,
+      "valueUsd": 9606489032,
+      "action": "INCREASED"
+    }
+  ]
+}

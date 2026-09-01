@@ -1,0 +1,39 @@
+{
+  "title": "Gavin Baker's Hardware Edge",
+  "releaseDate": "2026-08-30",
+  "generatedAt": "2026-08-31",
+  "dimensions": {
+    "width": 1600,
+    "height": 900
+  },
+  "output": "docs/brand/2026-08-30/gavin-baker-sector-edge-en-1600x900.png",
+  "data": "docs/brand/2026-08-30/gavin-baker-sector-edge-data.json",
+  "copy": "docs/brand/2026-08-30/gavin-baker-sector-edge-copy-en.md",
+  "assets": {
+    "mark": "assets/branding/thesisforge-mark.png",
+    "portrait": "web/guru-avatars/gavin-baker.png"
+  },
+  "hashes": {
+    "imageSha256": "5418ab873eef34e2c0f79c0e33d3497471f05a35bb4b0d82823a8d5a2ab951ae",
+    "dataSha256": "cdc25c71101b0c00f5f71bae1a68c92e3704cb34be528c14e4f433931475ae45"
+  },
+  "calculations": {
+    "completedWindows": 26,
+    "observations": 634,
+    "overallHitRate": 0.4968454258675079,
+    "overallPayoffRatio": 1.5022987698534223,
+    "highConvictionAddHitRate": 0.4782608695652174,
+    "highConvictionAddPayoffRatio": 1.5153120886805576,
+    "highConvictionAddEvents": 23,
+    "semiconductorBigAddHitRate": 0.625,
+    "semiconductorBigAddPayoffRatio": 3.3316896341291145,
+    "semiconductorBigAddEvents": 8
+  },
+  "contentRules": [
+    "Every displayed statistic is reproduced from the companion data file.",
+    "Industry win rates use identical public-filing execution windows and SPY comparison windows.",
+    "High-conviction adds use reported share changes, not market-value changes.",
+    "The graphic identifies Gavin Baker editorially and does not imply Atreides affiliation or endorsement.",
+    "The result is labeled as a 13F proxy and not fund performance."
+  ]
+}

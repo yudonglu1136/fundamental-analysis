@@ -1,0 +1,35 @@
+{
+  "title": "Ackman Top 10 Beat SPY — With More Risk",
+  "generatedAt": "2026-08-31",
+  "dimensions": {
+    "width": 1600,
+    "height": 900
+  },
+  "output": "docs/brand/2026-08-30/ackman-top10-backtest-en-1600x900.png",
+  "data": "docs/brand/2026-08-30/ackman-top10-backtest-equity-daily.json",
+  "copy": "docs/brand/2026-08-30/ackman-top10-backtest-copy-en.md",
+  "assets": {
+    "mark": "assets/branding/thesisforge-mark.png",
+    "portrait": "web/guru-avatars/bill-ackman.png"
+  },
+  "calculations": {
+    "top10TotalReturn": 1.482107458722905,
+    "top10Cagr": 0.1493156479269111,
+    "top10MaxDrawdown": -0.4530461923956983,
+    "top10Sharpe": 0.7022623845941202,
+    "spyTotalReturn": 1.2840638674322014,
+    "spyCagr": 0.13477883297193882,
+    "spyMaxDrawdown": -0.3410474689324393,
+    "spySharpe": 0.7258663767819732,
+    "excessCagr": 0.014536814954972277,
+    "excessTotalReturn": 0.1980435912907037,
+    "rebalances": 25,
+    "averagePriceCoverage": 1
+  },
+  "contentRules": [
+    "Every plotted point comes from the daily series stored in the companion data file.",
+    "The two series use the same linear axis and identical date window.",
+    "No Berkshire logo, affiliation or endorsement claim is used.",
+    "The title describes the disclosed Top 10 copy strategy, not Berkshire Hathaway or Buffett personal performance."
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "title": "Copy Buffett's Homework — Top 10",
+  "generatedAt": "2026-08-30",
+  "dimensions": {
+    "width": 1600,
+    "height": 900
+  },
+  "output": "docs/brand/2026-08-30/buffett-top10-homework-en-1600x900.png",
+  "data": "docs/brand/2026-08-30/buffett-top10-homework-data.json",
+  "copy": "docs/brand/2026-08-30/buffett-top10-homework-copy-en.md",
+  "assets": {
+    "mark": "assets/branding/thesisforge-mark.png",
+    "portrait": "web/guru-avatars/warren-buffett.png"
+  },
+  "contentRules": [
+    "GOOGL and GOOG remain separate because the SEC information table reports distinct securities.",
+    "Weights use the full reported 13F value as denominator and round to two decimal places.",
+    "No Berkshire logo or endorsement claim is used.",
+    "All copy, holdings, dates, values and disclosures are deterministic SVG overlays."
+  ],
+  "caveats": [
+    "13F can lag quarter-end by up to 45 days.",
+    "13F omits cash, T-bills, private businesses, shorts, many non-U.S. assets and intra-quarter trades.",
+    "The filing does not identify whether Buffett, Todd Combs or Ted Weschler made a specific decision.",
+    "Research only; not investment advice."
+  ]
+}

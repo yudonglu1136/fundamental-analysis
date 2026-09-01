@@ -1,0 +1,49 @@
+{
+  "title": "ThesisForge — Evidence Before Narrative",
+  "releaseDate": "2026-08-30",
+  "generatedAt": "2026-08-31",
+  "durationSeconds": 10,
+  "dimensions": {
+    "width": 1920,
+    "height": 1080
+  },
+  "frameRate": 30,
+  "output": "docs/brand/2026-08-30/thesisforge-system-promo-en-10s-1920x1080.mp4",
+  "poster": "docs/brand/2026-08-30/thesisforge-system-promo-en-10s-poster.jpg",
+  "source": {
+    "recording": "/Users/yudonglu/Desktop/Screen Recording 2026-08-14 at 12.42.45 PM.mov",
+    "recordingDate": "2026-08-14",
+    "sha256": "02ffb7fceb2e02514bf137ee67df7c210b46286dfee3a375c6e1e4f360ceda3b",
+    "trimSeconds": [
+      0,
+      10
+    ],
+    "preservedContent": true,
+    "treatment": "The source product recording is cropped, scaled, color-balanced, framed and overlaid with deterministic branding; its UI content is not redrawn or relabeled."
+  },
+  "encoding": {
+    "video": "H.264 / libx264 / CRF 18 / yuv420p",
+    "audio": "Original deterministic electronic tone bed / AAC 160 kbps",
+    "fastStart": true
+  },
+  "hashes": {
+    "videoSha256": "4cac88568753d018ed03c3ff7460e18661a30032d4a8191c0b83021e6bfd4ef4",
+    "posterSha256": "ac2876d6aecec40ec4e319af1c908c0d2d07285f9b61174d300ea002c3134a43",
+    "assets": {
+      "background": "e7adaf8be8526fa660e4bb2197d8c772caa823a56c1a49485f4ff8cc811bf2c7",
+      "brand": "fb216713444359e7f3f719f36d05b1f5512aa4d25685aa977f381f969c8f0ae6",
+      "scene1": "48471dc0270f03f98a13ddc4507475a565a599ef46cc5f52601dc9ac44e08f7c",
+      "scene2": "328581f25210ad191446ae038fea67f29ec035106fbabd05f0cd36fd0da06a31",
+      "scene3": "a1c4ce60c90c4139470b570f8609aa18767597409d60c7f9cb4460b005a1ddec",
+      "final": "db56914626a34c5a588fdcc8c9d15877a8287e0ffdecd4efecb9b8f54b9cb875"
+    }
+  },
+  "exactCopy": [
+    "THE MARKET IS NOT A LIST.",
+    "MAP THE SYSTEM.",
+    "FIND WHAT CHANGED.",
+    "EVIDENCE BEFORE NARRATIVE.",
+    "EXPLORE THE SYSTEM",
+    "thesisforge.tech"
+  ]
+}

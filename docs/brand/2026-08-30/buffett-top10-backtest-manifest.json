@@ -1,0 +1,35 @@
+{
+  "title": "Buffett Top 10 Didn't Beat SPY",
+  "generatedAt": "2026-08-31",
+  "dimensions": {
+    "width": 1600,
+    "height": 900
+  },
+  "output": "docs/brand/2026-08-30/buffett-top10-backtest-en-1600x900.png",
+  "data": "docs/brand/2026-08-30/buffett-top10-backtest-equity-daily.json",
+  "copy": "docs/brand/2026-08-30/buffett-top10-backtest-copy-en.md",
+  "assets": {
+    "mark": "assets/branding/thesisforge-mark.png",
+    "portrait": "web/guru-avatars/warren-buffett.png"
+  },
+  "calculations": {
+    "top10TotalReturn": 2.9301617711246473,
+    "top10Cagr": 0.11105592370783057,
+    "top10MaxDrawdown": -0.3852601596691909,
+    "top10Sharpe": 0.6374945430144227,
+    "spyTotalReturn": 3.6660656573623056,
+    "spyCagr": 0.12582608637633386,
+    "spyMaxDrawdown": -0.3410474689324394,
+    "spySharpe": 0.7812538322273211,
+    "excessCagr": -0.014770162668503284,
+    "excessTotalReturn": -0.7359038862376583,
+    "rebalances": 53,
+    "averagePriceCoverage": 1
+  },
+  "contentRules": [
+    "Every plotted point comes from the daily series stored in the companion data file.",
+    "The two series use the same linear axis and identical date window.",
+    "No Berkshire logo, affiliation or endorsement claim is used.",
+    "The title describes the disclosed Top 10 copy strategy, not Berkshire Hathaway or Buffett personal performance."
+  ]
+}
