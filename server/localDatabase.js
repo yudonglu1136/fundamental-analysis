@@ -14,9 +14,6 @@ const dbPath = process.env.SQLITE_DB_PATH || bundledDbPath;
 const dataDir = path.dirname(dbPath);
 
 fs.mkdirSync(dataDir, { recursive: true });
-if (dbPath !== bundledDbPath && !fs.existsSync(dbPath) && fs.existsSync(bundledDbPath)) {
-  fs.copyFileSync(bundledDbPath, dbPath);
-}
 
 const db = new DatabaseSync(dbPath);
 db.exec(`
@@ -61,6 +58,7 @@ db.exec(`
     high REAL,
     low REAL,
     close REAL NOT NULL,
+    adjusted_close REAL,
     volume REAL,
     source TEXT,
     updated_at TEXT NOT NULL,
@@ -177,10 +175,52 @@ db.exec(`
   );
 
   INSERT OR IGNORE INTO cache_revisions (scope, revision) VALUES
+    ('dashboard_snapshots', 0),
+    ('guru_snapshots', 0),
+    ('guru_assets', 0),
     ('guru_backtests', 0),
     ('valuation_snapshots', 0),
     ('valuation_ticker_snapshots', 0),
     ('valuation_podcast_insights', 0);
+
+  CREATE TRIGGER IF NOT EXISTS dashboard_snapshots_revision_insert
+  AFTER INSERT ON dashboard_snapshots BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'dashboard_snapshots';
+  END;
+  CREATE TRIGGER IF NOT EXISTS dashboard_snapshots_revision_update
+  AFTER UPDATE ON dashboard_snapshots BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'dashboard_snapshots';
+  END;
+  CREATE TRIGGER IF NOT EXISTS dashboard_snapshots_revision_delete
+  AFTER DELETE ON dashboard_snapshots BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'dashboard_snapshots';
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS guru_snapshots_revision_insert
+  AFTER INSERT ON guru_snapshots BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_snapshots';
+  END;
+  CREATE TRIGGER IF NOT EXISTS guru_snapshots_revision_update
+  AFTER UPDATE ON guru_snapshots BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_snapshots';
+  END;
+  CREATE TRIGGER IF NOT EXISTS guru_snapshots_revision_delete
+  AFTER DELETE ON guru_snapshots BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_snapshots';
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS guru_assets_revision_insert
+  AFTER INSERT ON guru_assets BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_assets';
+  END;
+  CREATE TRIGGER IF NOT EXISTS guru_assets_revision_update
+  AFTER UPDATE ON guru_assets BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_assets';
+  END;
+  CREATE TRIGGER IF NOT EXISTS guru_assets_revision_delete
+  AFTER DELETE ON guru_assets BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_assets';
+  END;
 
   CREATE TRIGGER IF NOT EXISTS guru_backtests_revision_insert
   AFTER INSERT ON guru_backtests BEGIN
@@ -235,6 +275,13 @@ db.exec(`
   END;
 `);
 
+const pricePointColumns = new Set(
+  db.prepare("PRAGMA table_info(price_points)").all().map((column) => column.name)
+);
+if (!pricePointColumns.has("adjusted_close")) {
+  db.exec("ALTER TABLE price_points ADD COLUMN adjusted_close REAL");
+}
+
 const readCacheRevisionStatement = db.prepare(`
   SELECT revision
   FROM cache_revisions
@@ -245,8 +292,24 @@ function readCacheRevision(scope) {
   return Number(readCacheRevisionStatement.get(scope)?.revision) || 0;
 }
 
+const readGuruDashboardIdentityStatement = db.prepare(`
+  SELECT generated_at
+  FROM dashboard_snapshots
+  WHERE id = 'latest'
+`);
+
+export function readGuruDashboardVersion() {
+  const dashboard = readGuruDashboardIdentityStatement.get();
+  return [
+    readCacheRevision("dashboard_snapshots"),
+    dashboard?.generated_at || "missing",
+    readCacheRevision("guru_snapshots"),
+    readCacheRevision("guru_assets")
+  ].join(":");
+}
+
 function syncBundledValuationSnapshots() {
-  if (process.env.SYNC_BUNDLED_VALUATION_SNAPSHOTS === "false") return;
+  if (process.env.SYNC_BUNDLED_VALUATION_SNAPSHOTS !== "true") return;
   if (dbPath === bundledDbPath || !fs.existsSync(bundledDbPath)) return;
 
   let bundledDb;
@@ -321,7 +384,7 @@ function syncBundledValuationSnapshots() {
 }
 
 function syncBundledGuruBacktests() {
-  if (process.env.SYNC_BUNDLED_GURU_BACKTESTS === "false") return;
+  if (process.env.SYNC_BUNDLED_GURU_BACKTESTS !== "true") return;
   if (dbPath === bundledDbPath || !fs.existsSync(bundledDbPath)) return;
 
   let bundledDb;
@@ -397,7 +460,7 @@ function syncBundledGuruBacktests() {
 }
 
 function syncBundledDividendCalendar() {
-  if (process.env.SYNC_BUNDLED_DIVIDEND_CALENDAR === "false") return;
+  if (process.env.SYNC_BUNDLED_DIVIDEND_CALENDAR !== "true") return;
   if (dbPath === bundledDbPath || !fs.existsSync(bundledDbPath)) return;
 
   let bundledDb;
@@ -580,7 +643,7 @@ function syncBundledDividendCalendar() {
 }
 
 function syncBundledPodcastInsights() {
-  if (process.env.SYNC_BUNDLED_PODCAST_INSIGHTS === "false") return;
+  if (process.env.SYNC_BUNDLED_PODCAST_INSIGHTS !== "true") return;
   if (dbPath === bundledDbPath || !fs.existsSync(bundledDbPath)) return;
 
   let bundledDb;
@@ -896,6 +959,22 @@ export function readValuationSnapshotVersion() {
   return `${row.generated_at}:${readCacheRevision("valuation_snapshots")}`;
 }
 
+const readValuationDashboardVersionStatement = db.prepare(`
+  SELECT
+    (SELECT generated_at FROM valuation_snapshots WHERE id = 'latest') AS generated_at,
+    (SELECT revision FROM cache_revisions WHERE scope = 'valuation_snapshots') AS snapshot_revision,
+    (SELECT revision FROM cache_revisions WHERE scope = 'valuation_podcast_insights') AS podcast_revision
+`);
+
+export function readValuationDashboardVersion() {
+  const row = readValuationDashboardVersionStatement.get();
+  return [
+    row?.generated_at || "missing",
+    Number(row?.snapshot_revision) || 0,
+    Number(row?.podcast_revision) || 0
+  ].join(":");
+}
+
 export function writeValuationSnapshot(payload) {
   db.prepare(`
     INSERT INTO valuation_snapshots (id, generated_at, payload_json)
@@ -1185,7 +1264,7 @@ export function readPriceSeriesFromDb(symbol, start, end) {
   if (!normalized) return [];
 
   return db.prepare(`
-    SELECT symbol, date, open, high, low, close, volume, source
+    SELECT symbol, date, open, high, low, close, adjusted_close, volume, source
     FROM price_points
     WHERE symbol = ? AND date >= ? AND date <= ?
     ORDER BY date ASC
@@ -1196,6 +1275,7 @@ export function readPriceSeriesFromDb(symbol, start, end) {
     high: point.high,
     low: point.low,
     close: point.close,
+    adjustedClose: point.adjusted_close,
     volume: point.volume,
     source: point.source
   }));
@@ -1206,13 +1286,16 @@ export function writePriceSeriesToDb(symbol, points, source = "unknown") {
   if (!normalized || !points?.length) return;
 
   const statement = db.prepare(`
-    INSERT INTO price_points (symbol, date, open, high, low, close, volume, source, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO price_points (
+      symbol, date, open, high, low, close, adjusted_close, volume, source, updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(symbol, date) DO UPDATE SET
       open = excluded.open,
       high = excluded.high,
       low = excluded.low,
       close = excluded.close,
+      adjusted_close = COALESCE(excluded.adjusted_close, price_points.adjusted_close),
       volume = excluded.volume,
       source = excluded.source,
       updated_at = excluded.updated_at
@@ -1230,6 +1313,7 @@ export function writePriceSeriesToDb(symbol, points, source = "unknown") {
         Number.isFinite(point.high) ? point.high : null,
         Number.isFinite(point.low) ? point.low : null,
         point.close,
+        Number.isFinite(point.adjustedClose) ? point.adjustedClose : null,
         Number.isFinite(point.volume) ? point.volume : null,
         source,
         updatedAt

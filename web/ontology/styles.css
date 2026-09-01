@@ -546,6 +546,37 @@ select { border: 1px solid var(--border); border-radius: 4px; background: white;
 
 .view-panel { display: none; }
 .view-panel.active { display: block; }
+
+.view-load-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 18px;
+  padding: 14px 16px;
+  color: #f7fafc;
+  background: rgba(225, 90, 90, 0.12);
+  border: 1px solid rgba(225, 90, 90, 0.48);
+  border-radius: 8px;
+}
+
+.view-load-error strong { font-size: 13px; }
+.view-load-error p { margin: 4px 0 0; color: #aab5c4; font-size: 12px; }
+.view-load-error button {
+  min-width: 120px;
+  min-height: 44px;
+  padding: 0 14px;
+  color: #071611;
+  background: #22d3a6;
+  border: 0;
+  border-radius: 7px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .view-load-error { align-items: stretch; flex-direction: column; margin: 10px; }
+}
 .workspace-toolbar {
   min-height: 76px;
   display: flex;
@@ -871,6 +902,48 @@ body {
   border-radius: 50%;
   background: var(--accent);
   content: "";
+}
+
+.ontology-truth-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.ontology-source-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 2px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface-muted);
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ontology-source-state.live,
+.ontology-source-state.cached {
+  border-color: rgba(34, 211, 166, 0.48);
+  color: #7cebc8;
+  background: rgba(18, 59, 61, 0.9);
+}
+
+.ontology-source-state.stale {
+  border-color: rgba(224, 177, 90, 0.52);
+  color: #f2cc7c;
+  background: rgba(58, 48, 32, 0.92);
+}
+
+.ontology-source-state.error {
+  border-color: rgba(225, 90, 90, 0.52);
+  color: #ff9c9c;
+  background: rgba(61, 34, 43, 0.92);
 }
 
 .search-box input,
@@ -3451,8 +3524,11 @@ tbody tr {
 
 .guru-back-link {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   margin-left: 8px;
-  padding-left: 14px;
+  padding: 0 6px 0 14px;
   border-left: 1px solid var(--border);
   color: var(--muted);
   font-size: 11px;
@@ -3508,4 +3584,42 @@ tbody tr {
     grid-row: 3;
     width: 100%;
   }
+}
+
+/* Interactive controls keep a 44px touch target across terminal densities. */
+.search-box input,
+.company-controls input,
+.company-controls select,
+.decision-search input,
+.strategy-date-range input,
+.strategy-date-range button,
+select,
+.global-search-results button,
+.language-switch button,
+.mobile-filter-button,
+.view-tab,
+.segment,
+.text-button,
+.compact-text-button,
+.decision-filter-list button,
+.strategy-period-tabs button,
+.trend-tab,
+.ontology-flow-tab,
+.terminal-icon-button,
+.zoom-controls button,
+.icon-button,
+.command-button,
+.back-button,
+.dialog-close,
+.detail-close,
+.primary-command,
+.load-more-button,
+.view-load-error button {
+  min-height: 44px;
+}
+
+#timeline-range,
+#market-timeline-range,
+#decision-timeline-range {
+  min-height: 44px;
 }

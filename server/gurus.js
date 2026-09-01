@@ -69,6 +69,7 @@ export const gurus = [
     chineseName: "Bill Ackman",
     entityName: "Pershing Square Capital Management, L.P.",
     cik: "0001336528",
+    alternateCiks: ["0002026053"],
     type: "manager13f",
     role: "Pershing Square founder / CEO",
     thesisTag: "Concentrated activist compounders",

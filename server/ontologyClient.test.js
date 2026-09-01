@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, utimesSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -50,6 +50,12 @@ put("fixed:rankings_all", {
     { ticker: "BBB", primary_layer: "chips", signal_state: "mixed", heat_score: 80, fcf_yoy: -0.1 }
   ]
 });
+put("fixed:decision_overview", { marker: "overview-v1", rows: [{ ticker: "AAA" }] });
+put("fixed:graph", { marker: "graph-v1", nodes: [{ id: "AAA" }] });
+put("fixed:market_home", { metadata: { as_of: "2026-08-01" }, market_groups: [] });
+put("fixed:overview", { totals: { companies: 1 }, build: { as_of: "2026-08-01" } });
+put("fixed:methodology", { signal_definition: {}, field_notes: [], sources: [] });
+put("fixed:timeline", { points: [] });
 put("fixed:strategies", {
   version: "strategy-showcase-v1",
   strategies: [{ id: "ontology-rules-6m", name: "Ontology 固定规则" }]
@@ -66,11 +72,18 @@ put("strategy_snapshot:ontology-rules-6m:evaluation_2018_2026:2026-08-01", {
 });
 database.prepare("INSERT INTO metadata VALUES (?, ?)").run(
   "manifest",
-  JSON.stringify({ schema_version: 2 })
+  JSON.stringify({
+    schema_version: 2,
+    generated_at: "2026-08-01T00:00:00.000Z",
+    responses: 13,
+    critical_failure_count: 0
+  })
 );
+database.prepare("INSERT INTO metadata VALUES (?, ?)").run("schema_version", "2");
 database.close();
 
 process.env.ONTOLOGY_SNAPSHOT_PATH = snapshotPath;
+process.env.ONTOLOGY_SNAPSHOT_VERSION_CHECK_MS = "0";
 const ontology = await import(`./ontologyClient.js?test=${Date.now()}`);
 
 test("filters and limits decision snapshots", () => {
@@ -118,4 +131,40 @@ test("loads strategy catalog, detail and dated portfolio snapshot", () => {
     asOf: "2026-08-01"
   });
   assert.equal(snapshot.positions[0].ticker, "AAA");
+});
+
+test("health validates the embedded manifest, schema and required fixed routes", () => {
+  const health = ontology.publicOntologySnapshotInfo();
+  assert.equal(health.ok, true);
+  assert.equal(health.responseCount, 13);
+  assert.equal(health.manifest.schema_version, 2);
+  assert.equal("path" in health, false);
+});
+
+test("fixed payloads reuse objects and invalidate after the read-only snapshot version changes", () => {
+  const overview = ontology.loadOntologyOverview();
+  const overviewHit = ontology.loadOntologyOverview();
+  const graph = ontology.loadFixedOntologyPayload("graph");
+  const graphHit = ontology.loadFixedOntologyPayload("graph");
+  assert.strictEqual(overviewHit, overview);
+  assert.strictEqual(graphHit, graph);
+
+  const writer = new DatabaseSync(snapshotPath);
+  const replacement = Buffer.from(JSON.stringify({
+    marker: "overview-v2",
+    rows: [{ ticker: "BBB" }]
+  }));
+  writer.prepare(`
+    UPDATE responses
+    SET payload_gzip = ?, json_bytes = ?, updated_at = ?
+    WHERE route_key = 'fixed:decision_overview'
+  `).run(gzipSync(replacement), replacement.length, new Date().toISOString());
+  writer.close();
+  const future = new Date(Date.now() + 2000);
+  utimesSync(snapshotPath, future, future);
+
+  const refreshed = ontology.loadOntologyOverview();
+  assert.notStrictEqual(refreshed, overview);
+  assert.equal(refreshed.marker, "overview-v2");
+  assert.equal(ontology.ontologyPayloadCacheStats().snapshotVersionCheckMs, 0);
 });

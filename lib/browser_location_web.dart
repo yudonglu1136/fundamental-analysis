@@ -4,7 +4,10 @@ Map<String, String> readBrowserQuery() => Uri.base.queryParameters;
 
 String readBrowserPath() => Uri.base.path;
 
-void replaceBrowserQuery(Map<String, String?> updates) {
+void replaceBrowserQuery(
+  Map<String, String?> updates, {
+  bool replaceCurrent = false,
+}) {
   final current = Uri.base;
   final nextParams = Map<String, String>.from(current.queryParameters);
   for (final entry in updates.entries) {
@@ -26,7 +29,11 @@ void replaceBrowserQuery(Map<String, String?> updates) {
   final currentRelative =
       '$path${current.hasQuery ? '?${current.query}' : ''}${current.hasFragment ? '#${current.fragment}' : ''}';
   if (next == currentRelative) return;
-  web.window.history.replaceState(null, web.document.title, next);
+  if (replaceCurrent) {
+    web.window.history.replaceState(null, web.document.title, next);
+  } else {
+    web.window.history.pushState(null, web.document.title, next);
+  }
 }
 
 void openBrowserPath(String path) {

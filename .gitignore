@@ -17,6 +17,7 @@ build/
 .vite/
 coverage/
 .vercel
+.playwright-cli/
 __pycache__/
 *.py[cod]
 output/

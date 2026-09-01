@@ -102,7 +102,13 @@ curl -s https://www.thesisforge.tech/main.dart.js | rg 'supabase.co'
 Expected:
 
 - `server: Vercel` for the app shell.
-- `/api/health` returns JSON from the AWS backend.
+- `/api/health` returns JSON from the AWS backend. HTTP 200 means every required
+  database, data, and Ontology module is current. HTTP 503 is an intentional
+  fail-closed signal for a missing/empty database, a missing/unreadable required
+  table, an unavailable Ontology snapshot, or stale core data.
+- Inspect `status`, `ok`, and every entry in `modules[]`; each module exposes a
+  `state` plus `freshness.latestAt`, `ageHours`, `warningHours`, and
+  `failedHours`. A `stale`, `unknown`, or `failed` module is never green.
 - `main.dart.js` contains the Supabase project URL.
 
 ## Backend Deploy
@@ -112,6 +118,24 @@ AWS is backend/API only. Package and deploy EB without frontend `dist/`:
 ```bash
 bash scripts/package-aws-backend.sh <version>
 ```
+
+Production must set `SQLITE_DB_PATH` to the intended persistent runtime database.
+Normal startup must not seed or overwrite that database from the database bundled
+inside the deployment package. Keep these variables unset or explicitly `false`:
+
+```text
+SYNC_BUNDLED_VALUATION_SNAPSHOTS=false
+SYNC_BUNDLED_GURU_BACKTESTS=false
+SYNC_BUNDLED_DIVIDEND_CALENDAR=false
+SYNC_BUNDLED_PODCAST_INSIGHTS=false
+```
+
+Each bundled sync runs only when its variable is exactly `true`. Use that value
+only for a controlled, backed-up, one-time seed/migration with an audited bundle;
+restore it to `false` before normal production traffic. Pointing
+`SQLITE_DB_PATH` at an existing database never authorizes bundled data mutation;
+a missing custom path creates an empty migrated schema rather than copying the
+packaged database implicitly.
 
 Use the emergency frontend fallback only if Vercel is unavailable and the user explicitly asks for it:
 

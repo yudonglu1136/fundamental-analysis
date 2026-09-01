@@ -101,6 +101,14 @@ const _uiChinese = <String, String>{
   'STOCK Act copy simulation': 'STOCK Act 复制模拟',
   'Not eligible for 13F copy': '不进行 13F 复制',
   '13F market value': '13F 市值',
+  'Reported 13F table value': '申报的 13F 信息表价值',
+  'Reported common-long': '申报的普通股多头',
+  'Reported options': '申报的期权',
+  'Reported 13F value': '申报的 13F 价值',
+  'information-table total': '信息表合计',
+  '13F information-table total': '13F 信息表合计',
+  'excludes reported options': '不含申报期权',
+  'puts and calls in table': '信息表中的看跌/看涨期权',
   'latest disclosed': '最新披露',
   'waiting filing': '等待申报',
   'vs quarter end': '相对季度末',
@@ -169,7 +177,6 @@ const _uiChinese = <String, String>{
   'Select Guru': '选择投资人',
   'No gurus match this filter.': '没有符合当前筛选的投资人。',
   'Select a guru to inspect.': '请选择一位投资人查看详情。',
-  'AUM': '管理规模',
   'Holdings': '持仓数',
   'Latest Quarter': '最新季度',
   'Filing Lag': '披露滞后',
@@ -216,7 +223,8 @@ const _uiChinese = <String, String>{
   'No activity rows available.': '暂无动态记录。',
   'Not copy-tradable': '不可复制交易',
   'Portfolio vs SPY': '组合与 SPY 对比',
-  'New Buys & Sells': '新买入 / 卖出',
+  'Reported position changes': '申报的持仓变化',
+  'REPORTED POSITION CHANGES': '申报持仓变化',
   'Quarterly Contribution': '季度贡献',
   'No equity curve available.': '暂无净值曲线。',
   'OWNER ADMIN': '管理员',
@@ -382,6 +390,8 @@ const _uiChinese = <String, String>{
   'Select a ticker from the matrix.': '请从矩阵中选择一只股票。',
   'No historical valuation or price series available.': '暂无历史估值或股价序列。',
   'Fair value': '公允价值',
+  'Historical nodes use point-in-time data; model-version reproducibility is shown separately.':
+      '历史节点使用时点数据；模型版本可复现性单独展示。',
   'Quarter price': '季度股价',
   'Daily price': '每日股价',
   'No quarterly valuation history.': '暂无季度估值历史。',
@@ -400,7 +410,7 @@ const _uiChinese = <String, String>{
   'MODEL OUTPUT': '模型输出',
   'Price at date': '当期股价',
   'Upside': '上涨空间',
-  '3Y target': '三年目标价',
+  '3Y scenario': '三年情景值',
   'PODCAST RADAR': '播客雷达',
   'CALL TRANSCRIPT Q&A': '电话会问答',
   'evidence strength': '证据强度',
@@ -414,7 +424,6 @@ const _uiChinese = <String, String>{
   'Retry': '重试',
   'Coverage': '覆盖范围',
   'gurus': '位投资人',
-  '13F AUM': '13F 管理规模',
   'long equity': '多头股票',
   'Spread': '信号差',
   'buy minus sell': '买入减卖出',
@@ -493,6 +502,16 @@ const _uiChinese = <String, String>{
       '尚未配置 IBKR / Yodlee 凭证，当前显示本地示例结构。',
   'Local SQLite valuation database': '本地 SQLite 估值数据库',
   'Portfolio module sample': '组合模块示例',
+  'Sample portfolio — not an account': '示例组合 — 非真实账户',
+  'Illustrative local data only. It is not connected to your brokerage account.':
+      '仅为本地示例数据，未连接您的任何券商账户。',
+  'SAMPLE DATA · NOT AN ACCOUNT': '示例数据 · 非真实账户',
+  'Sample total': '示例总值',
+  'Sample day P/L': '示例当日盈亏',
+  'Sample unrealized': '示例未实现盈亏',
+  'Sample cash': '示例现金',
+  'SAMPLE STRUCTURE': '示例结构',
+  'Illustrative account': '示例账户',
   'Nasdaq dividend calendar': 'Nasdaq 股息日历',
   'Yahoo dividend history': 'Yahoo 历史股息',
   'Yahoo dividend history estimate': 'Yahoo 历史股息预估',
@@ -513,7 +532,7 @@ const _uiChinese = <String, String>{
   'UPSIDE / DOWNSIDE': '上涨 / 下跌空间',
   'PRICE / FV': '股价 / 公允价值',
   'QUALITY': '质量',
-  '3Y TARGET': '三年目标价',
+  '3Y SCENARIO': '三年情景值',
   'not configured': '未配置',
   'no_database': '无数据库',
   'Unknown user': '未知用户',
@@ -540,6 +559,7 @@ const _uiChinese = <String, String>{
   'street': '市场共识',
   'live': '实时',
   'cached': '缓存',
+  'error': '错误',
 };
 
 final _uiEnglish = <String, String>{
@@ -557,6 +577,14 @@ String localizeUiText(AppLanguage language, String source) {
     'healthy' => trFor(language, '正常', 'Healthy'),
     'stale' => trFor(language, '数据陈旧', 'Stale'),
     'sample' => trFor(language, '示例', 'Sample'),
+    'error' => trFor(language, '错误', 'Error'),
+    'review' => trFor(language, '需复核', 'Review'),
+    'fail' => trFor(language, '未通过', 'Fail'),
+    'verified' => trFor(language, '已验证', 'Verified'),
+    'not_verified' => trFor(language, '未验证', 'Not verified'),
+    'not_validated' => trFor(language, '未做经济验证', 'Not validated'),
+    'guardrail_only' => trFor(language, '仅作比较护栏', 'Guardrail only'),
+    'not_run' => trFor(language, '未运行', 'Not run'),
     'full' => trFor(language, '完整', 'Full'),
     'neutral' => trFor(language, '中性', 'Neutral'),
     _ => null,
@@ -685,9 +713,13 @@ bool _supabaseReady = false;
 Object? _supabaseInitError;
 Future<bool>? _supabaseInitFuture;
 
-Future<bool> _ensureSupabaseReady() {
+Future<bool> _ensureSupabaseReady({bool retry = false}) {
   if (!_authConfigured) return Future.value(false);
   if (_supabaseReady) return Future.value(true);
+  if (retry) {
+    _supabaseInitFuture = null;
+    _supabaseInitError = null;
+  }
   return _supabaseInitFuture ??= () async {
     try {
       await Supabase.initialize(
@@ -716,8 +748,34 @@ class GuruTerminalApp extends StatefulWidget {
   State<GuruTerminalApp> createState() => _GuruTerminalAppState();
 }
 
-class _GuruTerminalAppState extends State<GuruTerminalApp> {
+class _GuruTerminalAppState extends State<GuruTerminalApp>
+    with WidgetsBindingObserver {
   AppLanguage _language = parseAppLanguage(readBrowserQuery()['lang']);
+  Uri _routeUri = Uri.base;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Future<bool> didPushRouteInformation(RouteInformation routeInformation) {
+    final nextLanguage = parseAppLanguage(
+      routeInformation.uri.queryParameters['lang'],
+    );
+    setState(() {
+      _routeUri = routeInformation.uri;
+      _language = nextLanguage;
+    });
+    return Future<bool>.value(true);
+  }
 
   void _setLanguage(AppLanguage language) {
     if (_language == language) return;
@@ -747,16 +805,26 @@ class _GuruTerminalAppState extends State<GuruTerminalApp> {
             surface: const Color(0xFF111827),
           ),
         ),
-        home: AuthGate(language: _language, onLanguage: _setLanguage),
+        home: AuthGate(
+          language: _language,
+          routeUri: _routeUri,
+          onLanguage: _setLanguage,
+        ),
       ),
     );
   }
 }
 
 class AuthGate extends StatefulWidget {
-  const AuthGate({super.key, required this.language, required this.onLanguage});
+  const AuthGate({
+    super.key,
+    required this.language,
+    required this.routeUri,
+    required this.onLanguage,
+  });
 
   final AppLanguage language;
+  final Uri routeUri;
   final ValueChanged<AppLanguage> onLanguage;
 
   @override
@@ -780,14 +848,29 @@ class _AuthGateState extends State<AuthGate> {
     _bootstrap();
   }
 
-  Future<void> _bootstrap() async {
-    if (await _ensureSupabaseReady()) {
+  Future<void> _bootstrap({bool retry = false}) async {
+    if (retry) {
+      await _authSub?.cancel();
+      _authSub = null;
+    }
+    if (await _ensureSupabaseReady(retry: retry)) {
       final client = Supabase.instance.client;
       _session = client.auth.currentSession;
-      _authSub = client.auth.onAuthStateChange.listen((event) {
-        if (!mounted) return;
-        setState(() => _session = event.session);
-      });
+      _authSub = client.auth.onAuthStateChange.listen(
+        (event) {
+          if (!mounted) return;
+          setState(() => _session = event.session);
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (!mounted) return;
+          setState(() {
+            _setAuthMessage(
+              '身份验证连接暂时中断，可在页内重试。',
+              'The auth connection was interrupted. Retry on this page.',
+            );
+          });
+        },
+      );
       if (_session != null && _returnTo != null) {
         try {
           final refreshed = await client.auth.refreshSession();
@@ -815,6 +898,16 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _retryBootstrap() async {
+    if (_loading) return;
+    setState(() {
+      _loading = true;
+      _authMessageZh = null;
+      _authMessageEn = null;
+    });
+    await _bootstrap(retry: true);
   }
 
   @override
@@ -853,6 +946,13 @@ class _AuthGateState extends State<AuthGate> {
     });
   }
 
+  void _enterLocalWorkspace() {
+    setState(() => _localWorkspace = true);
+    if (_returnTo != null) {
+      scheduleMicrotask(() => openBrowserPath(_returnTo));
+    }
+  }
+
   void _setAuthMessage(String zh, String en) {
     _authMessageZh = zh;
     _authMessageEn = en;
@@ -880,7 +980,8 @@ class _AuthGateState extends State<AuthGate> {
         language: widget.language,
         onLanguage: widget.onLanguage,
         onGoogle: _signInWithGoogle,
-        onLocal: () => setState(() => _localWorkspace = true),
+        onLocal: _enterLocalWorkspace,
+        onRetry: _retryBootstrap,
       );
     } else {
       final user = _localWorkspace
@@ -896,6 +997,7 @@ class _AuthGateState extends State<AuthGate> {
         userName: user,
         userEmail: userEmail,
         language: widget.language,
+        routeUri: widget.routeUri,
         onLanguage: widget.onLanguage,
         onLogout: _logout,
       );
@@ -915,6 +1017,7 @@ class LoginScreen extends StatelessWidget {
     required this.onLanguage,
     required this.onGoogle,
     required this.onLocal,
+    required this.onRetry,
   });
 
   final bool authConfigured;
@@ -924,6 +1027,7 @@ class LoginScreen extends StatelessWidget {
   final ValueChanged<AppLanguage> onLanguage;
   final VoidCallback onGoogle;
   final VoidCallback onLocal;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -940,125 +1044,140 @@ class LoginScreen extends StatelessWidget {
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Container(
-                  key: const ValueKey('login-panel'),
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(32),
-                  decoration: panelDecoration(palette),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: LanguageSegment(
-                          language: language,
-                          onLanguage: onLanguage,
-                          palette: palette,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Container(
-                            width: 52,
-                            height: 52,
-                            padding: const EdgeInsets.all(7),
-                            decoration: BoxDecoration(
-                              color: palette.accent.withValues(alpha: .12),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: palette.accent.withValues(alpha: .32),
-                              ),
-                            ),
-                            child: Image.asset(
-                              'assets/branding/thesisforge-mark.png',
-                              fit: BoxFit.contain,
-                              semanticLabel: context.tr(
-                                'ThesisForge',
-                                'ThesisForge',
-                              ),
-                            ),
+            child: SingleChildScrollView(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: Container(
+                    key: const ValueKey('login-panel'),
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(32),
+                    decoration: panelDecoration(palette),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: LanguageSegment(
+                            language: language,
+                            onLanguage: onLanguage,
+                            palette: palette,
                           ),
-                          const SizedBox(width: 14),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                context.tr('ThesisForge', 'ThesisForge'),
-                                style: TextStyle(
-                                  color: palette.text,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Container(
+                              width: 52,
+                              height: 52,
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                color: palette.accent.withValues(alpha: .12),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: palette.accent.withValues(alpha: .32),
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'GURU INTELLIGENCE',
-                                style: TextStyle(
-                                  color: palette.accent,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
+                              child: Image.asset(
+                                'assets/branding/thesisforge-mark.png',
+                                fit: BoxFit.contain,
+                                semanticLabel: context.tr(
+                                  'ThesisForge',
+                                  'ThesisForge',
                                 ),
                               ),
-                            ],
+                            ),
+                            const SizedBox(width: 14),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  context.tr('ThesisForge', 'ThesisForge'),
+                                  style: TextStyle(
+                                    color: palette.text,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'GURU INTELLIGENCE',
+                                  style: TextStyle(
+                                    color: palette.accent,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          context.tr('研究终端', 'Research Terminal'),
+                          style: Theme.of(context).textTheme.displaySmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0,
+                              ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          context.tr(
+                            '面向买方研究的终端，整合 13F 资金流、内部人交易、组合模拟与估值分析。',
+                            'A buy-side terminal for 13F flows, insider activity, copy simulation, and valuation context.',
+                          ),
+                          style: TextStyle(color: palette.muted, height: 1.35),
+                        ),
+                        const SizedBox(height: 28),
+                        FilledButton.icon(
+                          onPressed: authConfigured ? onGoogle : null,
+                          icon: const Icon(Icons.login_rounded),
+                          label: Text(
+                            context.tr('使用 Google 继续', 'Continue with Google'),
+                          ),
+                        ),
+                        if (localBypassEnabled) ...[
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: onLocal,
+                            icon: const Icon(Icons.terminal_rounded),
+                            label: Text(
+                              context.tr('进入本地工作区', 'Enter Local Workspace'),
+                            ),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        context.tr('研究终端', 'Research Terminal'),
-                        style: Theme.of(context).textTheme.displaySmall
-                            ?.copyWith(
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0,
+                        const SizedBox(height: 18),
+                        Text(
+                          (authMessage?.isNotEmpty ?? false)
+                              ? authMessage!
+                              : (authConfigured
+                                    ? context.tr(
+                                        '生产环境使用 Supabase Google 身份验证。',
+                                        'Production mode uses Supabase Google auth.',
+                                      )
+                                    : context.tr(
+                                        'Supabase 密钥未配置或身份验证暂不可用；开发环境可进入本地工作区。',
+                                        'Supabase keys are not configured or auth is not reachable; local workspace mode is available for development.',
+                                      )),
+                          style: TextStyle(color: palette.faint, fontSize: 12),
+                        ),
+                        if ((authMessage?.isNotEmpty ?? false)) ...[
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: onRetry,
+                            icon: const Icon(Icons.refresh_rounded),
+                            label: Text(
+                              context.tr(
+                                '重试身份验证初始化',
+                                'Retry auth initialization',
+                              ),
                             ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        context.tr(
-                          '面向买方研究的终端，整合 13F 资金流、内部人交易、组合模拟与估值分析。',
-                          'A buy-side terminal for 13F flows, insider activity, copy simulation, and valuation context.',
-                        ),
-                        style: TextStyle(color: palette.muted, height: 1.35),
-                      ),
-                      const SizedBox(height: 28),
-                      FilledButton.icon(
-                        onPressed: authConfigured ? onGoogle : null,
-                        icon: const Icon(Icons.login_rounded),
-                        label: Text(
-                          context.tr('使用 Google 继续', 'Continue with Google'),
-                        ),
-                      ),
-                      if (localBypassEnabled) ...[
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: onLocal,
-                          icon: const Icon(Icons.terminal_rounded),
-                          label: Text(
-                            context.tr('进入本地工作区', 'Enter Local Workspace'),
                           ),
-                        ),
+                        ],
                       ],
-                      const SizedBox(height: 18),
-                      Text(
-                        (authMessage?.isNotEmpty ?? false)
-                            ? authMessage!
-                            : (authConfigured
-                                  ? context.tr(
-                                      '生产环境使用 Supabase Google 身份验证。',
-                                      'Production mode uses Supabase Google auth.',
-                                    )
-                                  : context.tr(
-                                      'Supabase 密钥未配置或身份验证暂不可用；开发环境可进入本地工作区。',
-                                      'Supabase keys are not configured or auth is not reachable; local workspace mode is available for development.',
-                                    )),
-                        style: TextStyle(color: palette.faint, fontSize: 12),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -1077,6 +1196,7 @@ class TerminalHome extends StatefulWidget {
     required this.userName,
     required this.userEmail,
     required this.language,
+    required this.routeUri,
     required this.onLanguage,
     required this.onLogout,
   });
@@ -1085,6 +1205,7 @@ class TerminalHome extends StatefulWidget {
   final String userName;
   final String userEmail;
   final AppLanguage language;
+  final Uri routeUri;
   final ValueChanged<AppLanguage> onLanguage;
   final VoidCallback onLogout;
 
@@ -1129,10 +1250,10 @@ class _TerminalHomeState extends State<TerminalHome>
       const Duration(minutes: 2),
       (_) => _recoverSecondaryIfNeeded(),
     );
-    final route = readBrowserQuery();
+    final route = widget.routeUri.queryParameters;
     _mode = normalizeRouteMode(
       route['view'] ?? route['mode'],
-      path: readBrowserPath(),
+      path: widget.routeUri.path,
     );
     final redirectingToOntology = _mode == 'ontology';
     if (redirectingToOntology) {
@@ -1161,6 +1282,42 @@ class _TerminalHomeState extends State<TerminalHome>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.accessToken != widget.accessToken) {
       _recoverSecondaryIfNeeded(forceWhenEmpty: true);
+    }
+    if (oldWidget.routeUri != widget.routeUri) {
+      _restoreBrowserRoute(widget.routeUri);
+    }
+  }
+
+  void _restoreBrowserRoute(Uri uri) {
+    final route = uri.queryParameters;
+    var nextMode = normalizeRouteMode(
+      route['view'] ?? route['mode'],
+      path: uri.path,
+    );
+    if (nextMode == 'ontology') {
+      openBrowserPath(ontologyPathForLanguage(widget.language, uri.toString()));
+      return;
+    }
+    if (nextMode == 'admin' && !_adminEnabled) nextMode = 'guru';
+    final nextGuru = cleanRouteValue(route['guru']);
+    final nextModule = guruModuleIndex(route['module']);
+    final nextTrade = cleanRouteValue(route['trade'])?.toUpperCase() ?? '';
+    final nextQuarter = cleanRouteValue(route['quarter']) ?? '';
+    final nextValuation =
+        cleanRouteValue(route['valuation'])?.toUpperCase() ?? '';
+    setState(() {
+      _mode = nextMode;
+      _selectedGuruId = nextGuru;
+      _guruModule = nextModule;
+      _guruTradeTicker = nextTrade;
+      _guruQuarterId = nextQuarter;
+      _valuationTicker = nextValuation;
+      _secondaryError = null;
+    });
+    if (shouldLoadGuruDashboard(nextMode, _guruPayload) && !_loadingGurus) {
+      unawaited(_loadGurus());
+    } else if (nextMode != 'guru') {
+      unawaited(_loadSecondary(nextMode));
     }
   }
 
@@ -1199,7 +1356,10 @@ class _TerminalHomeState extends State<TerminalHome>
           _selectedGuruId = defaultGuruId(gurus);
         }
       });
-      _persistRouteState();
+      // Selecting a deterministic default after a data load is normalization,
+      // not a new user navigation. Replacing the current entry preserves the
+      // browser's Forward stack after a Back navigation.
+      _persistRouteState(replaceCurrent: true);
     } catch (error) {
       if (mounted && requestId == _guruRequestSerial) {
         setState(() => _error = error.toString());
@@ -1290,7 +1450,15 @@ class _TerminalHomeState extends State<TerminalHome>
   void _changeMode(String mode) {
     if (mode == 'admin' && !_adminEnabled) return;
     if (mode == 'ontology') {
-      openBrowserPath(ontologyPathForLanguage(widget.language));
+      openBrowserPath(
+        ontologyPathForLanguage(
+          widget.language,
+          Uri(
+            path: '/ontology/',
+            queryParameters: {'returnTo': _terminalRoutePath()},
+          ).toString(),
+        ),
+      );
       return;
     }
     setState(() {
@@ -1305,7 +1473,7 @@ class _TerminalHomeState extends State<TerminalHome>
     }
   }
 
-  void _persistRouteState() {
+  void _persistRouteState({bool replaceCurrent = false}) {
     replaceBrowserQuery({
       'view': _mode == 'guru' ? null : _mode,
       'guru': _mode == 'guru' ? _selectedGuruId : null,
@@ -1323,7 +1491,32 @@ class _TerminalHomeState extends State<TerminalHome>
           ? _valuationTicker
           : null,
       'lang': widget.language == AppLanguage.en ? 'en' : null,
-    });
+    }, replaceCurrent: replaceCurrent);
+  }
+
+  String _terminalRoutePath() {
+    final params = <String, String>{};
+    if (_mode != 'guru') params['view'] = _mode;
+    if (_mode == 'guru' && (_selectedGuruId?.isNotEmpty ?? false)) {
+      params['guru'] = _selectedGuruId!;
+    }
+    if (_mode == 'guru' && _guruModule > 0) {
+      params['module'] = guruModuleRouteName(_guruModule);
+    }
+    if (_mode == 'guru' && _guruTradeTicker.isNotEmpty) {
+      params['trade'] = _guruTradeTicker;
+    }
+    if (_mode == 'guru' && _guruModule == 2 && _guruQuarterId.isNotEmpty) {
+      params['quarter'] = _guruQuarterId;
+    }
+    if (_mode == 'valuation' && _valuationTicker.isNotEmpty) {
+      params['valuation'] = _valuationTicker;
+    }
+    if (widget.language == AppLanguage.en) params['lang'] = 'en';
+    return Uri(
+      path: '/',
+      queryParameters: params.isEmpty ? null : params,
+    ).toString();
   }
 
   void _selectGuru(String id) {
@@ -1335,9 +1528,49 @@ class _TerminalHomeState extends State<TerminalHome>
     _persistRouteState();
   }
 
+  void _updateGuruSearch(String value) {
+    _updateGuruUniverse(search: value, filter: _filter);
+  }
+
+  void _updateGuruFilter(String value) {
+    _updateGuruUniverse(search: _search, filter: value);
+  }
+
+  void _updateGuruUniverse({required String search, required String filter}) {
+    final visible = filterGurus(asList(_guruPayload?['gurus']), search, filter);
+    final selectedVisible = visible.any(
+      (guru) => text(guru['id']) == _selectedGuruId,
+    );
+    final nextGuruId = selectedVisible
+        ? _selectedGuruId
+        : (visible.isEmpty ? null : text(visible.first['id']));
+    final selectionChanged = nextGuruId != _selectedGuruId;
+    setState(() {
+      _search = search;
+      _filter = filter;
+      _selectedGuruId = nextGuruId;
+      if (selectionChanged) {
+        _guruTradeTicker = '';
+        _guruQuarterId = '';
+      }
+    });
+    if (selectionChanged) _persistRouteState();
+  }
+
   @override
   Widget build(BuildContext context) {
     _scheduleSecondaryRecoveryIfStale();
+    final headerPayload = _mode == 'guru'
+        ? _guruPayload
+        : _secondaryPayloadFor(_mode);
+    final headerLoading = _mode == 'guru' ? _loadingGurus : _loadingSecondary;
+    final headerError = _mode == 'guru' ? _error : _secondaryError;
+    final headerState = moduleHeaderState(
+      mode: _mode,
+      payload: headerPayload,
+      loading: headerLoading,
+      error: headerError,
+    );
     return LanguageScope(
       language: widget.language,
       child: Scaffold(
@@ -1347,11 +1580,7 @@ class _TerminalHomeState extends State<TerminalHome>
               TerminalHeader(
                 mode: _mode,
                 userName: widget.userName,
-                sourceLabel: text(
-                  asMap(_guruPayload?['source'])['label'],
-                  'Local SQLite database',
-                ),
-                generatedAt: text(_guruPayload?['generatedAt']),
+                moduleState: headerState,
                 colorBlind: _colorBlind,
                 language: widget.language,
                 showAdmin: _adminEnabled,
@@ -1410,11 +1639,9 @@ class _TerminalHomeState extends State<TerminalHome>
 
     final gurus = asList(_guruPayload?['gurus']);
     final filtered = filterGurus(gurus, _search, _filter);
-    final selectedGuru = gurus.firstWhere(
+    final selectedGuru = filtered.firstWhere(
       (guru) => text(guru['id']) == _selectedGuruId,
-      orElse: () => filtered.isNotEmpty
-          ? filtered.first
-          : (gurus.isNotEmpty ? gurus.first : <String, dynamic>{}),
+      orElse: () => filtered.isNotEmpty ? filtered.first : <String, dynamic>{},
     );
     final signals = buildSignals(gurus);
     final exposures = buildExposures(gurus);
@@ -1431,8 +1658,8 @@ class _TerminalHomeState extends State<TerminalHome>
           search: _search,
           filter: _filter,
           palette: palette,
-          onSearch: (value) => setState(() => _search = value),
-          onFilter: (value) => setState(() => _filter = value),
+          onSearch: _updateGuruSearch,
+          onFilter: _updateGuruFilter,
           onSelect: _selectGuru,
         );
         final mobileUniverse = MobileGuruPicker(
@@ -1441,30 +1668,41 @@ class _TerminalHomeState extends State<TerminalHome>
           search: _search,
           filter: _filter,
           palette: palette,
-          onSearch: (value) => setState(() => _search = value),
-          onFilter: (value) => setState(() => _filter = value),
+          onSearch: _updateGuruSearch,
+          onFilter: _updateGuruFilter,
           onSelect: _selectGuru,
         );
-        final workspace = GuruWorkspace(
-          guru: selectedGuru,
-          api: _api,
-          palette: palette,
-          initialModule: _guruModule,
-          initialTicker: _guruTradeTicker,
-          initialQuarterId: _guruQuarterId,
-          onModuleChanged: (value) {
-            _guruModule = value;
-            _persistRouteState();
-          },
-          onTickerChanged: (value) {
-            _guruTradeTicker = value.toUpperCase();
-            _persistRouteState();
-          },
-          onQuarterChanged: (value) {
-            _guruQuarterId = value;
-            _persistRouteState();
-          },
-        );
+        final Widget workspace = filtered.isEmpty
+            ? Panel(
+                palette: palette,
+                child: EmptyState(
+                  text: context.tr(
+                    '没有可显示的 Guru 研究卡；请调整搜索或筛选。',
+                    'No Guru research card is visible; adjust the search or filter.',
+                  ),
+                  palette: palette,
+                ),
+              )
+            : GuruWorkspace(
+                guru: selectedGuru,
+                api: _api,
+                palette: palette,
+                initialModule: _guruModule,
+                initialTicker: _guruTradeTicker,
+                initialQuarterId: _guruQuarterId,
+                onModuleChanged: (value) {
+                  _guruModule = value;
+                  _persistRouteState();
+                },
+                onTickerChanged: (value) {
+                  _guruTradeTicker = value.toUpperCase();
+                  _persistRouteState();
+                },
+                onQuarterChanged: (value) {
+                  _guruQuarterId = value;
+                  _persistRouteState();
+                },
+              );
         final rightRail = GuruRightRail(
           gurus: gurus,
           signals: signals.take(3).toList(),
@@ -1532,11 +1770,147 @@ class _TerminalHomeState extends State<TerminalHome>
             mobile ? 8 : 10,
             22,
           ),
-          child: content,
+          child: Column(
+            children: [
+              if ((_loadingGurus && _guruPayload != null) ||
+                  _error != null) ...[
+                InlineDataBanner(
+                  loading: _loadingGurus,
+                  error: _error,
+                  palette: palette,
+                  onRetry: () => _loadGurus(refresh: true),
+                ),
+                const SizedBox(height: 10),
+              ],
+              content,
+            ],
+          ),
         );
       },
     );
   }
+}
+
+class ModuleHeaderState {
+  const ModuleHeaderState({
+    required this.status,
+    required this.source,
+    required this.asOf,
+  });
+
+  final String status;
+  final String source;
+  final String asOf;
+}
+
+ModuleHeaderState moduleHeaderState({
+  required String mode,
+  required Map<String, dynamic>? payload,
+  required bool loading,
+  String? error,
+  DateTime? now,
+}) {
+  final source = asMap(payload?['source']);
+  final summary = asMap(payload?['summary']);
+  final cache = asMap(payload?['cache']);
+  final guruDates = asList(
+    payload?['gurus'],
+  ).map((guru) => asMap(guru['summary'])).toList();
+  String latestGuruDate(String key) {
+    final values =
+        guruDates
+            .map((value) => text(value[key]))
+            .where((value) => DateTime.tryParse(value) != null)
+            .toList()
+          ..sort();
+    return values.isEmpty ? '' : values.last;
+  }
+
+  String firstValidAsOf(List<dynamic> candidates) {
+    for (final candidate in candidates) {
+      final value = text(candidate);
+      if (value.isNotEmpty && DateTime.tryParse(value) != null) return value;
+    }
+    return '';
+  }
+
+  // A request/computation timestamp is not an economic as-of. Only explicit
+  // upstream/source dates may appear in the terminal header or unlock LIVE.
+  final asOf = switch (mode) {
+    'valuation' => firstValidAsOf([
+      summary['latestPriceDate'],
+      source['asOf'],
+      payload?['asOf'],
+      summary['asOf'],
+    ]),
+    'guru' => firstValidAsOf([
+      latestGuruDate('filingDate'),
+      latestGuruDate('reportDate'),
+      source['asOf'],
+      payload?['asOf'],
+    ]),
+    'portfolio' => firstValidAsOf([
+      source['asOf'],
+      source['toDate'],
+      source['generatedAt'],
+      payload?['asOf'],
+      summary['asOf'],
+    ]),
+    'ontology' => firstValidAsOf([
+      source['asOf'],
+      source['generatedAt'],
+      payload?['asOf'],
+      summary['asOf'],
+    ]),
+    _ => firstValidAsOf([
+      source['asOf'],
+      payload?['asOf'],
+      summary['asOf'],
+    ]),
+  };
+  final explicitStatus = text(
+    payload?['status'],
+    text(source['mode'], text(source['status'], text(cache['status']))),
+  ).toLowerCase();
+  final freshnessValue = switch (mode) {
+    'valuation' || 'ontology' => text(asOf, text(payload?['generatedAt'])),
+    'guru' => text(payload?['generatedAt'], asOf),
+    _ => text(asOf, text(payload?['generatedAt'])),
+  };
+  final freshnessDate = DateTime.tryParse(freshnessValue)?.toUtc();
+  final freshnessLimit = switch (mode) {
+    'guru' => const Duration(hours: 48),
+    'valuation' => const Duration(hours: 72),
+    'portfolio' => const Duration(hours: 48),
+    'ontology' => const Duration(days: 7),
+    _ => null,
+  };
+  final referenceNow = (now ?? DateTime.now()).toUtc();
+  final computedStale =
+      freshnessLimit != null &&
+      freshnessDate != null &&
+      referenceNow.difference(freshnessDate) > freshnessLimit;
+  final status = explicitStatus == 'sample'
+      ? 'sample'
+      : (error?.trim().isNotEmpty ?? false)
+      ? 'error'
+      : explicitStatus.contains('stale') || computedStale
+      ? 'stale'
+      : loading && payload != null
+      ? 'cached'
+      : (explicitStatus == 'live' || explicitStatus.endsWith('_live')) &&
+            asOf.isNotEmpty
+      ? 'live'
+      : 'cached';
+  final sourceLabel = text(
+    source['label'],
+    text(source['upstreamLabel'], text(payload?['sourceLabel'])),
+  );
+  return ModuleHeaderState(
+    status: status,
+    source: sourceLabel.isEmpty ? mode : sourceLabel,
+    asOf: asOf,
+  );
 }
 
 class TerminalHeader extends StatelessWidget {
@@ -1544,8 +1918,7 @@ class TerminalHeader extends StatelessWidget {
     super.key,
     required this.mode,
     required this.userName,
-    required this.sourceLabel,
-    required this.generatedAt,
+    required this.moduleState,
     required this.colorBlind,
     required this.language,
     required this.showAdmin,
@@ -1559,8 +1932,7 @@ class TerminalHeader extends StatelessWidget {
 
   final String mode;
   final String userName;
-  final String sourceLabel;
-  final String generatedAt;
+  final ModuleHeaderState moduleState;
   final bool colorBlind;
   final AppLanguage language;
   final bool showAdmin;
@@ -1604,27 +1976,30 @@ class TerminalHeader extends StatelessWidget {
           ),
         ),
       ],
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: palette.accent.withValues(alpha: .28),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              initials,
-              style: TextStyle(
-                color: palette.text,
-                fontWeight: FontWeight.w900,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: palette.accent.withValues(alpha: .28),
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                initials,
+                style: TextStyle(
+                  color: palette.text,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
-          ),
-          Icon(Icons.expand_more_rounded, color: palette.muted, size: 20),
-        ],
+            Icon(Icons.expand_more_rounded, color: palette.muted, size: 20),
+          ],
+        ),
       ),
     );
     final refreshButton = _ToolbarIconButton(
@@ -1643,7 +2018,7 @@ class TerminalHeader extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 720;
+        final compact = constraints.maxWidth < 1200;
         final titleBlock = Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1661,8 +2036,8 @@ class TerminalHeader extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               compact
-                  ? '${toolbarDateLabel(generatedAt, context.language)} · ${context.ui(sourceLabel.replaceAll(' database', ''))}'
-                  : context.ui('Guru Stock Analysis'),
+                  ? '${toolbarDateLabel(moduleState.asOf, context.language)} · ${context.ui(moduleState.source.replaceAll(' database', ''))}'
+                  : context.ui(moduleState.source),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -1675,7 +2050,7 @@ class TerminalHeader extends StatelessWidget {
         );
 
         return Container(
-          height: compact ? 113 : 66,
+          height: compact ? 124 : 66,
           padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 14),
           decoration: BoxDecoration(
             color: palette.background.withValues(alpha: .96),
@@ -1692,14 +2067,17 @@ class TerminalHeader extends StatelessWidget {
               ? Column(
                   children: [
                     SizedBox(
-                      height: 58,
+                      height: 64,
                       child: Row(
                         children: [
                           logo,
                           const SizedBox(width: 10),
                           Expanded(child: titleBlock),
                           const SizedBox(width: 8),
-                          StatusDot(status: 'live', palette: palette),
+                          StatusDot(
+                            status: moduleState.status,
+                            palette: palette,
+                          ),
                           const SizedBox(width: 6),
                           _CompactLanguageButton(
                             language: language,
@@ -1713,7 +2091,7 @@ class TerminalHeader extends StatelessWidget {
                     ),
                     Container(height: 1, color: palette.border),
                     SizedBox(
-                      height: 53,
+                      height: 57,
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
@@ -1742,7 +2120,7 @@ class TerminalHeader extends StatelessWidget {
                     Container(width: 1, height: 34, color: palette.border),
                     const SizedBox(width: 16),
                     Text(
-                      toolbarDateLabel(generatedAt, context.language),
+                      toolbarDateLabel(moduleState.asOf, context.language),
                       style: TextStyle(
                         color: palette.muted,
                         fontSize: 13,
@@ -1750,7 +2128,7 @@ class TerminalHeader extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 18),
-                    StatusDot(status: 'live', palette: palette),
+                    StatusDot(status: moduleState.status, palette: palette),
                     const Spacer(),
                     ModeSegment(
                       mode: mode,
@@ -1795,30 +2173,34 @@ class _ToolbarIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onPressed,
-        child: Container(
-          width: 34,
-          height: 34,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: active
-                ? palette.accent.withValues(alpha: .18)
-                : palette.card.withValues(alpha: .7),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
+    return Semantics(
+      button: true,
+      label: tooltip,
+      child: Tooltip(
+        message: tooltip,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onPressed,
+          child: Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
               color: active
-                  ? palette.accent.withValues(alpha: .42)
-                  : palette.border,
+                  ? palette.accent.withValues(alpha: .18)
+                  : palette.card.withValues(alpha: .7),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: active
+                    ? palette.accent.withValues(alpha: .42)
+                    : palette.border,
+              ),
             ),
-          ),
-          child: Icon(
-            icon,
-            size: 19,
-            color: active ? palette.accent : palette.muted,
+            child: Icon(
+              icon,
+              size: 19,
+              color: active ? palette.accent : palette.muted,
+            ),
           ),
         ),
       ),
@@ -1853,8 +2235,8 @@ class _CompactLanguageButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           onTap: () => onLanguage(nextLanguage),
           child: Container(
-            width: 36,
-            height: 34,
+            width: 44,
+            height: 44,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: palette.card.withValues(alpha: .8),
@@ -1912,26 +2294,33 @@ class ModeSegment extends StatelessWidget {
           for (final item in modes)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(9),
-                onTap: () => onMode(item.$1),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: mode == item.$1
-                        ? palette.accent.withValues(alpha: .18)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    item.$2,
-                    style: TextStyle(
-                      color: mode == item.$1 ? palette.accent : palette.muted,
-                      fontWeight: FontWeight.w800,
+              child: Semantics(
+                button: true,
+                selected: mode == item.$1,
+                label: item.$2,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(9),
+                  onTap: () => onMode(item.$1),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    constraints: const BoxConstraints(minHeight: 44),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: mode == item.$1
+                          ? palette.accent.withValues(alpha: .18)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      item.$2,
+                      style: TextStyle(
+                        color: mode == item.$1 ? palette.accent : palette.muted,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                 ),
@@ -1974,29 +2363,36 @@ class LanguageSegment extends StatelessWidget {
           for (final option in options)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(7),
-                onTap: () => onLanguage(option.$1),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: language == option.$1
-                        ? palette.accent.withValues(alpha: .18)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    option.$2,
-                    style: TextStyle(
+              child: Semantics(
+                button: true,
+                selected: language == option.$1,
+                label: option.$2,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(7),
+                  onTap: () => onLanguage(option.$1),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    constraints: const BoxConstraints(minHeight: 44),
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
                       color: language == option.$1
-                          ? palette.accent
-                          : palette.muted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
+                          ? palette.accent.withValues(alpha: .18)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      option.$2,
+                      style: TextStyle(
+                        color: language == option.$1
+                            ? palette.accent
+                            : palette.muted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
                 ),
@@ -2045,7 +2441,20 @@ class GuruUniversePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _UniverseTopTabs(palette: palette),
+          PanelTitle(
+            icon: Icons.account_tree_rounded,
+            kicker: 'GURU UNIVERSE',
+            title: context.tr('投资人与机构', 'Gurus & firms'),
+            trailing: Text(
+              context.ui('${gurus.length} visible'),
+              style: TextStyle(
+                color: palette.faint,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            palette: palette,
+          ),
           const SizedBox(height: 10),
           SizedBox(
             height: 42,
@@ -2089,31 +2498,22 @@ class GuruUniversePanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _SidebarSelectChip(
-                  label: 'All Strategies',
-                  palette: palette,
-                ),
+          if (gurus.isEmpty)
+            EmptyState(
+              text: context.tr(
+                '当前搜索或筛选没有匹配的投资人。',
+                'No gurus match the current search or filter.',
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _SidebarSelectChip(
-                  label: 'All Status',
-                  palette: palette,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          for (final guru in gurus)
-            GuruListTile(
-              guru: guru,
-              active: text(guru['id']) == selectedGuruId,
               palette: palette,
-              onTap: () => onSelect(text(guru['id'])),
-            ),
+            )
+          else
+            for (final guru in gurus)
+              GuruListTile(
+                guru: guru,
+                active: text(guru['id']) == selectedGuruId,
+                palette: palette,
+                onTap: () => onSelect(text(guru['id'])),
+              ),
         ],
       ),
     );
@@ -2265,7 +2665,7 @@ class _MobileGuruCard extends StatelessWidget {
     final summary = asMap(guru['summary']);
     final type = text(guru['type']);
     final metric = type == 'manager13f'
-        ? formatMoney(number(summary['totalValue']))
+        ? formatMoney(reported13fTableValue(guru))
         : type == 'insider'
         ? context.ui(
             '${formatNumber(number(summary['trackedTickers']))} stocks',
@@ -2358,7 +2758,7 @@ class _MobileGuruCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                StatusDot(status: text(guru['status']), palette: palette),
+                StatusDot(status: guruDisplayStatus(guru), palette: palette),
               ],
             ),
           ],
@@ -2383,9 +2783,9 @@ class MobileOverviewBar extends StatelessWidget {
     final cards = [
       StatCardData('Coverage', '${stats.count}', 'gurus', Icons.radar_rounded),
       StatCardData(
-        '13F AUM',
+        'Reported 13F value',
         formatMoney(stats.aum),
-        'long equity',
+        'information-table total',
         Icons.account_balance_wallet_rounded,
       ),
       StatCardData(
@@ -2470,102 +2870,6 @@ class MobileOverviewBar extends StatelessWidget {
   }
 }
 
-class _UniverseTopTabs extends StatelessWidget {
-  const _UniverseTopTabs({required this.palette});
-
-  final Palette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 42,
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: palette.card.withValues(alpha: .72),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: palette.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: palette.accent.withValues(alpha: .13),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: palette.accent.withValues(alpha: .18),
-                ),
-              ),
-              child: Text(
-                context.ui('Gurus'),
-                style: TextStyle(
-                  color: palette.accent,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Center(
-              child: Text(
-                context.ui('Firms'),
-                style: TextStyle(
-                  color: palette.muted,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SidebarSelectChip extends StatelessWidget {
-  const _SidebarSelectChip({required this.label, required this.palette});
-
-  final String label;
-  final Palette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: palette.background.withValues(alpha: .34),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: palette.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              context.ui(label),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: palette.muted,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: palette.muted,
-            size: 16,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class GuruListTile extends StatelessWidget {
   const GuruListTile({
     super.key,
@@ -2585,7 +2889,7 @@ class GuruListTile extends StatelessWidget {
     final summary = asMap(guru['summary']);
     final type = text(guru['type']);
     final metric = type == 'manager13f'
-        ? formatMoney(number(summary['totalValue']))
+        ? formatMoney(reported13fTableValue(guru))
         : type == 'profile'
         ? context.ui('Profile')
         : type == 'insider'
@@ -2666,7 +2970,7 @@ class GuruListTile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  StatusDot(status: text(guru['status']), palette: palette),
+                  StatusDot(status: guruDisplayStatus(guru), palette: palette),
                 ],
               ),
             ],
@@ -3094,7 +3398,10 @@ class GuruWorkspaceHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 760;
+          // Six audit metrics cannot remain legible beside the identity block in
+          // the normal three-column terminal layout.  Collapse to a grid until
+          // the workspace itself (not the browser) is genuinely wide enough.
+          final compact = constraints.maxWidth < 1040;
           final veryCompact = constraints.maxWidth < 420;
           final identity = Row(
             children: [
@@ -3163,9 +3470,21 @@ class GuruWorkspaceHeader extends StatelessWidget {
           final metrics = type == 'manager13f'
               ? [
                   _GuruHeaderMetric(
-                    label: 'AUM',
-                    value: formatMoney(number(summary['totalValue'])),
-                    sub: '13F market value',
+                    label: 'Reported 13F table value',
+                    value: formatMoney(reported13fTableValue(guru)),
+                    sub: '13F information-table total',
+                    palette: palette,
+                  ),
+                  _GuruHeaderMetric(
+                    label: 'Reported common-long',
+                    value: formatMoney(reported13fCommonLongValue(guru)),
+                    sub: 'excludes reported options',
+                    palette: palette,
+                  ),
+                  _GuruHeaderMetric(
+                    label: 'Reported options',
+                    value: formatMoney(reported13fOptionsValue(guru)),
+                    sub: 'puts and calls in table',
                     palette: palette,
                   ),
                   _GuruHeaderMetric(
@@ -3184,12 +3503,6 @@ class GuruWorkspaceHeader extends StatelessWidget {
                     label: 'Filing Lag',
                     value: filingLagVerbose(summary),
                     sub: 'vs quarter end',
-                    palette: palette,
-                  ),
-                  _GuruHeaderMetric(
-                    label: 'Strategy',
-                    value: compactStrategy(context.ui(strategy)),
-                    sub: text(guru['disclosureKind'], 'High Conviction'),
                     palette: palette,
                   ),
                 ]
@@ -3286,7 +3599,7 @@ class GuruWorkspaceHeader extends StatelessWidget {
               children: [
                 identity,
                 const SizedBox(height: 18),
-                GridWrap(minTileWidth: 130, spacing: 10, children: metrics),
+                GridWrap(minTileWidth: 180, spacing: 10, children: metrics),
               ],
             );
           }
@@ -3300,7 +3613,7 @@ class GuruWorkspaceHeader extends StatelessWidget {
               const SizedBox(width: 18),
               metricsRow,
               const SizedBox(width: 10),
-              StatusDot(status: text(guru['status']), palette: palette),
+              StatusDot(status: guruDisplayStatus(guru), palette: palette),
             ],
           );
         },
@@ -3390,8 +3703,8 @@ class GuruModuleTabs extends StatelessWidget {
       ),
       (
         Icons.swap_vert_rounded,
-        context.tr('新买入/卖出', 'New Buys & Sells'),
-        'New Buys & Sells',
+        context.tr('申报持仓变化', 'Reported Changes'),
+        'Reported position changes',
       ),
       (
         Icons.calendar_month_rounded,
@@ -3454,74 +3767,79 @@ class _ModuleTabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        height: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          border: Border(
-            bottom: BorderSide(
-              color: selected ? palette.accent : Colors.transparent,
-              width: 3,
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          height: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            border: Border(
+              bottom: BorderSide(
+                color: selected ? palette.accent : Colors.transparent,
+                width: 3,
+              ),
             ),
           ),
-        ),
-        child: Row(
-          mainAxisAlignment: compact
-              ? MainAxisAlignment.center
-              : MainAxisAlignment.start,
-          children: [
-            Icon(
-              icon,
-              size: 18,
-              color: selected ? palette.accent : palette.muted,
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: compact
-                  ? Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: selected ? palette.accent : palette.muted,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 13,
+          child: Row(
+            mainAxisAlignment: compact
+                ? MainAxisAlignment.center
+                : MainAxisAlignment.start,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: selected ? palette.accent : palette.muted,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: compact
+                    ? Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: selected ? palette.accent : palette.muted,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 13,
+                        ),
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: selected ? palette.accent : palette.muted,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            context.ui(sublabel),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: palette.faint,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
                       ),
-                    )
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: selected ? palette.accent : palette.muted,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          context.ui(sublabel),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: palette.faint,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -4061,7 +4379,7 @@ class _LatestHoldingsListState extends State<LatestHoldingsList> {
           style: TextButton.styleFrom(
             foregroundColor: widget.palette.accent,
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            minimumSize: const Size(58, 34),
+            minimumSize: const Size(58, 44),
           ),
         ),
     ];
@@ -4220,7 +4538,7 @@ class SimulationRangeBar extends StatelessWidget {
                 label: Text(context.ui('All')),
                 style: TextButton.styleFrom(
                   foregroundColor: palette.accent,
-                  minimumSize: const Size(58, 34),
+                  minimumSize: const Size(58, 44),
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                 ),
               ),
@@ -4390,6 +4708,7 @@ class _GuruTradeModuleState extends State<GuruTradeModule> {
   @override
   Widget build(BuildContext context) {
     final type = text(widget.guru['type']);
+    final reported13f = type == 'manager13f';
     final tradeWorkspace = type == 'manager13f' || type == 'congress';
     final rows = guruTradeRows(widget.guru);
     final query = _tickerQuery.trim().toLowerCase();
@@ -4398,21 +4717,29 @@ class _GuruTradeModuleState extends State<GuruTradeModule> {
         : rows.where((row) {
             final ticker = text(row['ticker']).toLowerCase();
             final issuer = text(row['issuer']).toLowerCase();
-            final action = actionLabel(
-              text(row['action']),
-              context.language,
-            ).toLowerCase();
+            final action =
+                (reported13f
+                        ? reported13fActionLabel(
+                            text(row['action']),
+                            context.language,
+                          )
+                        : actionLabel(text(row['action']), context.language))
+                    .toLowerCase();
             return ticker.contains(query) ||
                 issuer.contains(query) ||
                 action.contains(query);
           }).toList();
-    final selected = widget.selectedTrade.isNotEmpty
-        ? widget.selectedTrade
-        : (rows.isNotEmpty ? rows.first : <String, dynamic>{});
+    final selected = filteredRows.firstWhere(
+      (row) => text(row['ticker']) == widget.selectedTicker,
+      orElse: () =>
+          filteredRows.isNotEmpty ? filteredRows.first : <String, dynamic>{},
+    );
     final summary = asMap(widget.guru['summary']);
     final market = asMap(widget.contextPayload?['market']);
     final selectedMarket = asMap(market['selected']);
-    final points = asList(selectedMarket['points']);
+    final points = selected.isEmpty
+        ? <Map<String, dynamic>>[]
+        : asList(selectedMarket['points']);
     final chartOperation = {
       ...selected,
       'date': text(
@@ -4448,6 +4775,7 @@ class _GuruTradeModuleState extends State<GuruTradeModule> {
           final row = filteredRows[index];
           return GuruTradeRowButton(
             row: row,
+            reported13f: reported13f,
             active: text(row['ticker']) == widget.selectedTicker,
             palette: widget.palette,
             onTap: () => widget.onSelect(row),
@@ -4538,7 +4866,15 @@ class _GuruTradeModuleState extends State<GuruTradeModule> {
                 ),
               ),
               Text(
-                actionLabel(text(chartOperation['action']), context.language),
+                reported13f
+                    ? reported13fActionLabel(
+                        text(chartOperation['action']),
+                        context.language,
+                      )
+                    : actionLabel(
+                        text(chartOperation['action']),
+                        context.language,
+                      ),
                 style: TextStyle(
                   color: tradeToneColor(
                     text(chartOperation['action']),
@@ -4594,10 +4930,15 @@ class _GuruTradeModuleState extends State<GuruTradeModule> {
           PanelTitle(
             icon: Icons.swap_vert_rounded,
             kicker: tradeWorkspace
-                ? 'NEW / EXIT'
+                ? (reported13f ? 'REPORTED POSITION CHANGES' : 'NEW / EXIT')
                 : disclosureLabel(type, context.language).toUpperCase(),
             title: tradeWorkspace
-                ? context.tr('新买入 / 卖出股票', 'New Buys / Sells')
+                ? (reported13f
+                      ? context.tr(
+                          '申报的新建仓 / 增持 / 减持',
+                          'Reported New Positions / Increases / Reductions',
+                        )
+                      : context.tr('新买入 / 卖出股票', 'New Buys / Sells'))
                 : context.tr('披露轨迹 / 股价走势', 'Disclosure Trail / Price Chart'),
             palette: widget.palette,
             trailing: _RetryIconButton(
@@ -4605,6 +4946,23 @@ class _GuruTradeModuleState extends State<GuruTradeModule> {
               palette: widget.palette,
             ),
           ),
+          if (reported13f) ...[
+            const SizedBox(height: 12),
+            Tooltip(
+              message: context.tr(
+                '未进行 corporate-action 和 PIT security-master 验证；不能将 13F 股数变化视为已确认成交。',
+                'Corporate-action and PIT security-master validation has not been performed; 13F share deltas are not confirmed executions.',
+              ),
+              child: PortfolioDataNotice(
+                icon: Icons.info_outline_rounded,
+                text: context.tr(
+                  '这些是相邻 13F 信息表的申报持仓变化，不是成交确认。股数差异尚未做公司行为与时点证券主数据校验。',
+                  'These are reported position changes between adjacent 13F information tables, not confirmed trades. Share deltas are not yet validated for corporate actions or a point-in-time security master.',
+                ),
+                palette: widget.palette,
+              ),
+            ),
+          ],
           if (type == 'insider') ...[
             const SizedBox(height: 16),
             InsiderOwnershipSummary(guru: widget.guru, palette: widget.palette),
@@ -4905,12 +5263,14 @@ class GuruTradeRowButton extends StatelessWidget {
   const GuruTradeRowButton({
     super.key,
     required this.row,
+    required this.reported13f,
     required this.active,
     required this.palette,
     required this.onTap,
   });
 
   final Map<String, dynamic> row;
+  final bool reported13f;
   final bool active;
   final Palette palette;
   final VoidCallback onTap;
@@ -4983,7 +5343,9 @@ class GuruTradeRowButton extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    actionLabel(action, context.language),
+                    reported13f
+                        ? reported13fActionLabel(action, context.language)
+                        : actionLabel(action, context.language),
                     style: TextStyle(color: tone, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 4),
@@ -5039,30 +5401,38 @@ class _PriceActionChartState extends State<PriceActionChart> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return MouseRegion(
-          cursor: SystemMouseCursors.precise,
-          onHover: (event) =>
-              _updateHover(event.localPosition, constraints.maxWidth),
-          onExit: (_) {
-            if (_hoverIndex != null) setState(() => _hoverIndex = null);
-          },
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapDown: (details) =>
-                _updateHover(details.localPosition, constraints.maxWidth),
-            onPanDown: (details) =>
-                _updateHover(details.localPosition, constraints.maxWidth),
-            onPanUpdate: (details) =>
-                _updateHover(details.localPosition, constraints.maxWidth),
-            child: CustomPaint(
-              painter: PriceActionPainter(
-                points: widget.points,
-                operation: widget.operation,
-                palette: widget.palette,
-                language: widget.language,
-                hoverIndex: _hoverIndex,
+        return Semantics(
+          image: true,
+          label: trFor(
+            widget.language,
+            '股价行为图，共 ${widget.points.length} 个数据点，可触摸探查。',
+            'Price action chart with ${widget.points.length} points; touch to inspect.',
+          ),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.precise,
+            onHover: (event) =>
+                _updateHover(event.localPosition, constraints.maxWidth),
+            onExit: (_) {
+              if (_hoverIndex != null) setState(() => _hoverIndex = null);
+            },
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (details) =>
+                  _updateHover(details.localPosition, constraints.maxWidth),
+              onPanDown: (details) =>
+                  _updateHover(details.localPosition, constraints.maxWidth),
+              onPanUpdate: (details) =>
+                  _updateHover(details.localPosition, constraints.maxWidth),
+              child: CustomPaint(
+                painter: PriceActionPainter(
+                  points: widget.points,
+                  operation: widget.operation,
+                  palette: widget.palette,
+                  language: widget.language,
+                  hoverIndex: _hoverIndex,
+                ),
+                size: Size.infinite,
               ),
-              size: Size.infinite,
             ),
           ),
         );
@@ -5972,9 +6342,9 @@ class ExecutiveSummaryGrid extends StatelessWidget {
         Icons.radar_rounded,
       ),
       StatCardData(
-        '13F AUM',
+        'Reported 13F table value',
         formatMoney(stats.aum),
-        'live long equity',
+        'information-table total',
         Icons.account_balance_wallet_rounded,
       ),
       StatCardData(
@@ -6126,9 +6496,9 @@ class OverallSnapshotPanel extends StatelessWidget {
     final items = [
       StatCardData('Coverage', '${stats.count}', 'gurus', Icons.radar_rounded),
       StatCardData(
-        '13F AUM',
+        'Reported 13F table value',
         formatMoney(stats.aum),
-        'long equity',
+        'information-table total',
         Icons.account_balance_wallet_rounded,
       ),
       StatCardData(
@@ -7434,7 +7804,7 @@ class GuruInspector extends StatelessWidget {
                       ],
                     ),
                   ),
-                  StatusDot(status: text(guru['status']), palette: palette),
+                  StatusDot(status: guruDisplayStatus(guru), palette: palette),
                 ],
               ),
               const SizedBox(height: 18),
@@ -7456,8 +7826,8 @@ class GuruInspector extends StatelessWidget {
                 children: type == 'manager13f'
                     ? [
                         MiniMetric(
-                          'AUM',
-                          formatMoney(number(summary['totalValue'])),
+                          'Reported 13F table value',
+                          formatMoney(reported13fTableValue(guru)),
                           Icons.wallet_rounded,
                           palette,
                         ),
@@ -7774,28 +8144,35 @@ class _EquityChartState extends State<EquityChart> {
     }
     return LayoutBuilder(
       builder: (context, constraints) {
-        return MouseRegion(
-          cursor: SystemMouseCursors.precise,
-          onHover: (event) =>
-              _updateHover(event.localPosition, constraints.maxWidth),
-          onExit: (_) {
-            if (_hoverIndex != null) setState(() => _hoverIndex = null);
-          },
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapDown: (details) =>
-                _selectPoint(details.localPosition, constraints.maxWidth),
-            onPanDown: (details) =>
-                _updateHover(details.localPosition, constraints.maxWidth),
-            onPanUpdate: (details) =>
-                _updateHover(details.localPosition, constraints.maxWidth),
-            child: CustomPaint(
-              painter: EquityPainter(
-                equity: widget.equity,
-                palette: widget.palette,
-                hoverIndex: _hoverIndex ?? _selectedIndex,
+        return Semantics(
+          image: true,
+          label: context.tr(
+            '组合与基准权益曲线，共 ${widget.equity.length} 个数据点，可触摸选择。',
+            'Portfolio and benchmark equity curves with ${widget.equity.length} points; touch to select.',
+          ),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.precise,
+            onHover: (event) =>
+                _updateHover(event.localPosition, constraints.maxWidth),
+            onExit: (_) {
+              if (_hoverIndex != null) setState(() => _hoverIndex = null);
+            },
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (details) =>
+                  _selectPoint(details.localPosition, constraints.maxWidth),
+              onPanDown: (details) =>
+                  _updateHover(details.localPosition, constraints.maxWidth),
+              onPanUpdate: (details) =>
+                  _updateHover(details.localPosition, constraints.maxWidth),
+              child: CustomPaint(
+                painter: EquityPainter(
+                  equity: widget.equity,
+                  palette: widget.palette,
+                  hoverIndex: _hoverIndex ?? _selectedIndex,
+                ),
+                size: Size.infinite,
               ),
-              size: Size.infinite,
             ),
           ),
         );
@@ -8249,7 +8626,7 @@ class SecondaryDashboard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (loading)
+          if (loading && data == null)
             Panel(
               palette: palette,
               child: const SizedBox(
@@ -8286,7 +8663,16 @@ class SecondaryDashboard extends StatelessWidget {
                       onRetry: () => unawaited(onRefresh()),
                     ),
             )
-          else
+          else ...[
+            if (loading || error != null) ...[
+              InlineDataBanner(
+                loading: loading,
+                error: error,
+                palette: palette,
+                onRetry: () => unawaited(onRefresh()),
+              ),
+              const SizedBox(height: 10),
+            ],
             switch (mode) {
               'ontology' => OntologyCompactDashboard(
                 data: data!,
@@ -8313,7 +8699,78 @@ class SecondaryDashboard extends StatelessWidget {
                 onTickerChanged: onValuationTickerChanged,
               ),
             },
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class InlineDataBanner extends StatelessWidget {
+  const InlineDataBanner({
+    super.key,
+    required this.loading,
+    required this.error,
+    required this.palette,
+    required this.onRetry,
+  });
+
+  final bool loading;
+  final String? error;
+  final Palette palette;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final failed = error?.trim().isNotEmpty ?? false;
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: (failed ? palette.negative : palette.secondary).withValues(
+            alpha: .10,
+          ),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: (failed ? palette.negative : palette.secondary).withValues(
+              alpha: .35,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            if (loading)
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              Icon(Icons.warning_amber_rounded, color: palette.negative),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                failed
+                    ? context.tr(
+                        '刷新失败，已保留上一版可用内容。${error!.replaceFirst('Exception: ', '')}',
+                        'Refresh failed; the previous usable content is preserved. ${error!.replaceFirst('Exception: ', '')}',
+                      )
+                    : context.tr(
+                        '正在刷新，当前仍显示上一版内容。',
+                        'Refreshing; the previous content remains visible.',
+                      ),
+                style: TextStyle(color: palette.text, fontSize: 12),
+              ),
+            ),
+            if (failed)
+              TextButton(
+                onPressed: onRetry,
+                child: Text(context.tr('重试', 'Retry')),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -8346,7 +8803,11 @@ class SecondaryModeHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 820;
+          // Five portfolio/secondary metrics need more room than the global
+          // navigation breakpoint.  Stack them before the identity copy starts
+          // truncating at common 1024px terminal widths.
+          final compact =
+              constraints.maxWidth < (metrics.length >= 5 ? 1200 : 820);
           final identity = Row(
             children: [
               Container(
@@ -8424,7 +8885,7 @@ class SecondaryModeHeader extends StatelessWidget {
                 identity,
                 if (metrics.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  GridWrap(minTileWidth: 132, spacing: 10, children: metrics),
+                  GridWrap(minTileWidth: 160, spacing: 10, children: metrics),
                 ],
               ],
             );
@@ -9466,48 +9927,62 @@ class PortfolioDashboard extends StatelessWidget {
     final unrealizedPnl = number(summary['unrealizedPnl']);
     final tone = dayPnl >= 0 ? palette.positive : palette.negative;
     final realPerformance = truthy(performanceStatus['real']);
+    final source = asMap(data['source']);
+    final sampleMode =
+        text(source['mode']).toLowerCase() == 'sample' ||
+        accounts.any(
+          (account) => text(account['status']).toLowerCase() == 'sample',
+        );
 
-    return Column(
+    final dashboard = Column(
       children: [
         SecondaryModeHeader(
           icon: Icons.account_balance_wallet_rounded,
           kicker: 'PORTFOLIO MANAGEMENT',
-          title: 'Portfolio cockpit',
-          subtitle: configured
+          title: sampleMode
+              ? 'Sample portfolio — not an account'
+              : 'Portfolio cockpit',
+          subtitle: sampleMode
+              ? 'Illustrative local data only. It is not connected to your brokerage account.'
+              : configured
               ? text(
                   connection['message'],
                   'IBKR holdings synced through Yodlee.',
                 )
               : 'Yodlee / IBKR connector is ready; credentials are not configured yet.',
           chips: [
-            text(connection['provider'], 'Yodlee'),
-            text(connection['institution'], 'Interactive Brokers'),
-            text(
-              connection['status'],
-              configured ? 'linked' : 'not configured',
-            ),
+            if (sampleMode)
+              'SAMPLE DATA · NOT AN ACCOUNT'
+            else ...[
+              text(connection['provider'], 'Yodlee'),
+              text(connection['institution'], 'Interactive Brokers'),
+              text(
+                connection['status'],
+                configured ? 'linked' : 'not configured',
+              ),
+            ],
           ],
           metrics: [
             _GuruHeaderMetric(
-              label: 'Net liquidation',
+              label: sampleMode ? 'Sample total' : 'Net liquidation',
               value: formatMoney(number(summary['totalValue'])),
               sub: '${formatNumber(number(summary['accounts']))} accounts',
               palette: palette,
             ),
             _GuruHeaderMetric(
-              label: 'Day P/L',
+              label: sampleMode ? 'Sample day P/L' : 'Day P/L',
               value: formatMoney(dayPnl),
               sub: formatReturn(number(summary['dayPnlPct'])),
               palette: palette,
             ),
             _GuruHeaderMetric(
-              label: 'Unrealized',
+              label: sampleMode ? 'Sample unrealized' : 'Unrealized',
               value: formatMoney(unrealizedPnl),
               sub: formatReturn(number(summary['unrealizedPnlPct'])),
               palette: palette,
             ),
             _GuruHeaderMetric(
-              label: 'Cash',
+              label: sampleMode ? 'Sample cash' : 'Cash',
               value: formatMoney(number(summary['cash'])),
               sub: '${formatNumber(number(summary['holdings']))} holdings',
               palette: palette,
@@ -9524,6 +9999,10 @@ class PortfolioDashboard extends StatelessWidget {
           palette: palette,
         ),
         const SizedBox(height: 10),
+        if (sampleMode) ...[
+          PortfolioSampleNotice(palette: palette),
+          const SizedBox(height: 10),
+        ],
         if (readOnly)
           PortfolioAdminReadOnlyPanel(
             connection: connection,
@@ -9539,6 +10018,7 @@ class PortfolioDashboard extends StatelessWidget {
           )
         else
           PortfolioConnectionPanel(
+            connection: connection,
             api: api,
             palette: palette,
             onConnected: onRefresh,
@@ -9557,7 +10037,9 @@ class PortfolioDashboard extends StatelessWidget {
                       PanelTitle(
                         icon: Icons.show_chart_rounded,
                         kicker: 'PERFORMANCE',
-                        title: context.tr('组合净值走势', 'Portfolio NAV'),
+                        title: sampleMode
+                            ? context.tr('示例净值走势', 'Sample NAV')
+                            : context.tr('组合净值走势', 'Portfolio NAV'),
                         palette: palette,
                         trailing: Text(
                           formatMoney(dayPnl),
@@ -9612,7 +10094,11 @@ class PortfolioDashboard extends StatelessWidget {
                   palette: palette,
                 ),
                 const SizedBox(height: 10),
-                PortfolioAccountCard(accounts: accounts, palette: palette),
+                PortfolioAccountCard(
+                  accounts: accounts,
+                  palette: palette,
+                  sampleMode: sampleMode,
+                ),
                 const SizedBox(height: 10),
                 PortfolioSectorCard(sectors: sectors, palette: palette),
                 const SizedBox(height: 10),
@@ -9634,6 +10120,61 @@ class PortfolioDashboard extends StatelessWidget {
           },
         ),
       ],
+    );
+    if (!sampleMode) return dashboard;
+    return Banner(
+      message: context.tr('示例数据', 'SAMPLE DATA'),
+      color: palette.secondary,
+      location: BannerLocation.topEnd,
+      child: dashboard,
+    );
+  }
+}
+
+class PortfolioSampleNotice extends StatelessWidget {
+  const PortfolioSampleNotice({super.key, required this.palette});
+
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      label: context.tr(
+        '当前全部组合数字为示例，不代表任何真实账户。',
+        'All portfolio figures are sample data and do not represent any real account.',
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: palette.secondary.withValues(alpha: .14),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: palette.secondary.withValues(alpha: .62),
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.science_outlined, color: palette.secondary, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                context.tr(
+                  '示例数据 · 非真实账户。金额、持仓、收益与风险指标仅用于展示界面结构。',
+                  'SAMPLE DATA · NOT A REAL ACCOUNT. Amounts, holdings, returns, and risk metrics are illustrative UI data only.',
+                ),
+                style: TextStyle(
+                  color: palette.text,
+                  fontWeight: FontWeight.w900,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -9780,6 +10321,35 @@ class _PortfolioConnectionStatusPanelState
   String? _error;
   String? _message;
 
+  Future<void> _confirmDisconnect() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          context.tr('断开所有组合连接？', 'Disconnect all portfolio connections?'),
+        ),
+        content: Text(
+          context.tr(
+            '这不会删除券商账户。后端会先把现有加密凭据移入 15 分钟恢复区；恢复资格到期后，后端会在下次组合访问时永久清理加密副本。操作完成前页面不会预先清空。',
+            'This does not delete any brokerage account. The backend first moves the encrypted credentials into a 15-minute recovery window; after eligibility expires, it permanently purges the encrypted copy on the next portfolio access. The page will not clear until the server confirms completion.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(context.tr('取消', 'Cancel')),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            icon: const Icon(Icons.link_off_rounded),
+            label: Text(context.tr('确认断开', 'Disconnect safely')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) await _disconnect();
+  }
+
   Future<void> _disconnect() async {
     setState(() {
       _disconnecting = true;
@@ -9787,8 +10357,19 @@ class _PortfolioConnectionStatusPanelState
       _message = null;
     });
     try {
-      await widget.api.deleteJson('/api/portfolio/connection');
+      final payload = await widget.api.deleteJson('/api/portfolio/connection');
+      final minutes = portfolioRecoveryMinutesRemaining(
+        text(payload['undoUntil']),
+      );
       await widget.onRefresh();
+      if (mounted) {
+        setState(() {
+          _message = context.tr(
+            '连接已断开；恢复资格将在 ${minutes > 0 ? '$minutes 分钟后' : '恢复窗口结束时'}到期，之后后端会在下次组合访问时永久清理加密副本。',
+            'Disconnected. Restore eligibility expires ${minutes > 0 ? 'in $minutes minutes' : 'when the recovery window closes'}; the backend then permanently purges the encrypted copy on the next portfolio access.',
+          );
+        });
+      }
     } catch (error) {
       setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
     } finally {
@@ -9961,7 +10542,7 @@ class _PortfolioConnectionStatusPanelState
                 palette: palette,
               ),
               OutlinedButton.icon(
-                onPressed: _disconnecting ? null : _disconnect,
+                onPressed: _disconnecting ? null : _confirmDisconnect,
                 icon: _disconnecting
                     ? const SizedBox(
                         width: 16,
@@ -10366,11 +10947,13 @@ class _PortfolioAddAccountDialogState extends State<PortfolioAddAccountDialog> {
 class PortfolioConnectionPanel extends StatefulWidget {
   const PortfolioConnectionPanel({
     super.key,
+    required this.connection,
     required this.api,
     required this.palette,
     required this.onConnected,
   });
 
+  final Map<String, dynamic> connection;
   final ApiClient api;
   final Palette palette;
   final Future<void> Function() onConnected;
@@ -10384,6 +10967,7 @@ class _PortfolioConnectionPanelState extends State<PortfolioConnectionPanel> {
   final _tokenController = TextEditingController();
   final _queryController = TextEditingController();
   bool _saving = false;
+  bool _restoring = false;
   bool _showToken = false;
   String? _message;
   String? _error;
@@ -10439,9 +11023,41 @@ class _PortfolioConnectionPanelState extends State<PortfolioConnectionPanel> {
     }
   }
 
+  Future<void> _restore() async {
+    setState(() {
+      _restoring = true;
+      _error = null;
+      _message = null;
+    });
+    try {
+      await widget.api.postJson('/api/portfolio/connection/restore', {});
+      if (mounted) {
+        setState(() {
+          _message = context.tr(
+            '连接已从加密恢复区还原。',
+            'Connection restored from encrypted recovery.',
+          );
+        });
+      }
+      await widget.onConnected();
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _error = error.toString().replaceFirst('Exception: ', ''),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _restoring = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = widget.palette;
+    final undoUntil = text(widget.connection['undoUntil']);
+    final recoveryMinutes = portfolioRecoveryMinutesRemaining(undoUntil);
+    final recoveryAvailable =
+        truthy(widget.connection['recoverable']) && recoveryMinutes > 0;
     return Panel(
       palette: palette,
       padding: const EdgeInsets.all(18),
@@ -10502,6 +11118,72 @@ class _PortfolioConnectionPanelState extends State<PortfolioConnectionPanel> {
                 ),
                 style: TextStyle(color: palette.muted, height: 1.35),
               ),
+              if (recoveryAvailable) ...[
+                const SizedBox(height: 14),
+                Semantics(
+                  liveRegion: true,
+                  label: context.tr(
+                    '连接已断开，可在 $recoveryMinutes 分钟内撤销。',
+                    'Connection disconnected. Undo is available for $recoveryMinutes minutes.',
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: palette.secondary.withValues(alpha: .13),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: palette.secondary.withValues(alpha: .58),
+                      ),
+                    ),
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 10,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      alignment: WrapAlignment.spaceBetween,
+                      children: [
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 760),
+                          child: Text(
+                            context.tr(
+                              '刚才的连接已断开。加密凭据仍可在约 $recoveryMinutes 分钟内恢复；恢复资格到期后，后端会在下次组合访问时永久清理。',
+                              'The previous connection is disconnected. Its encrypted credentials can be restored for about $recoveryMinutes minutes; after eligibility expires, the backend permanently purges them on the next portfolio access.',
+                            ),
+                            style: TextStyle(
+                              color: palette.text,
+                              fontWeight: FontWeight.w800,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                        FilledButton.icon(
+                          onPressed: _restoring ? null : _restore,
+                          icon: _restoring
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.undo_rounded),
+                          label: Text(
+                            context.tr(
+                              _restoring ? '正在恢复' : '撤销断开',
+                              _restoring ? 'Restoring' : 'Undo disconnect',
+                            ),
+                          ),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size(0, 44),
+                            backgroundColor: palette.secondary,
+                            foregroundColor: palette.background,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
               _setupGuide(palette),
               const SizedBox(height: 14),
@@ -10819,9 +11501,16 @@ class PortfolioPerformanceChart extends StatelessWidget {
         ),
       );
     }
-    return CustomPaint(
-      painter: PortfolioPerformancePainter(points: points, palette: palette),
-      child: const SizedBox.expand(),
+    return Semantics(
+      image: true,
+      label: context.tr(
+        '组合净值历史图，共 ${points.length} 个数据点。',
+        'Portfolio NAV history chart with ${points.length} points.',
+      ),
+      child: CustomPaint(
+        painter: PortfolioPerformancePainter(points: points, palette: palette),
+        child: const SizedBox.expand(),
+      ),
     );
   }
 }
@@ -14635,10 +15324,12 @@ class PortfolioAccountCard extends StatelessWidget {
     super.key,
     required this.accounts,
     required this.palette,
+    this.sampleMode = false,
   });
 
   final List<Map<String, dynamic>> accounts;
   final Palette palette;
+  final bool sampleMode;
 
   @override
   Widget build(BuildContext context) {
@@ -14649,8 +15340,8 @@ class PortfolioAccountCard extends StatelessWidget {
         children: [
           PanelTitle(
             icon: Icons.account_balance_rounded,
-            kicker: 'ACCOUNTS',
-            title: 'IBKR accounts',
+            kicker: sampleMode ? 'SAMPLE STRUCTURE' : 'ACCOUNTS',
+            title: sampleMode ? 'Illustrative account' : 'IBKR accounts',
             palette: palette,
           ),
           const SizedBox(height: 14),
@@ -14673,7 +15364,12 @@ class PortfolioAccountCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            text(account['name'], 'Brokerage account'),
+                            sampleMode
+                                ? context.tr(
+                                    '示例账户结构',
+                                    'Illustrative account structure',
+                                  )
+                                : text(account['name'], 'Brokerage account'),
                             style: TextStyle(
                               color: palette.text,
                               fontWeight: FontWeight.w900,
@@ -14681,7 +15377,9 @@ class PortfolioAccountCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            '${text(account['provider'], 'IBKR')} · ${context.ui(text(account['accountType']))}',
+                            sampleMode
+                                ? context.tr('仅作界面展示', 'UI example only')
+                                : '${text(account['provider'], 'IBKR')} · ${context.ui(text(account['accountType']))}',
                             style: TextStyle(
                               color: palette.muted,
                               fontSize: 12,
@@ -16789,10 +17487,16 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
           ? asList(widget.data['tickers'])
           : asList(widget.data['stocks']),
     );
-    final hasCurrent = rows.any((row) => row.ticker == _selectedTicker);
-    final nextTicker = hasCurrent
+    final visibleRows = _visibleRowsFor(
+      rows: rows,
+      tickerSearch: _tickerSearch,
+      valuationFilter: _valuationFilter,
+      qualityFilter: _qualityFilter,
+    );
+    final preferredTicker = rows.any((row) => row.ticker == _selectedTicker)
         ? _selectedTicker
         : _defaultTicker(widget.data, preferred: widget.initialTicker);
+    final nextTicker = reconciledValuationTicker(visibleRows, preferredTicker);
     _summaryDetailCache.clear();
     _fullDetailCache.clear();
     setState(() {
@@ -16812,39 +17516,21 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
   bool _matchesValuationFilter(ValuationRow row, String filter) {
     switch (filter) {
       case 'deep':
-        return row.hasModel && row.upside >= .25;
+        return valuationBucketForRow(row) == 'undervalued';
       case 'fair':
-        return row.hasModel && row.upside > -.05 && row.upside < .25;
+        return valuationBucketForRow(row) == 'fair';
       case 'expensive':
-        return row.hasModel && row.upside <= -.05;
+        return valuationBucketForRow(row) == 'expensive';
       case 'audit':
-        return row.auditStatus == 'pass';
+        return row.lineageStatus == 'pass';
       case 'watch':
-        final status = row.consensusStatus.toLowerCase();
-        return status.contains('watch') || status.contains('stretch');
+        return ['review', 'fail'].contains(row.lineageStatus);
       case 'missing':
         return !row.hasModel;
       default:
         return true;
     }
   }
-
-  List<ValuationRow> _applyValuationFilter(List<ValuationRow> rows) => rows
-      .where((row) => _matchesValuationFilter(row, _valuationFilter))
-      .where((row) {
-        switch (_qualityFilter) {
-          case 'pass':
-            return row.auditStatus == 'pass';
-          case 'watch':
-            return row.consensusStatus.toLowerCase().contains('watch') ||
-                row.consensusStatus.toLowerCase().contains('stretch');
-          case 'missing':
-            return !row.hasModel;
-          default:
-            return true;
-        }
-      })
-      .toList();
 
   List<ValuationRow> _sortValuationRows(List<ValuationRow> rows) {
     final sorted = [...rows];
@@ -16857,8 +17543,8 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
         case 'ticker':
           return byTicker(a, b);
         case 'quality':
-          final quality = (b.auditStatus == 'pass' ? 1 : 0).compareTo(
-            a.auditStatus == 'pass' ? 1 : 0,
+          final quality = (b.lineageStatus == 'pass' ? 1 : 0).compareTo(
+            a.lineageStatus == 'pass' ? 1 : 0,
           );
           return quality == 0 ? b.upside.compareTo(a.upside) : quality;
         default:
@@ -16868,17 +17554,91 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
     return sorted;
   }
 
-  String _defaultTicker(Map<String, dynamic> data, {String preferred = ''}) {
-    final tickers = asList(data['tickers']).isNotEmpty
-        ? asList(data['tickers'])
-        : asList(data['stocks']);
-    final rows = valuationRowsFromTickers(tickers);
-    final normalizedPreferred = preferred.trim().toUpperCase();
-    if (normalizedPreferred.isNotEmpty &&
-        rows.any((row) => row.ticker == normalizedPreferred)) {
-      return normalizedPreferred;
+  List<ValuationRow> _visibleRowsFor({
+    required List<ValuationRow> rows,
+    required String tickerSearch,
+    required String valuationFilter,
+    required String qualityFilter,
+  }) {
+    final tickerQuery = tickerSearch.trim().toUpperCase();
+    final searchedRows = tickerQuery.isEmpty
+        ? rows
+        : rows.where((row) {
+            final haystack = '${row.ticker} ${row.name} ${row.sector}'
+                .toUpperCase();
+            return haystack.contains(tickerQuery);
+          }).toList();
+    return _sortValuationRows(
+      searchedRows
+          .where((row) => _matchesValuationFilter(row, valuationFilter))
+          .where((row) {
+            switch (qualityFilter) {
+              case 'pass':
+                return row.lineageStatus == 'pass';
+              case 'watch':
+                return ['review', 'fail'].contains(row.lineageStatus);
+              case 'missing':
+                return !row.hasModel;
+              default:
+                return true;
+            }
+          })
+          .toList(),
+    );
+  }
+
+  void _updateVisibleControls({
+    String? tickerSearch,
+    String? valuationFilter,
+    String? qualityFilter,
+  }) {
+    final nextSearch = tickerSearch ?? _tickerSearch;
+    final nextValuationFilter = valuationFilter ?? _valuationFilter;
+    final nextQualityFilter = qualityFilter ?? _qualityFilter;
+    final data = _dashboardData;
+    final rows = valuationRowsFromTickers(
+      asList(data['tickers']).isNotEmpty
+          ? asList(data['tickers'])
+          : asList(data['stocks']),
+    );
+    final visibleRows = _visibleRowsFor(
+      rows: rows,
+      tickerSearch: nextSearch,
+      valuationFilter: nextValuationFilter,
+      qualityFilter: nextQualityFilter,
+    );
+    final nextTicker = reconciledValuationTicker(visibleRows, _selectedTicker);
+    final selectionChanged = nextTicker != _selectedTicker;
+    final nextRow = visibleRows
+        .where((row) => row.ticker == nextTicker)
+        .firstOrNull;
+
+    setState(() {
+      _tickerSearch = nextSearch;
+      _valuationFilter = nextValuationFilter;
+      _qualityFilter = nextQualityFilter;
+      if (!selectionChanged) return;
+      _detailRequestSerial += 1;
+      _selectedTicker = nextTicker;
+      _expandedIndustryKey = nextRow == null
+          ? ''
+          : valuationIndustryForRow(nextRow).key;
+      _showFullResearch = false;
+      _detailPayload = null;
+      _detailError = null;
+      _detailLoading = false;
+    });
+
+    if (!selectionChanged) return;
+    if (nextTicker.isEmpty) {
+      widget.onTickerChanged('');
+    } else {
+      unawaited(_loadTicker(nextTicker));
     }
-    return rows.isEmpty ? '' : rows.first.ticker;
+  }
+
+  String _defaultTicker(Map<String, dynamic> data, {String preferred = ''}) {
+    return defaultValuationTicker(data, preferred: preferred);
   }
 
   Future<void> _loadTicker(
@@ -17005,22 +17765,20 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
         ? asList(data['tickers'])
         : asList(data['stocks']);
     final rows = valuationRowsFromTickers(tickers);
-    final selectedRow = rows.firstWhere(
-      (row) => row.ticker == _selectedTicker,
-      orElse: () => rows.isNotEmpty ? rows.first : ValuationRow.empty(),
-    );
-    final tickerQuery = _tickerSearch.trim().toUpperCase();
     final normalizedTickerQuery = _normalizeTickerInput(_tickerSearch);
-    final searchedRows = tickerQuery.isEmpty
-        ? rows
-        : rows.where((row) {
-            final haystack = '${row.ticker} ${row.name} ${row.sector}'
-                .toUpperCase();
-            return haystack.contains(tickerQuery);
-          }).toList();
-    final filteredRows = _sortValuationRows(
-      _applyValuationFilter(searchedRows),
+    final filteredRows = _visibleRowsFor(
+      rows: rows,
+      tickerSearch: _tickerSearch,
+      valuationFilter: _valuationFilter,
+      qualityFilter: _qualityFilter,
     );
+    final selectedRow = filteredRows.firstWhere(
+      (row) => row.ticker == _selectedTicker,
+      orElse: () =>
+          filteredRows.isNotEmpty ? filteredRows.first : ValuationRow.empty(),
+    );
+    final detailMatchesSelection =
+        selectedRow.ticker.isNotEmpty && selectedRow.ticker == _selectedTicker;
     final selectedIndustry = valuationIndustryForRow(selectedRow);
     final effectiveIndustryKey = _expandedIndustryKey.isEmpty
         ? selectedIndustry.key
@@ -17039,22 +17797,12 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
       valuationFilter: _valuationFilter,
       qualityFilter: _qualityFilter,
       expandedIndustryKey: effectiveIndustryKey,
-      detailPayload: _detailPayload,
-      detailLoading: _detailLoading,
-      detailError: _detailError,
+      detailPayload: detailMatchesSelection ? _detailPayload : null,
+      detailLoading: detailMatchesSelection && _detailLoading,
+      detailError: detailMatchesSelection ? _detailError : null,
       importingTicker: _importingTicker,
       showFullResearch: _showFullResearch,
-      onSearchChanged: (value) {
-        setState(() => _tickerSearch = value);
-        final normalized = _normalizeTickerInput(value);
-        final exactMatches = rows
-            .where((row) => row.ticker == normalized)
-            .toList();
-        if (exactMatches.length == 1 &&
-            exactMatches.first.ticker != _selectedTicker) {
-          _selectTicker(exactMatches.first);
-        }
-      },
+      onSearchChanged: (value) => _updateVisibleControls(tickerSearch: value),
       onSearchSubmitted: () {
         if (filteredRows.isNotEmpty) {
           _selectTicker(filteredRows.first);
@@ -17064,27 +17812,39 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
       },
       onClearSearch: () {
         _tickerSearchController.clear();
-        setState(() => _tickerSearch = '');
+        _updateVisibleControls(tickerSearch: '');
       },
       onImportTicker: normalizedTickerQuery.isEmpty
           ? null
           : () => _importTicker(normalizedTickerQuery),
-      onValuationFilterChanged: (value) {
-        setState(() => _valuationFilter = value);
-      },
-      onQualityFilterChanged: (value) {
-        setState(() => _qualityFilter = value);
-      },
+      onValuationFilterChanged: (value) =>
+          _updateVisibleControls(valuationFilter: value),
+      onQualityFilterChanged: (value) =>
+          _updateVisibleControls(qualityFilter: value),
       onIndustryChanged: (value) {
         setState(() => _expandedIndustryKey = value);
       },
       onTickerSelected: _selectTicker,
-      onRefresh: () => _loadTicker(
-        _selectedTicker,
-        refresh: true,
-        fullResearch: _showFullResearch,
-      ),
-      onToggleFullResearch: () => unawaited(_toggleFullResearch()),
+      onRefresh: () {
+        if (selectedRow.ticker.isNotEmpty) {
+          unawaited(
+            _loadTicker(
+              selectedRow.ticker,
+              refresh: true,
+              fullResearch: _showFullResearch,
+            ),
+          );
+        }
+      },
+      onToggleFullResearch: () {
+        if (selectedRow.ticker.isNotEmpty) {
+          if (selectedRow.ticker != _selectedTicker) {
+            unawaited(_loadTicker(selectedRow.ticker));
+          } else {
+            unawaited(_toggleFullResearch());
+          }
+        }
+      },
     );
   }
 }
@@ -17235,16 +17995,32 @@ class ValuationIndustryGroupData {
   );
 
   int get undervaluedCount =>
-      rows.where((row) => row.hasModel && row.upside >= .05).length;
+      rows.where((row) => valuationBucketForRow(row) == 'undervalued').length;
 
-  int get fairCount => rows
-      .where((row) => row.hasModel && row.upside > -.05 && row.upside < .05)
-      .length;
+  int get fairCount =>
+      rows.where((row) => valuationBucketForRow(row) == 'fair').length;
 
   int get expensiveCount =>
-      rows.where((row) => row.hasModel && row.upside <= -.05).length;
+      rows.where((row) => valuationBucketForRow(row) == 'expensive').length;
 
   int get missingCount => rows.where((row) => !row.hasModel).length;
+}
+
+String valuationBucketForRow(ValuationRow row) {
+  if (!row.hasModel) return 'missing';
+  if (row.upside >= .05) return 'undervalued';
+  if (row.upside <= -.05) return 'expensive';
+  return 'fair';
+}
+
+String reconciledValuationTicker(
+  List<ValuationRow> visibleRows,
+  String selectedTicker,
+) {
+  if (visibleRows.any((row) => row.ticker == selectedTicker)) {
+    return selectedTicker;
+  }
+  return visibleRows.firstOrNull?.ticker ?? '';
 }
 
 List<ValuationIndustryGroupData> valuationIndustryGroups(
@@ -17332,7 +18108,15 @@ class ValuationIndustryDashboardView extends StatelessWidget {
       summary['latestPriceDate'],
       rows.isEmpty ? '' : rows.first.latestPriceDate,
     );
-    final auditPass = rows.where((row) => row.auditStatus == 'pass').length;
+    final auditCounts = asMap(summary['auditLayerCounts']);
+    final lineageCounts = asMap(auditCounts['lineage']);
+    final economicCounts = asMap(auditCounts['economicValidation']);
+    final marketCounts = asMap(auditCounts['marketCalibration']);
+    int passed(Map<String, dynamic> counts) => number(counts['pass']).round();
+    int reviewed(Map<String, dynamic> counts) =>
+        number(counts['review']).round();
+    final marketGuardrailOnly = number(marketCounts['guardrailOnly']).round();
+    final marketReview = reviewed(marketCounts);
     final normalizedSearch = tickerSearch.trim().toUpperCase();
     final hasExactMatch = rows.any((row) => row.ticker == normalizedSearch);
 
@@ -17370,14 +18154,61 @@ class ValuationIndustryDashboardView extends StatelessWidget {
                   const SizedBox(height: 5),
                   Text(
                     context.tr(
-                      '${rows.length} 个标的 · 股价 ${latestPriceDate.isEmpty ? '最新' : formatDate(latestPriceDate)} · $auditPass/${rows.length} PIT 审计通过',
-                      '${rows.length} stocks · prices ${latestPriceDate.isEmpty ? 'latest' : formatDate(latestPriceDate)} · $auditPass/${rows.length} PIT audited',
+                      '${rows.length} 个标的 · 股价 ${latestPriceDate.isEmpty ? '日期未提供' : formatDate(latestPriceDate)} · 各验证层独立报告',
+                      '${rows.length} stocks · prices ${latestPriceDate.isEmpty ? 'date unavailable' : formatDate(latestPriceDate)} · validation layers reported separately',
                     ),
                     style: TextStyle(
                       color: palette.muted,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      ValuationLayerBadge(
+                        label: context.tr('血缘/算术', 'Lineage/arithmetic'),
+                        value: '${passed(lineageCounts)}/${rows.length}',
+                        status:
+                            passed(lineageCounts) == rows.length &&
+                                rows.isNotEmpty
+                            ? 'pass'
+                            : 'review',
+                        palette: palette,
+                      ),
+                      ValuationLayerBadge(
+                        label: context.tr('模型验证', 'Model validation'),
+                        value: '${passed(economicCounts)}/${rows.length}',
+                        status: passed(economicCounts) > 0
+                            ? 'pass'
+                            : 'not_validated',
+                        palette: palette,
+                      ),
+                      ValuationLayerBadge(
+                        label: context.tr('市场校准', 'Market calibration'),
+                        value: marketGuardrailOnly > 0
+                            ? context.tr(
+                                '$marketGuardrailOnly 个仅限 guardrail',
+                                '$marketGuardrailOnly guardrail only',
+                              )
+                            : marketReview > 0
+                            ? context.tr(
+                                '$marketReview 个待复核',
+                                '$marketReview review',
+                              )
+                            : '${passed(marketCounts)}/${rows.length}',
+                        status: marketGuardrailOnly > 0
+                            ? 'guardrail_only'
+                            : marketReview > 0
+                            ? 'review'
+                            : passed(marketCounts) > 0
+                            ? 'pass'
+                            : 'not_run',
+                        palette: palette,
+                      ),
+                    ],
                   ),
                 ],
               );
@@ -17454,8 +18285,8 @@ class ValuationIndustryDashboardView extends StatelessWidget {
                     label: context.tr('数据质量', 'Data quality'),
                     options: {
                       'all': context.tr('全部质量', 'All quality'),
-                      'pass': context.tr('审计通过', 'Audit pass'),
-                      'watch': context.tr('需复核', 'Watch'),
+                      'pass': context.tr('血缘/算术已检查', 'Lineage checked'),
+                      'watch': context.tr('血缘需复核', 'Lineage review'),
                       'missing': context.tr('缺少估值', 'Missing FV'),
                     },
                     palette: palette,
@@ -17670,6 +18501,56 @@ class _ValuationToolbarMenu extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class ValuationLayerBadge extends StatelessWidget {
+  const ValuationLayerBadge({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.status,
+    required this.palette,
+    this.tooltip,
+  });
+
+  final String label;
+  final String value;
+  final String status;
+  final Palette palette;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = status.toLowerCase();
+    final color = switch (normalized) {
+      'pass' || 'verified' => palette.positive,
+      'review' || 'guardrail_only' => const Color(0xFFE0B15A),
+      'fail' => palette.negative,
+      _ => palette.muted,
+    };
+    final content = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: .32)),
+      ),
+      child: Text(
+        context.ui('$label · $value'),
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+    return Semantics(
+      label: '$label, $value, ${context.ui(normalized)}',
+      child: tooltip?.isNotEmpty ?? false
+          ? Tooltip(message: tooltip!, child: content)
+          : content,
     );
   }
 }
@@ -18235,6 +19116,19 @@ class ValuationSelectedOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (selectedRow.ticker.isEmpty) {
+      return Panel(
+        palette: palette,
+        padding: const EdgeInsets.all(14),
+        child: EmptyState(
+          text: context.tr(
+            '当前筛选没有匹配标的，旧的估值详情已隐藏。',
+            'No ticker matches the current filters; the previous valuation detail is hidden.',
+          ),
+          palette: palette,
+        ),
+      );
+    }
     final tickerPayload = asMap(payload?['ticker']);
     final ticker = text(tickerPayload['ticker'], selectedRow.ticker);
     final name = text(tickerPayload['name'], selectedRow.name);
@@ -18307,7 +19201,7 @@ class ValuationSelectedOverview extends StatelessWidget {
           palette,
         ),
         MiniMetric(
-          context.tr('三年目标', '3Y target'),
+          context.tr('三年情景值', '3Y scenario'),
           formatCurrencyValue(target, currency),
           Icons.flag_outlined,
           palette,
@@ -18373,7 +19267,7 @@ class ValuationSelectedOverview extends StatelessWidget {
             ),
             Divider(height: 1, color: palette.border),
             metricRailItem(
-              context.tr('三年目标', '3Y target'),
+              context.tr('三年情景值', '3Y scenario'),
               formatCurrencyValue(target, currency),
               palette.secondary,
             ),
@@ -18435,6 +19329,68 @@ class ValuationSelectedOverview extends StatelessWidget {
               _RetryIconButton(onPressed: onRetry, palette: palette),
             ],
           ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              ValuationLayerBadge(
+                label: context.tr('血缘/算术', 'Lineage/arithmetic'),
+                value: context.ui(selectedRow.lineageStatus),
+                status: selectedRow.lineageStatus,
+                tooltip: context.tr(
+                  '仅检查 PIT 输入血缘、算术及价格排除声明；不代表模型经济有效。',
+                  'Checks PIT input lineage, arithmetic, and declared price exclusion only; it does not establish economic model validity.',
+                ),
+                palette: palette,
+              ),
+              ValuationLayerBadge(
+                label: context.tr('模型验证', 'Model validation'),
+                value: context.ui(selectedRow.economicValidationStatus),
+                status: selectedRow.economicValidationStatus,
+                tooltip: context.tr(
+                  '需要 walk-forward 预测误差与前瞻收益证据。',
+                  'Requires walk-forward forecast-error and forward-return evidence.',
+                ),
+                palette: palette,
+              ),
+              ValuationLayerBadge(
+                label: context.tr('市场校准', 'Market calibration'),
+                value: context.ui(selectedRow.marketCalibrationStatus),
+                status: selectedRow.marketCalibrationStatus,
+                tooltip: context.tr(
+                  'Guardrail 比较不等于样本外市场校准。',
+                  'A comparison guardrail is not out-of-sample market calibration.',
+                ),
+                palette: palette,
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          Tooltip(
+            message: context.tr(
+              '独立检查发布 ID、模型签名与快照签名是否可重现。',
+              'Separately checks whether release ID, model signature, and snapshot signature are reproducible.',
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.fingerprint_rounded, size: 15, color: palette.muted),
+                const SizedBox(width: 6),
+                Text(
+                  context.tr(
+                    '发布可重现性：${context.ui(selectedRow.releaseStatus)}',
+                    'Release reproducibility: ${context.ui(selectedRow.releaseStatus)}',
+                  ),
+                  style: TextStyle(
+                    color: palette.muted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 12),
           if (compactLayout) ...[metricGrid(), const SizedBox(height: 14)],
           if (loading && payload == null)
@@ -18459,6 +19415,17 @@ class ValuationSelectedOverview extends StatelessWidget {
                         color: palette.text,
                         fontSize: 14,
                         fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      context.ui(
+                        'Historical nodes use point-in-time data; model-version reproducibility is shown separately.',
+                      ),
+                      style: TextStyle(
+                        color: palette.faint,
+                        fontSize: 11,
+                        height: 1.35,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -18824,7 +19791,7 @@ class ValuationWatchlistHeader extends StatelessWidget {
             SizedBox(
               width: 120,
               child: Text(
-                context.ui('3Y TARGET'),
+                context.ui('3Y SCENARIO'),
                 textAlign: TextAlign.end,
                 style: style,
               ),
@@ -19096,7 +20063,10 @@ class ValuationWatchlistRow extends StatelessWidget {
         final quality = Align(
           alignment: Alignment.centerRight,
           child: ValuationQualityChip(
-            label: row.auditLabel,
+            label: context.tr(
+              '血缘 ${context.ui(row.auditLabel)}',
+              'lineage ${context.ui(row.auditLabel)}',
+            ),
             palette: palette,
             strong: row.auditStatus == 'pass',
           ),
@@ -19299,7 +20269,7 @@ class ValuationTickerDetailPanel extends StatelessWidget {
                   palette,
                 ),
                 MiniMetric(
-                  '3Y target',
+                  '3Y scenario',
                   formatCurrencyValue(target, currency),
                   Icons.flag_rounded,
                   palette,
@@ -19557,15 +20527,22 @@ class ValuationTrendChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: ValuationTrendPainter(
-        history: history,
-        priceHistory: priceHistory,
-        currency: currency,
-        palette: palette,
-        selectedQuarterKey: selectedQuarterKey,
+    return Semantics(
+      image: true,
+      label: context.tr(
+        '公允价值与股价历史图，${history.length} 个估值节点，${priceHistory.length} 个股价点。',
+        'Fair-value and price history chart with ${history.length} valuation nodes and ${priceHistory.length} price points.',
       ),
-      size: Size.infinite,
+      child: CustomPaint(
+        painter: ValuationTrendPainter(
+          history: history,
+          priceHistory: priceHistory,
+          currency: currency,
+          palette: palette,
+          selectedQuarterKey: selectedQuarterKey,
+        ),
+        size: Size.infinite,
+      ),
     );
   }
 }
@@ -20532,7 +21509,7 @@ class ValuationOutputResearchCard extends StatelessWidget {
                 valueColor: valuationTone(upside, palette),
               ),
               ValuationResearchMetric(
-                label: '3Y target',
+                label: '3Y scenario',
                 value: formatCurrencyValue(target, currency),
                 palette: palette,
               ),
@@ -22064,27 +23041,36 @@ class StatusDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = status == 'live' || status == 'profile'
-        ? palette.positive
-        : palette.negative;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 7,
-          height: 7,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          context.ui(status.isEmpty ? 'cached' : status),
-          style: TextStyle(
-            color: palette.muted,
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
+    final normalized = status.trim().toLowerCase();
+    final color = switch (normalized) {
+      'live' || 'profile' => palette.positive,
+      'sample' => palette.secondary,
+      'cached' => palette.muted,
+      'stale' => const Color(0xFFE0B15A),
+      _ => palette.negative,
+    };
+    final label = context.ui(normalized.isEmpty ? 'cached' : normalized);
+    return Semantics(
+      label: context.tr('数据状态：$label', 'Data status: $label'),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-        ),
-      ],
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: palette.muted,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -22308,7 +23294,10 @@ class ValuationRow {
     required this.expectedReturn3Y,
     required this.latestPriceDate,
     required this.coverageKind,
-    required this.auditStatus,
+    required this.lineageStatus,
+    required this.releaseStatus,
+    required this.economicValidationStatus,
+    required this.marketCalibrationStatus,
     required this.consensusStatus,
     required this.consensusUpside,
   });
@@ -22325,7 +23314,10 @@ class ValuationRow {
     expectedReturn3Y: 0,
     latestPriceDate: '',
     coverageKind: '',
-    auditStatus: '',
+    lineageStatus: '',
+    releaseStatus: '',
+    economicValidationStatus: 'not_validated',
+    marketCalibrationStatus: 'not_run',
     consensusStatus: '',
     consensusUpside: null,
   );
@@ -22341,7 +23333,10 @@ class ValuationRow {
   final double expectedReturn3Y;
   final String latestPriceDate;
   final String coverageKind;
-  final String auditStatus;
+  final String lineageStatus;
+  final String releaseStatus;
+  final String economicValidationStatus;
+  final String marketCalibrationStatus;
   final String consensusStatus;
   final double? consensusUpside;
 
@@ -22362,7 +23357,9 @@ class ValuationRow {
         : coverageKind.substring(0, 9);
   }
 
-  String get auditLabel => auditStatus.isEmpty ? 'audit' : auditStatus;
+  String get auditStatus => lineageStatus;
+
+  String get auditLabel => lineageStatus.isEmpty ? 'not_run' : lineageStatus;
 
   String consensusTextFor(BuildContext context) {
     if (consensusUpside == null) {
@@ -22380,16 +23377,60 @@ class ValuationRow {
   }
 }
 
+double reported13fTableValue(Map<String, dynamic> guru) {
+  final summary = asMap(guru['summary']);
+  return firstNumber([
+        summary['reported13fValue'],
+        summary['reportedTableValue'],
+        summary['totalValue'],
+      ]) ??
+      0;
+}
+
+double reported13fOptionsValue(Map<String, dynamic> guru) {
+  final summary = asMap(guru['summary']);
+  final explicit = firstNumber([
+    summary['reported13fOptionsValue'],
+    summary['reportedOptionsValue'],
+    summary['optionsValue'],
+    summary['optionValue'],
+  ]);
+  if (explicit != null) return explicit;
+  return asList(guru['holdings'])
+      .where((holding) => text(holding['putCall']).isNotEmpty)
+      .fold<double>(0, (sum, holding) => sum + number(holding['value']));
+}
+
+double reported13fCommonLongValue(Map<String, dynamic> guru) {
+  final summary = asMap(guru['summary']);
+  final explicit = firstNumber([
+    summary['reported13fCommonLongValue'],
+    summary['reportedCommonLongValue'],
+    summary['commonLongValue'],
+  ]);
+  if (explicit != null) return explicit;
+  return math.max(
+    0,
+    reported13fTableValue(guru) - reported13fOptionsValue(guru),
+  );
+}
+
+String guruDisplayStatus(Map<String, dynamic> guru) {
+  final persistedStatus = text(
+    asMap(guru['dataStatus'])['status'],
+  ).toLowerCase();
+  if (persistedStatus == 'local-db') return 'cached';
+  if (persistedStatus.isNotEmpty) return persistedStatus;
+  return text(guru['status'], 'cached').toLowerCase();
+}
+
 ExecutiveStats buildExecutiveStats(
   List<Map<String, dynamic>> gurus,
   List<SignalItem> signals,
 ) {
   final aum = gurus
       .where((guru) => text(guru['type']) == 'manager13f')
-      .fold<double>(
-        0,
-        (sum, guru) => sum + number(asMap(guru['summary'])['totalValue']),
-      );
+      .fold<double>(0, (sum, guru) => sum + reported13fTableValue(guru));
   final buys = signals.where((item) => item.tone == 'positive').length;
   final sells = signals.where((item) => item.tone == 'negative').length;
   final quarters =
@@ -22752,6 +23793,14 @@ String text(dynamic value, [String fallback = '']) {
   return string.isEmpty ? fallback : string;
 }
 
+int portfolioRecoveryMinutesRemaining(String undoUntil, {DateTime? now}) {
+  final expiresAt = DateTime.tryParse(undoUntil)?.toUtc();
+  if (expiresAt == null) return 0;
+  final remaining = expiresAt.difference((now ?? DateTime.now()).toUtc());
+  if (remaining <= Duration.zero) return 0;
+  return math.max(1, (remaining.inSeconds / 60).ceil());
+}
+
 String publicAssetUrl(dynamic value) {
   final raw = text(value);
   if (raw.isEmpty) return '';
@@ -22831,6 +23880,17 @@ String actionLabel(String action, [AppLanguage language = AppLanguage.en]) =>
       'other' => trFor(language, '其他', 'Other'),
       _ => action.isEmpty ? trFor(language, '其他', 'Other') : action,
     };
+
+String reported13fActionLabel(
+  String action, [
+  AppLanguage language = AppLanguage.en,
+]) => switch (action) {
+  'new' => trFor(language, '申报新建仓', 'Reported new position'),
+  'increased' => trFor(language, '申报增持', 'Reported increase'),
+  'reduced' => trFor(language, '申报减持', 'Reported reduction'),
+  'sold_out' => trFor(language, '不再申报', 'No longer reported'),
+  _ => actionLabel(action, language),
+};
 
 List<Map<String, dynamic>> guruTradeRows(Map<String, dynamic> guru) {
   final manager = text(guru['type']) == 'manager13f';
@@ -22967,7 +24027,10 @@ String toolbarDateLabel(
   String generatedAt, [
   AppLanguage language = AppLanguage.en,
 ]) {
-  final date = DateTime.tryParse(generatedAt)?.toLocal() ?? DateTime.now();
+  final date = DateTime.tryParse(generatedAt)?.toLocal();
+  if (date == null) {
+    return trFor(language, '截至日期未提供', 'As-of unavailable');
+  }
   final weekdays = language == AppLanguage.zh
       ? const ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
       : const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -23245,6 +24308,35 @@ String valuationMethodLabel(List<Map<String, dynamic>> methods, String key) {
   return key.replaceAll('-', ' ');
 }
 
+String defaultValuationTicker(
+  Map<String, dynamic> data, {
+  String preferred = '',
+}) {
+  final tickers = asList(data['tickers']).isNotEmpty
+      ? asList(data['tickers'])
+      : asList(data['stocks']);
+  final rows = valuationRowsFromTickers(tickers);
+  final normalizedPreferred = preferred.trim().toUpperCase();
+  if (normalizedPreferred.isNotEmpty &&
+      rows.any((row) => row.ticker == normalizedPreferred)) {
+    return normalizedPreferred;
+  }
+  final featuredTicker = text(data['featuredTicker']).trim().toUpperCase();
+  if (featuredTicker.isNotEmpty &&
+      rows.any((row) => row.ticker == featuredTicker)) {
+    return featuredTicker;
+  }
+  final neutralCandidates =
+      rows.where((row) => row.hasModel && row.lineageStatus == 'pass').toList()
+        ..sort((a, b) => a.ticker.compareTo(b.ticker));
+  if (neutralCandidates.isNotEmpty) return neutralCandidates.first.ticker;
+  final modeledRows = rows.where((row) => row.hasModel).toList()
+    ..sort((a, b) => a.ticker.compareTo(b.ticker));
+  if (modeledRows.isNotEmpty) return modeledRows.first.ticker;
+  final fallbackRows = [...rows]..sort((a, b) => a.ticker.compareTo(b.ticker));
+  return fallbackRows.isEmpty ? '' : fallbackRows.first.ticker;
+}
+
 List<ValuationRow> valuationRowsFromTickers(
   List<Map<String, dynamic>> tickers,
 ) {
@@ -23254,6 +24346,11 @@ List<ValuationRow> valuationRowsFromTickers(
         final quality = asMap(ticker['dataQuality']);
         final inputAudit = asMap(quality['modelInputAudit']);
         final unifiedAudit = asMap(quality['unifiedValuationAudit']);
+        final auditLayers = asMap(quality['auditLayers']);
+        final lineage = asMap(auditLayers['lineage']);
+        final release = asMap(auditLayers['release']);
+        final economicValidation = asMap(auditLayers['economicValidation']);
+        final marketCalibration = asMap(auditLayers['marketCalibration']);
         final consensus = asMap(unifiedAudit['externalConsensus']);
         final consensusCheck = asMap(unifiedAudit['externalConsensusCheck']);
         final currency = text(
@@ -23296,7 +24393,19 @@ List<ValuationRow> valuationRowsFromTickers(
             quality['valuationCoverageKind'],
             text(quality['coverageKind']),
           ),
-          auditStatus: text(inputAudit['status'], text(unifiedAudit['status'])),
+          lineageStatus: text(
+            lineage['status'],
+            text(inputAudit['status'], 'not_run'),
+          ).toLowerCase(),
+          releaseStatus: text(release['status'], 'not_verified').toLowerCase(),
+          economicValidationStatus: text(
+            economicValidation['status'],
+            'not_validated',
+          ).toLowerCase(),
+          marketCalibrationStatus: text(
+            marketCalibration['status'],
+            'not_run',
+          ).toLowerCase(),
           consensusStatus: text(consensusCheck['status']),
           consensusUpside: nullableNumber(consensus['impliedUpside']),
         );

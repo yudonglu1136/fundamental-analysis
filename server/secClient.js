@@ -6,8 +6,20 @@ import { tickerForHolding } from "./cusipOverrides.js";
 import { gurus } from "./gurus.js";
 import { loadPriceSeries, nearestPoint } from "./marketData.js";
 import {
+  assessCorporateActionAdjustedShareChange,
+  group13fFilingsByReportDate,
+  is13fCommonLongHolding,
+  is13fOptionHolding,
+  manager13fCiks,
+  merge13fQuarterFilingMetadata,
+  partition13fHoldings,
+  selectManager13fFilings,
+  summarize13fHoldingValues
+} from "./thirteenF.js";
+import {
   databaseInfo,
   readDashboardSnapshot,
+  readGuruDashboardVersion,
   readGuruExposureSnapshot,
   readGuruAsset,
   readGuruAssets,
@@ -22,6 +34,9 @@ const cacheDir = path.join(__dirname, "cache");
 const cacheFile = path.join(cacheDir, "gurus.json");
 const guruCacheDir = path.join(cacheDir, "gurus");
 const cacheTtlMs = 1000 * 60 * 30;
+const dashboardMemoryTtlMs = 1000 * 30;
+let dashboardMemoryCache = null;
+let dashboardMemoryLoad = null;
 const insiderForm4FilingLimit = Math.max(10, Math.min(80, Number(process.env.INSIDER_FORM4_FILINGS || 30)));
 const secUserAgent =
   process.env.SEC_USER_AGENT || "guru-analysis-dashboard/0.1 contact@example.com";
@@ -167,16 +182,18 @@ async function getPublicText(url) {
   return response.text();
 }
 
-function filingsFromRecentShape(recent = {}) {
+export function filingsFromRecentShape(recent = {}) {
   const forms = recent.form || [];
 
   return forms.map((form, index) => ({
     form,
     accessionNumber: recent.accessionNumber?.[index],
     filingDate: recent.filingDate?.[index],
+    acceptanceDateTime: recent.acceptanceDateTime?.[index] || null,
     reportDate: recent.reportDate?.[index],
     primaryDocument: recent.primaryDocument?.[index],
-    primaryDocDescription: recent.primaryDocDescription?.[index]
+    primaryDocDescription: recent.primaryDocDescription?.[index],
+    isAmendment: /\/A$/i.test(String(form || "").trim())
   }));
 }
 
@@ -359,7 +376,100 @@ function parse13fInfoTable(xmlText) {
   const root = parsed.informationTable || parsed.XML?.informationTable || parsed;
   const tables = toArray(root.infoTable);
 
-  return aggregate13fHoldings(normalize13fValueScale(tables.map(normalize13fHolding)));
+  return aggregate13fHoldings(normalize13fValueScale(tables.map(normalize13fHolding)))
+    .map((holding) => ({
+      ...holding,
+      holdingBucket: is13fOptionHolding(holding)
+        ? "option"
+        : is13fCommonLongHolding(holding)
+          ? "common_long"
+          : "other_reported"
+    }));
+}
+
+function compact13fFilingExclusions(excluded = []) {
+  return excluded.map(({ snapshot, code, reason }) => ({
+    form: snapshot.form || snapshot.filing?.form,
+    accessionNumber: snapshot.accessionNumber || snapshot.filing?.accessionNumber,
+    reportDate: snapshot.reportDate || snapshot.filing?.reportDate,
+    filingDate: snapshot.filingDate || snapshot.filing?.filingDate,
+    acceptanceDateTime: snapshot.acceptanceDateTime || snapshot.filing?.acceptanceDateTime || null,
+    filerCik: snapshot.filerCik || snapshot.filing?.filerCik || null,
+    code,
+    reason
+  }));
+}
+
+async function collectManager13fFilings(guru, {
+  historyMode = "recent",
+  minimumPerCik = 0
+} = {}) {
+  const filingSources = [];
+  const submissionsByCik = new Map();
+  for (const cik of manager13fCiks(guru)) {
+    const submission = await getSubmission(cik);
+    submissionsByCik.set(cik, submission);
+    let filings;
+    if (historyMode === "all") {
+      filings = await allSubmissionFilings(submission);
+    } else if (historyMode === "recent_or_archived") {
+      filings = await recentOrArchivedFilings(submission, {
+        formPattern: /^13F-HR/,
+        minimum: minimumPerCik
+      });
+    } else {
+      filings = recentFilings(submission);
+    }
+    filingSources.push({ cik, filings });
+  }
+
+  let selection = selectManager13fFilings(filingSources);
+  if (historyMode !== "all") {
+    const orphanAmendmentCiks = new Set(selection.excluded
+      .filter(({ code }) => code === "amendment_without_original")
+      .map(({ snapshot }) => snapshot.filerCik)
+      .filter(Boolean));
+    for (const source of filingSources) {
+      if (!orphanAmendmentCiks.has(source.cik)) continue;
+      source.filings = await allSubmissionFilings(submissionsByCik.get(source.cik));
+    }
+    if (orphanAmendmentCiks.size) selection = selectManager13fFilings(filingSources);
+  }
+  return {
+    filings: selection.filings,
+    candidateFilings: selection.candidates,
+    excludedFilings: compact13fFilingExclusions(selection.excluded),
+    sourceCiks: selection.sourceCiks,
+    duplicateAccessions: selection.duplicateAccessions,
+    blockedReportDates: selection.blockedReportDates
+  };
+}
+
+async function load13fQuarterSnapshot(guru, group) {
+  const components = [];
+  for (const filing of group?.filings || []) {
+    const filerCik = filing.filerCik || guru.cik;
+    const doc = await getFilingDocument(filerCik, filing);
+    components.push({
+      filing: { ...filing, filerCik },
+      doc,
+      holdings: parse13fInfoTable(doc.text)
+    });
+  }
+  if (!components.length) throw new Error(`No usable 13F components for ${group?.reportDate || "quarter"}`);
+
+  const componentFilings = components.map(({ filing, doc }) => ({
+    ...filing,
+    xmlUrl: doc.url
+  }));
+  const filing = merge13fQuarterFilingMetadata(componentFilings, group.reportDate);
+
+  return {
+    filing,
+    holdings: aggregate13fHoldings(components.flatMap((component) => component.holdings)),
+    filingUrl: components.length === 1 ? components[0].doc.url : null,
+    components
+  };
 }
 
 function classifyChange(current, previous) {
@@ -386,6 +496,7 @@ function compare13fHoldings(currentHoldings, previousHoldings) {
       const value = current?.value || 0;
       const previousValue = previous?.value || 0;
       const base = current || previous;
+      const tradeSignal = assessCorporateActionAdjustedShareChange(current, previous);
 
       return {
         ...base,
@@ -395,7 +506,14 @@ function compare13fHoldings(currentHoldings, previousHoldings) {
         previousValue,
         changeShares,
         changePct: prevShares ? changeShares / Math.abs(prevShares) : null,
-        action: classifyChange(current, previous)
+        action: classifyChange(current, previous),
+        actionBasis: "reported_13f_position_change_unadjusted",
+        shareChangeBasis: "reported_13f_shares_unadjusted",
+        corporateActionAdjusted: false,
+        inferredTrade: false,
+        tradeSignalStatus: tradeSignal.status,
+        eligibleForTradeSignal: tradeSignal.eligibleForTradeSignal,
+        tradeSignalReason: tradeSignal.reason
       };
     })
     .sort((a, b) => Math.abs(b.changeShares) - Math.abs(a.changeShares));
@@ -451,6 +569,8 @@ function changeStats(currentHoldings, previousHoldings, totalValue, previousValu
     reducedPositions: changes.filter((item) => item.action === "reduced").length,
     soldOutPositions: changes.filter((item) => item.action === "sold_out").length,
     turnoverProxy: averageBook ? grossChange / (2 * averageBook) : 0,
+    turnoverProxyBasis: "reported_quarter_end_value_change_not_verified_trading_turnover",
+    verifiedTradeSignals: changes.filter((item) => item.eligibleForTradeSignal).length,
     largestChanges: changes
       .filter((item) => item.action !== "unchanged")
       .sort(
@@ -471,32 +591,62 @@ function changeStats(currentHoldings, previousHoldings, totalValue, previousValu
         shares: change.shares || 0,
         prevShares: change.prevShares || 0,
         changeShares: change.changeShares || 0,
-        changePct: change.changePct
+        changePct: change.changePct,
+        actionBasis: change.actionBasis,
+        shareChangeBasis: change.shareChangeBasis,
+        corporateActionAdjusted: change.corporateActionAdjusted,
+        inferredTrade: change.inferredTrade,
+        eligibleForTradeSignal: change.eligibleForTradeSignal,
+        tradeSignalStatus: change.tradeSignalStatus,
+        tradeSignalReason: change.tradeSignalReason
       }))
   };
 }
 
 function summarize13fExposureQuarter(guru, filing, filingUrl, holdings, previousHoldings = []) {
-  const totalValue = holdings.reduce((sum, holding) => sum + (holding.value || 0), 0);
-  const previousValue = previousHoldings.reduce((sum, holding) => sum + (holding.value || 0), 0);
-  const concentration = concentrationStats(holdings, totalValue);
-  const movement = changeStats(holdings, previousHoldings, totalValue, previousValue);
+  const currentBuckets = partition13fHoldings(holdings);
+  const previousBuckets = partition13fHoldings(previousHoldings);
+  const values = summarize13fHoldingValues(holdings);
+  const previousValues = summarize13fHoldingValues(previousHoldings);
+  const concentration = concentrationStats(currentBuckets.commonLongHoldings, values.commonLongValue);
+  const movement = changeStats(
+    currentBuckets.commonLongHoldings,
+    previousBuckets.commonLongHoldings,
+    values.commonLongValue,
+    previousValues.commonLongValue
+  );
 
   return {
     accessionNumber: filing.accessionNumber,
     reportDate: filing.reportDate,
     filingDate: filing.filingDate,
+    acceptanceDateTime: filing.acceptanceDateTime || null,
     quarterLabel: quarterLabel(filing.reportDate),
-    reported13fValue: totalValue,
-    previous13fValue: previousValue,
-    valueChange: totalValue - previousValue,
-    valueChangePct: previousValue ? (totalValue - previousValue) / Math.abs(previousValue) : null,
-    positionCount: holdings.length,
+    reported13fValue: values.reported13fTableValue,
+    reported13fTableValue: values.reported13fTableValue,
+    commonLongValue: values.commonLongValue,
+    optionsNotional: values.optionsNotional,
+    callOptionsNotional: values.callOptionsNotional,
+    putOptionsNotional: values.putOptionsNotional,
+    otherReportedValue: values.otherReportedValue,
+    previous13fValue: previousValues.reported13fTableValue,
+    previousCommonLongValue: previousValues.commonLongValue,
+    valueChange: values.commonLongValue - previousValues.commonLongValue,
+    valueChangePct: previousValues.commonLongValue
+      ? (values.commonLongValue - previousValues.commonLongValue) / Math.abs(previousValues.commonLongValue)
+      : null,
+    positionCount: values.commonLongPositionCount,
+    reportedRowCount: values.reportedRowCount,
+    optionPositionCount: values.optionPositionCount,
+    otherReportedPositionCount: values.otherReportedPositionCount,
+    valueSemantics: values.valueSemantics,
     newPositions: movement.newPositions,
     increasedPositions: movement.increasedPositions,
     reducedPositions: movement.reducedPositions,
     soldOutPositions: movement.soldOutPositions,
     turnoverProxy: movement.turnoverProxy,
+    turnoverProxyBasis: movement.turnoverProxyBasis,
+    verifiedTradeSignals: movement.verifiedTradeSignals,
     top10Weight: concentration.top10Weight,
     topHoldingWeight: concentration.topHoldingWeight,
     concentrationHhi: concentration.hhi,
@@ -511,73 +661,105 @@ function exposureCacheIsFresh(payload) {
   return Number.isFinite(generatedAt) && Date.now() - generatedAt < 1000 * 60 * 60 * 24;
 }
 
-async function loadLatest13fHoldings(guru, filings) {
-  if (!guru.preferLatestNonZero13f) {
-    const latest = filings[0];
-    const latestDoc = await getFilingDocument(guru.cik, latest);
-    return {
-      latest,
-      latestDoc,
-      currentHoldings: parse13fInfoTable(latestDoc.text),
-      previous: filings[1] || null
-    };
-  }
+async function loadLatest13fHoldings(guru, filingGroups) {
+  let selectedIndex = 0;
+  let currentSnapshot = null;
+  let firstSnapshot = null;
+  let foundUsableSnapshot = !guru.preferLatestNonZero13f;
 
-  for (let index = 0; index < filings.length; index += 1) {
-    const candidate = filings[index];
-    const doc = await getFilingDocument(guru.cik, candidate);
-    const holdings = parse13fInfoTable(doc.text);
-    const totalValue = holdings.reduce((sum, holding) => sum + holding.value, 0);
-    if (holdings.length && totalValue > 0) {
-      return {
-        latest: candidate,
-        latestDoc: doc,
-        currentHoldings: holdings,
-        previous: filings[index + 1] || null
-      };
+  for (let index = 0; index < filingGroups.length; index += 1) {
+    const snapshot = await load13fQuarterSnapshot(guru, filingGroups[index]);
+    if (!firstSnapshot) firstSnapshot = snapshot;
+    currentSnapshot = snapshot;
+    selectedIndex = index;
+    if (!guru.preferLatestNonZero13f) break;
+    const totalValue = snapshot.holdings.reduce((sum, holding) => sum + holding.value, 0);
+    if (snapshot.holdings.length && totalValue > 0) {
+      foundUsableSnapshot = true;
+      break;
     }
   }
+  if (!foundUsableSnapshot) {
+    currentSnapshot = firstSnapshot;
+    selectedIndex = 0;
+  }
 
-  const latest = filings[0];
-  const latestDoc = await getFilingDocument(guru.cik, latest);
+  const previousGroup = filingGroups[selectedIndex + 1] || null;
+  const previousSnapshot = previousGroup
+    ? await load13fQuarterSnapshot(guru, previousGroup)
+    : null;
   return {
-    latest,
-    latestDoc,
-    currentHoldings: parse13fInfoTable(latestDoc.text),
-    previous: filings[1] || null
+    latest: currentSnapshot.filing,
+    latestDoc: { url: currentSnapshot.filingUrl },
+    currentHoldings: currentSnapshot.holdings,
+    previous: previousSnapshot?.filing || null,
+    previousDoc: previousSnapshot ? { url: previousSnapshot.filingUrl } : null,
+    previousHoldings: previousSnapshot?.holdings || []
   };
 }
 
 async function load13fGuru(guru) {
-  const submission = await getSubmission(guru.cik);
-  const filings = recentFilings(submission)
-    .filter((filing) => /^13F-HR/.test(filing.form))
-    .filter((filing) => filing.accessionNumber)
-    .sort((a, b) => {
-      const dateCompare = String(b.reportDate || "").localeCompare(String(a.reportDate || ""));
-      return dateCompare || String(b.filingDate || "").localeCompare(String(a.filingDate || ""));
-    });
+  const filingCollection = await collectManager13fFilings(guru, {
+    historyMode: "recent_or_archived",
+    minimumPerCik: 2
+  });
+  const rawFilings = filingCollection.candidateFilings;
+  const filingGroups = group13fFilingsByReportDate(filingCollection.filings).reverse();
 
-  if (!filings[0]) {
+  if (!filingGroups[0]) {
     return withGuruShell(guru, {
       status: "missing",
-      summary: { message: "No recent 13F-HR filings found in SEC submissions." }
+      summary: {
+        message: rawFilings.length
+          ? "Only amended 13F filings without an unambiguous original were available."
+          : "No recent 13F-HR filings found in SEC submissions."
+      },
+      dataQuality: {
+        amendmentPolicy: "original_only_fail_closed",
+        reportingCiks: filingCollection.sourceCiks,
+        duplicateAccessions: filingCollection.duplicateAccessions,
+        blockedReportDates: filingCollection.blockedReportDates,
+        excludedAmendments: filingCollection.excludedFilings
+      }
     });
   }
 
-  const { latest, latestDoc, currentHoldings, previous } = await loadLatest13fHoldings(guru, filings);
-  const previousDoc = previous ? await getFilingDocument(guru.cik, previous) : null;
-  const previousHoldings = previousDoc ? parse13fInfoTable(previousDoc.text) : [];
-  const changes = compare13fHoldings(currentHoldings, previousHoldings);
-  const totalValue = currentHoldings.reduce((sum, holding) => sum + holding.value, 0);
-  const previousValue = previousHoldings.reduce((sum, holding) => sum + holding.value, 0);
-  const concentration = concentrationStats(currentHoldings, totalValue);
-  const movement = changeStats(currentHoldings, previousHoldings, totalValue, previousValue);
+  const {
+    latest,
+    latestDoc,
+    currentHoldings,
+    previous,
+    previousDoc,
+    previousHoldings
+  } = await loadLatest13fHoldings(guru, filingGroups);
+  const currentBuckets = partition13fHoldings(currentHoldings);
+  const previousBuckets = partition13fHoldings(previousHoldings);
+  const values = summarize13fHoldingValues(currentHoldings);
+  const previousValues = summarize13fHoldingValues(previousHoldings);
+  const changes = compare13fHoldings(
+    currentBuckets.commonLongHoldings,
+    previousBuckets.commonLongHoldings
+  );
+  const optionChanges = compare13fHoldings(
+    currentBuckets.optionHoldings,
+    previousBuckets.optionHoldings
+  );
+  const concentration = concentrationStats(currentBuckets.commonLongHoldings, values.commonLongValue);
+  const movement = changeStats(
+    currentBuckets.commonLongHoldings,
+    previousBuckets.commonLongHoldings,
+    values.commonLongValue,
+    previousValues.commonLongValue
+  );
 
-  const holdings = currentHoldings
+  const holdings = currentBuckets.commonLongHoldings
     .map((holding) => ({
       ...holding,
-      pctPortfolio: totalValue ? holding.value / totalValue : 0,
+      pctPortfolio: values.commonLongValue ? holding.value / values.commonLongValue : 0,
+      pctCommonLong: values.commonLongValue ? holding.value / values.commonLongValue : 0,
+      pctReported13fTable: values.reported13fTableValue
+        ? holding.value / values.reported13fTableValue
+        : 0,
       action: changes.find((change) => change.id === holding.id)?.action || "unchanged",
       changeShares: changes.find((change) => change.id === holding.id)?.changeShares || 0,
       changePct: changes.find((change) => change.id === holding.id)?.changePct ?? null
@@ -588,12 +770,23 @@ async function load13fGuru(guru) {
     .filter((change) => change.action !== "unchanged")
     .map((change) => ({
       ...change,
-      pctPortfolio: totalValue ? change.value / totalValue : 0
+      pctPortfolio: values.commonLongValue ? change.value / values.commonLongValue : 0,
+      pctCommonLong: values.commonLongValue ? change.value / values.commonLongValue : 0
     }))
     .sort((a, b) => {
       const actionRank = { new: 4, increased: 3, reduced: 2, sold_out: 1 };
       return (actionRank[b.action] || 0) - (actionRank[a.action] || 0) || b.value - a.value;
     });
+  const optionHoldings = currentBuckets.optionHoldings
+    .map((holding) => ({
+      ...holding,
+      pctOptionsNotional: values.optionsNotional ? holding.value / values.optionsNotional : 0,
+      pctReported13fTable: values.reported13fTableValue
+        ? holding.value / values.reported13fTableValue
+        : 0,
+      action: optionChanges.find((change) => change.id === holding.id)?.action || "unchanged"
+    }))
+    .sort((a, b) => b.value - a.value);
 
   return withGuruShell(guru, {
     status: "live",
@@ -603,11 +796,25 @@ async function load13fGuru(guru) {
     summary: {
       reportDate: latest.reportDate,
       filingDate: latest.filingDate,
+      acceptanceDateTime: latest.acceptanceDateTime || null,
       previousReportDate: previous?.reportDate || null,
-      totalValue,
-      previousValue,
-      valueChange: totalValue - previousValue,
-      totalPositions: currentHoldings.length,
+      totalValue: values.commonLongValue,
+      totalValueBasis: "common_long_shares",
+      previousValue: previousValues.commonLongValue,
+      reported13fTableValue: values.reported13fTableValue,
+      commonLongValue: values.commonLongValue,
+      optionsNotional: values.optionsNotional,
+      callOptionsNotional: values.callOptionsNotional,
+      putOptionsNotional: values.putOptionsNotional,
+      otherReportedValue: values.otherReportedValue,
+      previousReported13fTableValue: previousValues.reported13fTableValue,
+      previousCommonLongValue: previousValues.commonLongValue,
+      valueChange: values.commonLongValue - previousValues.commonLongValue,
+      totalPositions: values.commonLongPositionCount,
+      reportedRowCount: values.reportedRowCount,
+      optionPositionCount: values.optionPositionCount,
+      otherReportedPositionCount: values.otherReportedPositionCount,
+      valueSemantics: values.valueSemantics,
       newPositions: activity.filter((item) => item.action === "new").length,
       increasedPositions: activity.filter((item) => item.action === "increased").length,
       reducedPositions: activity.filter((item) => item.action === "reduced").length,
@@ -615,10 +822,29 @@ async function load13fGuru(guru) {
       top10Weight: concentration.top10Weight,
       topHoldingWeight: concentration.topHoldingWeight,
       concentrationHhi: concentration.hhi,
-      turnoverProxy: movement.turnoverProxy
+      turnoverProxy: movement.turnoverProxy,
+      turnoverProxyBasis: movement.turnoverProxyBasis,
+      verifiedTradeSignals: movement.verifiedTradeSignals
     },
     holdings: holdings.slice(0, 80),
-    activity: activity.slice(0, 80)
+    optionHoldings: optionHoldings.slice(0, 80),
+    otherReportedHoldings: currentBuckets.otherReportedHoldings.slice(0, 80),
+    activity: activity.slice(0, 80),
+    dataQuality: {
+      amendmentPolicy: "original_only_fail_closed",
+      reportingCiks: filingCollection.sourceCiks,
+      duplicateAccessions: filingCollection.duplicateAccessions,
+      blockedReportDates: filingCollection.blockedReportDates,
+      excludedAmendments: filingCollection.excludedFilings,
+      reportedShareChangeBasis: "reported_13f_shares_unadjusted",
+      reportedShareChangesCorporateActionAdjusted: false,
+      caveats: [
+        "Form 13F table value is not fund AUM.",
+        "Put/call reported values represent underlying-security value, not option premium.",
+        "New, increased, reduced, and sold-out labels describe raw quarter-end position changes, not verified transactions.",
+        "Reported share changes are not treated as verified trades because corporate-action adjustment is unavailable."
+      ]
+    }
   });
 }
 
@@ -1063,6 +1289,13 @@ function normalizeTimelineOperation(operation) {
     value: numberValue(operation.value),
     shares: numberValue(operation.shares),
     changeShares: numberValue(operation.changeShares),
+    actionBasis: operation.actionBasis || null,
+    shareChangeBasis: operation.shareChangeBasis || null,
+    corporateActionAdjusted: operation.corporateActionAdjusted ?? null,
+    inferredTrade: operation.inferredTrade ?? null,
+    eligibleForTradeSignal: operation.eligibleForTradeSignal ?? null,
+    tradeSignalStatus: operation.tradeSignalStatus || null,
+    tradeSignalReason: operation.tradeSignalReason || null,
     price: numberValue(operation.price),
     amountRange: operation.amountRange || "",
     detail: operation.detail || ""
@@ -1085,25 +1318,19 @@ function operationRank(operation) {
 }
 
 async function load13fTimeline(guru, limit = 10) {
-  const submission = await getSubmission(guru.cik);
-  const filings = recentFilings(submission)
-    .filter((filing) => /^13F-HR/.test(filing.form))
-    .filter((filing) => filing.accessionNumber)
-    .sort((a, b) => {
-      const dateCompare = String(b.reportDate || "").localeCompare(String(a.reportDate || ""));
-      return dateCompare || String(b.filingDate || "").localeCompare(String(a.filingDate || ""));
-    })
+  const filingCollection = await collectManager13fFilings(guru, {
+    historyMode: "recent_or_archived",
+    minimumPerCik: limit
+  });
+  const filingGroups = group13fFilingsByReportDate(filingCollection.filings)
+    .reverse()
     .slice(0, limit)
     .reverse();
 
   const quarters = [];
-  for (const filing of filings) {
+  for (const group of filingGroups) {
     try {
-      const doc = await getFilingDocument(guru.cik, filing);
-      quarters.push({
-        filing,
-        holdings: parse13fInfoTable(doc.text)
-      });
+      quarters.push(await load13fQuarterSnapshot(guru, group));
     } catch {
       // Skip malformed historical filings without breaking the whole context view.
     }
@@ -1113,7 +1340,9 @@ async function load13fTimeline(guru, limit = 10) {
   for (let index = 1; index < quarters.length; index += 1) {
     const previous = quarters[index - 1];
     const current = quarters[index];
-    const changes = compare13fHoldings(current.holdings, previous.holdings)
+    const currentCommonLongs = partition13fHoldings(current.holdings).commonLongHoldings;
+    const previousCommonLongs = partition13fHoldings(previous.holdings).commonLongHoldings;
+    const changes = compare13fHoldings(currentCommonLongs, previousCommonLongs)
       .filter((change) => change.action !== "unchanged" && (change.ticker || change.issuer))
       .sort((a, b) => operationRank(b) - operationRank(a))
       .slice(0, 18);
@@ -1133,6 +1362,13 @@ async function load13fTimeline(guru, limit = 10) {
         value: change.value || change.previousValue || 0,
         shares: change.shares,
         changeShares: change.changeShares,
+        actionBasis: change.actionBasis,
+        shareChangeBasis: change.shareChangeBasis,
+        corporateActionAdjusted: change.corporateActionAdjusted,
+        inferredTrade: change.inferredTrade,
+        eligibleForTradeSignal: change.eligibleForTradeSignal,
+        tradeSignalStatus: change.tradeSignalStatus,
+        tradeSignalReason: change.tradeSignalReason,
         detail: `${current.filing.reportDate} quarter`
       }));
     }
@@ -1153,40 +1389,67 @@ export async function load13fHoldingHistory(guru, { years = 5, limit = 24 } = {}
   const cutoffDate = hasYearWindow ? cutoff.toISOString().slice(0, 10) : "";
   const parsedLimit = Number(limit);
   const hasLimit = Number.isFinite(parsedLimit) && parsedLimit > 0;
-  const submission = await getSubmission(guru.cik);
-  const sourceFilings = hasYearWindow ? recentFilings(submission) : await allSubmissionFilings(submission);
-  const filings = sourceFilings
-    .filter((filing) => /^13F-HR/.test(filing.form))
-    .filter((filing) => filing.accessionNumber)
-    .filter((filing) => !cutoffDate || String(filing.filingDate || filing.reportDate || "") >= cutoffDate)
-    .sort((a, b) => {
-      const dateCompare = String(a.reportDate || "").localeCompare(String(b.reportDate || ""));
-      return dateCompare || String(a.filingDate || "").localeCompare(String(b.filingDate || ""));
-    })
+  const filingCollection = await collectManager13fFilings(guru, {
+    historyMode: hasYearWindow ? "recent_or_archived" : "all",
+    minimumPerCik: hasYearWindow ? Math.max(4, Math.ceil(parsedYears * 4) + 2) : 0
+  });
+  const filingGroups = group13fFilingsByReportDate(filingCollection.filings)
+    .filter((group) => !cutoffDate || String(group.reportDate || "") >= cutoffDate)
     .slice(hasLimit ? -parsedLimit : 0);
 
   const history = [];
-  for (const filing of filings) {
+  const filingErrors = [];
+  for (const group of filingGroups) {
     try {
-      const doc = await getFilingDocument(guru.cik, filing);
-      const rawHoldings = parse13fInfoTable(doc.text);
-      const totalValue = rawHoldings.reduce((sum, holding) => sum + holding.value, 0);
+      const snapshot = await load13fQuarterSnapshot(guru, group);
+      const { filing, holdings: rawHoldings, filingUrl } = snapshot;
+      const values = summarize13fHoldingValues(rawHoldings);
       history.push({
-        filing: decorateFiling(guru, filing, doc.url),
+        filing: decorateFiling(guru, filing, filingUrl),
         reportDate: filing.reportDate,
         filingDate: filing.filingDate,
-        totalValue,
+        acceptanceDateTime: filing.acceptanceDateTime || null,
+        totalValue: values.commonLongValue,
+        totalValueBasis: "common_long_shares",
+        reported13fTableValue: values.reported13fTableValue,
+        commonLongValue: values.commonLongValue,
+        optionsNotional: values.optionsNotional,
+        callOptionsNotional: values.callOptionsNotional,
+        putOptionsNotional: values.putOptionsNotional,
+        otherReportedValue: values.otherReportedValue,
+        valueSemantics: values.valueSemantics,
         holdings: rawHoldings
           .map((holding) => ({
             ...holding,
-            pctPortfolio: totalValue ? holding.value / totalValue : 0
+            pctPortfolio: is13fCommonLongHolding(holding) && values.commonLongValue
+              ? holding.value / values.commonLongValue
+              : 0,
+            pctCommonLong: is13fCommonLongHolding(holding) && values.commonLongValue
+              ? holding.value / values.commonLongValue
+              : 0,
+            pctReported13fTable: values.reported13fTableValue
+              ? holding.value / values.reported13fTableValue
+              : 0
           }))
           .sort((a, b) => b.value - a.value)
       });
-    } catch {
+    } catch (error) {
+      filingErrors.push({
+        reportDate: group.reportDate,
+        accessionNumbers: group.filings.map((filing) => filing.accessionNumber),
+        message: error.message
+      });
       // Historical filings occasionally point to malformed archives. Skip that quarter only.
     }
   }
+
+  Object.defineProperties(history, {
+    excludedFilings: { value: filingCollection.excludedFilings, enumerable: false },
+    duplicateAccessions: { value: filingCollection.duplicateAccessions, enumerable: false },
+    blockedReportDates: { value: filingCollection.blockedReportDates, enumerable: false },
+    reportingCiks: { value: filingCollection.sourceCiks, enumerable: false },
+    filingErrors: { value: filingErrors, enumerable: false }
+  });
 
   return history;
 }
@@ -1549,15 +1812,27 @@ export async function loadGuruMarketContext(guruId, { ticker, refresh = false } 
 
 function decorateFiling(guru, filing, xmlUrl) {
   const accessionPath = String(filing.accessionNumber || "").replace(/-/g, "");
+  const filerCik = filing.filerCik || guru.cik;
+  const componentFilings = (filing.componentFilings || []).map((component) =>
+    decorateFiling(guru, { ...component, componentFilings: [] }, component.xmlUrl)
+  );
   return {
     form: filing.form,
     accessionNumber: filing.accessionNumber,
+    accessionNumbers: filing.accessionNumbers || [filing.accessionNumber].filter(Boolean),
+    filerCik,
+    componentCiks: filing.componentCiks || [filerCik].filter(Boolean),
+    componentFilings,
+    componentAcceptanceTimestampsComplete:
+      filing.componentAcceptanceTimestampsComplete ?? Boolean(filing.acceptanceDateTime),
     filingDate: filing.filingDate,
+    acceptanceDateTime: filing.acceptanceDateTime || null,
     reportDate: filing.reportDate,
+    isAmendment: Boolean(filing.isAmendment || /\/A$/i.test(String(filing.form || "").trim())),
     primaryDocument: filing.primaryDocument,
     xmlUrl: xmlUrl || null,
-    secUrl: `https://www.sec.gov/Archives/edgar/data/${cikPath(guru.cik)}/${accessionPath}/${filing.primaryDocument || ""}`,
-    filingIndexUrl: `https://www.sec.gov/Archives/edgar/data/${cikPath(guru.cik)}/${accessionPath}/`
+    secUrl: `https://www.sec.gov/Archives/edgar/data/${cikPath(filerCik)}/${accessionPath}/${filing.primaryDocument || ""}`,
+    filingIndexUrl: `https://www.sec.gov/Archives/edgar/data/${cikPath(filerCik)}/${accessionPath}/`
   };
 }
 
@@ -1588,6 +1863,26 @@ function withGuruShell(guru, data) {
   };
 }
 
+const configuredGuruVersion = gurus
+  .map((guru) => `${guru.id}:${guru.type}:${guru.cik || ""}`)
+  .join("|");
+
+function guruDashboardCacheKey() {
+  return `${configuredGuruVersion}:${readGuruDashboardVersion()}`;
+}
+
+function guruDashboardCacheExpiry(payload, now = Date.now()) {
+  const ttlExpiry = now + dashboardMemoryTtlMs;
+  const generatedAt = new Date(payload?.generatedAt || "").getTime();
+  const freshnessExpiry = generatedAt + cacheTtlMs;
+  if (!Number.isFinite(freshnessExpiry) || freshnessExpiry <= now) return ttlExpiry;
+  return Math.min(ttlExpiry, freshnessExpiry);
+}
+
+export function clearGuruDashboardMemoryCache() {
+  dashboardMemoryCache = null;
+}
+
 async function readCache() {
   const dbSnapshot = readDashboardSnapshot();
   if (dbSnapshot) {
@@ -1607,6 +1902,7 @@ async function readCache() {
 
 async function writeCache(payload) {
   writeDashboardSnapshot(payload);
+  clearGuruDashboardMemoryCache();
   await fs.mkdir(cacheDir, { recursive: true });
   await fs.writeFile(cacheFile, JSON.stringify(payload, null, 2));
 }
@@ -1624,6 +1920,7 @@ async function readGuruCache(guruId) {
 
 async function writeGuruCache(guruId, payload) {
   writeGuruSnapshot(guruId, payload);
+  clearGuruDashboardMemoryCache();
   await fs.mkdir(guruCacheDir, { recursive: true });
   await fs.writeFile(path.join(guruCacheDir, `${guruId}.json`), JSON.stringify(payload, null, 2));
 }
@@ -1905,17 +2202,12 @@ async function refreshGuruExposureSnapshotNow(guruId, { limit = 24 } = {}) {
   }
 
   const maxQuarters = Math.max(4, Math.min(40, Number(limit) || 24));
-  const submission = await getSubmission(guru.cik);
-  const filings = (await recentOrArchivedFilings(submission, {
-    formPattern: /^13F-HR/,
-    minimum: maxQuarters
-  }))
-    .filter((filing) => /^13F-HR/.test(filing.form))
-    .filter((filing) => filing.accessionNumber)
-    .sort((a, b) => {
-      const dateCompare = String(b.reportDate || "").localeCompare(String(a.reportDate || ""));
-      return dateCompare || String(b.filingDate || "").localeCompare(String(a.filingDate || ""));
-    })
+  const filingCollection = await collectManager13fFilings(guru, {
+    historyMode: "recent_or_archived",
+    minimumPerCik: maxQuarters
+  });
+  const filingGroups = group13fFilingsByReportDate(filingCollection.filings)
+    .reverse()
     .slice(0, maxQuarters)
     .reverse();
 
@@ -1923,17 +2215,17 @@ async function refreshGuruExposureSnapshotNow(guruId, { limit = 24 } = {}) {
   const errors = [];
   let previousHoldings = [];
 
-  for (const filing of filings) {
+  for (const group of filingGroups) {
     try {
-      const doc = await getFilingDocument(guru.cik, filing);
-      const holdings = parse13fInfoTable(doc.text);
-      history.push(summarize13fExposureQuarter(guru, filing, doc.url, holdings, previousHoldings));
+      const snapshot = await load13fQuarterSnapshot(guru, group);
+      const { filing, holdings, filingUrl } = snapshot;
+      history.push(summarize13fExposureQuarter(guru, filing, filingUrl, holdings, previousHoldings));
       previousHoldings = holdings;
       await wait(60);
     } catch (error) {
       errors.push({
-        accessionNumber: filing.accessionNumber,
-        reportDate: filing.reportDate,
+        accessionNumbers: group.filings.map((filing) => filing.accessionNumber),
+        reportDate: group.reportDate,
         message: error.message
       });
     }
@@ -1954,6 +2246,13 @@ async function refreshGuruExposureSnapshotNow(guruId, { limit = 24 } = {}) {
     meta: {
       requestedQuarters: maxQuarters,
       returnedQuarters: history.length,
+      amendmentPolicy: "original_only_fail_closed",
+      reportingCiks: filingCollection.sourceCiks,
+      duplicateAccessions: filingCollection.duplicateAccessions,
+      blockedReportDates: filingCollection.blockedReportDates,
+      excludedAmendments: filingCollection.excludedFilings,
+      reportedShareChangeBasis: "reported_13f_shares_unadjusted",
+      reportedShareChangesCorporateActionAdjusted: false,
       errors
     }
   };
@@ -1965,12 +2264,21 @@ async function refreshGuruExposureSnapshotNow(guruId, { limit = 24 } = {}) {
   return { ...payload, cache: { status: "refreshed", ttlHours: 24 } };
 }
 
-export async function loadGuruDashboard({ forceRefresh = false } = {}) {
+async function loadGuruDashboardUncached({ forceRefresh = false } = {}) {
   const cached = await readCache();
   if (!forceRefresh && cached.parsed && cacheCoversConfiguredGurus(cached.parsed) && !hasGuruErrors(cached.parsed)) {
     const resolvedCached = withResolvedDashboardTickers(cached.parsed);
+    const cachedStatus = cached.fresh ? "cached" : "stale";
     return {
       ...resolvedCached,
+      gurus: (resolvedCached.gurus || []).map((guru) => withDataStatus(guru, {
+        status: cachedStatus,
+        reason: "loaded_from_local_dashboard_snapshot",
+        message: cached.fresh
+          ? "Loaded from the current local dashboard snapshot."
+          : "Loaded from an expired local dashboard snapshot; refresh to update external sources.",
+        lastUpdated: guru.generatedAt || guru.summary?.filingDate || resolvedCached.generatedAt || null
+      })),
       source: {
         ...(resolvedCached.source || {}),
         upstreamLabel: resolvedCached.source?.label || "SEC EDGAR + STOCK Act",
@@ -2019,6 +2327,43 @@ export async function loadGuruDashboard({ forceRefresh = false } = {}) {
     await writeCache(payload);
   }
   return { ...payload, cache: { status: "refreshed", ttlMinutes: 30 } };
+}
+
+export async function loadGuruDashboard({ forceRefresh = false } = {}) {
+  if (forceRefresh) {
+    clearGuruDashboardMemoryCache();
+    try {
+      return await loadGuruDashboardUncached({ forceRefresh: true });
+    } finally {
+      clearGuruDashboardMemoryCache();
+    }
+  }
+
+  const key = guruDashboardCacheKey();
+  const now = Date.now();
+  if (
+    dashboardMemoryCache?.key === key &&
+    dashboardMemoryCache.expiresAt > now
+  ) {
+    return dashboardMemoryCache.payload;
+  }
+  if (dashboardMemoryLoad?.key === key) return dashboardMemoryLoad.promise;
+
+  const promise = loadGuruDashboardUncached({ forceRefresh: false })
+    .then((payload) => {
+      const finalKey = guruDashboardCacheKey();
+      dashboardMemoryCache = {
+        key: finalKey,
+        payload,
+        expiresAt: guruDashboardCacheExpiry(payload)
+      };
+      return payload;
+    })
+    .finally(() => {
+      if (dashboardMemoryLoad?.promise === promise) dashboardMemoryLoad = null;
+    });
+  dashboardMemoryLoad = { key, promise };
+  return promise;
 }
 
 export async function refreshGuruSnapshot(guruId) {

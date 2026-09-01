@@ -3,6 +3,19 @@
     "语言": "Language",
     "中文": "Chinese",
     "正在连接本地 Sharadar 数据库…": "Connecting to the local Sharadar database…",
+    "正在验证快照": "VERIFYING SNAPSHOT",
+    "实时数据": "LIVE",
+    "已缓存": "CACHED",
+    "快照过期": "STALE SNAPSHOT",
+    "数据错误": "DATA ERROR",
+    "快照健康检查失败": "Snapshot health check failed",
+    "快照生成于 ": "Snapshot generated ",
+    "已过去 ": "",
+    " 天": " days old",
+    "此视图暂时不可用": "This view is temporarily unavailable",
+    "重试此视图": "Retry this view",
+    "正在重新载入此视图的数据…": "Reloading data for this view…",
+    "未知错误": "Unknown error",
     "返回 Guru Intelligence": "Back to Guru Intelligence",
     "搜索全市场 ticker 或公司": "Search the full market by ticker or company",
     "搜索 AI ticker 或公司": "Search AI tickers or companies",
@@ -62,11 +75,12 @@
     "下游付款方如何向供应商传导资本开支。": "How downstream buyers transmit capital spending to suppliers.",
     "颜色代表财务变化，不等于投资评级。": "Colors show financial change, not investment ratings.",
     "Ontology 策略实验室": "Ontology Strategy Lab",
-    "同一套 PIT 数据与真实执行口径，比较 Ontology、ML 与 13F 跟随策略，并下钻每次决策后的真实持仓。": "Compare Ontology, ML, and 13F-following strategies on the same PIT data and executable assumptions, then inspect actual holdings after every decision.",
+    "同一套 PIT 数据与真实执行口径，比较 Ontology、ML 与 13F 跟随策略，并下钻每次决策后的模拟重建持仓。": "Compare Ontology, ML, and 13F-following strategies on the same PIT data and executable assumptions, then inspect the reconstructed model portfolio after every decision.",
     "回测数据截至": "Backtest data through",
     "Sharadar PIT · SPY 同期基准": "Sharadar PIT · matched SPY benchmark",
     "选择研究版本": "Select a research version",
     "所有结果均采用公开信息后的真实执行口径；点击切换完整研究档案。": "All results use executable timing after public disclosure. Select a version to open its full research record.",
+    "等待 Gavin Baker、Bill Ackman、Stanley Druckenmiller 的全历史 13F 缓存": "Full-history 13F archive unavailable for Gavin Baker, Bill Ackman, and Stanley Druckenmiller",
     "载入策略研究档案…": "Loading strategy research…",
     "载入策略": "Loading strategy",
     "研究区间": "Research period",
@@ -1092,7 +1106,23 @@
   }
 
   function localizedGuruPath() {
-    return language === "en" ? "/?lang=en" : "/";
+    let candidate = "/";
+    try {
+      candidate = new URLSearchParams(root.location?.search || "").get("returnTo") || "/";
+      if (candidate.startsWith("//")) candidate = "/";
+      const parsed = new URL(candidate, root.location?.origin || "http://localhost");
+      const sameOrigin = !root.location?.origin || parsed.origin === root.location.origin;
+      if (!sameOrigin || parsed.pathname !== "/") candidate = "/";
+      else {
+        if (language === "en") parsed.searchParams.set("lang", "en");
+        else parsed.searchParams.delete("lang");
+        candidate = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      }
+    } catch (_) {
+      candidate = "/";
+    }
+    if (candidate === "/" && language === "en") return "/?lang=en";
+    return candidate;
   }
 
   function renderLanguageControl() {

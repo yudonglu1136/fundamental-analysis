@@ -1351,6 +1351,13 @@ function normalizeIbkrFlexPortfolio(parsed, {
       label: "IBKR Third-Party Reports / Yodlee",
       mode: "live",
       userScoped: Boolean(user?.id),
+      asOf: statement.toDate
+        ? normalizeReportDate(statement.toDate)
+        : statement.fromDate
+          ? normalizeReportDate(statement.fromDate)
+          : statement.whenGenerated || statement.generatedAt
+            ? isoDate(statement.whenGenerated || statement.generatedAt)
+            : undefined,
       fromDate: statement.fromDate ? normalizeReportDate(statement.fromDate) : undefined,
       toDate: statement.toDate ? normalizeReportDate(statement.toDate) : undefined,
       generatedAt: statement.whenGenerated || statement.generatedAt,
@@ -1552,6 +1559,12 @@ function aggregateIbkrPortfolios(payloads = [], {
   const accountCount = payloads.reduce((sum, payload) => sum + (payload.accounts?.length || 0), 0);
   const performance = aggregatePerformanceSeries(payloads);
   const errorMessages = errors.map((error) => error?.message || String(error)).filter(Boolean);
+  const sourceAsOfDates = payloads
+    .map((payload) =>
+      payload?.source?.asOf || payload?.source?.toDate || payload?.source?.generatedAt || ""
+    )
+    .filter((value) => value && !Number.isNaN(new Date(value).getTime()))
+    .sort((left, right) => new Date(left).getTime() - new Date(right).getTime());
   const payload = normalizePortfolio({
     connection: {
       provider: "IBKR Third-Party Reports",
@@ -1590,6 +1603,7 @@ function aggregateIbkrPortfolios(payloads = [], {
     source: {
       label: "IBKR Third-Party Reports / Yodlee",
       mode: "multi_account_live",
+      asOf: sourceAsOfDates[0] || undefined,
       userScoped: Boolean(user?.id),
       warnings: errorMessages
     }

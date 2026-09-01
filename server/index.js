@@ -20,13 +20,13 @@ import {
 import { loadValuationDashboard, loadValuationTicker } from "./valuationClient.js";
 import { importValuationTicker } from "./valuationImporter.js";
 import { translateTextsToChinese } from "./translationClient.js";
-import { databaseInfo, writeBackgroundJobRun } from "./localDatabase.js";
+import { writeBackgroundJobRun } from "./localDatabase.js";
 import { loadTickerLogo } from "./logoClient.js";
 import {
   refreshDividendCalendarForTickers,
   startDividendCalendarRefresher
 } from "./dividendClient.js";
-import { buildAdminSystemHealth } from "./systemHealth.js";
+import { buildAdminSystemHealth, buildPublicSystemHealth } from "./systemHealth.js";
 import { installJsonTransport } from "./jsonTransport.js";
 import {
   addPortfolioAccount,
@@ -35,6 +35,7 @@ import {
   portfolioUserForAdminHash,
   readPortfolioConnectionStatus,
   recordPortfolioUser,
+  restorePortfolioConnection,
   savePortfolioConnection
 } from "./userPortfolioStore.js";
 
@@ -81,31 +82,10 @@ if (fs.existsSync(avatarAssetDir)) {
   }));
 }
 
-function databaseHealth() {
-  const info = databaseInfo();
-  try {
-    const stats = fs.statSync(info.path);
-    return {
-      exists: stats.isFile(),
-      sizeBytes: stats.size,
-      updatedAt: stats.mtime.toISOString()
-    };
-  } catch {
-    return {
-      exists: false,
-      sizeBytes: 0,
-      updatedAt: null
-    };
-  }
-}
-
 app.get("/api/health", (_request, response) => {
-  response.json({
-    ok: true,
-    service: "guru-analysis-dashboard",
-    database: databaseHealth(),
-    ontology: publicOntologySnapshotInfo()
-  });
+  const health = buildPublicSystemHealth({ ontology: publicOntologySnapshotInfo() });
+  response.setHeader("Cache-Control", "no-store");
+  response.status(health.ok ? 200 : 503).json(health);
 });
 
 app.get("/api/logo/:ticker", async (request, response) => {
@@ -334,9 +314,41 @@ app.post("/api/portfolio/sync", async (request, response) => {
 app.delete("/api/portfolio/connection", async (request, response) => {
   try {
     recordPortfolioRequestUser(request);
-    deletePortfolioConnection(request.user);
+    const deletion = deletePortfolioConnection(request.user);
     clearPortfolioCache(request.user);
-    response.json({ ok: true, connection: readPortfolioConnectionStatus(request.user) });
+    response.json({
+      ok: true,
+      ...deletion,
+      connection: readPortfolioConnectionStatus(request.user)
+    });
+  } catch (error) {
+    response.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/portfolio/connection/restore", async (request, response) => {
+  try {
+    recordPortfolioRequestUser(request);
+    const restoration = restorePortfolioConnection(request.user);
+    if (!restoration.restored) {
+      response.status(409).json({
+        error: "portfolio_connection_recovery_unavailable",
+        message: restoration.reason === "connection_exists"
+          ? "A new portfolio connection already exists; the previous recovery copy was discarded."
+          : "The portfolio connection recovery window has expired or is no longer available.",
+        reason: restoration.reason,
+        connection: readPortfolioConnectionStatus(request.user)
+      });
+      return;
+    }
+    clearPortfolioCache(request.user);
+    const payload = await loadPortfolioDashboard({ forceRefresh: true, user: request.user });
+    response.json({
+      ok: true,
+      restored: true,
+      connection: readPortfolioConnectionStatus(request.user),
+      portfolio: payload
+    });
   } catch (error) {
     response.status(500).json({ error: error.message });
   }

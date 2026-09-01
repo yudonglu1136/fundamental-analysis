@@ -1,0 +1,51 @@
+{
+  "ok": true,
+  "mode": "optimization",
+  "contract": {
+    "minimumRuns": 3,
+    "minimumSamples": 60,
+    "concurrency": 20,
+    "requiredRoutes": [
+      "/api/valuation",
+      "/api/valuation/LSEG?pricePoints=300&detail=summary",
+      "/api/valuation/LSEG?pricePoints=900",
+      "/api/gurus",
+      "/api/backtests?years=all&detail=compact",
+      "/api/ontology/overview",
+      "/api/graph"
+    ],
+    "requiredP95ImprovementPct": 30,
+    "maximumP95RegressionPct": 5
+  },
+  "failures": [],
+  "improvements": [
+    {
+      "route": "/api/valuation",
+      "p95ImprovementPct": 45.46502581622072
+    },
+    {
+      "route": "/api/valuation/LSEG?pricePoints=300&detail=summary",
+      "p95ImprovementPct": 54.386131256575695
+    },
+    {
+      "route": "/api/valuation/LSEG?pricePoints=900",
+      "p95ImprovementPct": 48.438447243966465
+    },
+    {
+      "route": "/api/gurus",
+      "p95ImprovementPct": 97.3902286380825
+    },
+    {
+      "route": "/api/backtests?years=all&detail=compact",
+      "p95ImprovementPct": 34.2802957970495
+    },
+    {
+      "route": "/api/ontology/overview",
+      "p95ImprovementPct": 35.0894533021245
+    },
+    {
+      "route": "/api/graph",
+      "p95ImprovementPct": 48.98610290106051
+    }
+  ]
+}

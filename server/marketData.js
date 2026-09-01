@@ -5,7 +5,7 @@ import { readPriceSeriesFromDb, writePriceSeriesToDb } from "./localDatabase.js"
 import { yahooChartSymbol } from "./tickerAliases.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const priceCacheDir = path.join(__dirname, "cache", "prices");
+const priceCacheDir = process.env.PRICE_CACHE_DIR || path.join(__dirname, "cache", "prices");
 const localPriceDir = path.resolve(__dirname, "..", "..", "market-intel-dashboard", "data", "raw", "market_structure", "prices");
 const priceCacheTtlMs = 1000 * 60 * 60 * 6;
 
@@ -30,6 +30,53 @@ function rangeCovered(points, start, end) {
   const endTime = dateMs(end);
   const tradingGapMs = 1000 * 60 * 60 * 24 * 7;
   return first <= startTime + tradingGapMs && last >= endTime - tradingGapMs;
+}
+
+function adjustedRangeCovered(points, start, end) {
+  return rangeCovered(points, start, end) && observedAdjustedCloseCovered(points);
+}
+
+function observedAdjustedCloseCovered(points) {
+  return points.length > 0 && points.every((point) =>
+    Number.isFinite(point.adjustedClose) && point.adjustedClose > 0
+  );
+}
+
+function returnBasis(points) {
+  return observedAdjustedCloseCovered(points)
+    ? "total_return_adjusted_close"
+    : "unadjusted_close";
+}
+
+export function enforceAdjustedPriceRequirement(payload, {
+  start,
+  end,
+  requireAdjusted = false,
+  requireFullRange = false
+} = {}) {
+  const points = payload?.points || [];
+  const everyObservedPointAdjusted = observedAdjustedCloseCovered(points);
+  const requiredRangeCovered = !requireFullRange || rangeCovered(points, start, end);
+  if (!requireAdjusted || (everyObservedPointAdjusted && requiredRangeCovered)) {
+    return payload;
+  }
+  return {
+    ...payload,
+    source: "unavailable",
+    upstreamSource: payload?.source || "unavailable",
+    returnBasis: "unavailable",
+    points: [],
+    failure: {
+      code: "adjusted_close_unavailable",
+      policy: "fail_closed_without_unadjusted_close_fallback",
+      requireFullRange,
+      rangeCovered: rangeCovered(points, start, end),
+      observedPointCount: points.length,
+      adjustedPointCount: points.filter((point) =>
+        Number.isFinite(point.adjustedClose) && point.adjustedClose > 0
+      ).length
+    }
+  };
 }
 
 function unix(date) {
@@ -68,6 +115,7 @@ async function loadLocalSeries(symbol, start, end) {
           high: Number(high),
           low: Number(low),
           close: Number(close),
+          adjustedClose: null,
           volume: Number(volume)
         };
       })
@@ -77,9 +125,28 @@ async function loadLocalSeries(symbol, start, end) {
   }
 }
 
+export function normalizeYahooChartPoints(result, symbol) {
+  const timestamps = result?.timestamp || [];
+  const quote = result?.indicators?.quote?.[0] || {};
+  const adjusted = result?.indicators?.adjclose?.[0]?.adjclose || [];
+
+  return timestamps
+    .map((timestamp, index) => ({
+      date: isoDateFromUnix(timestamp),
+      symbol: String(symbol).toUpperCase(),
+      open: quote.open?.[index] ?? null,
+      high: quote.high?.[index] ?? null,
+      low: quote.low?.[index] ?? null,
+      close: quote.close?.[index] ?? null,
+      adjustedClose: adjusted[index] ?? null,
+      volume: quote.volume?.[index] ?? null
+    }))
+    .filter((point) => Number.isFinite(point.close));
+}
+
 async function fetchYahooSeries(symbol, start, end) {
   const encoded = encodeURIComponent(yahooSymbol(symbol));
-  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encoded}?period1=${unix(start)}&period2=${unix(end) + 86400}&interval=1d&events=history`;
+  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encoded}?period1=${unix(start)}&period2=${unix(end) + 86400}&interval=1d`;
   const response = await fetch(url, {
     headers: {
       "User-Agent": "Mozilla/5.0 guru-analysis-dashboard/0.1",
@@ -92,32 +159,29 @@ async function fetchYahooSeries(symbol, start, end) {
   }
 
   const json = await response.json();
-  const result = json.chart?.result?.[0];
-  const timestamps = result?.timestamp || [];
-  const quote = result?.indicators?.quote?.[0] || {};
-
-  return timestamps
-    .map((timestamp, index) => ({
-      date: isoDateFromUnix(timestamp),
-      symbol: String(symbol).toUpperCase(),
-      open: quote.open?.[index] ?? null,
-      high: quote.high?.[index] ?? null,
-      low: quote.low?.[index] ?? null,
-      close: quote.close?.[index] ?? null,
-      volume: quote.volume?.[index] ?? null
-    }))
-    .filter((point) => Number.isFinite(point.close));
+  return normalizeYahooChartPoints(json.chart?.result?.[0], symbol);
 }
 
-export async function loadPriceSeries(symbol, { start, end }) {
+export async function loadPriceSeries(symbol, {
+  start,
+  end,
+  requireAdjusted = false,
+  requireFullRange = false
+}) {
   const normalized = String(symbol || "").trim().toUpperCase();
   if (!normalized) return { symbol: "", source: "missing", points: [] };
 
   const dbPoints = readPriceSeriesFromDb(normalized, start, end);
-  if (rangeCovered(dbPoints, start, end)) {
+  const dbUsable = requireAdjusted
+    ? requireFullRange
+      ? adjustedRangeCovered(dbPoints, start, end)
+      : observedAdjustedCloseCovered(dbPoints)
+    : rangeCovered(dbPoints, start, end);
+  if (dbUsable) {
     return {
       symbol: normalized,
       source: "sqlite",
+      returnBasis: returnBasis(dbPoints),
       generatedAt: new Date().toISOString(),
       cache: "sqlite-hit",
       points: dbPoints
@@ -126,9 +190,23 @@ export async function loadPriceSeries(symbol, { start, end }) {
 
   const cacheFile = path.join(priceCacheDir, cacheKey(normalized, start, end));
   const cached = await readJson(cacheFile);
-  if (cached && Date.now() - new Date(cached.generatedAt).getTime() < priceCacheTtlMs) {
+  const cachedPoints = cached?.points || [];
+  const cachedUsable = requireAdjusted
+    ? requireFullRange
+      ? adjustedRangeCovered(cachedPoints, start, end)
+      : observedAdjustedCloseCovered(cachedPoints)
+    : true;
+  if (
+    cached &&
+    Date.now() - new Date(cached.generatedAt).getTime() < priceCacheTtlMs &&
+    cachedUsable
+  ) {
     writePriceSeriesToDb(normalized, cached.points || [], cached.source || "json-cache");
-    return { ...cached, cache: "hit" };
+    return {
+      ...cached,
+      returnBasis: returnBasis(cached.points || []),
+      cache: "hit"
+    };
   }
 
   let source = "yahoo";
@@ -144,12 +222,18 @@ export async function loadPriceSeries(symbol, { start, end }) {
   const payload = {
     symbol: normalized,
     source,
+    returnBasis: returnBasis(points),
     generatedAt: new Date().toISOString(),
     points
   };
   writePriceSeriesToDb(normalized, points, source);
   await writeJson(cacheFile, payload);
-  return payload;
+  return enforceAdjustedPriceRequirement(payload, {
+    start,
+    end,
+    requireAdjusted,
+    requireFullRange
+  });
 }
 
 export function nearestPoint(points, date) {

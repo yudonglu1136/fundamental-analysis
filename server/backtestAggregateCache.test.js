@@ -20,6 +20,7 @@ const { writeGuruBacktest } = await import("./localDatabase.js");
 const {
   clearGuruBacktestAggregateCache,
   loadGuruBacktests,
+  manager13fBacktestMethodVersion,
   refreshGuruBacktestCache
 } = await import("./backtest.js");
 
@@ -40,6 +41,9 @@ function fixture(guru, marker, generatedAt) {
       start: "2020-01-02",
       end: "2026-08-28"
     },
+    method: guru.type === "manager13f"
+      ? { version: manager13fBacktestMethodVersion }
+      : {},
     summary: { marker },
     equity: [
       { date: "2020-01-02", value: 1, benchmark: 1 },

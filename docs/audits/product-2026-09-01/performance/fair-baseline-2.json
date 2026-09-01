@@ -1,0 +1,251 @@
+{
+  "schemaVersion": 2,
+  "label": "baseline",
+  "generatedAt": "2026-09-01T04:30:35.634Z",
+  "commit": "97c51bf7b85a91b2079a58419d1199a6161c9183",
+  "workingTreeDirty": false,
+  "sourceSha256": "9f787bcd605b62e730dc03b20dc66593024c57887fc6e0dad7dae74c307c56c1",
+  "runtime": {
+    "node": "v26.7.0",
+    "platform": "darwin 24.6.0",
+    "arch": "arm64"
+  },
+  "inputs": {
+    "databaseBytes": 709148672,
+    "databaseSha256": "0d3c014ec0607adc2929dcf4e5768b286d4f411151e08db343879c97a66ce132",
+    "ontologyBytes": 105721856,
+    "ontologySha256": "f6defbaa991617744c691b9cf598b30eeae53045e5550625054221dd92857a24",
+    "samples": 60,
+    "concurrency": 20
+  },
+  "process": {
+    "startupReadyMs": 205.1801250000001,
+    "rssBytes": 246874112
+  },
+  "routes": [
+    {
+      "route": "/api/valuation",
+      "coldMs": 74.05033300000014,
+      "status": 200,
+      "contentEncoding": "br",
+      "vary": "Origin, Accept-Encoding",
+      "identityBytes": 349896,
+      "encodedBytes": 30015,
+      "reductionPct": 91.42173674463268,
+      "semanticSha256": "f1c57dc53794efdcff7f721573f51745a5621afbc69ae9785a9db437678e964e",
+      "conditionalStatus": 304,
+      "sequential": {
+        "requests": 60,
+        "meanMs": 0.2789611333333255,
+        "p50Ms": 0.2341670000000704,
+        "p95Ms": 0.5187080000000606,
+        "p99Ms": 0.8689580000000205,
+        "minMs": 0.18137499999988904,
+        "maxMs": 0.9357919999999922
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 5767.40516367321,
+        "meanMs": 1.899333316666654,
+        "p50Ms": 1.8382500000000164,
+        "p95Ms": 3.219875000000002,
+        "p99Ms": 3.484916999999996,
+        "minMs": 0.4240830000001097,
+        "maxMs": 3.613125000000082
+      }
+    },
+    {
+      "route": "/api/valuation/LSEG?pricePoints=300&detail=summary",
+      "coldMs": 4.775250000000142,
+      "status": 200,
+      "contentEncoding": "br",
+      "vary": "Origin, Accept-Encoding",
+      "identityBytes": 65474,
+      "encodedBytes": 11425,
+      "reductionPct": 82.55032531997433,
+      "semanticSha256": "00868c1439d1b3721ca8c2cf838e74175765ca48609ff294dc8d4e3c8b2a9c7a",
+      "conditionalStatus": 304,
+      "sequential": {
+        "requests": 60,
+        "meanMs": 0.2179514499999944,
+        "p50Ms": 0.20275000000015098,
+        "p95Ms": 0.3213749999999891,
+        "p99Ms": 0.4075829999999314,
+        "minMs": 0.1575830000001588,
+        "maxMs": 0.6392919999998412
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 6787.778740133942,
+        "meanMs": 1.5927520833333497,
+        "p50Ms": 1.5578330000000733,
+        "p95Ms": 2.7843330000000606,
+        "p99Ms": 3.0133749999999964,
+        "minMs": 0.36258300000008603,
+        "maxMs": 3.1355000000000928
+      }
+    },
+    {
+      "route": "/api/valuation/LSEG?pricePoints=900",
+      "coldMs": 10.12412500000005,
+      "status": 200,
+      "contentEncoding": "br",
+      "vary": "Origin, Accept-Encoding",
+      "identityBytes": 678373,
+      "encodedBytes": 51420,
+      "reductionPct": 92.42009926692248,
+      "semanticSha256": "f5ac6e5fce63c91b5dbf0207141c257d7f9276ec4f33b5c8907b080d42c6ffb0",
+      "conditionalStatus": 304,
+      "sequential": {
+        "requests": 60,
+        "meanMs": 0.267636083333313,
+        "p50Ms": 0.2319999999999709,
+        "p95Ms": 0.39325000000008004,
+        "p99Ms": 0.7093329999997877,
+        "minMs": 0.18112500000006548,
+        "maxMs": 0.8262910000000829
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 5830.596677998002,
+        "meanMs": 1.856551366666641,
+        "p50Ms": 1.8456670000000486,
+        "p95Ms": 3.3353340000001026,
+        "p99Ms": 3.4812919999999394,
+        "minMs": 0.359958000000006,
+        "maxMs": 3.622041999999965
+      }
+    },
+    {
+      "route": "/api/gurus",
+      "coldMs": 10.86241700000005,
+      "status": 200,
+      "contentEncoding": "br",
+      "vary": "Origin, Accept-Encoding",
+      "identityBytes": 929004,
+      "encodedBytes": 116503,
+      "reductionPct": 87.45936508346574,
+      "semanticSha256": "243b4c6e99f5bc0740843311c514d8cc11d54d9ff6895d4ab15a1d7353766819",
+      "conditionalStatus": 304,
+      "sequential": {
+        "requests": 60,
+        "meanMs": 5.554322250000003,
+        "p50Ms": 5.371249999999918,
+        "p95Ms": 6.3672909999997955,
+        "p99Ms": 6.694958000000042,
+        "minMs": 5.146208000000115,
+        "maxMs": 6.959167000000207
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 187.03599001071947,
+        "meanMs": 56.324350633333324,
+        "p50Ms": 53.91541699999971,
+        "p95Ms": 102.31970799999999,
+        "p99Ms": 106.32704199999989,
+        "minMs": 5.687583000000359,
+        "maxMs": 107.64941699999963
+      }
+    },
+    {
+      "route": "/api/backtests?years=all&detail=compact",
+      "coldMs": 2.1593339999999444,
+      "status": 200,
+      "contentEncoding": "br",
+      "vary": "Origin, Accept-Encoding",
+      "identityBytes": 26298,
+      "encodedBytes": 2057,
+      "reductionPct": 92.1781124039851,
+      "semanticSha256": "a340b0985ce6ae1d58a2f1cac446cb9a1a8465c926d5bcb736724cc29a0aa8f6",
+      "conditionalStatus": 304,
+      "sequential": {
+        "requests": 60,
+        "meanMs": 0.19837709999996303,
+        "p50Ms": 0.17870900000025358,
+        "p95Ms": 0.2827910000000884,
+        "p99Ms": 0.3011670000000777,
+        "minMs": 0.1505419999998594,
+        "maxMs": 0.39033400000016627
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 7004.60622905633,
+        "meanMs": 1.605743800000035,
+        "p50Ms": 1.567833999999948,
+        "p95Ms": 2.7159590000001117,
+        "p99Ms": 2.9255419999999503,
+        "minMs": 0.30195899999989706,
+        "maxMs": 3.02987499999972
+      }
+    },
+    {
+      "route": "/api/ontology/overview",
+      "coldMs": 7.813625000000229,
+      "status": 200,
+      "contentEncoding": "br",
+      "vary": "Origin, Accept-Encoding",
+      "identityBytes": 626858,
+      "encodedBytes": 127718,
+      "reductionPct": 79.62568875247665,
+      "semanticSha256": "c0d17147e92cde2d843fed020df6ef9935d7e42d1216104c50ccd540975bf636",
+      "conditionalStatus": 304,
+      "sequential": {
+        "requests": 60,
+        "meanMs": 0.15758261666669568,
+        "p50Ms": 0.1481659999999465,
+        "p95Ms": 0.19220899999982066,
+        "p99Ms": 0.2334169999999176,
+        "minMs": 0.12974999999960346,
+        "maxMs": 0.44224999999960346
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 9806.390792190889,
+        "meanMs": 1.12168265000001,
+        "p50Ms": 1.11395900000025,
+        "p95Ms": 1.8588749999998981,
+        "p99Ms": 1.9200839999998607,
+        "minMs": 0.27583400000003166,
+        "maxMs": 1.991624999999658
+      }
+    },
+    {
+      "route": "/api/graph",
+      "coldMs": 1.7343339999997625,
+      "status": 200,
+      "contentEncoding": "br",
+      "vary": "Origin, Accept-Encoding",
+      "identityBytes": 78819,
+      "encodedBytes": 17351,
+      "reductionPct": 77.98627234550045,
+      "semanticSha256": "552d5857680f1e4c947e0935cef3cc15fe0224d32c6930250d09235816f158c4",
+      "conditionalStatus": 304,
+      "sequential": {
+        "requests": 60,
+        "meanMs": 0.13167436666667526,
+        "p50Ms": 0.12487499999997453,
+        "p95Ms": 0.15245899999990797,
+        "p99Ms": 0.15741699999989578,
+        "minMs": 0.11041700000032506,
+        "maxMs": 0.3202919999998812
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 10968.588521811642,
+        "meanMs": 0.9630715666666674,
+        "p50Ms": 0.9113330000000133,
+        "p95Ms": 1.7097499999999854,
+        "p99Ms": 1.7962079999997513,
+        "minMs": 0.22004199999992125,
+        "maxMs": 1.7992919999996957
+      }
+    }
+  ]
+}

@@ -40,6 +40,7 @@ if [ "${INCLUDE_ONTOLOGY_SNAPSHOT:-0}" = "1" ]; then
     echo "error: ontology snapshot not found at $ontology_snapshot_path" >&2
     exit 1
   fi
+  node scripts/verify-ontology-module.mjs --snapshot "$ontology_snapshot_path"
   tmp_ontology_dir="$(mktemp -d)"
   mkdir -p "$tmp_ontology_dir/server/data"
   cp "$ontology_snapshot_path" "$tmp_ontology_dir/server/data/ontology-snapshot.sqlite"

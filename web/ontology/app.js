@@ -1,4 +1,5 @@
 const state = {
+  health: null,
   overview: null,
   graph: null,
   methodology: null,
@@ -33,6 +34,7 @@ const state = {
   strategyRangeEnd: null,
   strategySnapshotRequest: 0,
   activeView: "strategy",
+  viewErrors: new Map(),
   timeline: null,
   latestCompanies: null,
   timelineIndex: null,
@@ -187,6 +189,8 @@ function metricClass(value) {
 }
 
 const supabaseProjectRef = "__GURU_SUPABASE_PROJECT_REF__";
+const authDevBypass = "__GURU_AUTH_DEV_BYPASS__" === "true";
+const localDevToken = "local-dev-token";
 const authRetryKey = "guru-ontology-auth-retry";
 const authRetryWindowMs = 10_000;
 let authRedirectStarted = false;
@@ -232,6 +236,7 @@ async function getJson(url) {
 }
 
 function readSupabaseAccessToken() {
+  if (authDevBypass) return localDevToken;
   const findToken = (value, depth = 0) => {
     if (!value || depth > 4) return "";
     if (typeof value === "object" && typeof value.access_token === "string") {
@@ -251,6 +256,32 @@ function readSupabaseAccessToken() {
   } catch {
     return "";
   }
+}
+
+function renderOntologySnapshotState(health = state.health) {
+  const badge = $("#ontology-source-state");
+  if (!badge) return;
+  const classifier = globalThis.OntologySnapshotState?.classify;
+  const result = classifier
+    ? classifier(health)
+    : { state: "error", generatedAt: null, ageDays: null, reason: "Snapshot-state classifier unavailable" };
+  const labels = {
+    live: "实时数据",
+    cached: "已缓存",
+    stale: "快照过期",
+    error: "数据错误",
+  };
+  const generatedDate = result.generatedAt ? result.generatedAt.slice(0, 10) : "";
+  badge.className = `ontology-source-state ${result.state}`;
+  badge.dataset.state = result.state;
+  badge.textContent = generatedDate && result.state !== "live" && result.state !== "error"
+    ? `${labels[result.state]} · ${generatedDate}`
+    : labels[result.state];
+  badge.title = result.reason
+    ? `快照健康检查失败 · ${result.reason}`
+    : generatedDate
+      ? `快照生成于 ${generatedDate} · 已过去 ${result.ageDays} 天`
+      : labels[result.state];
 }
 
 function groupCard(group, variant = "theme") {
@@ -1760,7 +1791,21 @@ function applyStrategyRange() {
   selectStrategySnapshot(state.strategyRangeEnd);
 }
 
-function switchView(view) {
+const ontologyViews = new Set(["strategy", "decision", "market", "graph", "ranking", "methodology"]);
+
+function switchView(view, { historyMode = "push" } = {}) {
+  if (!ontologyViews.has(view)) view = "strategy";
+  if (historyMode !== "none") {
+    const url = new URL(location.href);
+    if (view === "strategy") url.searchParams.delete("view");
+    else url.searchParams.set("view", view);
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    const current = `${location.pathname}${location.search}${location.hash}`;
+    if (next !== current) {
+      if (historyMode === "replace") history.replaceState({ view }, "", next);
+      else history.pushState({ view }, "", next);
+    }
+  }
   state.activeView = view;
   $$(".view-tab").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
   $$(".view-panel").forEach((panel) => panel.classList.toggle("active", panel.id === `${view}-view`));
@@ -1780,24 +1825,25 @@ function switchView(view) {
     $("#data-status").textContent = `策略回测 · 数据截至 ${fmtDate(state.strategyCatalog?.as_of)} · PIT + 公开信息后执行`;
     $("#detail-panel").innerHTML = "";
   } else if (decisionMode) {
-    renderDecisionStats();
+    if (state.decision) renderDecisionStats();
     $("#detail-panel").innerHTML = "";
   } else if (marketMode) {
     const meta = state.marketHome?.metadata || {};
     $("#data-status").textContent = `本地 Sharadar · 财务截至 ${fmtDate(meta.latest_datekey)} · ${Number(meta.companies || 0).toLocaleString()} 家上市公司`;
     closeDetail();
   } else {
-    renderOverview();
+    if (state.overview) renderOverview();
   }
-  if (view === "ranking") loadRanking();
+  if (view === "ranking" && state.graph && state.overview) loadRanking();
+  renderViewLoadError(view);
 }
 
-function renderOverview(totals = state.overview.totals, asOf = null) {
+function renderOverview(totals = state.overview?.totals || {}, asOf = null) {
   $("#summary-companies").textContent = totals.companies ?? "--";
   $("#summary-surging").textContent = totals.surging ?? "--";
   $("#summary-revenue").textContent = fmtPct(totals.median_revenue_yoy);
   $("#summary-margin").textContent = fmtPpt(totals.median_operating_margin_delta);
-  const displayDate = asOf || state.overview.build.as_of || totals.latest_reportperiod || "--";
+  const displayDate = asOf || state.overview?.build?.as_of || totals.latest_reportperiod || "--";
   const mode = asOf ? "历史 PIT 回放" : "本地 Sharadar";
   if (state.activeView !== "market") {
     $("#data-status").textContent = `${mode} · 财务截至 ${displayDate} · ${totals.companies} 家公司`;
@@ -2465,22 +2511,23 @@ function bindControls() {
 
   $("#node-metric").addEventListener("change", (event) => {
     state.nodeMetric = event.target.value;
-    renderGraph();
+    if (state.graph) renderGraph();
   });
   $("#show-relations").addEventListener("change", (event) => {
     state.showRelations = event.target.checked;
-    renderGraph();
+    if (state.graph) renderGraph();
   });
   $("#include-delisted").addEventListener("change", (event) => {
     state.includeDelisted = event.target.checked;
-    renderGraph();
+    if (state.graph) renderGraph();
   });
   $$(".state-filters input").forEach((input) => input.addEventListener("change", () => {
     if (input.checked) state.activeStates.add(input.value);
     else state.activeStates.delete(input.value);
-    renderGraph();
+    if (state.graph) renderGraph();
   }));
   $("#select-all-layers").addEventListener("click", () => {
+    if (!state.graph) return;
     const allSelected = state.activeLayers.size === state.graph.layers.length;
     state.activeLayers = new Set(allSelected ? [] : state.graph.layers.map((layer) => layer.id));
     $$("#layer-filters input").forEach((input) => { input.checked = !allSelected; });
@@ -2501,53 +2548,205 @@ function bindControls() {
         await runGlobalMarketSearch(state.search);
       } else {
         $("#global-search-results").hidden = true;
-        renderGraph();
-        if ($("#ranking-view").classList.contains("active")) await loadRanking();
+        if (state.graph) renderGraph();
+        if (state.graph && $("#ranking-view").classList.contains("active")) await loadRanking();
       }
     }, 120);
   });
   document.addEventListener("click", (event) => {
     if (!event.target.closest(".search-box")) $("#global-search-results").hidden = true;
   });
-  $("#ranking-sort").addEventListener("change", loadRanking);
-  $("#zoom-in").addEventListener("click", () => { state.zoom = Math.min(1.35, state.zoom + 0.1); renderGraph(); });
-  $("#zoom-out").addEventListener("click", () => { state.zoom = Math.max(0.7, state.zoom - 0.1); renderGraph(); });
-  $("#zoom-reset").addEventListener("click", () => { state.zoom = 1; renderGraph(); });
+  $("#ranking-sort").addEventListener("change", () => { if (state.graph) loadRanking(); });
+  $("#zoom-in").addEventListener("click", () => { state.zoom = Math.min(1.35, state.zoom + 0.1); if (state.graph) renderGraph(); });
+  $("#zoom-out").addEventListener("click", () => { state.zoom = Math.max(0.7, state.zoom - 0.1); if (state.graph) renderGraph(); });
+  $("#zoom-reset").addEventListener("click", () => { state.zoom = 1; if (state.graph) renderGraph(); });
 }
 
-async function initialize() {
-  try {
-    [state.strategyCatalog, state.decision, state.marketHome, state.overview, state.graph, state.methodology] = await Promise.all([
-      getJson("/api/strategies"),
-      getJson("/api/decision/overview"),
-      getJson("/api/market/home"),
-      getJson("/api/overview"),
-      getJson("/api/graph"),
-      getJson("/api/methodology"),
-    ]);
-    state.decisionSignals = state.decision.current_signals.map((signal) => ({ ...signal }));
-    state.latestCompanies = state.graph.companies.map((company) => ({ ...company }));
-    renderOverview();
-    renderMarketHome();
-    renderLayerFilters();
-    renderMethodology();
-    bindControls();
-    renderGraph();
-    renderDecision();
-    renderStrategyLibrary();
-    switchView("strategy");
-    await loadStrategy(state.strategyCatalog.strategies[0].id);
-    $("#loading").classList.add("hidden");
-    loadTimeline();
-    const groupMatch = location.hash.match(/^#group=(.+)$/);
-    if (groupMatch) {
-      switchView("market");
-      openMarketGroup(decodeURIComponent(groupMatch[1]));
-    }
-  } catch (error) {
-    $("#loading").textContent = `载入失败：${error.message}`;
-    console.error(error);
+const ontologyResources = {
+  health: "/api/ontology/health",
+  strategyCatalog: "/api/strategies",
+  decision: "/api/decision/overview",
+  marketHome: "/api/market/home",
+  overview: "/api/overview",
+  graph: "/api/graph",
+  methodology: "/api/methodology",
+};
+
+const viewResourceKeys = {
+  strategy: ["strategyCatalog"],
+  decision: ["decision"],
+  market: ["marketHome"],
+  graph: ["overview", "graph"],
+  ranking: ["overview", "graph"],
+  methodology: ["methodology"],
+};
+
+function viewIsReady(view) {
+  return (viewResourceKeys[view] || []).every((key) => Boolean(state[key]));
+}
+
+function renderViewLoadError(view) {
+  const panel = $(`#${view}-view`);
+  if (!panel) return;
+  const existing = panel.querySelector(".view-load-error");
+  const message = state.viewErrors.get(view);
+  if (!message) {
+    existing?.remove();
+    return;
+  }
+  const errorPanel = existing || document.createElement("div");
+  errorPanel.className = "view-load-error";
+  errorPanel.setAttribute("role", "alert");
+  errorPanel.setAttribute("aria-live", "polite");
+  errorPanel.innerHTML = `
+    <div><strong>此视图暂时不可用</strong><p>${escapeHtml(message)}</p></div>
+    <button type="button" data-retry-view="${escapeHtml(view)}">重试此视图</button>
+  `;
+  if (!existing) panel.prepend(errorPanel);
+  errorPanel.querySelector("[data-retry-view]").addEventListener("click", () => retryView(view));
+}
+
+function setViewError(view, error) {
+  const message = error instanceof Error ? error.message : String(error || "未知错误");
+  state.viewErrors.set(view, message);
+  renderViewLoadError(view);
+}
+
+function clearViewError(view) {
+  state.viewErrors.delete(view);
+  renderViewLoadError(view);
+}
+
+function assignOntologyResource(key, value) {
+  state[key] = value;
+  if (key === "health") renderOntologySnapshotState(value);
+  if (key === "decision") {
+    state.decisionSignals = (value?.current_signals || []).map((signal) => ({ ...signal }));
+  }
+  if (key === "graph") {
+    state.latestCompanies = (value?.companies || []).map((company) => ({ ...company }));
   }
 }
 
-initialize();
+async function renderReadyView(view) {
+  if (!viewIsReady(view)) return;
+  if (view === "strategy") {
+    renderStrategyLibrary();
+    const firstStrategy = state.strategyCatalog?.strategies?.[0];
+    if (firstStrategy) await loadStrategy(firstStrategy.id);
+  } else if (view === "decision") {
+    renderDecision();
+  } else if (view === "market") {
+    renderMarketHome();
+  } else if (view === "graph" || view === "ranking") {
+    renderOverview();
+    renderLayerFilters();
+    renderGraph();
+    if (view === "ranking") await loadRanking();
+    if (!state.timeline) loadTimeline();
+  } else if (view === "methodology") {
+    renderMethodology();
+  }
+}
+
+async function retryView(view) {
+  const keys = viewResourceKeys[view] || [];
+  state.viewErrors.set(view, "正在重新载入此视图的数据…");
+  renderViewLoadError(view);
+  const results = await Promise.allSettled(
+    keys.map(async (key) => [key, await getJson(ontologyResources[key])]),
+  );
+  const failures = [];
+  results.forEach((result) => {
+    if (result.status === "fulfilled") assignOntologyResource(result.value[0], result.value[1]);
+    else failures.push(result.reason);
+  });
+  if (failures.length) {
+    setViewError(view, failures.map((error) => error?.message || String(error)).join(" · "));
+    return;
+  }
+  try {
+    await renderReadyView(view);
+    clearViewError(view);
+    if (view === "graph" || view === "ranking") {
+      clearViewError(view === "graph" ? "ranking" : "graph");
+    }
+  } catch (error) {
+    setViewError(view, error);
+  }
+}
+
+async function initialize() {
+  bindControls();
+  const entries = Object.entries(ontologyResources);
+  const results = await Promise.allSettled(
+    entries.map(async ([key, url]) => [key, await getJson(url)]),
+  );
+  const resourceErrors = new Map();
+  results.forEach((result, index) => {
+    const key = entries[index][0];
+    if (result.status === "fulfilled") assignOntologyResource(result.value[0], result.value[1]);
+    else resourceErrors.set(key, result.reason);
+  });
+  if (!state.health) {
+    const healthError = resourceErrors.get("health");
+    renderOntologySnapshotState({
+      ok: false,
+      exists: false,
+      error: healthError?.message || String(healthError || "Ontology snapshot health check failed"),
+    });
+  }
+
+  for (const [view, keys] of Object.entries(viewResourceKeys)) {
+    const failures = keys.filter((key) => resourceErrors.has(key));
+    if (failures.length) {
+      setViewError(
+        view,
+        failures.map((key) => `${key}: ${resourceErrors.get(key)?.message || resourceErrors.get(key)}`).join(" · "),
+      );
+    }
+  }
+
+  const independentlyRenderable = ["decision", "market", "methodology"];
+  for (const view of independentlyRenderable) {
+    if (!viewIsReady(view)) continue;
+    try {
+      await renderReadyView(view);
+    } catch (error) {
+      setViewError(view, error);
+    }
+  }
+  if (viewIsReady("graph")) {
+    try {
+      await renderReadyView("graph");
+    } catch (error) {
+      setViewError("graph", error);
+      setViewError("ranking", error);
+    }
+  }
+  if (viewIsReady("strategy")) {
+    try {
+      await renderReadyView("strategy");
+    } catch (error) {
+      setViewError("strategy", error);
+    }
+  }
+
+  $("#loading").classList.add("hidden");
+  const requestedView = new URLSearchParams(location.search).get("view") || "strategy";
+  const groupMatch = location.hash.match(/^#group=(.+)$/);
+  const initialView = groupMatch ? "market" : requestedView;
+  switchView(initialView, { historyMode: "none" });
+  if (groupMatch && state.marketHome) openMarketGroup(decodeURIComponent(groupMatch[1]));
+}
+
+window.addEventListener("popstate", () => {
+  const view = new URLSearchParams(location.search).get("view") || "strategy";
+  switchView(view, { historyMode: "none" });
+});
+
+initialize().catch((error) => {
+  $("#loading").classList.add("hidden");
+  for (const view of ontologyViews) setViewError(view, error);
+  console.error(error);
+});

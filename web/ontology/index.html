@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ontology Intelligence | ThesisForge</title>
     <link rel="icon" href="./favicon.png" type="image/png" />
-    <link rel="stylesheet" href="./styles.css?v=20260830-8" />
+    <link rel="stylesheet" href="./styles.css?v=20260901-3" />
   </head>
   <body>
     <header class="topbar">
@@ -14,7 +14,17 @@
         <div>
           <h1>Ontology Intelligence</h1>
           <span class="brand-subtitle">Fundamental Signal Graph</span>
-          <p id="data-status">正在连接本地 Sharadar 数据库…</p>
+          <div class="ontology-truth-line">
+            <p id="data-status">正在连接本地 Sharadar 数据库…</p>
+            <span
+              id="ontology-source-state"
+              class="ontology-source-state pending"
+              data-state="pending"
+              role="status"
+              aria-live="polite"
+              title="正在验证快照"
+            >正在验证快照</span>
+          </div>
         </div>
         <a class="guru-back-link" href="/" title="返回 Guru Intelligence">← Guru</a>
       </div>
@@ -102,7 +112,7 @@
               <div>
                 <span class="terminal-kicker"><i></i> STRATEGY RESEARCH</span>
                 <h2>Ontology 策略实验室</h2>
-                <p>同一套 PIT 数据与真实执行口径，比较 Ontology、ML 与 13F 跟随策略，并下钻每次决策后的真实持仓。</p>
+                <p>同一套 PIT 数据与真实执行口径，比较 Ontology、ML 与 13F 跟随策略，并下钻每次决策后的模拟重建持仓。</p>
               </div>
               <div class="strategy-freshness">
                 <span>回测数据截至</span>
@@ -677,7 +687,8 @@
     </dialog>
 
     <div id="loading" class="loading-state">载入本地 ontology…</div>
-    <script src="./i18n.js?v=20260830-8"></script>
-    <script src="./app.js?v=20260830-8" defer></script>
+    <script src="./i18n.js?v=20260901-3"></script>
+    <script src="./snapshot-state.js?v=20260901-1"></script>
+    <script src="./app.js?v=20260901-3" defer></script>
   </body>
 </html>

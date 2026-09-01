@@ -2,6 +2,16 @@ import { gurus } from "./gurus.js";
 import { load13fHoldingHistory, loadGuruDashboard } from "./secClient.js";
 import { loadPriceSeries } from "./marketData.js";
 import {
+  adjustedClosePriceMap,
+  filingExecutionDecision,
+  simulateDriftedPortfolio
+} from "./backtestEngine.js";
+import {
+  is13fCommonLongHolding,
+  selectUnambiguous13fOriginals,
+  summarize13fHoldingValues
+} from "./thirteenF.js";
+import {
   readGuruBacktest,
   readGuruBacktestVersion,
   writeBackgroundJobRun,
@@ -11,6 +21,11 @@ import {
 const defaultYears = "all";
 const allYearsCacheKey = 0;
 const maxHoldingsPerFiling = Number(process.env.BACKTEST_MAX_HOLDINGS || 60);
+export const manager13fBacktestMethodVersion = "manager13f-drifted-total-return-v2";
+const minExecutionCoverage = Math.max(
+  0,
+  Math.min(1, Number(process.env.BACKTEST_MIN_EXECUTION_COVERAGE || 0.9))
+);
 const priceConcurrency = Math.max(1, Math.min(12, Number(process.env.BACKTEST_PRICE_CONCURRENCY || 6)));
 const responseMaxEquityPoints = Math.max(120, Number(process.env.BACKTEST_RESPONSE_MAX_POINTS || 520));
 const dayMs = 1000 * 60 * 60 * 24;
@@ -371,8 +386,13 @@ function compactContribution(row) {
   return {
     ticker: row.ticker,
     issuer: row.issuer,
+    sector: row.sector,
+    industry: row.industry,
     value: row.value,
     weight: row.weight,
+    endingWeight: row.endingWeight,
+    startPrice: row.startPrice,
+    endPrice: row.endPrice,
     returnPct: row.returnPct,
     contributionPct: row.contributionPct
   };
@@ -386,7 +406,10 @@ function compactQuarterContribution(quarter, includeAttribution) {
     label: quarter.label,
     reportDate: quarter.reportDate,
     filingDate: quarter.filingDate,
+    acceptanceDateTime: quarter.acceptanceDateTime,
     executionDate: quarter.executionDate,
+    executionTimestampSource: quarter.executionTimestampSource,
+    usedLegacyFilingDateFallback: quarter.usedLegacyFilingDateFallback,
     endDate: quarter.endDate,
     nextExecutionDate: quarter.nextExecutionDate,
     days: quarter.days,
@@ -396,8 +419,17 @@ function compactQuarterContribution(quarter, includeAttribution) {
     portfolioReturn: quarter.portfolioReturn,
     benchmarkReturn: quarter.benchmarkReturn,
     coveredWeight: quarter.coveredWeight,
+    cashWeight: quarter.cashWeight,
+    contributionReturn: quarter.contributionReturn,
+    attributionReconciliation: quarter.attributionReconciliation,
+    sectorContributionReturn: quarter.sectorContributionReturn,
+    sectorAttributionReconciliation: quarter.sectorAttributionReconciliation,
+    industryContributionReturn: quarter.industryContributionReturn,
+    industryAttributionReconciliation: quarter.industryAttributionReconciliation,
     contributionCount: contributions.length,
-    contributions: includeAttribution ? contributions.map(compactContribution) : []
+    contributions: includeAttribution ? contributions.map(compactContribution) : [],
+    sectorContributions: includeAttribution ? quarter.sectorContributions || [] : [],
+    industryContributions: includeAttribution ? quarter.industryContributions || [] : []
   };
 }
 
@@ -405,11 +437,20 @@ function compactRebalance(rebalance) {
   return {
     reportDate: rebalance.reportDate,
     filingDate: rebalance.filingDate,
+    acceptanceDateTime: rebalance.acceptanceDateTime,
     executionDate: rebalance.executionDate,
+    executionTimestampSource: rebalance.executionTimestampSource,
+    usedLegacyFilingDateFallback: rebalance.usedLegacyFilingDateFallback,
+    reported13fTableValue: rebalance.reported13fTableValue,
+    commonLongValue: rebalance.commonLongValue,
+    optionsNotional: rebalance.optionsNotional,
+    otherReportedValue: rebalance.otherReportedValue,
     totalValue: rebalance.totalValue,
     selectedValue: rebalance.selectedValue,
     pricedValue: rebalance.pricedValue,
     coveragePct: rebalance.coveragePct,
+    cashWeight: rebalance.cashWeight,
+    unpricedPositions: rebalance.unpricedPositions,
     positions: rebalance.positions,
     selectedPositions: rebalance.selectedPositions,
     pricedPositions: rebalance.pricedPositions,
@@ -444,127 +485,99 @@ function compactBacktestPayload(
   };
 }
 
-function eligibleHolding(holding) {
-  return (
-    holding.value > 0 &&
-    isTicker(holding.ticker) &&
-    !holding.putCall &&
-    holding.shares > 0
-  );
-}
-
 function snapshotCompleteness(snapshot) {
-  const selected = (snapshot.holdings || [])
-    .filter(eligibleHolding)
+  const commonLong = (snapshot.holdings || [])
+    .filter((holding) => is13fCommonLongHolding(holding) && holding.value > 0 && holding.shares > 0)
     .sort((a, b) => b.value - a.value)
     .slice(0, maxHoldingsPerFiling);
-  const selectedValue = selected.reduce((sum, holding) => sum + holding.value, 0);
-  const totalValue = Number(snapshot.totalValue) || selectedValue || 0;
+  const selectedValue = commonLong.reduce((sum, holding) => sum + holding.value, 0);
+  const values = summarize13fHoldingValues(snapshot.holdings || []);
   return {
     positions: snapshot.holdings?.length || 0,
-    selectedPositions: selected.length,
+    commonLongPositions: values.commonLongPositionCount,
+    selectedPositions: commonLong.length,
+    mappedSelectedPositions: commonLong.filter((holding) => isTicker(holding.ticker)).length,
     selectedValue,
-    totalValue
+    totalValue: values.commonLongValue,
+    reported13fTableValue: values.reported13fTableValue,
+    commonLongValue: values.commonLongValue,
+    optionsNotional: values.optionsNotional,
+    otherReportedValue: values.otherReportedValue
   };
 }
 
-function compareSnapshotCompleteness(candidate, current) {
-  const candidateStats = candidate.completeness;
-  const currentStats = current.completeness;
-  if (candidateStats.selectedPositions !== currentStats.selectedPositions) {
-    return candidateStats.selectedPositions - currentStats.selectedPositions;
-  }
-
-  const materialValueGap = Math.max(1_000_000, currentStats.selectedValue * 0.05);
-  if (Math.abs(candidateStats.selectedValue - currentStats.selectedValue) > materialValueGap) {
-    return candidateStats.selectedValue - currentStats.selectedValue;
-  }
-
-  return dateMs(candidate.filingDate) - dateMs(current.filingDate);
-}
-
-function compactExcludedFiling(snapshot, reason) {
+function compactExcludedFiling(snapshot, reason, code = "excluded_filing") {
   return {
     reportDate: snapshot.reportDate,
     filingDate: snapshot.filingDate,
+    acceptanceDateTime: snapshot.acceptanceDateTime || snapshot.filing?.acceptanceDateTime || null,
     form: snapshot.filing?.form,
     accessionNumber: snapshot.filing?.accessionNumber,
     positions: snapshot.completeness?.positions || snapshot.holdings?.length || 0,
     selectedPositions: snapshot.completeness?.selectedPositions || 0,
     selectedValue: snapshot.completeness?.selectedValue || 0,
     totalValue: snapshot.completeness?.totalValue || snapshot.totalValue || 0,
+    code,
     reason
   };
 }
 
 function normalizeBacktestHistory(history) {
-  const byReportDate = new Map();
-  const excludedFilings = [];
-
-  for (const snapshot of history) {
-    const key = snapshot.reportDate || snapshot.filing?.reportDate || snapshot.filingDate;
-    const enriched = {
-      ...snapshot,
-      completeness: snapshotCompleteness(snapshot)
-    };
-    if (!key) {
-      byReportDate.set(`${snapshot.filingDate}-${byReportDate.size}`, enriched);
-      continue;
-    }
-
-    const current = byReportDate.get(key);
-    if (!current) {
-      byReportDate.set(key, enriched);
-      continue;
-    }
-
-    if (compareSnapshotCompleteness(enriched, current) > 0) {
-      excludedFilings.push(compactExcludedFiling(
-        current,
-        "Duplicate report date replaced by a more complete filing snapshot."
-      ));
-      byReportDate.set(key, enriched);
-    } else {
-      excludedFilings.push(compactExcludedFiling(
-        enriched,
-        "Duplicate report date excluded because it has fewer usable holdings than the full-quarter filing."
-      ));
-    }
-  }
-
-  const normalizedHistory = [...byReportDate.values()]
-    .sort((a, b) => {
-      const reportCompare = String(a.reportDate || "").localeCompare(String(b.reportDate || ""));
-      return reportCompare || String(a.filingDate || "").localeCompare(String(b.filingDate || ""));
-    });
-
+  const selection = selectUnambiguous13fOriginals(history);
+  const normalizedHistory = selection.history.map((snapshot) => ({
+    ...snapshot,
+    completeness: snapshotCompleteness(snapshot)
+  }));
+  const excludedFilings = selection.excluded.map(({ snapshot, code, reason }) =>
+    compactExcludedFiling(
+      { ...snapshot, completeness: snapshotCompleteness(snapshot) },
+      reason,
+      code
+    )
+  );
   return { history: normalizedHistory, excludedFilings };
 }
 
 function buildWeights(snapshot, priceMaps, executionDate) {
   const selected = (snapshot.holdings || [])
-    .filter(eligibleHolding)
+    .filter((holding) => is13fCommonLongHolding(holding) && holding.value > 0 && holding.shares > 0)
     .sort((a, b) => b.value - a.value)
     .slice(0, maxHoldingsPerFiling);
   const selectedValue = selected.reduce((sum, holding) => sum + holding.value, 0);
-  const priced = selected.filter((holding) => Number.isFinite(priceMaps.get(holding.ticker)?.get(executionDate)));
+  const priced = selected.filter((holding) =>
+    isTicker(holding.ticker) && Number.isFinite(priceMaps.get(holding.ticker)?.get(executionDate))
+  );
   const pricedValue = priced.reduce((sum, holding) => sum + holding.value, 0);
-  const weights = pricedValue
+  const weights = selectedValue
     ? priced.map((holding) => ({
       ticker: holding.ticker,
       issuer: holding.issuer,
+      sector: holding.sector || null,
+      industry: holding.industry || null,
       value: holding.value,
-      weight: holding.value / pricedValue
+      weight: holding.value / selectedValue
     }))
     : [];
+  const coveragePct = selectedValue ? pricedValue / selectedValue : 0;
 
   return {
     weights,
     selectedValue,
     pricedValue,
-    coveragePct: selectedValue ? pricedValue / selectedValue : 0,
+    coveragePct,
+    cashWeight: Math.max(0, 1 - coveragePct),
     selectedPositions: selected.length,
     pricedPositions: weights.length,
+    unpricedPositions: selected
+      .filter((holding) => !isTicker(holding.ticker) || !Number.isFinite(priceMaps.get(holding.ticker)?.get(executionDate)))
+      .map((holding) => ({
+        ticker: holding.ticker || null,
+        issuer: holding.issuer,
+        cusip: holding.cusip,
+        value: holding.value,
+        weight: selectedValue ? holding.value / selectedValue : 0,
+        reason: isTicker(holding.ticker) ? "missing_adjusted_execution_price" : "unmapped_ticker"
+      })),
     topHoldings: weights
       .slice(0, 8)
       .map((holding) => ({
@@ -1052,10 +1065,11 @@ export async function loadGuruBacktest(
   }
 
   const cached = readGuruBacktest(guruId, window.cacheKey);
-  if (!refresh && cachedBacktestIsFresh(cached)) {
+  const cacheMethodCompatible = cached?.method?.version === manager13fBacktestMethodVersion;
+  if (!refresh && cacheMethodCompatible && cachedBacktestIsFresh(cached)) {
     return compactBacktestPayload(cachedBacktestWithHit(cached), { includeAttribution });
   }
-  if (!refresh && cachedBacktestIsUsable(cached)) {
+  if (!refresh && cacheMethodCompatible && cachedBacktestIsUsable(cached)) {
     scheduleStaleBacktestRefresh(guruId, { years, detail });
     return compactBacktestPayload(cachedBacktestWithHit(cached, {
       status: "sqlite-stale",
@@ -1070,7 +1084,16 @@ export async function loadGuruBacktest(
   });
   const normalizedHistory = normalizeBacktestHistory(history);
   const backtestHistory = normalizedHistory.history;
-  const excludedFilings = normalizedHistory.excludedFilings;
+  const excludedFilings = [...new Map([
+    ...(history.excludedFilings || []),
+    ...normalizedHistory.excludedFilings
+  ].map((filing) => [
+    `${filing.filerCik || "unknown"}:${filing.accessionNumber || "unknown"}:${filing.code || "excluded"}`,
+    filing
+  ])).values()];
+  const reportingCiks = history.reportingCiks || [guru.cik, ...(guru.alternateCiks || [])];
+  const duplicateAccessions = history.duplicateAccessions || [];
+  const blockedReportDates = history.blockedReportDates || [];
   const firstFilingDate =
     backtestHistory[0]?.filingDate ||
     backtestHistory[0]?.reportDate ||
@@ -1079,10 +1102,21 @@ export async function loadGuruBacktest(
   const start = window.all
     ? firstFilingDate || yearsAgoDate(end, 5)
     : yearsAgoDate(end, window.years);
-  const spySeries = await loadPriceSeries("SPY", { start, end });
+  const spySeries = await loadPriceSeries("SPY", {
+    start,
+    end,
+    requireAdjusted: true,
+    requireFullRange: true
+  });
   const spyPoints = (spySeries.points || []).filter((point) => point.date >= start && point.date <= end);
+  const spyTotalReturnMap = adjustedClosePriceMap(spyPoints);
 
-  if (backtestHistory.length < 2 || spyPoints.length < 30) {
+  if (
+    backtestHistory.length < 2 ||
+    spyPoints.length < 30 ||
+    spyTotalReturnMap.size < 30 ||
+    spySeries.returnBasis !== "total_return_adjusted_close"
+  ) {
     const payload = {
       generatedAt: new Date().toISOString(),
       status: "insufficient_data",
@@ -1098,12 +1132,23 @@ export async function loadGuruBacktest(
       },
       window: { start, end },
       method: {
+        version: manager13fBacktestMethodVersion,
         years: window.methodYears,
         benchmark: "SPY",
         maxHoldingsPerFiling,
         rawFilings: history.length,
         excludedFilings,
-        reason: "Not enough historical 13F filings or SPY price points are available."
+        reportingCiks,
+        duplicateAccessions,
+        blockedReportDates,
+        reason: spySeries.returnBasis !== "total_return_adjusted_close"
+          ? "SPY adjusted-close total-return history is unavailable; the backtest fails closed instead of substituting price return."
+          : "Not enough historical 13F filings or SPY price points are available."
+      },
+      dataQuality: {
+        returnBasis: spySeries.returnBasis || "unavailable",
+        failurePolicy: "fail_closed",
+        priceFailure: spySeries.failure || null
       },
       summary: {},
       equity: [],
@@ -1116,48 +1161,97 @@ export async function loadGuruBacktest(
 
   const universe = [...new Set(backtestHistory
     .flatMap((snapshot) => (snapshot.holdings || [])
-      .filter(eligibleHolding)
+      .filter((holding) =>
+        is13fCommonLongHolding(holding) &&
+        holding.value > 0 &&
+        holding.shares > 0 &&
+        isTicker(holding.ticker)
+      )
       .sort((a, b) => b.value - a.value)
       .slice(0, maxHoldingsPerFiling)
       .map((holding) => holding.ticker)))];
-  const priceMaps = new Map([["SPY", priceMap(spyPoints)]]);
+  const priceMaps = new Map([["SPY", spyTotalReturnMap]]);
+  const priceSeriesQuality = new Map([["SPY", {
+    source: spySeries.source,
+    returnBasis: spySeries.returnBasis,
+    points: spyTotalReturnMap.size
+  }]]);
 
   await mapWithConcurrency(universe, priceConcurrency, async (ticker) => {
     try {
-      const series = await loadPriceSeries(ticker, { start, end });
-      priceMaps.set(ticker, priceMap(series.points || []));
-    } catch {
+      const series = await loadPriceSeries(ticker, { start, end, requireAdjusted: true });
+      const map = adjustedClosePriceMap(series.points || []);
+      priceMaps.set(ticker, map);
+      priceSeriesQuality.set(ticker, {
+        source: series.source,
+        returnBasis: series.returnBasis,
+        points: map.size
+      });
+    } catch (error) {
       priceMaps.set(ticker, new Map());
+      priceSeriesQuality.set(ticker, {
+        source: "unavailable",
+        returnBasis: "unavailable",
+        points: 0,
+        error: error.message
+      });
     }
   });
 
-  const rebalances = backtestHistory
-    .map((snapshot) => ({
-      ...snapshot,
-      executionDate: nextTradingDate(spyPoints, snapshot.filingDate)
-    }))
-    .filter((snapshot) => snapshot.executionDate)
-    .map((snapshot) => {
-      const weightModel = buildWeights(snapshot, priceMaps, snapshot.executionDate);
-      return {
+  const tradingDates = spyPoints.map((point) => point.date);
+  const executionExclusions = [];
+  const rebalances = [];
+  for (const snapshot of backtestHistory) {
+    const decision = filingExecutionDecision(snapshot, tradingDates);
+    if (!decision.executionDate) {
+      executionExclusions.push({
         reportDate: snapshot.reportDate,
         filingDate: snapshot.filingDate,
-        executionDate: snapshot.executionDate,
-        totalValue: snapshot.totalValue,
-        selectedValue: weightModel.selectedValue,
-        pricedValue: weightModel.pricedValue,
-        coveragePct: weightModel.coveragePct,
-        positions: snapshot.holdings?.length || 0,
-        selectedPositions: weightModel.selectedPositions,
-        pricedPositions: weightModel.pricedPositions,
-        weights: weightModel.weights,
-        topHoldings: weightModel.topHoldings,
-        filing: snapshot.filing
-      };
-    })
-    .filter((rebalance) => rebalance.weights.length);
+        acceptanceDateTime: snapshot.acceptanceDateTime || snapshot.filing?.acceptanceDateTime || null,
+        accessionNumber: snapshot.filing?.accessionNumber,
+        reason: decision.reason
+      });
+      continue;
+    }
+    const values = summarize13fHoldingValues(snapshot.holdings || []);
+    const weightModel = buildWeights(snapshot, priceMaps, decision.executionDate);
+    rebalances.push({
+      reportDate: snapshot.reportDate,
+      filingDate: snapshot.filingDate,
+      acceptanceDateTime: decision.acceptanceDateTime,
+      publicTimestamp: decision.publicTimestamp,
+      publicDate: decision.publicDate,
+      executionDate: decision.executionDate,
+      executionTimestampSource: decision.executionTimestampSource,
+      usedLegacyFilingDateFallback: decision.usedLegacyFilingDateFallback,
+      executionPolicy: decision.policy,
+      reported13fTableValue: values.reported13fTableValue,
+      commonLongValue: values.commonLongValue,
+      optionsNotional: values.optionsNotional,
+      otherReportedValue: values.otherReportedValue,
+      totalValue: values.commonLongValue,
+      totalValueBasis: "common_long_shares",
+      selectedValue: weightModel.selectedValue,
+      pricedValue: weightModel.pricedValue,
+      coveragePct: weightModel.coveragePct,
+      cashWeight: weightModel.cashWeight,
+      positions: values.commonLongPositionCount,
+      reportedRows: values.reportedRowCount,
+      optionPositions: values.optionPositionCount,
+      selectedPositions: weightModel.selectedPositions,
+      pricedPositions: weightModel.pricedPositions,
+      unpricedPositions: weightModel.unpricedPositions,
+      weights: weightModel.weights,
+      topHoldings: weightModel.topHoldings,
+      filing: snapshot.filing
+    });
+  }
 
-  if (rebalances.length < 1) {
+  const coverageFailures = rebalances.filter((rebalance) =>
+    !rebalance.weights.length || rebalance.coveragePct < minExecutionCoverage
+  );
+
+  if (rebalances.length < 1 || coverageFailures.length) {
     const payload = {
       generatedAt: new Date().toISOString(),
       status: "insufficient_data",
@@ -1173,12 +1267,30 @@ export async function loadGuruBacktest(
       },
       window: { start, end },
       method: {
+        version: manager13fBacktestMethodVersion,
         years: window.methodYears,
         benchmark: "SPY",
         maxHoldingsPerFiling,
         rawFilings: history.length,
         excludedFilings,
-        reason: "Historical filings were found, but no holdings had usable ticker price coverage."
+        reportingCiks,
+        duplicateAccessions,
+        blockedReportDates,
+        executionExclusions,
+        minimumExecutionCoverage: minExecutionCoverage,
+        reason: coverageFailures.length
+          ? "At least one filing falls below the minimum adjusted-close execution coverage; the backtest fails closed instead of renormalizing the covered subset."
+          : "Historical filings were found, but no holdings had usable adjusted-close ticker coverage."
+      },
+      dataQuality: {
+        returnBasis: "total_return_adjusted_close",
+        failurePolicy: "fail_closed",
+        coverageFailures: coverageFailures.map((rebalance) => ({
+          reportDate: rebalance.reportDate,
+          executionDate: rebalance.executionDate,
+          coveragePct: rebalance.coveragePct,
+          unpricedPositions: rebalance.unpricedPositions
+        }))
       },
       summary: {},
       equity: [],
@@ -1190,44 +1302,71 @@ export async function loadGuruBacktest(
   }
 
   const firstDate = rebalances[0]?.executionDate;
-  const dates = spyPoints.map((point) => point.date).filter((date) => date >= firstDate);
-  let activeWeights = rebalances[0]?.weights || [];
-  let rebalanceIndex = 0;
-  let portfolioValue = 1;
-  let benchmarkValue = 1;
-  const equity = dates.length ? [{ date: dates[0], value: portfolioValue, benchmark: benchmarkValue }] : [];
-  const portfolioReturns = [];
-  const benchmarkReturns = [];
-  const coverage = [];
-
-  for (let index = 1; index < dates.length; index += 1) {
-    const previousDate = dates[index - 1];
-    const date = dates[index];
-
-    const portfolio = portfolioReturn(activeWeights, priceMaps, previousDate, date);
-    const spyReturn = dailyReturn(priceMaps.get("SPY"), previousDate, date) ?? 0;
-    portfolioValue *= 1 + portfolio.returnPct;
-    benchmarkValue *= 1 + spyReturn;
-    portfolioReturns.push(portfolio.returnPct);
-    benchmarkReturns.push(spyReturn);
-    coverage.push(portfolio.coveredWeight);
-    equity.push({
-      date,
-      value: portfolioValue,
-      benchmark: benchmarkValue
-    });
-
-    while (rebalanceIndex + 1 < rebalances.length && rebalances[rebalanceIndex + 1].executionDate <= date) {
-      rebalanceIndex += 1;
-      activeWeights = rebalances[rebalanceIndex].weights;
-    }
+  const simulation = simulateDriftedPortfolio({
+    rebalances,
+    tradingDates,
+    priceMaps,
+    benchmarkSymbol: "SPY",
+    endDate: end
+  });
+  if (!simulation.ok) {
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      status: "insufficient_data",
+      guru: {
+        id: guru.id,
+        name: guru.name,
+        type: guru.type,
+        thesisTag: guru.thesisTag
+      },
+      tag: {
+        label: "13F copy 模拟覆盖失败",
+        tone: "muted"
+      },
+      window: { start, end },
+      method: {
+        version: manager13fBacktestMethodVersion,
+        years: window.methodYears,
+        benchmark: "SPY",
+        rawFilings: history.length,
+        excludedFilings,
+        reportingCiks,
+        duplicateAccessions,
+        blockedReportDates,
+        executionExclusions,
+        reason: simulation.failure?.code === "missing_active_price"
+          ? "A held security lacks an adjusted-close observation while active; the backtest fails closed instead of booking a zero return or carrying a stale quote."
+          : simulation.failure?.code === "duplicate_execution_date"
+            ? "Multiple disclosure events resolve to the same execution date; the backtest fails closed instead of applying ambiguous same-close rebalance order."
+          : "The drifted-position return engine did not pass its coverage or attribution reconciliation gate."
+      },
+      dataQuality: {
+        returnBasis: "total_return_adjusted_close",
+        failurePolicy: "fail_closed_without_zero_return_or_forward_fill",
+        failure: simulation.failure || {
+          code: "attribution_reconciliation_failed",
+          reconciliation: simulation.reconciliation || null
+        }
+      },
+      summary: {},
+      equity: [],
+      rebalances: [],
+      quarterContributions: []
+    };
+    writeGuruBacktest(guruId, window.cacheKey, payload);
+    return compactBacktestPayload(payload, { includeAttribution });
   }
+
+  const equity = simulation.equity;
+  const portfolioReturns = simulation.portfolioReturns;
+  const benchmarkReturns = simulation.benchmarkReturns;
+  const coverage = simulation.coverage;
 
   const portfolioEquity = equity.map((point) => ({ date: point.date, value: point.value }));
   const benchmarkEquity = equity.map((point) => ({ date: point.date, value: point.benchmark }));
   const portfolioMetrics = metrics(portfolioEquity, portfolioReturns);
   const benchmarkMetrics = metrics(benchmarkEquity, benchmarkReturns);
-  const quarterContributions = buildQuarterContributions(rebalances, spyPoints, priceMaps, equity.at(-1)?.date || end);
+  const quarterContributions = simulation.quarterContributions;
   const payload = {
     generatedAt: new Date().toISOString(),
     status: "ready",
@@ -1248,19 +1387,34 @@ export async function loadGuruBacktest(
       end: equity.at(-1)?.date || end
     },
     method: {
+      version: manager13fBacktestMethodVersion,
       years: window.methodYears,
       benchmark: "SPY",
-      execution: "Use the first tradable SPY date on or after each 13F filing date; new weights apply after that close.",
-      weighting: "Use disclosed 13F market values, cap to top holdings, then normalize priced holdings to 100%.",
+      execution: "Retain the SEC acceptance timestamp and execute at the close of the first SPY trading session strictly after its public calendar date. Legacy snapshots without acceptance time use the same conservative next-session rule after filingDate.",
+      weighting: "Rank only non-option SH rows by disclosed value. Priced common longs keep their selected-book weights; unmapped or unpriced weight remains cash and is never renormalized into covered names.",
+      returnEngine: "Event-rebalanced holdings with position units drifting between filing executions; daily equity and security attribution share the same state.",
+      returnBasis: "Dividend- and split-adjusted close total return for both holdings and SPY.",
+      amendmentPolicy: "Retain the first public original per reporting CIK and report date, exclude ambiguous amendments, then merge every configured CIK for the quarter. The combined book is executable only after its last component is public.",
+      reportingCiks,
+      duplicateAccessions,
+      blockedReportDates,
+      corporateActionPolicy: "Adjusted-close returns incorporate price-series splits and dividends. Reported share changes remain unadjusted and are not verified trade classifications.",
       maxHoldingsPerFiling,
+      minimumExecutionCoverage: minExecutionCoverage,
       rawFilings: history.length,
       excludedFilings,
+      executionExclusions,
       assumptions: [
         "13F only contains long U.S.-reportable holdings and is delayed from quarter end.",
-        "The simulation trades at the first market date on or after the public filing date.",
-        "Missing, non-ticker, option, or unpriced rows are excluded before weights are normalized.",
-        "Duplicate filings for the same report date keep the more complete quarter snapshot and drop sparse amendments.",
-        "Quarter contribution ranks use the 13F copy portfolio weights at the filing execution date through the next rebalance date.",
+        "The simulation never uses the filing-date close: it trades at the following trading-session close and applies new units after that close.",
+        "Put/call rows and other non-SH rows are excluded from common-long weights and reported separately as options notional or other reported value.",
+        "Unmapped or missing execution-price rows remain explicit cash; the entire result fails closed below the minimum coverage threshold.",
+        "A missing active adjusted close stops the backtest; it is never converted into a zero return or silently forward-filled.",
+        "SPY must cover the full requested window. A delisted or acquired security may end earlier only if every observed row is adjusted and the position was no longer active before observations stop.",
+        "Original/amendment ambiguity is resolved per reporting CIK; an orphan amendment blocks the combined quarter, and every exclusion remains in the audit ledger.",
+        "Quarter contributions are generated from the same drifted units as the headline equity curve and must reconcile within the engine tolerance.",
+        "Reported share changes are raw 13F observations, not corporate-action-adjusted proof of purchases or sales.",
+        "Yahoo adjusted-close history is mutable vendor data rather than an immutable institutional price archive; a missing delisting/suspension observation stops the result.",
         "Transaction costs, taxes, slippage, shorts, private holdings, and fund-level cash are excluded."
       ]
     },
@@ -1277,14 +1431,33 @@ export async function loadGuruBacktest(
       filings: backtestHistory.length,
       rawFilings: history.length,
       excludedFilings: excludedFilings.length,
+      legacyExecutionFallbacks: rebalances.filter((item) => item.usedLegacyFilingDateFallback).length,
       universe: universe.length
+    },
+    dataQuality: {
+      returnBasis: "total_return_adjusted_close",
+      priceSeries: Object.fromEntries(priceSeriesQuality),
+      minimumExecutionCoverage: minExecutionCoverage,
+      minimumObservedExecutionCoverage: Math.min(...rebalances.map((item) => item.coveragePct)),
+      missingExecutionWeightHeldAsCash: true,
+      activeMissingPricePolicy: "fail_closed_without_zero_return_or_forward_fill",
+      priceRangePolicy: "benchmark_full_window_security_actual_active_dates",
+      acceptanceTimestampFilings: rebalances.filter((item) => !item.usedLegacyFilingDateFallback).length,
+      legacyFilingDateFallbacks: rebalances.filter((item) => item.usedLegacyFilingDateFallback).length,
+      amendmentPolicy: "original_only_fail_closed",
+      reportingCiks,
+      duplicateAccessions,
+      blockedReportDates,
+      excludedAmendments: excludedFilings.filter((item) => item.code?.includes("amendment")),
+      reportedShareChangesCorporateActionAdjusted: false,
+      attributionReconciliation: simulation.reconciliation
     },
     equity,
     rebalances: rebalances.map(({ weights, ...rebalance }) => rebalance),
     quarterContributions,
     cache: {
       status: "refreshed",
-      source: "SEC EDGAR + Yahoo + SQLite"
+      source: "SEC EDGAR + Yahoo adjusted close + SQLite"
     }
   };
 

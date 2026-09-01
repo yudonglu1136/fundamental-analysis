@@ -1,0 +1,258 @@
+{
+  "schemaVersion": 2,
+  "aggregate": "median",
+  "label": "current",
+  "generatedAt": "2026-09-01T04:35:56.031Z",
+  "commit": "fdda1330f1cf637c6f53f128b47e984854a8e79d",
+  "workingTreeDirty": true,
+  "sourceSha256": "dd65dba43f9b5ca46f4cc18dd8b176986a2e08215872d283917e10bf7262f53e",
+  "runtime": {
+    "node": "v26.7.0",
+    "platform": "darwin 24.6.0",
+    "arch": "arm64"
+  },
+  "inputs": {
+    "databaseBytes": 709148672,
+    "databaseSha256": "0d3c014ec0607adc2929dcf4e5768b286d4f411151e08db343879c97a66ce132",
+    "ontologyBytes": 105721856,
+    "ontologySha256": "f6defbaa991617744c691b9cf598b30eeae53045e5550625054221dd92857a24",
+    "samples": 60,
+    "concurrency": 20,
+    "runs": 3,
+    "sourceReports": [
+      "final-current-1.json",
+      "final-current-2.json",
+      "final-current-3.json"
+    ]
+  },
+  "process": {
+    "startupReadyMs": 256.8616660000001,
+    "rssBytes": 186417152
+  },
+  "routes": [
+    {
+      "route": "/api/valuation",
+      "coldMs": 74.65874999999983,
+      "status": 200,
+      "contentEncoding": "br",
+      "vary": "Origin, Accept-Encoding",
+      "identityBytes": 349896,
+      "encodedBytes": 30015,
+      "reductionPct": 91.42173674463268,
+      "semanticSha256": "f1c57dc53794efdcff7f721573f51745a5621afbc69ae9785a9db437678e964e",
+      "conditionalStatus": 304,
+      "sequential": {
+        "requests": 60,
+        "meanMs": 0.185897200000007,
+        "p50Ms": 0.15858299999990777,
+        "p95Ms": 0.34904200000005403,
+        "p99Ms": 0.5992089999999735,
+        "minMs": 0.11833299999989322,
+        "maxMs": 0.6548329999998259
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 11630.629806357883,
+        "meanMs": 1.0485923499999974,
+        "p50Ms": 0.9822090000000117,
+        "p95Ms": 1.7559579999999642,
+        "p99Ms": 1.9108330000001388,
+        "minMs": 0.4119579999999132,
+        "maxMs": 1.9381249999999
+      }
+    },
+    {
+      "route": "/api/valuation/LSEG?pricePoints=300&detail=summary",
+      "coldMs": 4.476916999999958,
+      "status": 200,
+      "contentEncoding": "br",
+      "vary": "Origin, Accept-Encoding",
+      "identityBytes": 65474,
+      "encodedBytes": 11425,
+      "reductionPct": 82.55032531997433,
+      "semanticSha256": "00868c1439d1b3721ca8c2cf838e74175765ca48609ff294dc8d4e3c8b2a9c7a",
+      "conditionalStatus": 304,
+      "sequential": {
+        "requests": 60,
+        "meanMs": 0.15983061666667026,
+        "p50Ms": 0.15437499999984539,
+        "p95Ms": 0.2067909999998392,
+        "p99Ms": 0.2452499999999418,
+        "minMs": 0.128832999999986,
+        "maxMs": 0.36629199999993034
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 13329.014732560112,
+        "meanMs": 0.8092271500000228,
+        "p50Ms": 0.7911670000000868,
+        "p95Ms": 1.2700419999998758,
+        "p99Ms": 1.298667000000023,
+        "minMs": 0.3127919999999449,
+        "maxMs": 1.3465410000001157
+      }
+    },
+    {
+      "route": "/api/valuation/LSEG?pricePoints=900",
+      "coldMs": 9.485083000000031,
+      "status": 200,
+      "contentEncoding": "br",
+      "vary": "Origin, Accept-Encoding",
+      "identityBytes": 678373,
+      "encodedBytes": 51420,
+      "reductionPct": 92.42009926692248,
+      "semanticSha256": "f5ac6e5fce63c91b5dbf0207141c257d7f9276ec4f33b5c8907b080d42c6ffb0",
+      "conditionalStatus": 304,
+      "sequential": {
+        "requests": 60,
+        "meanMs": 0.19812085000000176,
+        "p50Ms": 0.16133300000001327,
+        "p95Ms": 0.2742080000000442,
+        "p99Ms": 0.6987500000000182,
+        "minMs": 0.12954100000001745,
+        "maxMs": 0.8449590000000171
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 10972.682592296063,
+        "meanMs": 0.982204900000003,
+        "p50Ms": 0.9409579999999096,
+        "p95Ms": 1.7197499999999764,
+        "p99Ms": 1.790124999999989,
+        "minMs": 0.30883399999993344,
+        "maxMs": 1.8581249999999727
+      }
+    },
+    {
+      "route": "/api/gurus",
+      "coldMs": 11.069582999999966,
+      "status": 200,
+      "contentEncoding": "br",
+      "vary": "Origin, Accept-Encoding",
+      "identityBytes": 929004,
+      "encodedBytes": 116502,
+      "reductionPct": 87.45947272562874,
+      "semanticSha256": "243b4c6e99f5bc0740843311c514d8cc11d54d9ff6895d4ab15a1d7353766819",
+      "conditionalStatus": 304,
+      "sequential": {
+        "requests": 60,
+        "meanMs": 0.19260285000000293,
+        "p50Ms": 0.16133399999989706,
+        "p95Ms": 0.33891700000003766,
+        "p99Ms": 0.6414170000000468,
+        "minMs": 0.12225000000012187,
+        "maxMs": 0.6670839999999316
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 9323.887613588318,
+        "meanMs": 1.109970799999985,
+        "p50Ms": 0.8473750000000564,
+        "p95Ms": 2.6792500000001382,
+        "p99Ms": 2.727292000000034,
+        "minMs": 0.34629199999994853,
+        "maxMs": 2.751750000000129
+      }
+    },
+    {
+      "route": "/api/backtests?years=all&detail=compact",
+      "coldMs": 2.3798750000000837,
+      "status": 200,
+      "contentEncoding": "br",
+      "vary": "Origin, Accept-Encoding",
+      "identityBytes": 26298,
+      "encodedBytes": 2056,
+      "reductionPct": 92.18191497452277,
+      "semanticSha256": "a340b0985ce6ae1d58a2f1cac446cb9a1a8465c926d5bcb736724cc29a0aa8f6",
+      "conditionalStatus": 304,
+      "sequential": {
+        "requests": 60,
+        "meanMs": 0.14947915000000195,
+        "p50Ms": 0.13979200000017045,
+        "p95Ms": 0.20575000000008004,
+        "p99Ms": 0.29654199999981756,
+        "minMs": 0.11374999999998181,
+        "maxMs": 0.3759170000000722
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 11886.97389739397,
+        "meanMs": 0.9438903166666553,
+        "p50Ms": 0.9107500000000073,
+        "p95Ms": 1.75520900000015,
+        "p99Ms": 1.8855419999999867,
+        "minMs": 0.2875000000001364,
+        "maxMs": 2.0001250000000255
+      }
+    },
+    {
+      "route": "/api/ontology/overview",
+      "coldMs": 8.509375000000091,
+      "status": 200,
+      "contentEncoding": "br",
+      "vary": "Origin, Accept-Encoding",
+      "identityBytes": 626858,
+      "encodedBytes": 127718,
+      "reductionPct": 79.62568875247665,
+      "semanticSha256": "c0d17147e92cde2d843fed020df6ef9935d7e42d1216104c50ccd540975bf636",
+      "conditionalStatus": 304,
+      "sequential": {
+        "requests": 60,
+        "meanMs": 0.14293821666666037,
+        "p50Ms": 0.12558399999988978,
+        "p95Ms": 0.19379200000003038,
+        "p99Ms": 0.29558300000007875,
+        "minMs": 0.09795800000028976,
+        "maxMs": 0.5374160000001211
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 15245.51375348678,
+        "meanMs": 0.7540243333333289,
+        "p50Ms": 0.7576670000000831,
+        "p95Ms": 1.170959000000039,
+        "p99Ms": 1.2125840000001062,
+        "minMs": 0.23587500000007822,
+        "maxMs": 1.2579579999999169
+      }
+    },
+    {
+      "route": "/api/graph",
+      "coldMs": 2.359875000000102,
+      "status": 200,
+      "contentEncoding": "br",
+      "vary": "Origin, Accept-Encoding",
+      "identityBytes": 78819,
+      "encodedBytes": 17351,
+      "reductionPct": 77.98627234550045,
+      "semanticSha256": "552d5857680f1e4c947e0935cef3cc15fe0224d32c6930250d09235816f158c4",
+      "conditionalStatus": 304,
+      "sequential": {
+        "requests": 60,
+        "meanMs": 0.10175411666665468,
+        "p50Ms": 0.08291600000006838,
+        "p95Ms": 0.13604199999986122,
+        "p99Ms": 0.16116599999986647,
+        "minMs": 0.07629100000008293,
+        "maxMs": 0.17633299999988594
+      },
+      "concurrent": {
+        "concurrency": 20,
+        "requests": 60,
+        "rps": 22954.425900243827,
+        "meanMs": 0.5049791833333416,
+        "p50Ms": 0.5001660000000356,
+        "p95Ms": 0.8060410000000502,
+        "p99Ms": 0.8616250000000036,
+        "minMs": 0.23345900000003894,
+        "maxMs": 0.9071250000001783
+      }
+    }
+  ]
+}

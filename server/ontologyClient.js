@@ -9,13 +9,29 @@ import {
   loadGuruConsensusStrategyDetail,
   loadGuruConsensusStrategySnapshot
 } from "./guruConsensusStrategy.js";
+import {
+  REQUIRED_ONTOLOGY_FIXED_ROUTES,
+  ontologySnapshotMetadataErrors
+} from "./ontologySnapshotValidation.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const defaultSnapshotPath = path.join(__dirname, "data", "ontology-snapshot.sqlite");
 const snapshotPath = process.env.ONTOLOGY_SNAPSHOT_PATH || defaultSnapshotPath;
 let database = null;
+let snapshotVersion = null;
+let snapshotVersionCheckedAt = 0;
 const payloadCache = new Map();
 const cacheLimit = 48;
+const configuredSnapshotVersionCheckMs = Number(process.env.ONTOLOGY_SNAPSHOT_VERSION_CHECK_MS);
+const snapshotVersionCheckMs = Math.max(
+  0,
+  Math.min(
+    60_000,
+    Number.isFinite(configuredSnapshotVersionCheckMs)
+      ? configuredSnapshotVersionCheckMs
+      : 1000
+  )
+);
 
 const marketSortFields = new Set([
   "ontology_score",
@@ -46,11 +62,23 @@ function ontologyError(message, code = "ontology_snapshot_unavailable") {
 }
 
 function connection() {
-  if (database) return database;
+  const now = Date.now();
+  if (database && now - snapshotVersionCheckedAt < snapshotVersionCheckMs) return database;
   if (!fs.existsSync(snapshotPath)) {
+    database?.close();
+    database = null;
+    snapshotVersion = null;
+    payloadCache.clear();
     throw ontologyError(`Ontology snapshot is missing: ${snapshotPath}`);
   }
+  const stats = fs.statSync(snapshotPath);
+  const version = [stats.dev, stats.ino, stats.size, stats.mtimeMs].join(":");
+  snapshotVersionCheckedAt = now;
+  if (database && version === snapshotVersion) return database;
+  database?.close();
+  payloadCache.clear();
   database = new DatabaseSync(snapshotPath, { readOnly: true });
+  snapshotVersion = version;
   return database;
 }
 
@@ -64,8 +92,10 @@ function remember(key, value) {
 }
 
 function loadPayload(key, { optional = false } = {}) {
-  if (payloadCache.has(key)) return payloadCache.get(key);
-  const row = connection()
+  const activeDatabase = connection();
+  const versionedKey = `${snapshotVersion}:${key}`;
+  if (payloadCache.has(versionedKey)) return payloadCache.get(versionedKey);
+  const row = activeDatabase
     .prepare("SELECT payload_gzip FROM responses WHERE route_key = ?")
     .get(key);
   if (!row) {
@@ -73,7 +103,15 @@ function loadPayload(key, { optional = false } = {}) {
     throw ontologyError(`Ontology payload is missing: ${key}`, "ontology_payload_missing");
   }
   const payload = JSON.parse(gunzipSync(Buffer.from(row.payload_gzip)).toString("utf8"));
-  return remember(key, payload);
+  return remember(versionedKey, payload);
+}
+
+export function ontologyPayloadCacheStats() {
+  return {
+    entries: payloadCache.size,
+    snapshotVersion,
+    snapshotVersionCheckMs
+  };
 }
 
 function number(value, fallback = Number.NEGATIVE_INFINITY) {
@@ -134,8 +172,43 @@ export function ontologySnapshotInfo() {
   const stats = fs.existsSync(snapshotPath) ? fs.statSync(snapshotPath) : null;
   let manifest = null;
   try {
-    const row = connection().prepare("SELECT value FROM metadata WHERE key = 'manifest'").get();
-    manifest = row ? JSON.parse(row.value) : null;
+    const activeDatabase = connection();
+    const manifestRow = activeDatabase.prepare("SELECT value FROM metadata WHERE key = 'manifest'").get();
+    const schemaRow = activeDatabase.prepare("SELECT value FROM metadata WHERE key = 'schema_version'").get();
+    manifest = manifestRow ? JSON.parse(manifestRow.value) : null;
+    const aggregate = activeDatabase.prepare(`
+      SELECT COUNT(*) AS response_count, COALESCE(SUM(json_bytes), 0) AS json_bytes
+      FROM responses
+    `).get();
+    const placeholders = REQUIRED_ONTOLOGY_FIXED_ROUTES.map(() => "?").join(", ");
+    const routeRows = activeDatabase.prepare(`
+      SELECT route_key
+      FROM responses
+      WHERE route_key IN (${placeholders})
+    `).all(...REQUIRED_ONTOLOGY_FIXED_ROUTES);
+    const validationErrors = ontologySnapshotMetadataErrors({
+      manifest,
+      metadataSchemaVersion: schemaRow?.value,
+      responseCount: Number(aggregate?.response_count || 0),
+      jsonBytes: Number(aggregate?.json_bytes || 0),
+      routeKeys: routeRows.map((row) => row.route_key)
+    });
+    if (validationErrors.length) {
+      throw ontologyError(
+        `Ontology snapshot failed integrity checks: ${validationErrors.join("; ")}`,
+        "ontology_snapshot_invalid"
+      );
+    }
+    return {
+      ok: true,
+      path: snapshotPath,
+      exists: true,
+      sizeBytes: stats?.size || 0,
+      updatedAt: stats?.mtime?.toISOString() || null,
+      responseCount: Number(aggregate.response_count),
+      jsonBytes: Number(aggregate.json_bytes),
+      manifest
+    };
   } catch (error) {
     return {
       ok: false,
@@ -145,14 +218,6 @@ export function ontologySnapshotInfo() {
       error: error.message
     };
   }
-  return {
-    ok: true,
-    path: snapshotPath,
-    exists: true,
-    sizeBytes: stats?.size || 0,
-    updatedAt: stats?.mtime?.toISOString() || null,
-    manifest
-  };
 }
 
 export function publicOntologySnapshotInfo() {

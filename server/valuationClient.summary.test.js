@@ -4,6 +4,8 @@ import test from "node:test";
 
 import {
   compactTickerDetail,
+  summarizeValuationAuditLayers,
+  valuationAuditLayers,
   valuationDetailLevel
 } from "./valuationClient.js";
 
@@ -95,6 +97,89 @@ test("valuation detail level is opt-in summary and defaults to compatible full",
   assert.equal(valuationDetailLevel("SUMMARY"), "summary");
   assert.equal(valuationDetailLevel(undefined), "full");
   assert.equal(valuationDetailLevel("unexpected"), "full");
+});
+
+test("valuation audit layers never promote lineage evidence into model validation", () => {
+  const layers = valuationAuditLayers({
+    modelInputAudit: {
+      status: "pass",
+      financialOrGuidanceEvidenceRows: 24,
+      sourceGrade: "jansen-pit-financials",
+      passesNoPriceAnchorAudit: true,
+      methodPriceAnchorSignalCount: 0
+    },
+    unifiedValuationAudit: {
+      status: "pass",
+      externalConsensusCheck: { status: "pass" }
+    }
+  });
+
+  assert.equal(layers.lineage.status, "pass");
+  assert.equal(layers.lineage.evidenceRows, 24);
+  assert.equal(layers.lineage.declaredPriceUse, "comparison-only");
+  assert.equal(layers.release.status, "not_verified");
+  assert.equal(layers.economicValidation.status, "not_validated");
+  assert.equal(layers.marketCalibration.status, "guardrail_only");
+});
+
+test("valuation audit layers expose explicit release and validation evidence only", () => {
+  const layers = valuationAuditLayers({
+    modelInputAudit: { status: "review" },
+    pitReleaseAudit: {
+      status: "pass",
+      releaseId: "release-2026-09-01",
+      modelSignature: "model-hash",
+      snapshotSignature: "snapshot-hash"
+    },
+    economicValidation: {
+      status: "pass",
+      sampleSize: 533,
+      asOf: "2026-08-31"
+    },
+    marketCalibration: {
+      status: "review",
+      sampleSize: 410,
+      asOf: "2026-08-31"
+    }
+  });
+
+  assert.equal(layers.release.status, "verified");
+  assert.equal(layers.release.releaseId, "release-2026-09-01");
+  assert.equal(layers.economicValidation.status, "pass");
+  assert.equal(layers.economicValidation.sampleSize, 533);
+  assert.equal(layers.marketCalibration.status, "review");
+});
+
+test("valuation audit summary does not relabel review as a consensus guardrail", () => {
+  const counts = summarizeValuationAuditLayers([
+    {
+      dataQuality: {
+        auditLayers: {
+          lineage: { status: "pass" },
+          release: { status: "verified" },
+          economicValidation: { status: "review" },
+          marketCalibration: { status: "guardrail_only" }
+        }
+      }
+    },
+    {
+      dataQuality: {
+        auditLayers: {
+          lineage: { status: "review" },
+          release: { status: "not_verified" },
+          economicValidation: { status: "not_validated" },
+          marketCalibration: { status: "review" }
+        }
+      }
+    }
+  ]);
+
+  assert.equal(counts.lineage.pass, 1);
+  assert.equal(counts.lineage.review, 1);
+  assert.equal(counts.release.pass, 1);
+  assert.equal(counts.release.unavailable, 1);
+  assert.equal(counts.marketCalibration.guardrailOnly, 1);
+  assert.equal(counts.marketCalibration.review, 1);
 });
 
 test("summary keeps overview inputs while full research remains lossless", () => {

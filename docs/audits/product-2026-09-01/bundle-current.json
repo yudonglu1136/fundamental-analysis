@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "label": "product-optimization-current",
+  "commit": "unknown",
+  "generatedAt": "2026-09-01T04:19:53.505Z",
+  "directory": "dist",
+  "fileCount": 78,
+  "totalRawBytes": 44670608,
+  "important": [
+    {
+      "path": "canvaskit/canvaskit.js",
+      "rawBytes": 86859,
+      "gzipBytes": 27491,
+      "brotliBytes": 26648
+    },
+    {
+      "path": "canvaskit/canvaskit.wasm",
+      "rawBytes": 7229467,
+      "gzipBytes": 2903572,
+      "brotliBytes": 2659375
+    },
+    {
+      "path": "canvaskit/chromium/canvaskit.js",
+      "rawBytes": 86496,
+      "gzipBytes": 27447,
+      "brotliBytes": 26586
+    },
+    {
+      "path": "canvaskit/chromium/canvaskit.wasm",
+      "rawBytes": 5760502,
+      "gzipBytes": 2185772,
+      "brotliBytes": 1968159
+    },
+    {
+      "path": "canvaskit/experimental_webparagraph/canvaskit.js",
+      "rawBytes": 76497,
+      "gzipBytes": 24832,
+      "brotliBytes": 24036
+    },
+    {
+      "path": "canvaskit/experimental_webparagraph/canvaskit.wasm",
+      "rawBytes": 4138344,
+      "gzipBytes": 1557245,
+      "brotliBytes": 1374983
+    },
+    {
+      "path": "flutter_bootstrap.js",
+      "rawBytes": 9972,
+      "gzipBytes": 3827,
+      "brotliBytes": 3641
+    },
+    {
+      "path": "main.dart.js",
+      "rawBytes": 3255276,
+      "gzipBytes": 970354,
+      "brotliBytes": 873892
+    },
+    {
+      "path": "ontology/app.js",
+      "rawBytes": 135755,
+      "gzipBytes": 33350,
+      "brotliBytes": 30266
+    },
+    {
+      "path": "ontology/styles.css",
+      "rawBytes": 88495,
+      "gzipBytes": 15106,
+      "brotliBytes": 14670
+    }
+  ]
+}

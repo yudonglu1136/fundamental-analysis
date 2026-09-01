@@ -6,6 +6,33 @@ import 'package:guru_analysis_terminal/main.dart';
 class _FakeAdminApiClient extends ApiClient {
   _FakeAdminApiClient() : super(() => 'test-token');
 
+  int deleteCalls = 0;
+  int restoreCalls = 0;
+
+  @override
+  Future<Map<String, dynamic>> deleteJson(String path) async {
+    deleteCalls += 1;
+    expect(path, '/api/portfolio/connection');
+    return {
+      'status': 'success',
+      'recoverable': true,
+      'undoUntil': '2099-01-01T00:15:00Z',
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> postJson(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    if (path == '/api/portfolio/connection/restore') {
+      restoreCalls += 1;
+      expect(body, isEmpty);
+      return {'ok': true, 'restored': true};
+    }
+    return <String, dynamic>{};
+  }
+
   @override
   Future<Map<String, dynamic>> getJson(String path) async {
     if (path == '/api/admin/system-health') {
@@ -68,7 +95,48 @@ class _FakeAdminApiClient extends ApiClient {
   }
 }
 
+ValuationRow _valuationRow(
+  double upside, {
+  bool hasModel = true,
+  String ticker = 'TEST',
+}) => ValuationRow(
+  ticker: ticker,
+  name: '$ticker Co',
+  sector: 'Software',
+  currency: 'USD',
+  latestPrice: hasModel ? 100 : 0,
+  fairValue: hasModel ? 100 * (1 + upside) : 0,
+  upside: upside,
+  targetPrice3Y: 120,
+  expectedReturn3Y: .06,
+  latestPriceDate: '2026-08-30',
+  coverageKind: 'model',
+  lineageStatus: 'pass',
+  releaseStatus: 'verified',
+  economicValidationStatus: 'not_validated',
+  marketCalibrationStatus: 'guardrail_only',
+  consensusStatus: 'watch',
+  consensusUpside: null,
+);
+
 void main() {
+  test('portfolio recovery countdown rounds up and expires safely', () {
+    final now = DateTime.utc(2026, 9, 1, 12);
+    expect(
+      portfolioRecoveryMinutesRemaining('2026-09-01T12:14:01Z', now: now),
+      15,
+    );
+    expect(
+      portfolioRecoveryMinutesRemaining('2026-09-01T12:00:01Z', now: now),
+      1,
+    );
+    expect(
+      portfolioRecoveryMinutesRemaining('2026-09-01T12:00:00Z', now: now),
+      0,
+    );
+    expect(portfolioRecoveryMinutesRemaining('invalid', now: now), 0);
+  });
+
   test('accepts only local ontology return paths', () {
     expect(ontologyReturnPath('/ontology/'), '/ontology/');
     expect(
@@ -99,6 +167,204 @@ void main() {
     expect(
       shouldLoadGuruDashboard('guru', <String, dynamic>{'gurus': []}),
       isFalse,
+    );
+  });
+
+  test(
+    'module truth headers use economic as-of dates and computed staleness',
+    () {
+      final now = DateTime.utc(2026, 9, 1, 12);
+      final valuation = moduleHeaderState(
+        mode: 'valuation',
+        payload: {
+          'generatedAt': '2026-09-01T11:00:00Z',
+          'summary': {'latestPriceDate': '2026-08-29'},
+          'source': {'label': 'Valuation DB'},
+        },
+        loading: false,
+        now: now,
+      );
+      expect(valuation.asOf, '2026-08-29');
+      expect(valuation.status, 'stale');
+
+      final currentValuation = moduleHeaderState(
+        mode: 'valuation',
+        payload: {
+          'generatedAt': '2026-08-27T00:00:00Z',
+          'summary': {'latestPriceDate': '2026-08-30'},
+        },
+        loading: false,
+        now: now,
+      );
+      expect(currentValuation.status, 'cached');
+
+      final stale = moduleHeaderState(
+        mode: 'valuation',
+        payload: {
+          'generatedAt': '2026-08-27T00:00:00Z',
+          'summary': {'latestPriceDate': '2026-08-26'},
+        },
+        loading: false,
+        now: now,
+      );
+      expect(stale.status, 'stale');
+
+      final guru = moduleHeaderState(
+        mode: 'guru',
+        payload: {
+          'generatedAt': '2026-09-01T08:00:00Z',
+          'gurus': [
+            {
+              'summary': {
+                'reportDate': '2026-06-30',
+                'filingDate': '2026-08-14',
+              },
+            },
+          ],
+        },
+        loading: false,
+        now: now,
+      );
+      expect(guru.asOf, '2026-08-14');
+      expect(guru.status, 'cached');
+
+      final sample = moduleHeaderState(
+        mode: 'portfolio',
+        payload: {
+          'source': {'mode': 'sample', 'label': 'Portfolio module sample'},
+        },
+        loading: false,
+        now: now,
+      );
+      expect(sample.status, 'sample');
+      expect(toolbarDateLabel('', AppLanguage.en), 'As-of unavailable');
+
+      final liveWithoutEconomicAsOf = moduleHeaderState(
+        mode: 'portfolio',
+        payload: {
+          'generatedAt': '2026-09-01T11:59:00Z',
+          'source': {'mode': 'live', 'label': 'Yodlee Core APIs'},
+        },
+        loading: false,
+        now: now,
+      );
+      expect(liveWithoutEconomicAsOf.asOf, isEmpty);
+      expect(liveWithoutEconomicAsOf.status, 'cached');
+
+      final liveWithUpstreamAsOf = moduleHeaderState(
+        mode: 'portfolio',
+        payload: {
+          'generatedAt': '2026-09-01T11:59:00Z',
+          'source': {
+            'mode': 'multi_account_live',
+            'label': 'IBKR Third-Party Reports / Yodlee',
+            'toDate': '2026-08-31',
+          },
+        },
+        loading: false,
+        now: now,
+      );
+      expect(liveWithUpstreamAsOf.asOf, '2026-08-31');
+      expect(liveWithUpstreamAsOf.status, 'live');
+    },
+  );
+
+  test('valuation buckets use one consistent five-percent boundary', () {
+    expect(valuationBucketForRow(_valuationRow(.05)), 'undervalued');
+    expect(valuationBucketForRow(_valuationRow(.049)), 'fair');
+    expect(valuationBucketForRow(_valuationRow(-.049)), 'fair');
+    expect(valuationBucketForRow(_valuationRow(-.05)), 'expensive');
+    expect(valuationBucketForRow(_valuationRow(0, hasModel: false)), 'missing');
+  });
+
+  test('valuation filtering reconciles selection to visible results', () {
+    final visible = [
+      _valuationRow(.2, ticker: 'AAA'),
+      _valuationRow(.1, ticker: 'BBB'),
+    ];
+
+    expect(reconciledValuationTicker(visible, 'BBB'), 'BBB');
+    expect(reconciledValuationTicker(visible, 'HIDDEN'), 'AAA');
+    expect(reconciledValuationTicker(const <ValuationRow>[], 'AAA'), '');
+  });
+
+  test('valuation audit layers stay independent in dashboard rows', () {
+    final rows = valuationRowsFromTickers([
+      {
+        'ticker': 'TEST',
+        'latest': {
+          'latestPrice': 100,
+          'baseFairValue': 120,
+          'upsideToBase': .2,
+        },
+        'dataQuality': {
+          'auditLayers': {
+            'lineage': {'status': 'pass'},
+            'release': {'status': 'verified'},
+            'economicValidation': {'status': 'not_validated'},
+            'marketCalibration': {'status': 'guardrail_only'},
+          },
+        },
+      },
+    ]);
+    expect(rows.single.lineageStatus, 'pass');
+    expect(rows.single.releaseStatus, 'verified');
+    expect(rows.single.economicValidationStatus, 'not_validated');
+    expect(rows.single.marketCalibrationStatus, 'guardrail_only');
+  });
+
+  test('valuation default is neutral instead of highest model upside', () {
+    Map<String, dynamic> ticker(
+      String symbol,
+      double fairValue, {
+      String lineage = 'pass',
+    }) => {
+      'ticker': symbol,
+      'latest': {'latestPrice': 100, 'baseFairValue': fairValue},
+      'dataQuality': {
+        'auditLayers': {
+          'lineage': {'status': lineage},
+        },
+      },
+    };
+
+    final dashboard = {
+      'tickers': [ticker('ZZZ', 500), ticker('BBB', 110), ticker('AAA', 105)],
+    };
+    expect(defaultValuationTicker(dashboard), 'AAA');
+    expect(defaultValuationTicker(dashboard, preferred: 'ZZZ'), 'ZZZ');
+    expect(
+      defaultValuationTicker({...dashboard, 'featuredTicker': 'BBB'}),
+      'BBB',
+    );
+  });
+
+  test('reported 13F totals keep common longs and options separate', () {
+    final guru = <String, dynamic>{
+      'summary': {'reported13fValue': 150},
+      'holdings': [
+        {'value': 100, 'putCall': ''},
+        {'value': 30, 'putCall': 'CALL'},
+        {'value': 20, 'putCall': 'PUT'},
+      ],
+    };
+    expect(reported13fTableValue(guru), 150);
+    expect(reported13fCommonLongValue(guru), 100);
+    expect(reported13fOptionsValue(guru), 50);
+    expect(
+      reported13fActionLabel('new', AppLanguage.en),
+      'Reported new position',
+    );
+    expect(
+      reported13fActionLabel('reduced', AppLanguage.en),
+      'Reported reduction',
+    );
+    expect(
+      guruDisplayStatus({
+        'status': 'live',
+        'dataStatus': {'status': 'local-db'},
+      }),
+      'cached',
     );
   });
 
@@ -276,6 +542,7 @@ void main() {
               onLanguage: (value) => setState(() => language = value),
               onGoogle: () {},
               onLocal: () {},
+              onRetry: () {},
             ),
           ),
         ),
@@ -312,6 +579,7 @@ void main() {
             onLanguage: (_) {},
             onGoogle: () {},
             onLocal: () {},
+            onRetry: () {},
           ),
         ),
       ),
@@ -322,6 +590,33 @@ void main() {
     expect(panel.left, greaterThanOrEqualTo(16));
     expect(panel.right, lessThanOrEqualTo(374));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('auth initialization error offers an in-page retry', (
+    WidgetTester tester,
+  ) async {
+    var retried = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LanguageScope(
+          language: AppLanguage.en,
+          child: LoginScreen(
+            authConfigured: false,
+            localBypassEnabled: false,
+            authMessage: 'Supabase auth did not initialize.',
+            language: AppLanguage.en,
+            onLanguage: (_) {},
+            onGoogle: () {},
+            onLocal: () {},
+            onRetry: () => retried = true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Retry auth initialization'), findsOneWidget);
+    await tester.tap(find.text('Retry auth initialization'));
+    expect(retried, isTrue);
   });
 
   testWidgets(
@@ -374,6 +669,169 @@ void main() {
       expect(find.text('current-weight backsolve'), findsOneWidget);
     },
   );
+
+  testWidgets('sample portfolio is unmistakably marked as non-account data', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LanguageScope(
+          language: AppLanguage.en,
+          child: Scaffold(
+            body: SingleChildScrollView(
+              child: PortfolioDashboard(
+                data: {
+                  'source': {
+                    'mode': 'sample',
+                    'label': 'Portfolio module sample',
+                  },
+                  'summary': {
+                    'totalValue': 100000,
+                    'accounts': 1,
+                    'holdings': 0,
+                    'cash': 100000,
+                    'dayPnl': 0,
+                    'dayPnlPct': 0,
+                    'unrealizedPnl': 0,
+                    'unrealizedPnlPct': 0,
+                    'topWeight': 0,
+                    'currency': 'USD',
+                  },
+                  'connection': {
+                    'configured': false,
+                    'registered': false,
+                    'status': 'not_configured',
+                  },
+                  'accounts': [
+                    {'status': 'sample'},
+                  ],
+                  'holdings': <Map<String, dynamic>>[],
+                  'sectors': <Map<String, dynamic>>[],
+                  'performance': <Map<String, dynamic>>[],
+                  'performanceStatus': {
+                    'real': false,
+                    'message': 'Sample data has no real NAV history.',
+                  },
+                  'dividends': <Map<String, dynamic>>[],
+                  'dividendStatus': <String, dynamic>{},
+                  'analytics': <String, dynamic>{},
+                },
+                api: _FakeAdminApiClient(),
+                palette: Palette(false),
+                onRefresh: () async {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Sample portfolio — not an account'), findsOneWidget);
+    expect(
+      find.textContaining('SAMPLE DATA · NOT A REAL ACCOUNT'),
+      findsWidgets,
+    );
+    expect(find.text('Net liquidation'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('disconnect all requires explicit confirmation', (
+    WidgetTester tester,
+  ) async {
+    final api = _FakeAdminApiClient();
+    var refreshCalls = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LanguageScope(
+          language: AppLanguage.en,
+          child: Scaffold(
+            body: PortfolioConnectionStatusPanel(
+              connection: const {
+                'status': 'linked',
+                'configured': true,
+                'accounts': <Map<String, dynamic>>[],
+              },
+              api: api,
+              palette: Palette(false),
+              onRefresh: () async {
+                refreshCalls += 1;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Disconnect all'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Disconnect all portfolio connections?'), findsOneWidget);
+    expect(find.text('Cancel'), findsOneWidget);
+    expect(find.text('Disconnect safely'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(api.deleteCalls, 0);
+    expect(refreshCalls, 0);
+
+    await tester.tap(find.text('Disconnect all'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Disconnect safely'));
+    await tester.pumpAndSettle();
+
+    expect(api.deleteCalls, 1);
+    expect(refreshCalls, 1);
+    expect(
+      find.textContaining('Disconnected. Restore eligibility expires'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('disconnected portfolio offers time-bounded undo', (
+    WidgetTester tester,
+  ) async {
+    final api = _FakeAdminApiClient();
+    var refreshCalls = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LanguageScope(
+          language: AppLanguage.en,
+          child: Scaffold(
+            body: SingleChildScrollView(
+              child: PortfolioConnectionPanel(
+                connection: const {
+                  'status': 'disconnected_recoverable',
+                  'configured': false,
+                  'recoverable': true,
+                  'undoUntil': '2099-01-01T00:15:00Z',
+                },
+                api: api,
+                palette: Palette(false),
+                onConnected: () async {
+                  refreshCalls += 1;
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Undo disconnect'), findsOneWidget);
+    expect(find.textContaining('encrypted credentials'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Undo disconnect'));
+    await tester.tap(find.text('Undo disconnect'));
+    await tester.pumpAndSettle();
+
+    expect(api.restoreCalls, 1);
+    expect(refreshCalls, 1);
+    expect(
+      find.text('Connection restored from encrypted recovery.'),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('admin portfolio surfaces contain no Chinese in English mode', (
     WidgetTester tester,
@@ -452,8 +910,11 @@ void main() {
               body: TerminalHeader(
                 mode: 'valuation',
                 userName: 'Test User',
-                sourceLabel: 'Local SQLite database',
-                generatedAt: '2026-08-30T10:00:00Z',
+                moduleState: const ModuleHeaderState(
+                  status: 'cached',
+                  source: 'Local SQLite database',
+                  asOf: '2026-08-30T10:00:00Z',
+                ),
                 colorBlind: false,
                 language: language,
                 showAdmin: true,
@@ -477,5 +938,48 @@ void main() {
     expect(language, AppLanguage.zh);
     expect(find.text('EN'), findsWidgets);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('terminal header is overflow-safe at 390, 768, and 1024px', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    for (final width in <double>[390, 768, 1024]) {
+      tester.view.physicalSize = Size(width, 844);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LanguageScope(
+            language: AppLanguage.en,
+            child: Scaffold(
+              body: TerminalHeader(
+                mode: 'valuation',
+                userName: 'Test User',
+                moduleState: const ModuleHeaderState(
+                  status: 'stale',
+                  source: 'Local SQLite valuation database',
+                  asOf: '2026-08-27T10:00:00Z',
+                ),
+                colorBlind: false,
+                language: AppLanguage.en,
+                showAdmin: true,
+                onMode: (_) {},
+                onRefresh: () {},
+                onColorBlind: (_) {},
+                onLanguage: (_) {},
+                onLogout: () {},
+                palette: Palette(false),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull, reason: 'width $width');
+      expect(tester.getSize(find.byTooltip('Refresh')).height, 44);
+      expect(find.text('ZH'), findsOneWidget);
+    }
   });
 }

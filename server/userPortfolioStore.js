@@ -13,6 +13,21 @@ const encryptionAad = Buffer.from("thesisforge-portfolio-connection-v1");
 
 const dbCache = new Map();
 let adminRegistryDb = null;
+const portfolioUserRecordCache = new Map();
+const portfolioUserRecordTtlMs = Math.max(
+  1000,
+  Math.min(60_000, Number(process.env.PORTFOLIO_USER_RECORD_TTL_MS) || 5000)
+);
+const portfolioUserRecordCacheMaxEntries = 4096;
+let portfolioUserRecordCacheHits = 0;
+let portfolioUserRecordWrites = 0;
+const portfolioConnectionRecoveryTtlMs = Math.max(
+  60_000,
+  Math.min(
+    60 * 60_000,
+    Number(process.env.PORTFOLIO_CONNECTION_RECOVERY_MS) || 15 * 60_000
+  )
+);
 
 function encryptionSecret() {
   const secret = process.env.PORTFOLIO_CREDENTIALS_KEY || process.env.SUPABASE_JWT_SECRET || "";
@@ -112,6 +127,17 @@ function initUserDb(db) {
       last_error TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS portfolio_connection_recovery (
+      provider TEXT PRIMARY KEY,
+      encrypted_json TEXT NOT NULL,
+      connection_created_at TEXT NOT NULL,
+      deleted_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_portfolio_connection_recovery_expires_at
+      ON portfolio_connection_recovery (expires_at);
+
     CREATE TABLE IF NOT EXISTS portfolio_nav_points (
       account_id TEXT NOT NULL,
       date TEXT NOT NULL,
@@ -168,6 +194,30 @@ function decryptJson(value) {
 
 function cleanString(value) {
   return String(value || "").trim();
+}
+
+function normalizedNow(value = new Date()) {
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) throw new Error("Portfolio recovery timestamp is invalid.");
+  return parsed;
+}
+
+function purgeExpiredPortfolioConnectionRecovery(db, now = new Date()) {
+  const nowIso = normalizedNow(now).toISOString();
+  return db.prepare(`
+    DELETE FROM portfolio_connection_recovery
+    WHERE expires_at <= ?
+  `).run(nowIso).changes;
+}
+
+function activePortfolioConnectionRecovery(db, now = new Date()) {
+  const nowIso = normalizedNow(now).toISOString();
+  purgeExpiredPortfolioConnectionRecovery(db, nowIso);
+  return db.prepare(`
+    SELECT provider, deleted_at, expires_at
+    FROM portfolio_connection_recovery
+    WHERE provider = ? AND expires_at > ?
+  `).get("ibkr_flex", nowIso);
 }
 
 function cleanToken(value) {
@@ -272,9 +322,25 @@ export function normalizePortfolioConnectionInput(input = {}) {
   };
 }
 
-function publicConnectionStatus(row, connection = null) {
+function publicConnectionStatus(row, connection = null, recovery = null) {
   const accounts = portfolioConnectionAccounts(connection);
   if (!row) {
+    if (recovery) {
+      return {
+        registered: false,
+        configured: false,
+        provider: "IBKR Third-Party Reports",
+        institution: "Interactive Brokers",
+        status: "disconnected_recoverable",
+        message: "Connection disconnected. Encrypted recovery is available for a limited time.",
+        storage: "per_user_encrypted_sqlite",
+        accountCount: 0,
+        accounts: [],
+        recoverable: true,
+        disconnectedAt: recovery.deleted_at,
+        undoUntil: recovery.expires_at
+      };
+    }
     return {
       registered: false,
       configured: false,
@@ -325,7 +391,12 @@ export function readPortfolioConnection(user) {
     WHERE provider = ?
   `).get("ibkr_flex");
   if (!row) {
-    return { configured: false, status: publicConnectionStatus(null), config: null };
+    const recovery = activePortfolioConnectionRecovery(db);
+    return {
+      configured: false,
+      status: publicConnectionStatus(null, null, recovery),
+      config: null
+    };
   }
   const config = decryptJson(row.encrypted_json);
   return {
@@ -346,31 +417,41 @@ export function savePortfolioConnection(user, input = {}) {
   const existing = db.prepare(`
     SELECT created_at FROM portfolio_connections WHERE provider = ?
   `).get(config.provider);
-  db.prepare(`
-    INSERT INTO portfolio_connections (
-      provider,
-      status,
-      encrypted_json,
-      created_at,
-      updated_at,
-      last_connected_at,
-      last_error
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(provider) DO UPDATE SET
-      status = excluded.status,
-      encrypted_json = excluded.encrypted_json,
-      updated_at = excluded.updated_at,
-      last_error = excluded.last_error
-  `).run(
-    config.provider,
-    "configured",
-    encryptJson(config),
-    existing?.created_at || now,
-    now,
-    "",
-    ""
-  );
+  const encryptedJson = encryptJson(config);
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    db.prepare(`
+      INSERT INTO portfolio_connections (
+        provider,
+        status,
+        encrypted_json,
+        created_at,
+        updated_at,
+        last_connected_at,
+        last_error
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(provider) DO UPDATE SET
+        status = excluded.status,
+        encrypted_json = excluded.encrypted_json,
+        updated_at = excluded.updated_at,
+        last_error = excluded.last_error
+    `).run(
+      config.provider,
+      "configured",
+      encryptedJson,
+      existing?.created_at || now,
+      now,
+      "",
+      ""
+    );
+    db.prepare("DELETE FROM portfolio_connection_recovery WHERE provider = ?")
+      .run(config.provider);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
   return readPortfolioConnectionStatus(user);
 }
 
@@ -411,9 +492,118 @@ export function markPortfolioConnectionSync(user, { ok, error = "" } = {}) {
   );
 }
 
-export function deletePortfolioConnection(user) {
+export function deletePortfolioConnection(user, {
+  now = new Date(),
+  gracePeriodMs = portfolioConnectionRecoveryTtlMs
+} = {}) {
   const db = openUserDb(user);
-  db.prepare("DELETE FROM portfolio_connections WHERE provider = ?").run("ibkr_flex");
+  const nowDate = normalizedNow(now);
+  const nowIso = nowDate.toISOString();
+  const safeGracePeriodMs = Math.max(
+    60_000,
+    Math.min(60 * 60_000, Number(gracePeriodMs) || portfolioConnectionRecoveryTtlMs)
+  );
+  const expiresAt = new Date(nowDate.getTime() + safeGracePeriodMs).toISOString();
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    purgeExpiredPortfolioConnectionRecovery(db, nowIso);
+    const connection = db.prepare(`
+      SELECT provider, encrypted_json, created_at
+      FROM portfolio_connections
+      WHERE provider = ?
+    `).get("ibkr_flex");
+    if (!connection) {
+      const recovery = activePortfolioConnectionRecovery(db, nowIso);
+      db.exec("COMMIT");
+      return {
+        deleted: false,
+        recoverable: Boolean(recovery),
+        undoUntil: recovery?.expires_at || ""
+      };
+    }
+    db.prepare(`
+      INSERT INTO portfolio_connection_recovery (
+        provider,
+        encrypted_json,
+        connection_created_at,
+        deleted_at,
+        expires_at
+      )
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(provider) DO UPDATE SET
+        encrypted_json = excluded.encrypted_json,
+        connection_created_at = excluded.connection_created_at,
+        deleted_at = excluded.deleted_at,
+        expires_at = excluded.expires_at
+    `).run(
+      connection.provider,
+      connection.encrypted_json,
+      connection.created_at,
+      nowIso,
+      expiresAt
+    );
+    db.prepare("DELETE FROM portfolio_connections WHERE provider = ?")
+      .run(connection.provider);
+    db.exec("COMMIT");
+    return { deleted: true, recoverable: true, undoUntil: expiresAt };
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+export function restorePortfolioConnection(user, { now = new Date() } = {}) {
+  const db = openUserDb(user);
+  const nowIso = normalizedNow(now).toISOString();
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    purgeExpiredPortfolioConnectionRecovery(db, nowIso);
+    const existing = db.prepare(`
+      SELECT provider FROM portfolio_connections WHERE provider = ?
+    `).get("ibkr_flex");
+    if (existing) {
+      db.prepare("DELETE FROM portfolio_connection_recovery WHERE provider = ?")
+        .run("ibkr_flex");
+      db.exec("COMMIT");
+      return { restored: false, reason: "connection_exists" };
+    }
+    const recovery = db.prepare(`
+      SELECT provider, encrypted_json, connection_created_at, expires_at
+      FROM portfolio_connection_recovery
+      WHERE provider = ? AND expires_at > ?
+    `).get("ibkr_flex", nowIso);
+    if (!recovery) {
+      db.exec("COMMIT");
+      return { restored: false, reason: "recovery_unavailable" };
+    }
+    db.prepare(`
+      INSERT INTO portfolio_connections (
+        provider,
+        status,
+        encrypted_json,
+        created_at,
+        updated_at,
+        last_connected_at,
+        last_error
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      recovery.provider,
+      "configured",
+      recovery.encrypted_json,
+      recovery.connection_created_at || nowIso,
+      nowIso,
+      "",
+      ""
+    );
+    db.prepare("DELETE FROM portfolio_connection_recovery WHERE provider = ?")
+      .run(recovery.provider);
+    db.exec("COMMIT");
+    return { restored: true, reason: "restored" };
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 export function writeUserPortfolioNavPoint(user, point) {
@@ -484,12 +674,25 @@ export function readUserPortfolioNavPoints(user, accountId = "portfolio", limit 
 export function recordPortfolioUser(user) {
   const userId = userIdFromUser(user);
   if (!userId) return null;
-  const hash = userHash(userId);
-  const now = new Date().toISOString();
   const email = cleanString(user?.email).toLowerCase();
   const name = cleanString(user?.name || user?.fullName || user?.user_metadata?.full_name);
   const avatar = cleanString(user?.avatar || user?.picture);
   const provider = cleanString(user?.provider);
+  const signature = JSON.stringify([userId, email, name, avatar, provider]);
+  const nowMs = Date.now();
+  const cached = portfolioUserRecordCache.get(userId);
+  if (
+    cached?.signature === signature &&
+    nowMs - cached.recordedAt < portfolioUserRecordTtlMs
+  ) {
+    portfolioUserRecordCacheHits += 1;
+    portfolioUserRecordCache.delete(userId);
+    portfolioUserRecordCache.set(userId, cached);
+    return cached.result;
+  }
+
+  const hash = userHash(userId);
+  const now = new Date(nowMs).toISOString();
   const db = openAdminRegistryDb();
   db.prepare(`
     INSERT INTO portfolio_user_registry (
@@ -511,7 +714,34 @@ export function recordPortfolioUser(user) {
       provider = excluded.provider,
       last_seen_at = excluded.last_seen_at
   `).run(hash, userId, email, name, avatar, provider, now, now);
-  return { userHash: hash, userId, email, name, avatar, provider };
+  const result = { userHash: hash, userId, email, name, avatar, provider };
+  portfolioUserRecordWrites += 1;
+  portfolioUserRecordCache.delete(userId);
+  portfolioUserRecordCache.set(userId, {
+    signature,
+    recordedAt: nowMs,
+    result
+  });
+  while (portfolioUserRecordCache.size > portfolioUserRecordCacheMaxEntries) {
+    portfolioUserRecordCache.delete(portfolioUserRecordCache.keys().next().value);
+  }
+  return result;
+}
+
+export function portfolioUserRecordCacheStats() {
+  return {
+    entries: portfolioUserRecordCache.size,
+    hits: portfolioUserRecordCacheHits,
+    writes: portfolioUserRecordWrites,
+    ttlMs: portfolioUserRecordTtlMs,
+    maxEntries: portfolioUserRecordCacheMaxEntries
+  };
+}
+
+export function resetPortfolioUserRecordCacheForTests() {
+  portfolioUserRecordCache.clear();
+  portfolioUserRecordCacheHits = 0;
+  portfolioUserRecordWrites = 0;
 }
 
 function readRegistryRows() {

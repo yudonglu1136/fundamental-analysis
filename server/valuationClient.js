@@ -1,10 +1,10 @@
 import {
   databaseInfo,
+  readValuationDashboardVersion,
   readValuationPodcastInsights,
   readValuationPodcastInsightsVersion,
   readValuationPodcastInsightSummary,
   readValuationSnapshot,
-  readValuationSnapshotVersion,
   readValuationTickerSnapshot,
   readValuationTickerSnapshotVersion
 } from "./localDatabase.js";
@@ -75,10 +75,7 @@ export function valuationTickerCacheStats() {
 }
 
 function valuationDashboardVersion() {
-  return [
-    readValuationSnapshotVersion() || "missing",
-    readValuationPodcastInsightsVersion()
-  ].join("|");
+  return readValuationDashboardVersion();
 }
 
 function sortTickers(tickers) {
@@ -103,10 +100,148 @@ function emptyPayload() {
       historyRows: 0,
       pricePointCount: 0,
       latestPriceDate: null,
+      auditLayerCounts: emptyAuditLayerCounts(),
       message: "No valuation snapshot is available yet."
     },
     tickers: []
   };
+}
+
+const auditLayerNames = [
+  "lineage",
+  "release",
+  "economicValidation",
+  "marketCalibration"
+];
+
+function normalizedAuditStatus(value, fallback) {
+  const status = String(value || "").trim().toLowerCase();
+  return [
+    "pass",
+    "review",
+    "fail",
+    "verified",
+    "not_verified",
+    "not_validated",
+    "guardrail_only",
+    "not_run"
+  ].includes(status) ? status : fallback;
+}
+
+/**
+ * Keep the four different meanings of "audit" separate. A lineage pass proves
+ * input provenance and declared price-exclusion policy; it does not prove that
+ * the economic model predicts returns or is calibrated to the market.
+ */
+export function valuationAuditLayers(dataQuality = {}) {
+  const explicitLayers = dataQuality.auditLayers || {};
+  const inputAudit = dataQuality.modelInputAudit || {};
+  const releaseAudit = dataQuality.pitReleaseAudit || dataQuality.releaseAudit ||
+    explicitLayers.release || {};
+  const economicValidation = dataQuality.economicValidation ||
+    explicitLayers.economicValidation || {};
+  const marketCalibration = dataQuality.marketCalibration ||
+    explicitLayers.marketCalibration || {};
+  const unifiedAudit = dataQuality.unifiedValuationAudit || {};
+  const consensusCheck = unifiedAudit.externalConsensusCheck || {};
+  const evidenceRows = Number(
+    inputAudit.financialOrGuidanceEvidenceRows ?? inputAudit.valuationRows ?? 0
+  );
+  const releaseStatus = normalizedAuditStatus(
+    releaseAudit.status === "pass" ? "verified" : releaseAudit.status,
+    "not_verified"
+  );
+  const economicStatus = normalizedAuditStatus(
+    economicValidation.status,
+    "not_validated"
+  );
+  const explicitCalibrationStatus = normalizedAuditStatus(
+    marketCalibration.status,
+    ""
+  );
+  const marketStatus = explicitCalibrationStatus ||
+    (consensusCheck.status ? "guardrail_only" : "not_run");
+
+  return {
+    lineage: {
+      status: normalizedAuditStatus(
+        explicitLayers.lineage?.status || inputAudit.status,
+        "not_run"
+      ),
+      scope: "point-in-time input lineage and arithmetic policy",
+      evidenceRows: Number.isFinite(evidenceRows) ? evidenceRows : 0,
+      sourceGrade: inputAudit.sourceGrade || explicitLayers.lineage?.sourceGrade || null,
+      declaredPriceUse: inputAudit.passesNoPriceAnchorAudit === true
+        ? "comparison-only"
+        : "unverified",
+      priceAnchorSignals: Number(inputAudit.methodPriceAnchorSignalCount || 0)
+    },
+    release: {
+      status: releaseStatus,
+      scope: "strict reproducible release verification",
+      releaseId: releaseAudit.releaseId || null,
+      modelSignature: releaseAudit.modelSignature || null,
+      snapshotSignature: releaseAudit.snapshotSignature || null
+    },
+    economicValidation: {
+      status: economicStatus,
+      scope: "walk-forward forecast error and forward-return validation",
+      sampleSize: Number(economicValidation.sampleSize || 0),
+      asOf: economicValidation.asOf || null
+    },
+    marketCalibration: {
+      status: marketStatus,
+      scope: marketStatus === "guardrail_only"
+        ? "external consensus comparison guardrail only"
+        : "out-of-sample market calibration",
+      sampleSize: Number(marketCalibration.sampleSize || 0),
+      asOf: marketCalibration.asOf || null,
+      guardrailStatus: consensusCheck.status || null
+    }
+  };
+}
+
+function withValuationAuditLayers(ticker = {}) {
+  return {
+    ...ticker,
+    dataQuality: {
+      ...(ticker.dataQuality || {}),
+      auditLayers: valuationAuditLayers(ticker.dataQuality || {})
+    }
+  };
+}
+
+function emptyAuditLayerCounts() {
+  return Object.fromEntries(
+    auditLayerNames.map((name) => [name, {
+      pass: 0,
+      review: 0,
+      fail: 0,
+      guardrailOnly: 0,
+      unavailable: 0
+    }])
+  );
+}
+
+export function summarizeValuationAuditLayers(tickers = []) {
+  const counts = emptyAuditLayerCounts();
+  for (const ticker of tickers) {
+    const layers = ticker?.dataQuality?.auditLayers || {};
+    for (const name of auditLayerNames) {
+      const status = String(layers[name]?.status || "").toLowerCase();
+      const bucket = ["pass", "verified"].includes(status)
+        ? "pass"
+        : status === "review"
+          ? "review"
+          : status === "fail"
+            ? "fail"
+            : status === "guardrail_only"
+              ? "guardrailOnly"
+            : "unavailable";
+      counts[name][bucket] += 1;
+    }
+  }
+  return counts;
 }
 
 function compactDataQuality(dataQuality = {}) {
@@ -120,6 +255,7 @@ function compactDataQuality(dataQuality = {}) {
     pricePoints: dataQuality.pricePoints,
     hasLivePriceSeries: dataQuality.hasLivePriceSeries,
     fairValueSource: dataQuality.fairValueSource,
+    auditLayers: dataQuality.auditLayers || valuationAuditLayers(dataQuality),
     modelInputAudit: {
       status: inputAudit.status,
       valuationRows: inputAudit.valuationRows,
@@ -292,6 +428,7 @@ export async function loadValuationDashboard() {
     (snapshot.tickers || [])
       .map(applyAznValuationOverlay)
       .map(applyLsegValuationOverlay)
+      .map(withValuationAuditLayers)
       .map(compactTickerForDashboard)
   );
 
@@ -301,6 +438,10 @@ export async function loadValuationDashboard() {
       ...(snapshot.source || {}),
       label: "Local SQLite valuation database",
       localDatabase: databaseInfo().path
+    },
+    summary: {
+      ...(snapshot.summary || {}),
+      auditLayerCounts: summarizeValuationAuditLayers(tickers)
     },
     podcastInsights: readValuationPodcastInsightSummary(),
     tickers,
@@ -338,7 +479,9 @@ export async function loadValuationTicker(ticker, options = {}) {
     const tickerSnapshot = readValuationTickerSnapshot(resolvedTicker);
     if (tickerSnapshot) {
       const compactedTicker = compactTickerDetail(
-        applyLsegValuationOverlay(applyAznValuationOverlay(tickerSnapshot)), {
+        withValuationAuditLayers(
+          applyLsegValuationOverlay(applyAznValuationOverlay(tickerSnapshot))
+        ), {
         pricePoints,
         detail
       });

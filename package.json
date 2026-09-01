@@ -17,7 +17,7 @@
     "refresh:dividends": "node server/refreshDividendCalendar.js",
     "sync:ontology-ui": "python3 scripts/sync-ontology-frontend.py",
     "export:ontology": "python3 scripts/export-ontology-snapshot.py",
-    "test:ontology": "node --test server/ontologyClient.test.js server/guruConsensusStrategy.test.js",
+    "test:ontology": "node --test server/ontologyClient.test.js server/guruConsensusStrategy.test.js scripts/ontology-snapshot-state.test.mjs scripts/verify-ontology-module.test.mjs",
     "test:proxy": "node --test server/apiProxy.test.js",
     "test:server": "node --test server/*.test.js",
     "test:performance": "node --test server/apiProxy.test.js server/jsonTransport.test.js server/valuationClient.summary.test.js scripts/static-performance-budget.test.mjs scripts/performance-tools.test.mjs",

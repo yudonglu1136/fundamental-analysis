@@ -62,8 +62,10 @@ fi
 rm -rf dist
 flutter build web --release --base-href / --output dist --no-wasm-dry-run "${defines[@]}"
 
-if [ -n "$resolved_supabase_url" ] && [ -f "dist/ontology/app.js" ]; then
-  ontology_project_ref="$(python3 - "$resolved_supabase_url" <<'PY'
+if [ -f "dist/ontology/app.js" ]; then
+  ontology_project_ref=""
+  if [ -n "$resolved_supabase_url" ]; then
+    ontology_project_ref="$(python3 - "$resolved_supabase_url" <<'PY'
 import sys
 from urllib.parse import urlparse
 
@@ -71,15 +73,21 @@ host = urlparse(sys.argv[1]).hostname or ""
 print(host.split(".", 1)[0])
 PY
 )"
-  ONTOLOGY_PROJECT_REF="$ontology_project_ref" python3 - <<'PY'
+  fi
+  ONTOLOGY_PROJECT_REF="$ontology_project_ref" ONTOLOGY_AUTH_DEV_BYPASS="$resolved_auth_bypass" python3 - <<'PY'
 import os
 from pathlib import Path
 
 path = Path("dist/ontology/app.js")
-marker = "__GURU_SUPABASE_PROJECT_REF__"
 source = path.read_text(encoding="utf-8")
-if marker not in source:
-    raise SystemExit("Ontology auth project marker is missing")
-path.write_text(source.replace(marker, os.environ["ONTOLOGY_PROJECT_REF"]), encoding="utf-8")
+markers = {
+    "__GURU_SUPABASE_PROJECT_REF__": os.environ["ONTOLOGY_PROJECT_REF"],
+    "__GURU_AUTH_DEV_BYPASS__": os.environ["ONTOLOGY_AUTH_DEV_BYPASS"],
+}
+for marker, value in markers.items():
+    if marker not in source:
+        raise SystemExit(f"Ontology build marker is missing: {marker}")
+    source = source.replace(marker, value)
+path.write_text(source, encoding="utf-8")
 PY
 fi

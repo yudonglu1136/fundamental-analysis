@@ -10,6 +10,12 @@ const indexPath = path.join(rootDir, 'web', 'index.html');
 const vercelPath = path.join(rootDir, 'vercel.json');
 const avatarDir = path.join(rootDir, 'web', 'guru-avatars');
 const mainPath = path.join(rootDir, 'lib', 'main.dart');
+const ontologyAppPath = path.join(rootDir, 'web', 'ontology', 'app.js');
+const ontologyIndexPath = path.join(rootDir, 'web', 'ontology', 'index.html');
+const ontologyI18nPath = path.join(rootDir, 'web', 'ontology', 'i18n.js');
+const ontologyStylesPath = path.join(rootDir, 'web', 'ontology', 'styles.css');
+const flutterBuildPath = path.join(rootDir, 'scripts', 'flutter-build.sh');
+const browserLocationPath = path.join(rootDir, 'lib', 'browser_location_web.dart');
 
 function inlineBootScript() {
   const html = fs.readFileSync(indexPath, 'utf8');
@@ -161,4 +167,52 @@ test('UI avatar payload stays within the 144px and 1 MiB performance budgets', (
     totalBytes += fs.statSync(filePath).size;
   }
   assert.ok(totalBytes <= 1024 * 1024, `avatar payload is ${totalBytes} bytes`);
+});
+
+test('Ontology local QA auth is compile-time gated and production remains fail-closed', () => {
+  const ontologySource = fs.readFileSync(ontologyAppPath, 'utf8');
+  const buildSource = fs.readFileSync(flutterBuildPath, 'utf8');
+  assert.match(
+    ontologySource,
+    /const authDevBypass = "__GURU_AUTH_DEV_BYPASS__" === "true";/,
+  );
+  assert.match(ontologySource, /if \(authDevBypass\) return localDevToken;/);
+  assert.match(buildSource, /ONTOLOGY_AUTH_DEV_BYPASS="\$resolved_auth_bypass"/);
+  assert.match(buildSource, /__GURU_AUTH_DEV_BYPASS__/);
+});
+
+test('Ontology simulation copy and critical controls preserve truthful 44px targets', () => {
+  const indexSource = fs.readFileSync(ontologyIndexPath, 'utf8');
+  const i18nSource = fs.readFileSync(ontologyI18nPath, 'utf8');
+  const stylesSource = fs.readFileSync(ontologyStylesPath, 'utf8');
+  assert.doesNotMatch(indexSource, /真实持仓/);
+  assert.doesNotMatch(i18nSource, /actual holdings/i);
+  assert.match(indexSource, /模拟重建持仓/);
+  assert.match(i18nSource, /reconstructed model portfolio/i);
+  for (const selector of [
+    '.decision-filter-list button',
+    '.strategy-date-range button',
+    '.view-load-error button',
+    '.guru-back-link',
+    '#decision-timeline-range',
+  ]) {
+    assert.ok(stylesSource.includes(selector), `${selector} must have a touch-target rule`);
+  }
+  assert.match(
+    stylesSource,
+    /Interactive controls keep a 44px touch target[\s\S]*min-height:\s*44px;/,
+  );
+});
+
+test('browser history normalization preserves the Forward stack', () => {
+  const browserLocationSource = fs.readFileSync(browserLocationPath, 'utf8');
+  const mainSource = fs.readFileSync(mainPath, 'utf8');
+  assert.match(browserLocationSource, /bool replaceCurrent = false/);
+  assert.match(browserLocationSource, /replaceCurrent[\s\S]*history\.replaceState/);
+  assert.match(browserLocationSource, /history\.pushState/);
+  assert.match(
+    mainSource,
+    /_persistRouteState\(replaceCurrent: true\)/,
+    'data-driven default selection must normalize the current entry instead of creating a new one',
+  );
 });
