@@ -26,6 +26,7 @@ import { importValuationTicker } from "./valuationImporter.js";
 import { translateTextsToChinese } from "./translationClient.js";
 import {
   readBackgroundJobRun,
+  writeAuditedPriceRepair,
   writeBackgroundJobRun
 } from "./localDatabase.js";
 import { startThirteenFRefresh } from "./refreshThirteenF.js";
@@ -159,6 +160,68 @@ app.post("/api/internal/backtests/refresh", requireInternalCron, async (request,
       message: error.message
     });
   }
+});
+
+function requestedPriceRepairGuruIds(value) {
+  const values = Array.isArray(value) ? value : value ? [value] : [];
+  return [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))];
+}
+
+app.post("/api/internal/prices/repair", requireInternalCron, async (request, response) => {
+  const guruIds = requestedPriceRepairGuruIds(request.body?.refreshGuruIds);
+  const knownGuruIds = new Set(gurus.map((guru) => guru.id));
+  const unknownGuruIds = guruIds.filter((guruId) => !knownGuruIds.has(guruId));
+  if (guruIds.length > 5 || unknownGuruIds.length) {
+    response.status(400).json({
+      error: "price_repair_invalid_gurus",
+      message: unknownGuruIds.length
+        ? `Unknown guru id(s): ${unknownGuruIds.join(", ")}`
+        : "A price repair may refresh at most five gurus."
+    });
+    return;
+  }
+
+  let repair;
+  try {
+    repair = writeAuditedPriceRepair(request.body?.rows, {
+      provider: request.body?.provider,
+      reason: request.body?.reason
+    });
+  } catch (error) {
+    response.status(400).json({
+      error: "price_repair_rejected",
+      message: error.message
+    });
+    return;
+  }
+
+  const backtests = [];
+  for (const guruId of guruIds) {
+    try {
+      const payload = await loadGuruBacktest(guruId, {
+        refresh: true,
+        years: 5,
+        detail: "compact"
+      });
+      backtests.push({
+        guruId,
+        status: payload.status,
+        start: payload.window?.start || "",
+        end: payload.window?.end || "",
+        minimumObservedExecutionCoverage:
+          payload.dataQuality?.minimumObservedExecutionCoverage ?? null
+      });
+    } catch (error) {
+      backtests.push({ guruId, status: "failed", message: error.message });
+    }
+  }
+
+  response.setHeader("Cache-Control", "no-store");
+  response.status(201).json({
+    repair,
+    backtests,
+    allRequestedBacktestsReady: backtests.every((item) => item.status === "ready")
+  });
 });
 
 const thirteenFRefreshJobId = "guru_13f_refresh";

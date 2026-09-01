@@ -15,7 +15,11 @@ process.env.SYNC_BUNDLED_PODCAST_INSIGHTS = "false";
 process.env.PRICE_CACHE_DIR = path.join(tempDir, "prices");
 
 const { filingsFromRecentShape } = await import("./secClient.js");
-const { readPriceSeriesFromDb, writePriceSeriesToDb } = await import("./localDatabase.js");
+const {
+  readPriceSeriesFromDb,
+  writeAuditedPriceRepair,
+  writePriceSeriesToDb
+} = await import("./localDatabase.js");
 const {
   enforceAdjustedPriceRequirement,
   loadPriceSeries,
@@ -57,6 +61,66 @@ test("adjusted close survives the SQLite price cache round trip", () => {
   assert.equal(points.length, 1);
   assert.equal(points[0].close, 100);
   assert.equal(points[0].adjustedClose, 95);
+});
+
+test("audited price repair validates and atomically records exact adjusted rows", () => {
+  const audit = writeAuditedPriceRepair([
+    {
+      symbol: "repairb",
+      date: "2026-08-28",
+      open: 20,
+      high: 22,
+      low: 19,
+      close: 21,
+      adjustedClose: 20.5,
+      volume: 2000
+    },
+    {
+      symbol: "REPAIRA",
+      date: "2026-08-28",
+      open: 10,
+      high: 11,
+      low: 9,
+      close: 10.5,
+      adjustedClose: 10.25,
+      volume: 1000
+    }
+  ], {
+    provider: "fixture-provider",
+    reason: "Restore an independently verified missing trading session."
+  });
+
+  assert.equal(audit.rowCount, 2);
+  assert.deepEqual(audit.symbols, ["REPAIRA", "REPAIRB"]);
+  assert.deepEqual(audit.dates, ["2026-08-28"]);
+  assert.match(audit.auditId, /^price-repair-/);
+  assert.match(audit.payloadSha256, /^[a-f0-9]{64}$/);
+  const repaired = readPriceSeriesFromDb("REPAIRA", "2026-08-28", "2026-08-28");
+  assert.equal(repaired.length, 1);
+  assert.equal(repaired[0].adjustedClose, 10.25);
+  assert.equal(repaired[0].source, "audited:fixture-provider");
+
+  assert.throws(() => writeAuditedPriceRepair([
+    {
+      symbol: "NO-PARTIAL-A",
+      date: "2026-08-28",
+      close: 30,
+      adjustedClose: 30
+    },
+    {
+      symbol: "NO-PARTIAL-B",
+      date: "2026-08-28",
+      close: -1,
+      adjustedClose: 31
+    }
+  ], {
+    provider: "fixture-provider",
+    reason: "This invalid batch must not partially write any row."
+  }), /invalid close/);
+  assert.deepEqual(
+    readPriceSeriesFromDb("NO-PARTIAL-A", "2026-08-28", "2026-08-28"),
+    []
+  );
 });
 
 test("Yahoo chart normalization retains adjusted close for total-return backtests", () => {

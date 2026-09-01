@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
@@ -63,6 +64,17 @@ db.exec(`
     source TEXT,
     updated_at TEXT NOT NULL,
     PRIMARY KEY (symbol, date)
+  );
+
+  CREATE TABLE IF NOT EXISTS price_repair_audits (
+    audit_id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    row_count INTEGER NOT NULL,
+    symbols_json TEXT NOT NULL,
+    dates_json TEXT NOT NULL,
+    payload_sha256 TEXT NOT NULL
   );
 
   -- The PRIMARY KEY already creates sqlite_autoindex_price_points_1 on
@@ -1406,6 +1418,170 @@ export function writePriceSeriesToDb(symbol, points, source = "unknown") {
     db.exec("ROLLBACK");
     throw error;
   }
+}
+
+const auditedPriceSymbolPattern = /^[A-Z0-9][A-Z0-9.-]{0,15}$/;
+const auditedPriceDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+function normalizeAuditedPriceDate(value, index) {
+  const date = String(value || "").trim();
+  if (!auditedPriceDatePattern.test(date)) {
+    throw new Error(`Price repair row ${index} has an invalid date.`);
+  }
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) {
+    throw new Error(`Price repair row ${index} has an invalid calendar date.`);
+  }
+  return date;
+}
+
+function normalizeRequiredPositivePrice(value, field, index) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) {
+    throw new Error(`Price repair row ${index} has an invalid ${field}.`);
+  }
+  return number;
+}
+
+function normalizeOptionalPositivePrice(value, field, index) {
+  if (value === null || value === undefined || value === "") return null;
+  return normalizeRequiredPositivePrice(value, field, index);
+}
+
+function normalizeAuditedPriceRepairRow(row, index) {
+  if (!row || typeof row !== "object" || Array.isArray(row)) {
+    throw new Error(`Price repair row ${index} must be an object.`);
+  }
+  const symbol = String(row.symbol || "").trim().toUpperCase();
+  if (!auditedPriceSymbolPattern.test(symbol)) {
+    throw new Error(`Price repair row ${index} has an invalid symbol.`);
+  }
+  const date = normalizeAuditedPriceDate(row.date, index);
+  const open = normalizeOptionalPositivePrice(row.open, "open", index);
+  const high = normalizeOptionalPositivePrice(row.high, "high", index);
+  const low = normalizeOptionalPositivePrice(row.low, "low", index);
+  const close = normalizeRequiredPositivePrice(row.close, "close", index);
+  const adjustedClose = normalizeRequiredPositivePrice(
+    row.adjustedClose,
+    "adjustedClose",
+    index
+  );
+  const volume = row.volume === null || row.volume === undefined || row.volume === ""
+    ? null
+    : Number(row.volume);
+  if (volume !== null && (!Number.isFinite(volume) || volume < 0)) {
+    throw new Error(`Price repair row ${index} has an invalid volume.`);
+  }
+  if (high !== null && low !== null && high < low) {
+    throw new Error(`Price repair row ${index} has a high below its low.`);
+  }
+  if (low !== null && (close < low || (open !== null && open < low))) {
+    throw new Error(`Price repair row ${index} has an open or close below its low.`);
+  }
+  if (high !== null && (close > high || (open !== null && open > high))) {
+    throw new Error(`Price repair row ${index} has an open or close above its high.`);
+  }
+  return { symbol, date, open, high, low, close, adjustedClose, volume };
+}
+
+export function writeAuditedPriceRepair(rows, { provider, reason } = {}) {
+  if (!Array.isArray(rows) || rows.length < 1 || rows.length > 100) {
+    throw new Error("Price repair requires between 1 and 100 rows.");
+  }
+  const normalizedProvider = String(provider || "").trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9._-]{1,63}$/.test(normalizedProvider)) {
+    throw new Error("Price repair provider is invalid.");
+  }
+  const normalizedReason = String(reason || "").trim();
+  if (normalizedReason.length < 8 || normalizedReason.length > 240) {
+    throw new Error("Price repair reason must contain between 8 and 240 characters.");
+  }
+
+  const normalizedRows = rows
+    .map((row, index) => normalizeAuditedPriceRepairRow(row, index))
+    .sort((left, right) =>
+      left.symbol.localeCompare(right.symbol) || left.date.localeCompare(right.date)
+    );
+  const keys = normalizedRows.map((row) => `${row.symbol}:${row.date}`);
+  if (new Set(keys).size !== keys.length) {
+    throw new Error("Price repair contains duplicate symbol/date rows.");
+  }
+
+  const createdAt = new Date().toISOString();
+  const source = `audited:${normalizedProvider}`;
+  const payloadSha256 = crypto
+    .createHash("sha256")
+    .update(JSON.stringify({ provider: normalizedProvider, rows: normalizedRows }))
+    .digest("hex");
+  const auditId = `price-repair-${createdAt.replace(/[^0-9]/g, "").slice(0, 17)}-${payloadSha256.slice(0, 12)}`;
+  const symbols = [...new Set(normalizedRows.map((row) => row.symbol))];
+  const dates = [...new Set(normalizedRows.map((row) => row.date))];
+  const insertPrice = db.prepare(`
+    INSERT INTO price_points (
+      symbol, date, open, high, low, close, adjusted_close, volume, source, updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(symbol, date) DO UPDATE SET
+      open = excluded.open,
+      high = excluded.high,
+      low = excluded.low,
+      close = excluded.close,
+      adjusted_close = excluded.adjusted_close,
+      volume = excluded.volume,
+      source = excluded.source,
+      updated_at = excluded.updated_at
+  `);
+  const insertAudit = db.prepare(`
+    INSERT INTO price_repair_audits (
+      audit_id, created_at, provider, reason, row_count, symbols_json, dates_json, payload_sha256
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    for (const row of normalizedRows) {
+      insertPrice.run(
+        row.symbol,
+        row.date,
+        row.open,
+        row.high,
+        row.low,
+        row.close,
+        row.adjustedClose,
+        row.volume,
+        source,
+        createdAt
+      );
+    }
+    insertAudit.run(
+      auditId,
+      createdAt,
+      normalizedProvider,
+      normalizedReason,
+      normalizedRows.length,
+      JSON.stringify(symbols),
+      JSON.stringify(dates),
+      payloadSha256
+    );
+    db.exec("COMMIT");
+  } catch (error) {
+    try {
+      db.exec("ROLLBACK");
+    } catch {
+      // Preserve the original write or audit error.
+    }
+    throw error;
+  }
+
+  return {
+    auditId,
+    createdAt,
+    provider: normalizedProvider,
+    rowCount: normalizedRows.length,
+    symbols,
+    dates,
+    payloadSha256
+  };
 }
 
 export function writePortfolioNavPoint(point) {
