@@ -137,6 +137,8 @@ No actionable P0, P1, or P2 mismatch remains for the requested history-control r
 - Verified All cache miss retains the latest ready curve and shows a localized fail-closed explanation instead of triggering a cold synchronous computation.
 - Verified the 10Y compact response exposes 520 rendered points from 2,461 source trading days and preserves sampling lineage.
 - Browser diagnostics showed no Flutter render overflow or application exception during the core interactions. Flutter's local debug-only DWDS injected client logged reconnect/deserialization diagnostics after manual reloads; this code is not present in the release build. Production browser diagnostics are a release verification item after deployment.
+- Deployed the identical release build to Vercel deployment `dpl_FJ4rerPYtroG7MKseM3DGUv5WYaT`; both `www.thesisforge.tech` and `thesisforge.tech` resolve to it, and the production `/api/health` proxy reports all modules healthy.
+- The production unauthenticated shell and Google sign-in gate were visually checked. The automated QA browser did not transmit a Google identity, so authenticated production-canvas interaction was not repeated there; the signed release artifact is the same build exercised in the local 1280 × 720 and 390 × 844 interaction runs above.
 
 ## Intentional deviations from the source
 

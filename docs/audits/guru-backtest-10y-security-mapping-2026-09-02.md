@@ -1,13 +1,13 @@
 # Ackman 10Y Backtest and Security-Mapping Audit
 
-Date: 2026-09-02  
-Scope: Bill Ackman / Pershing Square 10-year manager-13F backtest, six newly added historical CUSIP-to-provider-symbol aliases, cache lineage, and AWS release sequencing.  
-Source state: local release candidate based on `b7b195d`, with the six aliases in `server/cusipOverrides.js`, method version `manager13f-drifted-total-return-v6`, public extended-history cold-compute protection, and per-manager/window single-flight protection.  
-Mutation policy: protected local refreshes recomputed and persisted the 5Y and 10Y evidence rows in the local SQLite database. No production database mutation had occurred when this section was recorded.
+Date: 2026-09-02
+Scope: Bill Ackman / Pershing Square 10-year manager-13F backtest, six newly added historical CUSIP-to-provider-symbol aliases, cache lineage, and AWS release sequencing.
+Source state: committed backend/frontend release `add2a59a3785c670dfd3dc8a84f9efc204c93f82`, with the six aliases in `server/cusipOverrides.js`, method version `manager13f-drifted-total-return-v6`, public extended-history cold-compute protection, and per-manager/window single-flight protection.
+Mutation policy: protected local refreshes recomputed the 5Y and 10Y evidence rows first. Production refreshes were run only after the pre-release EBS snapshot `snap-02ea12bedaebf8898` completed; no SQLite database or frontend artifact was bundled in the Elastic Beanstalk package.
 
 ## Conclusion
 
-**Local model QA status: PASS; production release status: PENDING.** The Ackman 5Y and 10Y calculations were recomputed under v6 and pass the numerical, execution-coverage, total-return, date, and attribution-reconciliation gates. The six aliases are sufficient for the Ackman window actually simulated. They are not evidence that every alias is unconditionally economically continuous for every manager and every date.
+**Local model QA status: PASS; Ackman 5Y/10Y production release status: PASS.** The Ackman 5Y and 10Y calculations were recomputed under v6 and pass the numerical, execution-coverage, total-return, date, and attribution-reconciliation gates. The six aliases are sufficient for the Ackman window actually simulated. They are not evidence that every alias is unconditionally economically continuous for every manager and every date. All-history remains a fail-closed forensic window until its older corporate-action coverage passes the same gates.
 
 The audit identified and closed the immediate cache-lineage problem: the mapping change can materially change a backtest, so the method tag was bumped to v6 and an incompatible-cache regression now proves that a v5 row cannot satisfy a v6 extended-history read. Public 10Y and All cache misses fail closed without synchronous computation; public `refresh=1` cannot bypass that policy; identical manager/window computations share one in-flight job. A stale All row may be served but does not claim or schedule a background refresh. A backtest that validates an audited price repair is queued behind any pre-repair computation and keyed by the repair audit ID, so the older generation cannot satisfy or overwrite the repair validation. The durable follow-up is to persist and compare an explicit security-master version or mapping digest in addition to the engine version.
 
@@ -43,6 +43,26 @@ The newline-delimited SHA-256 of the exact locally stored v6 10Y JSON at audit t
 
 The same release candidate independently recomputed the product-default five-year window. It returned `ready`, covered `2021-11-16` through `2026-09-01`, stored 1,202 daily observations, included 20 filings/rebalances, recorded 99.231879% minimum execution coverage, and reconciled attribution with a zero difference. Portfolio total return was +44.8222%, versus +73.0511% for SPY; these values are evidence for window correctness, not a marketing performance claim.
 
+## Production Release Evidence
+
+The deployed AWS market cutoff was one session earlier than the local capture, so production correctly ends on `2026-08-31`; no `2026-09-01` result is claimed for production.
+
+| Release check | Production observation | Assessment |
+| --- | --- | --- |
+| GitHub code release | `add2a59a3785c670dfd3dc8a84f9efc204c93f82` on `trunk` | Local and remote SHA matched after push |
+| Backend package | `guru-backtest-20260902-add2a59`, SHA-256 `d0853ead19bbd8411feeadb3315b4e5d17440efd0a018fab7bd2a996e13d3966` | Built from the clean committed tree; no `dist/` or production data bundled |
+| Pre-write recovery point | `snap-02ea12bedaebf8898` for `vol-01b9f94bdff27b71b` | Completed before deployment/warm-up; crash-consistent EBS snapshot |
+| Elastic Beanstalk | `guru-backtest-20260902-add2a59`; `Ready / Green / Ok` | Pass |
+| Startup 5Y refresh | `2026-09-02T06:54:54.064Z` to `2026-09-02T06:59:18.782Z`; Ackman `ready`, `2021-11-16` to `2026-08-31` | Pass for Ackman under deployed v6 method |
+| Protected 10Y warm-up | `ready`, `2016-11-15` to `2026-08-31`, 40 rebalances | Pass |
+| 10Y return check | Ackman +298.9122%; SPY +310.4658% | Production observation, not a marketing claim |
+| 10Y data-quality check | 99.231879% minimum execution coverage; required 90%; no stale active ticker | Pass |
+| 10Y attribution check | difference `-3.11e-15` | Passes `1e-10` tolerance |
+| Vercel frontend | `dpl_FJ4rerPYtroG7MKseM3DGUv5WYaT` | `www.thesisforge.tech` and apex point to the same READY deployment |
+| API health | Direct Elastic Beanstalk and Vercel `/api/health` proxy both healthy | Pass |
+
+The startup aggregate refresh reported four ready managers and seventeen explicit failures. Ackman was not in the failure set. Those failures are retained as visible fail-closed historical-coverage gaps; this release does not describe the aggregate refresh as successful or silently renormalize those managers.
+
 ## Six Aliases and Their Actual Ackman Exposure
 
 "Active through" is the next rebalance execution close at which the old book is replaced. The intervals below come from the same drifted-position contribution ledger as the headline curve.
@@ -77,14 +97,15 @@ The following sources establish the historical filing identity and the named suc
 
 ### Blockers
 
-1. **Production evidence is still required.** Create a fresh production-volume snapshot before the 10Y warm-up, deploy the exact committed backend build, then require a v6 `ready` 10Y row and a v6 `ready` 5Y row before promoting the frontend. The current EB volume is `vol-01b9f94bdff27b71b`; the previously observed snapshot `snap-0bf2ccf1b43226311` predates this release and is not its rollback point.
-2. **All-history remains unavailable as a normal cold request.** The control may expose the forensic mode, but a missing current-method All cache returns `not_ready`. Do not market All as complete until the legacy security/corporate-action gaps pass the same audit gates.
+No open blocker remains for the restored selectable-range UI or the Ackman 5Y/10Y production result.
+
+**Open release limitation:** All-history remains unavailable as a normal cold request. The control exposes the forensic mode, but a missing current-method All cache returns `not_ready`. Do not market All as complete until the legacy security/corporate-action gaps pass the same audit gates.
 
 ### High
 
 No open code-level High finding remains in the local release candidate. Regression coverage now includes canonical window normalization (including 9.5/9.6 rounding), public extended-window refresh policy, manager and Congress cold-cache rejection, Congress stale-cache service, stale-All no-warming truth state, incompatible v5 cache rejection, per-manager/window single-flight, repair-generation serialization, double-compaction sampling lineage, UI request ordering, refresh de-duplication, warming recovery, same-window date-range anchoring, and quarterly-attribution failure/fallback states.
 
-Production sequencing is still important: startup immediately launches the aggregate default-5Y refresh. Wait until the protected status endpoint reports that the new deployment's run is finished before requesting Bill Ackman 10Y, even though same-key computations now share one in-flight job.
+Production sequencing was observed: the zero-delay aggregate default-5Y refresh completed before the protected Bill Ackman 10Y warm-up. Same-key computations also share one in-flight job.
 
 ### Medium
 
@@ -95,7 +116,7 @@ Production sequencing is still important: startup immediately launches the aggre
 
 ## Safe AWS Release and 10Y Warm-Up Order
 
-At audit time the backend environment `guru-analysis-api-prod` was Green/Ready on application version `guru-backtest-20260902-256d9ef`. The production database path is `/var/app/data/guru-analysis.sqlite`. The most recently observed aggregate refresh status was idle, but its last completed run was from the prior release (`2026-09-01T21:16:28Z`, four ready and seventeen failed), so it is not evidence that the new mapping build has refreshed.
+The release sequence below was completed for backend environment `guru-analysis-api-prod`. It is Green/Ready on application version `guru-backtest-20260902-add2a59`; the production database path remains `/var/app/data/guru-analysis.sqlite`.
 
 1. Finish the cache-lineage fix and tests, commit to `trunk`, and package the backend from that clean commit. Do not bundle the local SQLite database or frontend `dist/` in the EB package.
 2. Record the current EB application version and volume. Create a new EBS snapshot of `vol-01b9f94bdff27b71b` and wait for `completed` before any production backtest/price write.
