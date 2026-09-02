@@ -560,6 +560,89 @@ void main() {
     expect(reset, isTrue);
   });
 
+  testWidgets('guru desktop keeps the equity curve in the first viewport', (
+    WidgetTester tester,
+  ) async {
+    const contentViewportHeight =
+        644.0; // 720px minus 66px header and 10px content top padding.
+    tester.view.physicalSize = const Size(690, contentViewportHeight);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final guru = <String, dynamic>{
+      'id': 'test-manager',
+      'name': 'Test Manager',
+      'entityName': 'Test Capital',
+      'type': 'manager13f',
+      'thesisTag': 'Concentrated',
+      'disclosureKind': '13F filing',
+      'simulationTag': {'label': '13F copy simulation'},
+      'summary': {
+        'reported13fValue': 150,
+        'commonLongValue': 150,
+        'totalPositions': 2,
+        'reportDate': '2026-06-30',
+        'filingDate': '2026-08-14',
+      },
+      'holdings': <Map<String, dynamic>>[],
+    };
+    final payload = <String, dynamic>{
+      'status': 'ready',
+      'equity': [
+        {'date': '2023-01-03', 'value': 100.0, 'benchmark': 100.0},
+        {'date': '2024-01-03', 'value': 112.0, 'benchmark': 108.0},
+        {'date': '2025-01-03', 'value': 125.0, 'benchmark': 116.0},
+        {'date': '2026-01-03', 'value': 141.0, 'benchmark': 128.0},
+      ],
+    };
+
+    await tester.pumpWidget(
+      LanguageScope(
+        language: AppLanguage.en,
+        child: MaterialApp(
+          theme: ThemeData.dark(),
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Column(
+                children: [
+                  GuruWorkspaceHeader(guru: guru, palette: Palette(false)),
+                  const SizedBox(height: 14),
+                  GuruModuleTabs(
+                    selected: 0,
+                    onChanged: (_) {},
+                    palette: Palette(false),
+                  ),
+                  const SizedBox(height: 14),
+                  GuruSimulationModule(
+                    payload: payload,
+                    loading: false,
+                    error: null,
+                    guru: guru,
+                    palette: Palette(false),
+                    onRetry: () {},
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final chart = find.byKey(const ValueKey('guru-simulation-equity-chart'));
+    final range = find.byKey(const ValueKey('guru-simulation-range-bar'));
+    expect(chart, findsOneWidget);
+    expect(range, findsOneWidget);
+    expect(tester.getSize(chart).height, 170);
+    expect(tester.getTopLeft(chart).dy, lessThan(tester.getTopLeft(range).dy));
+    expect(
+      tester.getBottomLeft(chart).dy,
+      lessThanOrEqualTo(contentViewportHeight),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   test(
     'quarterly market lens selects widest-covered quarter and breaks ties by recency',
     () {

@@ -214,6 +214,12 @@ When valuation financials, management guidance, or historical fair values are re
   default backtest, force-refresh path, truth-state status, and bilingual error
   handling behind the restored visual shell. A visual restoration must never
   roll back those data or safety features.
+- Keep the Guru simulation curve visible in the 1280x720 first viewport. Follow
+  the chart-first compact preview established by the 2026-06-11 implementation:
+  show the 170px equity curve immediately after the presets and legend, then put
+  sampling notes and the full-window range control below it. Do not place the
+  range control ahead of the curve or increase the default chart height without
+  re-verifying first-viewport visibility.
 - Every deck page with a bounded height must scroll its rows rather than use an
   overflowing `Column`. Verify the Guru page at 1280x720 and 390x844 with zero
   Flutter render overflows before release.

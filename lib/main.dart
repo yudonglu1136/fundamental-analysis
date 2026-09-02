@@ -4303,7 +4303,7 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
                     ),
                   ],
                 );
-                if (constraints.maxWidth < 820) {
+                if (constraints.maxWidth < 640) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -4317,11 +4317,22 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     rangeControls,
-                    const Spacer(),
-                    Flexible(child: legend),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: legend,
+                      ),
+                    ),
                   ],
                 );
               },
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              key: const ValueKey('guru-simulation-equity-chart'),
+              height: 170,
+              child: EquityChart(equity: chartEquity, palette: widget.palette),
             ),
             const SizedBox(height: 12),
             if (warming) ...[
@@ -4350,6 +4361,7 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
               const SizedBox(height: 10),
             ],
             SimulationRangeBar(
+              key: const ValueKey('guru-simulation-range-bar'),
               palette: widget.palette,
               range: currentRange,
               maxIndex: math.max(1, equity.length - 1).toDouble(),
@@ -4375,11 +4387,6 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
                   ),
                 );
               },
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 360,
-              child: EquityChart(equity: chartEquity, palette: widget.palette),
             ),
             LatestHoldingsList(guru: widget.guru, palette: widget.palette),
           ],
