@@ -194,6 +194,9 @@ const _uiChinese = <String, String>{
   'RESEARCH PROFILE': '研究档案',
   'COPY SIMULATION': '组合模拟',
   'Backtest is not ready.': '回测尚未准备完成。',
+  'Extended-history audit not ready': '扩展历史审计尚未准备完成',
+  'The requested extended-history backtest is not pre-warmed under the current audit method. The request failed closed without starting a cold synchronous computation.':
+      '所选扩展历史尚未按当前审计方法预热。系统已严格停止请求，且没有启动同步冷计算。',
   'At least one filing falls below the minimum adjusted-close execution coverage; the backtest fails closed instead of renormalizing the covered subset.':
       '至少一个申报季度的复权收盘价执行覆盖率低于最低要求；为避免对有价格的持仓重新归一化并夸大结果，回测已按严格规则停止。',
   'Historical filings were found, but no holdings had usable adjusted-close ticker coverage.':
@@ -732,13 +735,23 @@ String localizeUiText(AppLanguage language, String source) {
 
 String guruBacktestPath(
   String guruId, {
+  String years = '5',
   bool fullAttribution = false,
   bool refresh = false,
 }) {
-  final query = <String>['years=5'];
+  final normalizedYears = years.trim().toLowerCase();
+  if (!const {'5', '10', 'all'}.contains(normalizedYears)) {
+    throw ArgumentError.value(years, 'years', 'Use 5, 10, or all.');
+  }
+  final query = <String>['years=$normalizedYears'];
   if (fullAttribution) query.add('detail=full');
   if (refresh) query.add('refresh=1');
   return '/api/gurus/$guruId/backtest?${query.join('&')}';
+}
+
+String? _guruBacktestWindowValue(Object? value) {
+  final normalized = text(value).trim().toLowerCase();
+  return const {'5', '10', 'all'}.contains(normalized) ? normalized : null;
 }
 
 bool _supabaseReady = false;
@@ -3247,6 +3260,10 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
   Timer? _backtestWarmupTimer;
   int _backtestWarmupPolls = 0;
   bool _backtestFullAttribution = false;
+  String _backtestWindow = '5';
+  String? _backtestRequestedWindow;
+  String? _backtestWindowError;
+  int _backtestRequestId = 0;
 
   @override
   void initState() {
@@ -3255,7 +3272,7 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
     _selectedTicker = _initialTicker();
     _selectedQuarterId = widget.initialQuarterId;
     scheduleMicrotask(() {
-      _loadBacktest();
+      _loadBacktest(fullAttribution: _module == 2);
       if (_selectedTicker.isNotEmpty) _loadContext(_selectedTicker);
     });
   }
@@ -3270,14 +3287,20 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
         oldWidget.initialQuarterId != widget.initialQuarterId;
     if (!guruChanged && !routeChanged) return;
     final ticker = _initialTicker();
-    _backtestWarmupTimer?.cancel();
-    _backtestWarmupPolls = 0;
+    if (guruChanged) {
+      _backtestWarmupTimer?.cancel();
+      _backtestWarmupPolls = 0;
+      _backtestRequestId += 1;
+    }
     setState(() {
       if (guruChanged) {
         _backtestPayload = null;
         _backtestError = null;
         _backtestLoading = false;
         _backtestFullAttribution = false;
+        _backtestWindow = '5';
+        _backtestRequestedWindow = null;
+        _backtestWindowError = null;
         _contextPayload = null;
         _contextError = null;
         _contextLoading = false;
@@ -3290,13 +3313,13 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
       if (!mounted) return;
       if (guruChanged) {
         widget.onTickerChanged(ticker);
-        _loadBacktest();
+        _loadBacktest(fullAttribution: _module == 2);
       }
       if (ticker.isNotEmpty &&
           (guruChanged || ticker != oldWidget.initialTicker)) {
         _loadContext(ticker);
       }
-      if (_module == 2 && !_backtestFullAttribution) {
+      if (!guruChanged && _module == 2 && !_backtestFullAttribution) {
         _loadBacktest(fullAttribution: true);
       }
     });
@@ -3354,10 +3377,18 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
     _backtestWarmupTimer?.cancel();
     if (!_isBacktestWarming(payload) || _backtestWarmupPolls >= 8) return;
     _backtestWarmupPolls += 1;
+    final scheduledWindow = _backtestWindow;
     _backtestWarmupTimer = Timer(const Duration(seconds: 6), () {
-      if (mounted) {
-        _loadBacktest(quiet: true, fullAttribution: _backtestFullAttribution);
+      if (!mounted ||
+          _backtestRequestedWindow != null ||
+          _backtestWindow != scheduledWindow) {
+        return;
       }
+      _loadBacktest(
+        quiet: true,
+        fullAttribution: _backtestFullAttribution,
+        years: scheduledWindow,
+      );
     });
   }
 
@@ -3365,53 +3396,181 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
     bool quiet = false,
     bool fullAttribution = false,
     bool forceRefresh = false,
+    String? years,
+    bool explicitWindow = false,
   }) async {
     final id = text(widget.guru['id']);
+    final requestedYears =
+        _guruBacktestWindowValue(years ?? _backtestWindow) ?? _backtestWindow;
     final sim = asMap(widget.guru['simulationTag']);
     if (id.isEmpty || text(sim['tone']) == 'muted' || !_usesWorkspaceModules) {
       return;
     }
+    if (quiet && _backtestRequestedWindow != null) return;
+    if (!quiet && !explicitWindow && _backtestLoading) return;
+    if (!quiet || explicitWindow) {
+      _backtestWarmupTimer?.cancel();
+      _backtestWarmupPolls = 0;
+    }
+    final requestId = ++_backtestRequestId;
     if (!quiet || _backtestPayload == null) {
       setState(() {
         _backtestLoading = true;
         _backtestError = null;
+        _backtestRequestedWindow = explicitWindow ? requestedYears : null;
+        _backtestWindowError = null;
       });
     }
     try {
       final payload = await widget.api.getJson(
         guruBacktestPath(
           id,
+          years: requestedYears,
           fullAttribution: fullAttribution,
           refresh: forceRefresh,
         ),
       );
-      if (!mounted || id != text(widget.guru['id'])) return;
+      if (!mounted ||
+          id != text(widget.guru['id']) ||
+          requestId != _backtestRequestId) {
+        return;
+      }
+      final responseWindow = _guruBacktestWindowValue(
+        asMap(payload['method'])['years'],
+      );
+      final windowMatches = responseWindow == requestedYears;
+      final payloadReady = text(payload['status']) == 'ready';
+      final ready = payloadReady && windowMatches;
+      final existingReady = text(_backtestPayload?['status']) == 'ready';
       setState(() {
-        _backtestPayload = payload;
-        _backtestFullAttribution =
-            fullAttribution ||
-            text(asMap(payload['detail'])['attribution']) == 'full';
-        if (!_isBacktestWarming(payload)) _backtestWarmupPolls = 0;
+        if (!windowMatches) {
+          final mismatch = context.tr(
+            '历史区间响应不一致：请求 $requestedYears，返回 ${responseWindow ?? '未知'}。已保留最近可用曲线。',
+            'Backtest window mismatch: requested $requestedYears, received ${responseWindow ?? 'unknown'}. The latest available curve was kept.',
+          );
+          if (existingReady) {
+            _backtestWindowError = mismatch;
+          } else {
+            _backtestError = mismatch;
+          }
+        } else if (ready || !existingReady) {
+          _backtestPayload = payload;
+          _backtestWindow = requestedYears;
+          _backtestFullAttribution =
+              fullAttribution ||
+              text(asMap(payload['detail'])['attribution']) == 'full';
+          if (!_isBacktestWarming(payload)) _backtestWarmupPolls = 0;
+        } else {
+          _backtestWindowError = text(
+            asMap(payload['method'])['reason'],
+            context.tr(
+              '所选历史区间尚未通过审计；继续显示最近可用曲线。',
+              'The requested history has not passed audit; keeping the latest available curve.',
+            ),
+          );
+        }
+        _backtestRequestedWindow = null;
       });
-      _scheduleBacktestWarmupPoll(payload);
+      if (windowMatches && (ready || !existingReady)) {
+        _scheduleBacktestWarmupPoll(payload);
+      } else if (existingReady) {
+        _resumeBacktestWarmupPoll();
+      }
+      if (_module == 2 &&
+          !fullAttribution &&
+          text(_backtestPayload?['status']) == 'ready' &&
+          text(asMap(_backtestPayload?['detail'])['attribution']) != 'full') {
+        scheduleMicrotask(() {
+          if (mounted &&
+              !_backtestLoading &&
+              _backtestRequestedWindow == null) {
+            _loadBacktest(fullAttribution: true, years: _backtestWindow);
+          }
+        });
+      }
     } catch (error) {
-      if (!mounted || id != text(widget.guru['id'])) return;
-      if (!quiet || _backtestPayload == null) {
-        setState(() => _backtestError = error.toString());
+      if (!mounted ||
+          id != text(widget.guru['id']) ||
+          requestId != _backtestRequestId) {
+        return;
+      }
+      if (text(_backtestPayload?['status']) == 'ready') {
+        setState(() {
+          _backtestWindowError = error.toString();
+          _backtestRequestedWindow = null;
+        });
+        _resumeBacktestWarmupPoll();
+        if (_module == 2 &&
+            !fullAttribution &&
+            text(asMap(_backtestPayload?['detail'])['attribution']) != 'full') {
+          scheduleMicrotask(() {
+            if (mounted &&
+                !_backtestLoading &&
+                _backtestRequestedWindow == null) {
+              _loadBacktest(fullAttribution: true, years: _backtestWindow);
+            }
+          });
+        }
+      } else if (!quiet || _backtestPayload == null) {
+        setState(() {
+          _backtestError = error.toString();
+          _backtestRequestedWindow = null;
+        });
       }
     } finally {
       if (mounted &&
           id == text(widget.guru['id']) &&
+          requestId == _backtestRequestId &&
           (!quiet || _backtestPayload == null)) {
-        setState(() => _backtestLoading = false);
+        setState(() {
+          _backtestLoading = false;
+          _backtestRequestedWindow = null;
+        });
       }
     }
+  }
+
+  void _resumeBacktestWarmupPoll() {
+    final payload = _backtestPayload;
+    if (payload != null &&
+        text(payload['status']) == 'ready' &&
+        _isBacktestWarming(payload)) {
+      _scheduleBacktestWarmupPoll(payload);
+    }
+  }
+
+  void _requestBacktestWindow(String years) {
+    final requestedYears = _guruBacktestWindowValue(years);
+    if (requestedYears == null || requestedYears == _backtestRequestedWindow) {
+      return;
+    }
+    final existingReady = text(_backtestPayload?['status']) == 'ready';
+    if (existingReady && requestedYears == _backtestWindow) {
+      _backtestWarmupTimer?.cancel();
+      _backtestWarmupPolls = 0;
+      _backtestRequestId += 1;
+      setState(() {
+        _backtestLoading = false;
+        _backtestRequestedWindow = null;
+        _backtestWindowError = null;
+      });
+      _resumeBacktestWarmupPoll();
+      return;
+    }
+    _loadBacktest(
+      years: requestedYears,
+      fullAttribution: _backtestFullAttribution,
+      explicitWindow: true,
+    );
   }
 
   void _selectModule(int value) {
     setState(() => _module = value);
     widget.onModuleChanged(value);
-    if (_usesWorkspaceModules && value == 2 && !_backtestFullAttribution) {
+    if (_usesWorkspaceModules &&
+        value == 2 &&
+        !_backtestFullAttribution &&
+        _backtestRequestedWindow == null) {
       _loadBacktest(fullAttribution: true);
     }
   }
@@ -3501,7 +3660,13 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
                   error: _backtestError,
                   guru: widget.guru,
                   palette: widget.palette,
-                  onRetry: () => _loadBacktest(forceRefresh: true),
+                  loadedWindow: _backtestWindow,
+                  requestedWindow: _backtestRequestedWindow,
+                  windowError: _backtestWindowError,
+                  onWindowRequested: _requestBacktestWindow,
+                  onRetry: _backtestLoading || _backtestRequestedWindow != null
+                      ? null
+                      : () => _loadBacktest(forceRefresh: true),
                 ),
                 1 => GuruTradeModule(
                   guru: widget.guru,
@@ -3517,15 +3682,20 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
                 _ => GuruQuarterContributionModule(
                   payload: _backtestPayload,
                   loading: _backtestLoading,
-                  error: _backtestError,
+                  error: _backtestError ?? _backtestWindowError,
                   selectedQuarterId: _selectedQuarterId,
                   onSelectQuarter: (value) => setState(() {
                     _selectedQuarterId = value;
                     widget.onQuarterChanged(value);
                   }),
                   palette: widget.palette,
-                  onRetry: () =>
-                      _loadBacktest(fullAttribution: true, forceRefresh: true),
+                  onRetry: _backtestLoading || _backtestRequestedWindow != null
+                      ? null
+                      : () => _loadBacktest(
+                          fullAttribution: true,
+                          forceRefresh: true,
+                          years: _backtestWindow,
+                        ),
                 ),
               },
             ),
@@ -4034,6 +4204,10 @@ class GuruSimulationModule extends StatefulWidget {
     required this.error,
     required this.guru,
     required this.palette,
+    required this.loadedWindow,
+    required this.requestedWindow,
+    required this.windowError,
+    required this.onWindowRequested,
     required this.onRetry,
   });
 
@@ -4042,7 +4216,11 @@ class GuruSimulationModule extends StatefulWidget {
   final String? error;
   final Map<String, dynamic> guru;
   final Palette palette;
-  final VoidCallback onRetry;
+  final String loadedWindow;
+  final String? requestedWindow;
+  final String? windowError;
+  final ValueChanged<String> onWindowRequested;
+  final VoidCallback? onRetry;
 
   @override
   State<GuruSimulationModule> createState() => _GuruSimulationModuleState();
@@ -4118,15 +4296,49 @@ class GuruProfileModule extends StatelessWidget {
 class _GuruSimulationModuleState extends State<GuruSimulationModule> {
   RangeValues? _range;
   String _rangeSignature = '';
+  String _rangeWindow = '';
+  String _selectedRangeStart = '';
+  String _selectedRangeEnd = '';
+  bool _rangeCoversLoadedWindow = true;
 
-  void _syncRange(List<Map<String, dynamic>> equity) {
+  void _rememberRange(List<Map<String, dynamic>> equity, RangeValues range) {
+    final lastIndex = math.max(0, equity.length - 1);
+    final start = range.start.round().clamp(0, lastIndex);
+    final end = range.end.round().clamp(start, lastIndex);
+    _range = RangeValues(start.toDouble(), end.toDouble());
+    _rangeCoversLoadedWindow = start == 0 && end == lastIndex;
+    _selectedRangeStart = equity.isEmpty ? '' : text(equity[start]['date']);
+    _selectedRangeEnd = equity.isEmpty ? '' : text(equity[end]['date']);
+  }
+
+  void _syncRange(List<Map<String, dynamic>> equity, String loadedWindow) {
     final signature = equity.isEmpty
-        ? 'empty'
-        : '${equity.length}:${text(equity.first['date'])}:${text(equity.last['date'])}';
+        ? '$loadedWindow:empty'
+        : '$loadedWindow:${equity.map((row) => text(row['date'])).join('|')}';
     if (_rangeSignature == signature) return;
+    final preserveSelectedDates =
+        _rangeWindow == loadedWindow &&
+        !_rangeCoversLoadedWindow &&
+        _selectedRangeStart.isNotEmpty &&
+        _selectedRangeEnd.isNotEmpty;
     _rangeSignature = signature;
+    _rangeWindow = loadedWindow;
     final maxIndex = math.max(1, equity.length - 1).toDouble();
-    _range = RangeValues(0, maxIndex);
+    if (preserveSelectedDates && equity.length >= 3) {
+      var start = equity.indexWhere(
+        (row) => text(row['date']).compareTo(_selectedRangeStart) >= 0,
+      );
+      var end = equity.lastIndexWhere(
+        (row) => text(row['date']).compareTo(_selectedRangeEnd) <= 0,
+      );
+      if (start < 0) start = 0;
+      if (end < 0) end = equity.length - 1;
+      if (end - start >= 2) {
+        _rememberRange(equity, RangeValues(start.toDouble(), end.toDouble()));
+        return;
+      }
+    }
+    _rememberRange(equity, RangeValues(0, maxIndex));
   }
 
   void _selectTrailingWindow(List<Map<String, dynamic>> equity, int years) {
@@ -4146,13 +4358,30 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
         break;
       }
     }
-    setState(() => _range = RangeValues(start.toDouble(), equity.length - 1));
+    setState(
+      () => _rememberRange(
+        equity,
+        RangeValues(start.toDouble(), equity.length - 1),
+      ),
+    );
   }
 
   void _selectAll(List<Map<String, dynamic>> equity) {
     setState(
-      () => _range = RangeValues(0, math.max(1, equity.length - 1).toDouble()),
+      () => _rememberRange(
+        equity,
+        RangeValues(0, math.max(1, equity.length - 1).toDouble()),
+      ),
     );
+  }
+
+  void _selectServerWindow(List<Map<String, dynamic>> equity, String window) {
+    if (widget.requestedWindow == window) return;
+    final alreadyLoaded = widget.loadedWindow.trim().toLowerCase() == window;
+    if (alreadyLoaded) _selectAll(equity);
+    if (!alreadyLoaded || widget.requestedWindow != null) {
+      widget.onWindowRequested(window);
+    }
   }
 
   @override
@@ -4173,7 +4402,8 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
       );
     }
     final equity = asList(widget.payload?['equity']);
-    _syncRange(equity);
+    final loadedWindow = widget.loadedWindow.trim().toLowerCase();
+    _syncRange(equity, loadedWindow);
     final currentRange =
         _range ?? RangeValues(0, math.max(1, equity.length - 1).toDouble());
     final startIndex =
@@ -4189,15 +4419,8 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
         ? equity
         : equity.sublist(startIndex, math.min(equity.length, endIndex + 1));
     final chartEquity = rebaseEquity(visibleEquity);
-    final summary = simulationMetrics(chartEquity);
     final warming = truthy(widget.payload?['historyWarming']);
     final sampling = asMap(widget.payload?['equitySampling']);
-    final samplingLabel = truthy(sampling['sampled'])
-        ? context.tr(
-            '图表抽样 ${formatNumber(number(sampling['returnedPoints']))}/${formatNumber(number(sampling['sourcePoints']))} 个交易日',
-            'Chart sampled ${formatNumber(number(sampling['returnedPoints']))}/${formatNumber(number(sampling['sourcePoints']))} trading days',
-          )
-        : '';
     final allStart = equity.isEmpty
         ? ''
         : formatDate(text(equity.first['date']));
@@ -4209,6 +4432,48 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
         ? ''
         : formatDate(text(visibleEquity.last['date']));
     final isAll = startIndex <= 0 && endIndex >= math.max(0, equity.length - 1);
+    final sampledSummary = simulationMetrics(chartEquity);
+    final payloadSummary = asMap(widget.payload?['summary']);
+    final payloadBenchmark = asMap(payloadSummary['benchmark']);
+    final hasAuthoritativeFullSummary =
+        isAll &&
+        payloadSummary.containsKey('totalReturn') &&
+        payloadSummary.containsKey('maxDrawdown') &&
+        payloadBenchmark.containsKey('totalReturn');
+    final summary = hasAuthoritativeFullSummary
+        ? SimulationMetrics(
+            totalReturn: number(payloadSummary['totalReturn']),
+            benchmarkReturn: number(payloadBenchmark['totalReturn']),
+            excessReturn: payloadSummary.containsKey('excessTotalReturn')
+                ? number(payloadSummary['excessTotalReturn'])
+                : number(payloadSummary['totalReturn']) -
+                      number(payloadBenchmark['totalReturn']),
+            maxDrawdown: number(payloadSummary['maxDrawdown']),
+          )
+        : sampledSummary;
+    final selectedRangeApproximate = !isAll && truthy(sampling['sampled']);
+    final samplingLabel = truthy(sampling['sampled'])
+        ? context.tr(
+            '图表抽样 ${formatNumber(number(sampling['returnedPoints']))}/${formatNumber(number(sampling['sourcePoints']))} 个交易日${selectedRangeApproximate ? '；所选子区间 MDD 为抽样近似值' : ''}',
+            'Chart sampled ${formatNumber(number(sampling['returnedPoints']))}/${formatNumber(number(sampling['sourcePoints']))} trading days${selectedRangeApproximate ? '; selected-range MDD is approximate' : ''}',
+          )
+        : '';
+    final loadedAll = loadedWindow == 'all';
+    final resetLabel = loadedAll
+        ? context.tr('全部', 'All')
+        : context.tr('完整 $loadedWindow 年', 'Full ${loadedWindow}Y');
+    final resetTooltip = loadedAll
+        ? context.tr('恢复全部已审计历史', 'Reset to all audited history')
+        : context.tr(
+            '恢复完整 $loadedWindow 年审计区间',
+            'Reset to the full audited ${loadedWindow}Y window',
+          );
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final chartHeight = viewportHeight >= 1000
+        ? 300.0
+        : viewportHeight >= 820
+        ? 200.0
+        : 120.0;
     return Panel(
       palette: widget.palette,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
@@ -4221,7 +4486,9 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
             title: context.tr('模拟：组合与 SPY 对比', 'Simulation: Portfolio vs SPY'),
             palette: widget.palette,
             trailing: _RetryIconButton(
-              onPressed: widget.onRetry,
+              onPressed: widget.loading || widget.requestedWindow != null
+                  ? null
+                  : widget.onRetry,
               palette: widget.palette,
             ),
           ),
@@ -4246,6 +4513,20 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
           else ...[
             LayoutBuilder(
               builder: (context, constraints) {
+                VoidCallback? serverWindowAction(String window) {
+                  final pending = widget.requestedWindow;
+                  if (pending != null) {
+                    if (pending == window || loadedWindow != window) {
+                      return null;
+                    }
+                    return () => _selectServerWindow(equity, window);
+                  }
+                  if (widget.loading) {
+                    return null;
+                  }
+                  return () => _selectServerWindow(equity, window);
+                }
+
                 final rangeControls = Wrap(
                   spacing: 6,
                   runSpacing: 6,
@@ -4255,21 +4536,52 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
                       selected:
                           !isAll && trailingWindowSelected(equity, _range, 1),
                       palette: widget.palette,
-                      onTap: () => _selectTrailingWindow(equity, 1),
+                      onTap: widget.requestedWindow == null && !widget.loading
+                          ? () => _selectTrailingWindow(equity, 1)
+                          : null,
                     ),
                     _RangePresetButton(
                       label: '3Y',
                       selected:
                           !isAll && trailingWindowSelected(equity, _range, 3),
                       palette: widget.palette,
-                      onTap: () => _selectTrailingWindow(equity, 3),
+                      onTap: widget.requestedWindow == null && !widget.loading
+                          ? () => _selectTrailingWindow(equity, 3)
+                          : null,
                     ),
                     _RangePresetButton(
                       label: '5Y',
-                      selected: isAll,
+                      selected: loadedWindow == '5' && isAll,
                       palette: widget.palette,
-                      onTap: () => _selectAll(equity),
+                      onTap: serverWindowAction('5'),
                     ),
+                    _RangePresetButton(
+                      label: '10Y',
+                      selected: loadedWindow == '10' && isAll,
+                      palette: widget.palette,
+                      onTap: serverWindowAction('10'),
+                    ),
+                    _RangePresetButton(
+                      label: 'All',
+                      selected: loadedAll && isAll,
+                      palette: widget.palette,
+                      onTap: serverWindowAction('all'),
+                    ),
+                    if (widget.requestedWindow != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 8,
+                        ),
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: widget.palette.accent,
+                          ),
+                        ),
+                      ),
                   ],
                 );
                 final legend = Wrap(
@@ -4296,7 +4608,7 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
                       palette: widget.palette,
                     ),
                     _PerformanceLegendItem(
-                      label: 'MDD',
+                      label: selectedRangeApproximate ? 'MDD≈' : 'MDD',
                       value: formatReturn(summary.maxDrawdown),
                       color: widget.palette.negative,
                       palette: widget.palette,
@@ -4328,19 +4640,76 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
                 );
               },
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
+            if (widget.windowError != null &&
+                widget.windowError!.isNotEmpty) ...[
+              Text(
+                context.ui(widget.windowError!),
+                style: TextStyle(
+                  color: widget.palette.negative,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 6),
+            ],
+            SimulationRangeBar(
+              key: const ValueKey('guru-simulation-range-bar'),
+              palette: widget.palette,
+              range: currentRange,
+              maxIndex: math.max(1, equity.length - 1).toDouble(),
+              selectedStart: selectedStart,
+              selectedEnd: selectedEnd,
+              fullStart: allStart,
+              fullEnd: allEnd,
+              resetLabel: resetLabel,
+              resetTooltip: resetTooltip,
+              onChanged:
+                  equity.length < 3 ||
+                      widget.loading ||
+                      widget.requestedWindow != null
+                  ? null
+                  : (value) {
+                      final snapped = RangeValues(
+                        value.start.roundToDouble(),
+                        value.end.roundToDouble(),
+                      );
+                      if (snapped.end - snapped.start < 2) return;
+                      setState(() => _rememberRange(equity, snapped));
+                    },
+              onReset: widget.requestedWindow == null && !widget.loading
+                  ? () {
+                      setState(
+                        () => _rememberRange(
+                          equity,
+                          RangeValues(
+                            0,
+                            math.max(1, equity.length - 1).toDouble(),
+                          ),
+                        ),
+                      );
+                    }
+                  : null,
+            ),
+            const SizedBox(height: 4),
             SizedBox(
               key: const ValueKey('guru-simulation-equity-chart'),
-              height: 170,
+              height: chartHeight,
               child: EquityChart(equity: chartEquity, palette: widget.palette),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             if (warming) ...[
               Text(
-                context.tr(
-                  '正在后台刷新最近五年可审计历史；先显示已缓存区间。',
-                  'The trailing five-year audited history is refreshing; showing the cached window first.',
-                ),
+                loadedAll
+                    ? context.tr(
+                        '正在后台刷新全部可审计历史；先显示已缓存区间。',
+                        'The full audited history is refreshing; showing the cached window first.',
+                      )
+                    : context.tr(
+                        '正在后台刷新 $loadedWindow 年可审计历史；先显示已缓存区间。',
+                        'The audited ${loadedWindow}Y history is refreshing; showing the cached window first.',
+                      ),
                 style: TextStyle(
                   color: widget.palette.muted,
                   fontSize: 12,
@@ -4360,34 +4729,6 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
               ),
               const SizedBox(height: 10),
             ],
-            SimulationRangeBar(
-              key: const ValueKey('guru-simulation-range-bar'),
-              palette: widget.palette,
-              range: currentRange,
-              maxIndex: math.max(1, equity.length - 1).toDouble(),
-              selectedStart: selectedStart,
-              selectedEnd: selectedEnd,
-              fullStart: allStart,
-              fullEnd: allEnd,
-              onChanged: equity.length < 3
-                  ? null
-                  : (value) {
-                      final snapped = RangeValues(
-                        value.start.roundToDouble(),
-                        value.end.roundToDouble(),
-                      );
-                      if (snapped.end - snapped.start < 2) return;
-                      setState(() => _range = snapped);
-                    },
-              onReset: () {
-                setState(
-                  () => _range = RangeValues(
-                    0,
-                    math.max(1, equity.length - 1).toDouble(),
-                  ),
-                );
-              },
-            ),
             LatestHoldingsList(guru: widget.guru, palette: widget.palette),
           ],
         ],
@@ -4407,7 +4748,7 @@ class _RangePresetButton extends StatelessWidget {
   final String label;
   final bool selected;
   final Palette palette;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -4429,7 +4770,11 @@ class _RangePresetButton extends StatelessWidget {
         child: Text(
           context.ui(label),
           style: TextStyle(
-            color: selected ? palette.accent : palette.muted,
+            color: selected
+                ? palette.accent
+                : onTap == null
+                ? palette.faint
+                : palette.muted,
             fontWeight: FontWeight.w900,
             fontSize: 12,
           ),
@@ -4664,6 +5009,8 @@ class SimulationRangeBar extends StatelessWidget {
     required this.selectedEnd,
     required this.fullStart,
     required this.fullEnd,
+    required this.resetLabel,
+    required this.resetTooltip,
     required this.onChanged,
     required this.onReset,
   });
@@ -4675,102 +5022,143 @@ class SimulationRangeBar extends StatelessWidget {
   final String selectedEnd;
   final String fullStart;
   final String fullEnd;
+  final String resetLabel;
+  final String resetTooltip;
   final ValueChanged<RangeValues>? onChanged;
-  final VoidCallback onReset;
+  final VoidCallback? onReset;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-      decoration: BoxDecoration(
-        color: palette.card,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: palette.border),
+    final slider = SliderTheme(
+      data: SliderTheme.of(context).copyWith(
+        activeTrackColor: palette.accent,
+        inactiveTrackColor: palette.border,
+        thumbColor: palette.accent,
+        overlayColor: palette.accent.withValues(alpha: .14),
+        rangeThumbShape: const RoundRangeSliderThumbShape(
+          enabledThumbRadius: 7,
+        ),
+        rangeTrackShape: const RoundedRectRangeSliderTrackShape(),
+        trackHeight: 5,
       ),
-      child: Column(
-        children: [
-          Row(
+      child: RangeSlider(
+        min: 0,
+        max: maxIndex,
+        divisions: math.min(maxIndex.round(), 520),
+        values: RangeValues(
+          range.start.clamp(0, maxIndex),
+          range.end.clamp(0, maxIndex),
+        ),
+        onChanged: onChanged,
+      ),
+    );
+    final reset = Tooltip(
+      message: resetTooltip,
+      child: TextButton.icon(
+        onPressed: onReset,
+        icon: const Icon(Icons.keyboard_double_arrow_left_rounded, size: 16),
+        label: Text(resetLabel),
+        style: TextButton.styleFrom(
+          foregroundColor: palette.accent,
+          minimumSize: const Size(72, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+      ),
+    );
+    final decoration = BoxDecoration(
+      color: palette.card,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: palette.border),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 560) {
+          return Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: decoration,
+            child: Row(
+              children: [
+                Icon(Icons.date_range_rounded, color: palette.accent, size: 17),
+                const SizedBox(width: 7),
+                SizedBox(
+                  width: 156,
+                  child: Tooltip(
+                    message: '$fullStart - $fullEnd',
+                    child: Text(
+                      '$selectedStart - $selectedEnd',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: palette.text,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(child: slider),
+                const SizedBox(width: 4),
+                reset,
+              ],
+            ),
+          );
+        }
+        return Container(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 7),
+          decoration: decoration,
+          child: Column(
             children: [
-              Icon(Icons.date_range_rounded, color: palette.accent, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '$selectedStart - $selectedEnd',
-                  style: TextStyle(
-                    color: palette.text,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
+              Row(
+                children: [
+                  Icon(
+                    Icons.date_range_rounded,
+                    color: palette.accent,
+                    size: 18,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '$selectedStart - $selectedEnd',
+                      style: TextStyle(
+                        color: palette.text,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  reset,
+                ],
               ),
-              Tooltip(
-                message: context.tr(
-                  '恢复完整五年审计区间',
-                  'Reset to the full audited 5Y window',
-                ),
-                child: TextButton.icon(
-                  onPressed: onReset,
-                  icon: const Icon(
-                    Icons.keyboard_double_arrow_left_rounded,
-                    size: 16,
+              slider,
+              Row(
+                children: [
+                  Text(
+                    fullStart,
+                    style: TextStyle(
+                      color: palette.faint,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  label: Text(context.tr('完整 5 年', 'Full 5Y')),
-                  style: TextButton.styleFrom(
-                    foregroundColor: palette.accent,
-                    minimumSize: const Size(78, 44),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                  const Spacer(),
+                  Text(
+                    fullEnd,
+                    style: TextStyle(
+                      color: palette.faint,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: palette.accent,
-              inactiveTrackColor: palette.border,
-              thumbColor: palette.accent,
-              overlayColor: palette.accent.withValues(alpha: .14),
-              rangeThumbShape: const RoundRangeSliderThumbShape(
-                enabledThumbRadius: 7,
-              ),
-              rangeTrackShape: const RoundedRectRangeSliderTrackShape(),
-              trackHeight: 5,
-            ),
-            child: RangeSlider(
-              min: 0,
-              max: maxIndex,
-              divisions: math.min(maxIndex.round(), 520),
-              values: RangeValues(
-                range.start.clamp(0, maxIndex),
-                range.end.clamp(0, maxIndex),
-              ),
-              onChanged: onChanged,
-            ),
-          ),
-          Row(
-            children: [
-              Text(
-                fullStart,
-                style: TextStyle(
-                  color: palette.faint,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                fullEnd,
-                style: TextStyle(
-                  color: palette.faint,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -4861,7 +5249,7 @@ class GuruTradeModule extends StatefulWidget {
   final String? error;
   final Palette palette;
   final ValueChanged<Map<String, dynamic>> onSelect;
-  final VoidCallback onRetry;
+  final VoidCallback? onRetry;
 
   @override
   State<GuruTradeModule> createState() => _GuruTradeModuleState();
@@ -5929,7 +6317,7 @@ class GuruQuarterContributionModule extends StatelessWidget {
   final String selectedQuarterId;
   final ValueChanged<String> onSelectQuarter;
   final Palette palette;
-  final VoidCallback onRetry;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -5941,7 +6329,7 @@ class GuruQuarterContributionModule extends StatelessWidget {
       orElse: () => quarters.isNotEmpty ? quarters.last : <String, dynamic>{},
     );
     final selectedId = text(selected['id']);
-    final contributions = asList(selected['contributions'])
+    final contributions = asList(selected['contributions']).toList()
       ..sort(
         (left, right) => number(
           right['contributionPct'],
@@ -5971,7 +6359,7 @@ class GuruQuarterContributionModule extends StatelessWidget {
               height: 300,
               child: Center(child: CircularProgressIndicator()),
             )
-          else if (error != null && payload == null)
+          else if (error != null && !hasFullAttribution)
             EmptyState(text: error!, palette: palette)
           else if (quarters.isEmpty)
             EmptyState(
@@ -6327,7 +6715,7 @@ class _TinyStat extends StatelessWidget {
 class _RetryIconButton extends StatelessWidget {
   const _RetryIconButton({required this.onPressed, required this.palette});
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final Palette palette;
 
   @override

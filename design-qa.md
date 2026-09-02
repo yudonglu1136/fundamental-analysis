@@ -103,3 +103,65 @@ Findings:
 
 Residual test gap:
 - Flutter canvas screenshot capture timed out in the in-app browser, so visual comparison could not be captured as an image artifact in this environment.
+
+## Guru History Range Restoration — Design QA
+
+## Comparison target
+
+- Source visual truth: `/Users/yudonglu/Documents/guru-intelligence/docs/images/guru-dashboard.png`
+- Rendered implementation: `/Users/yudonglu/Documents/guru-intelligence/output/playwright/guru-range-final-en-10y-1280x720.png`
+- Mobile implementation: `/Users/yudonglu/Documents/guru-intelligence/output/playwright/guru-range-final-en-mobile-controls-390x844.png`
+- Full-view comparison: `/Users/yudonglu/Documents/guru-intelligence/output/playwright/guru-range-reference-vs-final-2560x720.png`
+- Focused control comparison: `/Users/yudonglu/Documents/guru-intelligence/output/playwright/guru-range-controls-reference-vs-final-1380x230.png`
+- CSS viewport: 1280 × 720 desktop and 390 × 844 mobile
+- Pixel dimensions / density: source 1280 × 720, implementation 1280 × 720, mobile 390 × 844; all captured at device scale factor 1, so no density normalization was required
+- State: dark theme, Bill Ackman, Simulation module, English UI. The source has All selected; the implementation evidence uses the current audited 10Y window because All remains a fail-closed forensic window until its legacy corporate-action history passes audit.
+
+## Findings
+
+No actionable P0, P1, or P2 mismatch remains for the requested history-control restoration.
+
+- Typography: the implementation retains the product's existing sans-serif hierarchy and compact terminal weights. Preset labels, performance metrics, date labels, and sampling disclosure remain readable at both tested viewports. No central-module wrapping or clipping is visible.
+- Spacing and layout rhythm: the five presets, performance legend, two-handle range bar, and equity curve fit together in the 1280 × 720 first viewport. The implementation is intentionally denser than the old source so the curve stays visible without scrolling.
+- Colors and visual tokens: navy surfaces, teal active/range state, yellow benchmark, and red drawdown match the established terminal palette and source hierarchy. Disabled/loading behavior retains visible contrast.
+- Image quality and asset fidelity: the supplied Guru logo and Bill Ackman avatar remain sharp and correctly masked. No source image or logo was replaced with placeholder, CSS art, or a hand-built SVG.
+- Copy and content: the English state is internally consistent. The current implementation correctly says `Reported 13F value` rather than the source's ambiguous `AUM`, and distinguishes exact full-window `MDD` from sampled custom-window `MDD≈`.
+- Icons and affordances: the calendar, simulation, refresh, reset, range handles, selected preset, and disabled states are visually legible and use the existing Material icon family.
+- Responsiveness and accessibility: at 390 × 844, all five preset controls and both range handles remain usable without horizontal overflow. The range reset and refresh controls meet the existing 44 px touch-target contract. The central workflow scrolls vertically as expected.
+
+## Interaction and runtime evidence
+
+- Verified 5Y → 10Y switches to a distinct server-backed window.
+- Verified the left range handle can be dragged to a custom date, with the curve rebased and metrics recalculated.
+- Verified reset returns to the complete loaded 10Y range.
+- Verified All cache miss retains the latest ready curve and shows a localized fail-closed explanation instead of triggering a cold synchronous computation.
+- Verified the 10Y compact response exposes 520 rendered points from 2,461 source trading days and preserves sampling lineage.
+- Browser diagnostics showed no Flutter render overflow or application exception during the core interactions. Flutter's local debug-only DWDS injected client logged reconnect/deserialization diagnostics after manual reloads; this code is not present in the release build. Production browser diagnostics are a release verification item after deployment.
+
+## Intentional deviations from the source
+
+- The old source shows an All window beginning in 2013. The release uses 5Y as the safe default, serves a pre-warmed audited 10Y window on request, and keeps All fail closed until older corporate-action coverage is complete.
+- The current right rail is the retained Market Lens rather than the older ticker heatmap. It is outside the requested simulation-control restoration and preserves newer product functionality.
+- The legend shares the preset row on desktop to keep the range bar and curve above the fold. This is a deliberate density improvement, not a missing element.
+
+## Comparison history
+
+1. Earlier regression: the simulation was restricted to a fixed 5Y response and could render only a failure card. Fix: restored the historical 1Y / 3Y / 5Y / 10Y / All controls and two-handle range bar while preserving the newer audit gates.
+2. First restored pass: the curve and bar were visible, but full-window MDD could be recomputed from a sampled response and overlapping requests could replace the user's selected window. Fix: use server summary metrics for exact full windows, label selected sampled-window MDD as approximate, serialize conflicting UI actions, resume warming polls, and defer attribution requests.
+3. Final pass: public cold 10Y/All requests, repeated refreshes, and double compaction still needed hardening. Fix: canonical extended-window policy, current-cache-only public reads, per-manager/window single-flight, preserved source-point lineage, refresh de-duplication, and regression coverage. Post-fix evidence is the full-view and focused comparison listed above.
+
+## Follow-up polish
+
+- P3: the narrow desktop Market Lens title truncates more aggressively than the old right-rail label. This does not affect the restored history workflow and can be tightened in a separate right-rail pass.
+
+## Implementation checklist
+
+- [x] Restore 1Y / 3Y / 5Y / 10Y / All presets
+- [x] Restore two-handle arbitrary date-range selection
+- [x] Keep range bar and curve in the 1280 × 720 first viewport
+- [x] Verify desktop and 390 × 844 mobile layouts
+- [x] Verify exact-versus-sampled metric labeling
+- [x] Verify loading, cancellation, retry, mismatch, warming, and fail-closed states
+- [x] Compare source and implementation in full-view and focused composites
+
+final result: passed

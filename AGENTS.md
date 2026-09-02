@@ -118,10 +118,11 @@ Required update surfaces:
 - Market prices used by backtests must be current enough for the selected period; refresh latest prices first if the backtest end date is stale.
 - If a manager changes or adds SEC reporting entities, add the new filer to `alternateCiks` in `server/gurus.js` and verify all 13F readers merge every CIK. Do not rely on the original `cik` only. Example: Bill Ackman/Pershing Square uses PSCM plus PERSHING SQUARE INC. after the reporting-entity transition.
 - The product-default manager backtest is the trailing five-year audited window. Keep the 90% adjusted-close execution-coverage gate and leave missing weight in cash; never make a curve appear by lowering the gate or renormalizing only the covered subset. `years=all` remains an explicit forensic mode and must fail closed while legacy text 13F tables or point-in-time security histories are incomplete.
-- Treat issuer and CUSIP continuity as audited security-master data. In particular, Howard Hughes CUSIP `44267D107` continues 1:1 into `HHH`, and Canadian Pacific CUSIPs `13645T100` and `13646K108` use ticker `CP`. Do not revert these to stale or unmapped symbols.
+- Treat issuer and CUSIP continuity as audited security-master data. In particular, Howard Hughes CUSIP `44267D107` continues 1:1 into `HHH`, Canadian Pacific CUSIPs `13645T100` and `13646K108` use ticker `CP`, and the approved Ackman-history mappings for United Technologies/RTX, Platform Specialty/ESI, Mondelez, Air Products, Valeant/BHC, and Nomad/NOMD must remain covered. Preserve the effective-date and corporate-action caveats in the mapping audit; do not describe UTX/RTX as an unconditional 1:1 alias or revert these rows to stale or unmapped symbols.
 - A refresh is successful only when an enabled manager's backtest is `ready`; `insufficient_data` is a failed refresh, not a completed one. A manager with `disableSimulation: true` must return `unsupported`.
 - An adjusted SQLite price subset is not proof that the requested history is covered. Refresh both a truncated database range and any internal hole against the benchmark's expected trading sessions from the upstream source, then let the active-holding engine decide whether a shorter IPO/delisting history or genuine trading halt is legitimate; never treat any non-empty adjusted subset as a full-range cache hit, skip an internal session, or forward-fill it.
 - A production price repair must use exact independently verified provider rows through the internal audited repair route. Create a fresh EBS snapshot before the write, validate every OHLC/adjusted-close value, write the entire batch and its SHA-256 audit record in one transaction, and refresh the affected backtest. Never interpolate, forward-fill, lower coverage, commit licensed rows to Git, or expose provider/API credentials.
+- A backtest refresh that validates an audited price repair must run after any same-manager/window computation that began before the repair, then recompute once from the repaired generation. It must never join the pre-repair promise or race it with a concurrent writer that can overwrite the repaired result.
 - Treat a shared trailing market-data cutoff as a bounded operational heuristic, not proof that no halt or corporate action occurred. It may move the effective backtest end only when the SPY series reaches its requested market end and at least two active holdings share the exact same trailing cutoff, and only within seven calendar days. Persist the requested end, requested market end, effective end, lag, stale tickers, and every active ticker's latest date. A single stale security, mixed cutoff dates, internal price gap, or lag beyond the bound remains fail closed; investigate repeated or issuer-specific gaps rather than widening the heuristic.
 
 Use the unified command or endpoint:
@@ -201,9 +202,10 @@ When valuation financials, management guidance, or historical fair values are re
   and signal/market-lens rail remain visible together at desktop widths.
 - Keep the desktop brand subtitle as `Guru Stock Analysis`, the functional
   `Gurus / Firms` universe switch, the compact five-metric manager header, the
-  `New Buys & Sells` module label, and the `1Y / 3Y / 5Y` chart controls. The
-  full audited backtest window is labeled `5Y`; do not expose `10Y` or `All`
-  until those longer windows are actually requested and audited. Do not replace
+  `New Buys & Sells` module label, and the `1Y / 3Y / 5Y / 10Y / All` chart
+  controls. Keep 5Y as the fast audited default; load 10Y or All only when the
+  user requests it, retain the last ready curve if a longer forensic window
+  fails closed, and never relabel a 5Y payload as full history. Do not replace
   this shell with a taller audit-card layout unless the user explicitly requests
   a redesign.
 - The compact header must remain economically accurate: `Reported 13F value`
@@ -214,12 +216,20 @@ When valuation financials, management guidance, or historical fair values are re
   default backtest, force-refresh path, truth-state status, and bilingual error
   handling behind the restored visual shell. A visual restoration must never
   roll back those data or safety features.
-- Keep the Guru simulation curve visible in the 1280x720 first viewport. Follow
-  the chart-first compact preview established by the 2026-06-11 implementation:
-  show the 170px equity curve immediately after the presets and legend, then put
-  sampling notes and the full-window range control below it. Do not place the
-  range control ahead of the curve or increase the default chart height without
-  re-verifying first-viewport visibility.
+- Keep both the two-handle range control and the Guru simulation curve visible
+  in the 1280x720 first viewport. Use the 48px inline desktop range bar before a
+  compact 120px curve at short viewport heights, while allowing a taller curve
+  on taller screens. The range must rebase the selected curve and recompute its
+  metrics; loading 10Y/All must not change the 90% execution-coverage gate.
+- Treat 10Y and All as extended-history windows. Public reads may return only a
+  current-method SQLite result (fresh or explicitly stale); a stale 10Y result
+  may revalidate in the background, but a stale All result must not schedule
+  work. For either window,
+  a cache miss must fail closed without starting a synchronous computation.
+  Pre-warm the exact 10Y method version through the protected internal refresh
+  route before exposing or promoting a frontend that offers the 10Y control.
+  All remains forensic and may be computed only by a protected refresh while
+  legacy corporate-action coverage is being completed.
 - Every deck page with a bounded height must scroll its rows rather than use an
   overflowing `Column`. Verify the Guru page at 1280x720 and 390x844 with zero
   Flutter render overflows before release.

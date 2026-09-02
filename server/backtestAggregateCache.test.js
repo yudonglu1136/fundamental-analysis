@@ -20,10 +20,18 @@ const { writeGuruBacktest } = await import("./localDatabase.js");
 const {
   assertGuruBacktestRefreshSucceeded,
   clearGuruBacktestAggregateCache,
+  compactBacktestPayload,
+  disclosureBacktestMethodVersion,
   expectedGuruBacktestStatus,
+  isExtendedBacktestWindow,
+  loadGuruBacktest,
   loadGuruBacktests,
   manager13fBacktestMethodVersion,
-  refreshGuruBacktestCache
+  publicBacktestRequestPolicy,
+  refreshGuruBacktestCache,
+  runGuruBacktestComputationAfterCurrent,
+  runGuruBacktestComputationOnce,
+  staleBacktestBackgroundRefreshAllowed
 } = await import("./backtest.js");
 
 after(() => {
@@ -45,7 +53,9 @@ function fixture(guru, marker, generatedAt) {
     },
     method: guru.type === "manager13f"
       ? { version: manager13fBacktestMethodVersion }
-      : {},
+      : guru.type === "congress"
+        ? { version: disclosureBacktestMethodVersion }
+        : {},
     summary: { marker },
     equity: [
       { date: "2020-01-02", value: 1, benchmark: 1 },
@@ -59,6 +69,228 @@ function fixture(guru, marker, generatedAt) {
     }]
   };
 }
+
+test("public cold policy uses the same normalized window as the backtest engine", () => {
+  assert.equal(isExtendedBacktestWindow(5), false);
+  assert.equal(isExtendedBacktestWindow(9.49), false);
+  assert.equal(isExtendedBacktestWindow(9.5), true);
+  assert.equal(isExtendedBacktestWindow(9.6), true);
+  assert.equal(isExtendedBacktestWindow(10), true);
+  assert.equal(isExtendedBacktestWindow("all"), true);
+  assert.equal(isExtendedBacktestWindow("max"), true);
+  assert.equal(isExtendedBacktestWindow("not-a-window"), false);
+  assert.deepEqual(publicBacktestRequestPolicy(5, true), {
+    allowCold: true,
+    refresh: true
+  });
+  assert.deepEqual(publicBacktestRequestPolicy(9.6, true), {
+    allowCold: false,
+    refresh: false
+  });
+  assert.deepEqual(publicBacktestRequestPolicy("all", true), {
+    allowCold: false,
+    refresh: false
+  });
+  assert.equal(staleBacktestBackgroundRefreshAllowed(5), true);
+  assert.equal(staleBacktestBackgroundRefreshAllowed(10), true);
+  assert.equal(staleBacktestBackgroundRefreshAllowed("all"), false);
+  assert.equal(staleBacktestBackgroundRefreshAllowed("max"), false);
+});
+
+test("same manager and window share one expensive computation", async () => {
+  let builds = 0;
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  const build = async () => {
+    builds += 1;
+    await gate;
+    return { marker: "shared" };
+  };
+  const pending = Array.from(
+    { length: 20 },
+    () => runGuruBacktestComputationOnce("manager:10:persist", build)
+  );
+  await Promise.resolve();
+  assert.equal(builds, 1);
+  release();
+  const results = await Promise.all(pending);
+  assert.equal(builds, 1);
+  assert.ok(results.every((result) => result === results[0]));
+});
+
+test("a mutation-following refresh waits for the old generation and recomputes once", async () => {
+  let releaseOld;
+  let oldBuilds = 0;
+  let freshBuilds = 0;
+  const oldGate = new Promise((resolve) => {
+    releaseOld = resolve;
+  });
+  const key = "manager:5:repair-generation";
+  const old = runGuruBacktestComputationOnce(key, async () => {
+    oldBuilds += 1;
+    await oldGate;
+    return { generation: "pre-repair" };
+  });
+  await Promise.resolve();
+
+  const buildFresh = async () => {
+    freshBuilds += 1;
+    return { generation: "post-repair" };
+  };
+  const fresh = runGuruBacktestComputationAfterCurrent(
+    key,
+    "price-repair-one",
+    buildFresh
+  );
+  const duplicateFresh = runGuruBacktestComputationAfterCurrent(
+    key,
+    "price-repair-one",
+    buildFresh
+  );
+  const secondFresh = runGuruBacktestComputationAfterCurrent(
+    key,
+    "price-repair-two",
+    async () => {
+      freshBuilds += 1;
+      return { generation: "post-second-repair" };
+    }
+  );
+  await Promise.resolve();
+  assert.equal(oldBuilds, 1);
+  assert.equal(freshBuilds, 0);
+
+  releaseOld();
+  assert.deepEqual(await old, { generation: "pre-repair" });
+  assert.deepEqual(await fresh, { generation: "post-repair" });
+  assert.deepEqual(await duplicateFresh, { generation: "post-repair" });
+  assert.deepEqual(await secondFresh, { generation: "post-second-repair" });
+  assert.equal(freshBuilds, 2);
+});
+
+test("re-compacting a shared result preserves full equity sampling lineage", () => {
+  const payload = {
+    status: "ready",
+    equity: Array.from({ length: 10 }, (_, index) => ({
+      date: `2026-01-${String(index + 1).padStart(2, "0")}`,
+      value: 1 + index / 10,
+      benchmark: 1 + index / 20
+    })),
+    rebalances: [],
+    quarterContributions: []
+  };
+  const once = compactBacktestPayload(payload, { maxPoints: 5 });
+  const twice = compactBacktestPayload(once, { maxPoints: 5 });
+  assert.equal(once.equitySampling.sampled, true);
+  assert.equal(once.equitySampling.sourcePoints, 10);
+  assert.equal(once.equitySampling.returnedPoints, 5);
+  assert.equal(twice.equitySampling.sampled, true);
+  assert.equal(twice.equitySampling.sourcePoints, 10);
+  assert.equal(twice.equitySampling.returnedPoints, 5);
+});
+
+test("public extended-history reads reject cold or incompatible caches without recomputing", async () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const old = fixture(ackman, "old-v5", "2026-08-30T00:00:00.000Z");
+  old.method.version = "manager13f-drifted-total-return-v5";
+  old.method.years = "all";
+  writeGuruBacktest(ackman.id, 0, old);
+
+  const payload = await loadGuruBacktest(ackman.id, {
+    years: "all",
+    allowCold: false
+  });
+
+  assert.equal(payload.status, "not_ready");
+  assert.equal(payload.method?.version, manager13fBacktestMethodVersion);
+  assert.equal(payload.method?.years, "all");
+  assert.match(payload.method?.reason || "", /not pre-warmed.*failed closed/i);
+  assert.notEqual(payload.summary?.marker, "old-v5");
+
+  const tenYear = await loadGuruBacktest(ackman.id, {
+    years: 10,
+    allowCold: false
+  });
+  assert.equal(tenYear.status, "not_ready");
+  assert.equal(tenYear.method?.version, manager13fBacktestMethodVersion);
+  assert.equal(tenYear.method?.years, 10);
+  assert.match(tenYear.method?.reason || "", /not pre-warmed.*failed closed/i);
+
+  const congress = gurus.find((guru) => guru.type === "congress" && !guru.disableSimulation);
+  const oldCongress = fixture(congress, "old-disclosure-method", "2026-08-30T00:00:00.000Z");
+  delete oldCongress.method.version;
+  oldCongress.method.years = 10;
+  writeGuruBacktest(congress.id, 10, oldCongress);
+  const congressTenYear = await loadGuruBacktest(congress.id, {
+    years: 10,
+    allowCold: false
+  });
+  assert.equal(congressTenYear.status, "not_ready");
+  assert.equal(congressTenYear.method?.version, disclosureBacktestMethodVersion);
+  assert.equal(congressTenYear.method?.years, 10);
+  assert.match(congressTenYear.method?.reason || "", /not pre-warmed.*failed closed/i);
+});
+
+test("public congress extended history can serve a stale cached curve", async () => {
+  const congress = gurus.find((guru) => guru.type === "congress" && !guru.disableSimulation);
+  const stale = fixture(congress, "congress-stale", "2026-08-01T00:00:00.000Z");
+  stale.method.years = 10;
+  writeGuruBacktest(congress.id, 10, stale);
+
+  const originalTtl = process.env.BACKTEST_CACHE_TTL_HOURS;
+  const originalBackgroundRefresh = process.env.BACKTEST_STALE_BACKGROUND_REFRESH;
+  const originalNow = Date.now;
+  try {
+    process.env.BACKTEST_CACHE_TTL_HOURS = "20";
+    process.env.BACKTEST_STALE_BACKGROUND_REFRESH = "false";
+    Date.now = () => new Date("2026-09-02T00:00:00.000Z").getTime();
+    const payload = await loadGuruBacktest(congress.id, {
+      years: 10,
+      allowCold: false
+    });
+    assert.equal(payload.status, "ready");
+    assert.equal(payload.summary?.marker, "congress-stale");
+    assert.equal(payload.cache?.status, "sqlite-stale");
+    assert.equal(payload.cache?.stale, true);
+    assert.equal(payload.historyWarming, false);
+  } finally {
+    process.env.BACKTEST_CACHE_TTL_HOURS = originalTtl;
+    if (originalBackgroundRefresh == null) {
+      delete process.env.BACKTEST_STALE_BACKGROUND_REFRESH;
+    } else {
+      process.env.BACKTEST_STALE_BACKGROUND_REFRESH = originalBackgroundRefresh;
+    }
+    Date.now = originalNow;
+  }
+});
+
+test("a stale All cache is served without claiming a background refresh", async () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const stale = fixture(ackman, "all-stale", "2026-08-01T00:00:00.000Z");
+  stale.method.years = "all";
+  stale.historyWarming = true;
+  writeGuruBacktest(ackman.id, 0, stale);
+
+  const originalTtl = process.env.BACKTEST_CACHE_TTL_HOURS;
+  const originalNow = Date.now;
+  try {
+    process.env.BACKTEST_CACHE_TTL_HOURS = "20";
+    Date.now = () => new Date("2026-09-02T00:00:00.000Z").getTime();
+    const payload = await loadGuruBacktest(ackman.id, {
+      years: "all",
+      allowCold: false
+    });
+    assert.equal(payload.status, "ready");
+    assert.equal(payload.summary?.marker, "all-stale");
+    assert.equal(payload.cache?.status, "sqlite-stale");
+    assert.equal(payload.cache?.stale, true);
+    assert.equal(payload.historyWarming, false);
+  } finally {
+    process.env.BACKTEST_CACHE_TTL_HOURS = originalTtl;
+    Date.now = originalNow;
+  }
+});
 
 test("aggregate backtests cache by window/detail and invalidate on data or refresh version", async () => {
   const supported = gurus.filter((guru) => guru.type === "manager13f" || guru.type === "congress");

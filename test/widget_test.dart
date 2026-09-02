@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -93,6 +95,156 @@ class _FakeAdminApiClient extends ApiClient {
     }
     return <String, dynamic>{};
   }
+}
+
+class _PendingGuruBacktestRequest {
+  _PendingGuruBacktestRequest(this.path);
+
+  final String path;
+  final Completer<Map<String, dynamic>> completer =
+      Completer<Map<String, dynamic>>();
+}
+
+class _ControlledGuruApiClient extends ApiClient {
+  _ControlledGuruApiClient() : super(() => 'test-token');
+
+  final List<_PendingGuruBacktestRequest> backtestRequests = [];
+
+  @override
+  Future<Map<String, dynamic>> getJson(String path) {
+    if (!path.contains('/backtest?')) {
+      return Future<Map<String, dynamic>>.value(<String, dynamic>{});
+    }
+    final request = _PendingGuruBacktestRequest(path);
+    backtestRequests.add(request);
+    return request.completer.future;
+  }
+}
+
+Map<String, dynamic> _guruBacktestPayload(
+  String years, {
+  String? methodYears,
+  bool warming = false,
+  bool fullAttribution = false,
+  double endingValue = 140,
+}) {
+  final starts = <String, String>{
+    '5': '2021-09-01',
+    '10': '2016-09-01',
+    'all': '2013-08-14',
+  };
+  return <String, dynamic>{
+    'status': 'ready',
+    'historyWarming': warming,
+    'method': <String, dynamic>{'years': methodYears ?? years},
+    'detail': <String, dynamic>{
+      'attribution': fullAttribution ? 'full' : 'compact',
+    },
+    'window': <String, dynamic>{'start': starts[years], 'end': '2026-09-01'},
+    'quarterContributions': fullAttribution
+        ? <Map<String, dynamic>>[
+            <String, dynamic>{
+              'id': '2026-q2',
+              'label': '2026 Q2',
+              'contributions': <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'ticker': 'TEST',
+                  'issuer': 'Test Holding',
+                  'contributionPct': 0.05,
+                },
+              ],
+            },
+          ]
+        : <Map<String, dynamic>>[],
+    'equity': <Map<String, dynamic>>[
+      <String, dynamic>{
+        'date': starts[years],
+        'value': 100.0,
+        'benchmark': 100.0,
+      },
+      <String, dynamic>{
+        'date': '2024-09-01',
+        'value': 115.0,
+        'benchmark': 110.0,
+      },
+      <String, dynamic>{
+        'date': '2025-09-01',
+        'value': 125.0,
+        'benchmark': 118.0,
+      },
+      <String, dynamic>{
+        'date': '2026-09-01',
+        'value': endingValue,
+        'benchmark': 128.0,
+      },
+    ],
+  };
+}
+
+Map<String, dynamic> _guruStateMachineManager({
+  String id = 'state-machine-manager',
+}) => <String, dynamic>{
+  'id': id,
+  'name': 'State Machine Manager',
+  'entityName': 'State Machine Capital',
+  'type': 'manager13f',
+  'thesisTag': 'Concentrated',
+  'disclosureKind': '13F-HR',
+  'simulationTag': <String, dynamic>{
+    'label': '13F copy simulation',
+    'tone': 'positive',
+  },
+  'summary': <String, dynamic>{
+    'reported13fValue': 150,
+    'commonLongValue': 150,
+    'totalPositions': 2,
+    'reportDate': '2026-06-30',
+    'filingDate': '2026-08-14',
+  },
+  'holdings': <Map<String, dynamic>>[],
+  'activity': <Map<String, dynamic>>[],
+};
+
+Future<void> _pumpGuruStateMachine(
+  WidgetTester tester,
+  _ControlledGuruApiClient api, {
+  int initialModule = 0,
+  Map<String, dynamic>? guru,
+}) async {
+  tester.view.physicalSize = const Size(1000, 1200);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
+  await tester.pumpWidget(
+    LanguageScope(
+      language: AppLanguage.en,
+      child: MaterialApp(
+        theme: ThemeData.dark(),
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: GuruWorkspace(
+              guru: guru ?? _guruStateMachineManager(),
+              api: api,
+              palette: Palette(false),
+              initialModule: initialModule,
+              initialTicker: '',
+              initialQuarterId: '',
+              onModuleChanged: (_) {},
+              onTickerChanged: (_) {},
+              onQuarterChanged: (_) {},
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+}
+
+Future<void> _flushGuruState(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump();
 }
 
 ValuationRow _valuationRow(
@@ -546,6 +698,8 @@ void main() {
               selectedEnd: '2026/09/01',
               fullStart: '2021/09/01',
               fullEnd: '2026/09/01',
+              resetLabel: 'Full 5Y',
+              resetTooltip: 'Reset to the full audited 5Y window',
               onChanged: (_) {},
               onReset: () => reset = true,
             ),
@@ -565,6 +719,7 @@ void main() {
   ) async {
     const contentViewportHeight =
         644.0; // 720px minus 66px header and 10px content top padding.
+    final requestedWindows = <String>[];
     tester.view.physicalSize = const Size(690, contentViewportHeight);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -589,6 +744,17 @@ void main() {
     };
     final payload = <String, dynamic>{
       'status': 'ready',
+      'summary': <String, dynamic>{
+        'totalReturn': .41,
+        'maxDrawdown': -.55,
+        'excessTotalReturn': .13,
+        'benchmark': <String, dynamic>{'totalReturn': .28},
+      },
+      'equitySampling': <String, dynamic>{
+        'sampled': true,
+        'returnedPoints': 4,
+        'sourcePoints': 1200,
+      },
       'equity': [
         {'date': '2023-01-03', 'value': 100.0, 'benchmark': 100.0},
         {'date': '2024-01-03', 'value': 112.0, 'benchmark': 108.0},
@@ -620,6 +786,10 @@ void main() {
                     error: null,
                     guru: guru,
                     palette: Palette(false),
+                    loadedWindow: '5',
+                    requestedWindow: null,
+                    windowError: null,
+                    onWindowRequested: requestedWindows.add,
                     onRetry: () {},
                   ),
                 ],
@@ -634,12 +804,386 @@ void main() {
     final range = find.byKey(const ValueKey('guru-simulation-range-bar'));
     expect(chart, findsOneWidget);
     expect(range, findsOneWidget);
-    expect(tester.getSize(chart).height, 170);
-    expect(tester.getTopLeft(chart).dy, lessThan(tester.getTopLeft(range).dy));
+    expect(tester.getSize(chart).height, 120);
+    expect(tester.getTopLeft(range).dy, lessThan(tester.getTopLeft(chart).dy));
     expect(
       tester.getBottomLeft(chart).dy,
       lessThanOrEqualTo(contentViewportHeight),
     );
+    expect(find.text('-55.0%'), findsOneWidget);
+    expect(find.text('MDD'), findsOneWidget);
+    await tester.tap(find.text('10Y'));
+    await tester.tap(find.text('All'));
+    expect(requestedWindows, ['10', 'all']);
+
+    final slider = tester.widget<RangeSlider>(find.byType(RangeSlider));
+    slider.onChanged!(const RangeValues(1, 3));
+    await tester.pump();
+    final selectedChart = tester.widget<EquityChart>(
+      find.descendant(of: chart, matching: find.byType(EquityChart)),
+    );
+    expect(selectedChart.equity, hasLength(3));
+    expect(number(selectedChart.equity.first['value']), 1);
+    expect(number(selectedChart.equity.first['benchmark']), 1);
+    expect(find.text('MDD≈'), findsOneWidget);
+    expect(
+      find.textContaining('selected-range MDD is approximate'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a same-window warmup refresh preserves a custom date range', (
+    WidgetTester tester,
+  ) async {
+    final guru = _guruStateMachineManager();
+    var payload = _guruBacktestPayload('5');
+    payload['equity'] = <Map<String, dynamic>>[
+      {'date': '2021-09-01', 'value': 100.0, 'benchmark': 100.0},
+      {'date': '2022-09-01', 'value': 106.0, 'benchmark': 103.0},
+      {'date': '2023-09-01', 'value': 112.0, 'benchmark': 107.0},
+      {'date': '2024-09-01', 'value': 118.0, 'benchmark': 111.0},
+      {'date': '2025-09-01', 'value': 126.0, 'benchmark': 118.0},
+      {'date': '2025-12-01', 'value': 132.0, 'benchmark': 122.0},
+      {'date': '2026-09-01', 'value': 140.0, 'benchmark': 128.0},
+    ];
+    late StateSetter updateHost;
+
+    Widget host() => LanguageScope(
+      language: AppLanguage.en,
+      child: MaterialApp(
+        theme: ThemeData.dark(),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              updateHost = setState;
+              return GuruSimulationModule(
+                payload: payload,
+                loading: false,
+                error: null,
+                guru: guru,
+                palette: Palette(false),
+                loadedWindow: '5',
+                requestedWindow: null,
+                windowError: null,
+                onWindowRequested: (_) {},
+                onRetry: () {},
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(host());
+    final slider = tester.widget<RangeSlider>(find.byType(RangeSlider));
+    slider.onChanged!(const RangeValues(2, 5));
+    await tester.pump();
+    var chart = tester.widget<EquityChart>(find.byType(EquityChart));
+    expect(text(chart.equity.first['date']), '2023-09-01');
+
+    final refreshed = _guruBacktestPayload('5');
+    refreshed['equity'] = <Map<String, dynamic>>[
+      {'date': '2021-09-01', 'value': 100.0, 'benchmark': 100.0},
+      {'date': '2021-12-01', 'value': 103.0, 'benchmark': 101.0},
+      {'date': '2022-09-01', 'value': 107.0, 'benchmark': 104.0},
+      {'date': '2023-09-01', 'value': 114.0, 'benchmark': 108.0},
+      {'date': '2024-09-01', 'value': 121.0, 'benchmark': 113.0},
+      {'date': '2025-09-01', 'value': 130.0, 'benchmark': 120.0},
+      {'date': '2026-09-01', 'value': 142.0, 'benchmark': 129.0},
+    ];
+    updateHost(() => payload = refreshed);
+    await tester.pump();
+
+    chart = tester.widget<EquityChart>(find.byType(EquityChart));
+    expect(text(chart.equity.first['date']), '2023-09-01');
+    expect(chart.equity, hasLength(3));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an explicit 10Y request outranks the pending 5Y warmup poll', (
+    WidgetTester tester,
+  ) async {
+    final api = _ControlledGuruApiClient();
+    await _pumpGuruStateMachine(tester, api);
+
+    expect(api.backtestRequests, hasLength(1));
+    expect(api.backtestRequests.single.path, contains('years=5'));
+    api.backtestRequests[0].completer.complete(
+      _guruBacktestPayload('5', warming: true),
+    );
+    await _flushGuruState(tester);
+    expect(find.text('Full 5Y'), findsOneWidget);
+
+    await tester.tap(find.text('10Y'));
+    await tester.pump();
+    expect(api.backtestRequests, hasLength(2));
+    expect(api.backtestRequests[1].path, contains('years=10'));
+
+    // The old 5Y warming timer fires while 10Y is still in flight. It must
+    // not start a newer 5Y request that can supersede the user's choice.
+    await tester.pump(const Duration(seconds: 6));
+    expect(api.backtestRequests, hasLength(2));
+
+    api.backtestRequests[1].completer.complete(
+      _guruBacktestPayload('10', endingValue: 180),
+    );
+    await _flushGuruState(tester);
+
+    expect(find.text('Full 10Y'), findsOneWidget);
+    final chart = tester.widget<EquityChart>(find.byType(EquityChart));
+    expect(number(chart.equity.last['value']), closeTo(1.8, 0.000001));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('quarterly mode makes one full-attribution request per guru', (
+    WidgetTester tester,
+  ) async {
+    final api = _ControlledGuruApiClient();
+    await _pumpGuruStateMachine(
+      tester,
+      api,
+      initialModule: 2,
+      guru: _guruStateMachineManager(id: 'manager-one'),
+    );
+    expect(api.backtestRequests, hasLength(1));
+    expect(api.backtestRequests[0].path, contains('/manager-one/backtest?'));
+    expect(api.backtestRequests[0].path, contains('detail=full'));
+    api.backtestRequests[0].completer.complete(
+      _guruBacktestPayload('5', fullAttribution: true),
+    );
+    await _flushGuruState(tester);
+
+    await _pumpGuruStateMachine(
+      tester,
+      api,
+      initialModule: 2,
+      guru: _guruStateMachineManager(id: 'manager-two'),
+    );
+    expect(api.backtestRequests, hasLength(2));
+    expect(api.backtestRequests[1].path, contains('/manager-two/backtest?'));
+    expect(api.backtestRequests[1].path, contains('detail=full'));
+    api.backtestRequests[1].completer.complete(
+      _guruBacktestPayload('5', fullAttribution: true),
+    );
+    await _flushGuruState(tester);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('quarterly mode surfaces a failed full-attribution request', (
+    WidgetTester tester,
+  ) async {
+    final api = _ControlledGuruApiClient();
+    await _pumpGuruStateMachine(tester, api);
+    api.backtestRequests[0].completer.complete(_guruBacktestPayload('5'));
+    await _flushGuruState(tester);
+
+    await tester.tap(find.text('Quarterly Contribution').first);
+    await tester.pump();
+    expect(api.backtestRequests, hasLength(2));
+    expect(api.backtestRequests[1].path, contains('detail=full'));
+    api.backtestRequests[1].completer.completeError(
+      StateError('full attribution failed'),
+    );
+    await _flushGuruState(tester);
+
+    expect(find.textContaining('full attribution failed'), findsOneWidget);
+    expect(find.text('No quarterly attribution available.'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('rapid refresh taps start only one backtest request', (
+    WidgetTester tester,
+  ) async {
+    final api = _ControlledGuruApiClient();
+    await _pumpGuruStateMachine(tester, api);
+    api.backtestRequests[0].completer.complete(_guruBacktestPayload('5'));
+    await _flushGuruState(tester);
+
+    final refresh = find.byTooltip('Refresh');
+    expect(refresh, findsOneWidget);
+    await tester.tap(refresh);
+    await tester.tap(refresh);
+    expect(api.backtestRequests, hasLength(2));
+    expect(api.backtestRequests[1].path, contains('refresh=1'));
+    api.backtestRequests[1].completer.complete(_guruBacktestPayload('5'));
+    await _flushGuruState(tester);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'a mismatched ready window keeps the previous audited curve and reports the error',
+    (WidgetTester tester) async {
+      final api = _ControlledGuruApiClient();
+      await _pumpGuruStateMachine(tester, api);
+
+      api.backtestRequests[0].completer.complete(
+        _guruBacktestPayload('5', endingValue: 140),
+      );
+      await _flushGuruState(tester);
+
+      await tester.tap(find.text('All'));
+      await tester.pump();
+      expect(api.backtestRequests, hasLength(2));
+      expect(api.backtestRequests[1].path, contains('years=all'));
+
+      api.backtestRequests[1].completer.complete(
+        _guruBacktestPayload('all', methodYears: '5', endingValue: 250),
+      );
+      await _flushGuruState(tester);
+
+      expect(find.text('Full 5Y'), findsOneWidget);
+      expect(find.textContaining('Backtest window mismatch'), findsOneWidget);
+      final chart = tester.widget<EquityChart>(find.byType(EquityChart));
+      expect(number(chart.equity.last['value']), closeTo(1.4, 0.000001));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'selecting the loaded window cancels an in-flight longer request',
+    (WidgetTester tester) async {
+      final api = _ControlledGuruApiClient();
+      await _pumpGuruStateMachine(tester, api);
+
+      api.backtestRequests[0].completer.complete(_guruBacktestPayload('5'));
+      await _flushGuruState(tester);
+      await tester.tap(find.text('10Y'));
+      await tester.pump();
+      api.backtestRequests[1].completer.complete(
+        _guruBacktestPayload('10', endingValue: 180),
+      );
+      await _flushGuruState(tester);
+      expect(find.text('Full 10Y'), findsOneWidget);
+
+      await tester.tap(find.text('All'));
+      await tester.pump();
+      expect(api.backtestRequests, hasLength(3));
+      expect(api.backtestRequests[2].path, contains('years=all'));
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      // A different unloaded server window is disabled while All is pending;
+      // only the already-loaded 10Y button remains available as cancellation.
+      await tester.tap(find.text('5Y'));
+      await tester.pump();
+      expect(api.backtestRequests, hasLength(3));
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      // 10Y is already loaded, so selecting it is a cancellation intent and
+      // must not make a redundant network request.
+      await tester.tap(find.text('10Y'));
+      await tester.pump();
+      expect(api.backtestRequests, hasLength(3));
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+
+      api.backtestRequests[2].completer.complete(
+        _guruBacktestPayload('all', endingValue: 260),
+      );
+      await _flushGuruState(tester);
+
+      expect(find.text('Full 10Y'), findsOneWidget);
+      final chart = tester.widget<EquityChart>(find.byType(EquityChart));
+      expect(number(chart.equity.last['value']), closeTo(1.8, 0.000001));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'quarterly attribution waits for the selected server window to finish',
+    (WidgetTester tester) async {
+      final api = _ControlledGuruApiClient();
+      await _pumpGuruStateMachine(tester, api);
+
+      api.backtestRequests[0].completer.complete(_guruBacktestPayload('5'));
+      await _flushGuruState(tester);
+      await tester.tap(find.text('10Y'));
+      await tester.pump();
+      expect(api.backtestRequests, hasLength(2));
+
+      await tester.tap(find.text('Quarterly Contribution').first);
+      await tester.pump();
+      expect(
+        api.backtestRequests,
+        hasLength(2),
+        reason: 'tab changes must not supersede the pending 10Y request',
+      );
+
+      api.backtestRequests[1].completer.complete(
+        _guruBacktestPayload('10', endingValue: 180),
+      );
+      await _flushGuruState(tester);
+      expect(api.backtestRequests, hasLength(3));
+      expect(api.backtestRequests[2].path, contains('years=10'));
+      expect(api.backtestRequests[2].path, contains('detail=full'));
+
+      api.backtestRequests[2].completer.complete(
+        _guruBacktestPayload('10', fullAttribution: true, endingValue: 180),
+      );
+      await _flushGuruState(tester);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'quarterly attribution falls back to the loaded window after a long-window failure',
+    (WidgetTester tester) async {
+      final api = _ControlledGuruApiClient();
+      await _pumpGuruStateMachine(tester, api);
+
+      api.backtestRequests[0].completer.complete(_guruBacktestPayload('5'));
+      await _flushGuruState(tester);
+      await tester.tap(find.text('10Y'));
+      await tester.pump();
+      await tester.tap(find.text('Quarterly Contribution').first);
+      await tester.pump();
+      expect(api.backtestRequests, hasLength(2));
+
+      api.backtestRequests[1].completer.complete(<String, dynamic>{
+        'status': 'not_ready',
+        'method': <String, dynamic>{
+          'years': 10,
+          'reason': '10Y history is not pre-warmed.',
+        },
+      });
+      await _flushGuruState(tester);
+      expect(api.backtestRequests, hasLength(3));
+      expect(api.backtestRequests[2].path, contains('years=5'));
+      expect(api.backtestRequests[2].path, contains('detail=full'));
+
+      api.backtestRequests[2].completer.complete(
+        _guruBacktestPayload('5', fullAttribution: true),
+      );
+      await _flushGuruState(tester);
+      expect(find.text('TEST'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('a failed long window resumes polling a warming ready curve', (
+    WidgetTester tester,
+  ) async {
+    final api = _ControlledGuruApiClient();
+    await _pumpGuruStateMachine(tester, api);
+
+    api.backtestRequests[0].completer.complete(
+      _guruBacktestPayload('5', warming: true),
+    );
+    await _flushGuruState(tester);
+    await tester.tap(find.text('All'));
+    await tester.pump();
+    api.backtestRequests[1].completer.complete(<String, dynamic>{
+      'status': 'not_ready',
+      'method': <String, dynamic>{
+        'years': 'all',
+        'reason': 'Full history is not pre-warmed.',
+      },
+    });
+    await _flushGuruState(tester);
+    expect(find.text('Full 5Y'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 6));
+    expect(api.backtestRequests, hasLength(3));
+    expect(api.backtestRequests[2].path, contains('years=5'));
     expect(tester.takeException(), isNull);
   });
 
@@ -1345,6 +1889,13 @@ void main() {
     expect(
       localizeUiText(
         AppLanguage.zh,
+        'The requested extended-history backtest is not pre-warmed under the current audit method. The request failed closed without starting a cold synchronous computation.',
+      ),
+      '所选扩展历史尚未按当前审计方法预热。系统已严格停止请求，且没有启动同步冷计算。',
+    );
+    expect(
+      localizeUiText(
+        AppLanguage.zh,
         'Jansen Sharadar as-reported PIT financials + event-visible management guidance',
       ),
       'Jansen Sharadar 原始披露口径的 PIT 财务数据 + 当时可见的管理层指引',
@@ -1356,23 +1907,32 @@ void main() {
     expect(dividendWindowTitle(DateTime(2026, 8), AppLanguage.en), 'Aug 2026');
   });
 
-  test(
-    'uses the trailing five-year audited backtest and refreshes only on retry',
-    () {
-      expect(
-        guruBacktestPath('bill-ackman'),
-        '/api/gurus/bill-ackman/backtest?years=5',
-      );
-      expect(
-        guruBacktestPath('bill-ackman', fullAttribution: true),
-        '/api/gurus/bill-ackman/backtest?years=5&detail=full',
-      );
-      expect(
-        guruBacktestPath('bill-ackman', fullAttribution: true, refresh: true),
-        '/api/gurus/bill-ackman/backtest?years=5&detail=full&refresh=1',
-      );
-    },
-  );
+  test('builds explicit audited backtest window paths', () {
+    expect(
+      guruBacktestPath('bill-ackman'),
+      '/api/gurus/bill-ackman/backtest?years=5',
+    );
+    expect(
+      guruBacktestPath('bill-ackman', years: '10'),
+      '/api/gurus/bill-ackman/backtest?years=10',
+    );
+    expect(
+      guruBacktestPath('bill-ackman', years: 'ALL'),
+      '/api/gurus/bill-ackman/backtest?years=all',
+    );
+    expect(
+      guruBacktestPath('bill-ackman', fullAttribution: true),
+      '/api/gurus/bill-ackman/backtest?years=5&detail=full',
+    );
+    expect(
+      guruBacktestPath('bill-ackman', fullAttribution: true, refresh: true),
+      '/api/gurus/bill-ackman/backtest?years=5&detail=full&refresh=1',
+    );
+    expect(
+      () => guruBacktestPath('bill-ackman', years: '7'),
+      throwsArgumentError,
+    );
+  });
 
   testWidgets('renders the auth shell', (WidgetTester tester) async {
     await tester.pumpWidget(const GuruTerminalApp());

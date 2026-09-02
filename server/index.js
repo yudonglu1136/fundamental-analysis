@@ -18,6 +18,7 @@ import {
   guruBacktestRefreshStatus,
   loadGuruBacktest,
   loadGuruBacktests,
+  publicBacktestRequestPolicy,
   refreshGuruBacktestCache,
   startGuruBacktestRefresher
 } from "./backtest.js";
@@ -253,7 +254,8 @@ app.post("/api/internal/prices/repair", requireInternalCron, async (request, res
       const payload = await loadGuruBacktest(guruId, {
         refresh: true,
         years: 5,
-        detail: "compact"
+        detail: "compact",
+        refreshGeneration: repair.auditId
       });
       backtests.push({
         guruId,
@@ -776,14 +778,17 @@ app.get("/api/gurus/:id/exposure", async (request, response) => {
 app.get("/api/gurus/:id/backtest", async (request, response) => {
   try {
     const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
+    const requestedYears = request.query.years || 5;
+    const policy = publicBacktestRequestPolicy(requestedYears, forceRefresh);
     const payload = await loadGuruBacktest(request.params.id, {
-      refresh: forceRefresh,
-      years: request.query.years || 5,
-      detail: request.query.detail
+      refresh: policy.refresh,
+      years: requestedYears,
+      detail: request.query.detail,
+      allowCold: policy.allowCold
     });
     response.setHeader(
       "Cache-Control",
-      forceRefresh ? "no-store" : "private, max-age=120, stale-while-revalidate=300"
+      policy.refresh ? "no-store" : "private, max-age=120, stale-while-revalidate=300"
     );
     response.json(payload);
   } catch (error) {
@@ -794,14 +799,17 @@ app.get("/api/gurus/:id/backtest", async (request, response) => {
 app.get("/api/backtests", async (request, response) => {
   try {
     const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
+    const requestedYears = request.query.years || 5;
+    const policy = publicBacktestRequestPolicy(requestedYears, forceRefresh);
     const payload = await loadGuruBacktests({
-      refresh: forceRefresh,
-      years: request.query.years || 5,
-      detail: request.query.detail
+      refresh: policy.refresh,
+      years: requestedYears,
+      detail: request.query.detail,
+      allowCold: policy.allowCold
     });
     response.setHeader(
       "Cache-Control",
-      forceRefresh ? "no-store" : "private, max-age=120, stale-while-revalidate=300"
+      policy.refresh ? "no-store" : "private, max-age=120, stale-while-revalidate=300"
     );
     response.json(payload);
   } catch (error) {

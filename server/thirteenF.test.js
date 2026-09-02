@@ -185,6 +185,12 @@ test("Ackman successor CUSIPs retain the economically continuous market ticker",
   assert.equal(tickerForHolding({ cusip: "44267T102", issuer: "HOWARD HUGHES HOLDINGS INC" }), "HHH");
   assert.equal(tickerForHolding({ cusip: "13645T100", issuer: "CANADIAN PAC RY LTD" }), "CP");
   assert.equal(tickerForHolding({ cusip: "13646K108", issuer: "CANADIAN PACIFIC KANSAS CITY" }), "CP");
+  assert.equal(tickerForHolding({ cusip: "913017109", issuer: "UNITED TECHNOLOGIES CORP" }), "RTX");
+  assert.equal(tickerForHolding({ cusip: "72766Q105", issuer: "PLATFORM SPECIALTY PRODS COR" }), "ESI");
+  assert.equal(tickerForHolding({ cusip: "609207105", issuer: "MONDELEZ INTL INC" }), "MDLZ");
+  assert.equal(tickerForHolding({ cusip: "009158106", issuer: "AIR PRODS & CHEMS INC" }), "APD");
+  assert.equal(tickerForHolding({ cusip: "91911K102", issuer: "VALEANT PHARMACEUTICALS INTL" }), "BHC");
+  assert.equal(tickerForHolding({ cusip: "G6564A105", issuer: "NOMAD HLDGS LTD" }), "NOMD");
 });
 
 test("a multi-CIK quarter with an orphan amendment is excluded as incomplete", () => {

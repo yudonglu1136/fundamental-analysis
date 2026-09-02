@@ -22,7 +22,8 @@ import {
 const defaultYears = "all";
 const allYearsCacheKey = 0;
 const maxHoldingsPerFiling = Number(process.env.BACKTEST_MAX_HOLDINGS || 60);
-export const manager13fBacktestMethodVersion = "manager13f-drifted-total-return-v5";
+export const manager13fBacktestMethodVersion = "manager13f-drifted-total-return-v6";
+export const disclosureBacktestMethodVersion = "stock-act-disclosure-fail-closed-v1";
 const minExecutionCoverage = Math.max(
   0,
   Math.min(1, Number(process.env.BACKTEST_MIN_EXECUTION_COVERAGE || 0.9))
@@ -71,6 +72,8 @@ let staleBacktestRefreshInFlight = null;
 const staleBacktestRefreshKeys = new Set();
 const aggregateBacktestCache = new Map();
 const aggregateBacktestInFlight = new Map();
+const guruBacktestComputationInFlight = new Map();
+const guruBacktestFreshComputationInFlight = new Map();
 let lastBacktestRefreshStatus = {
   running: false,
   startedAt: null,
@@ -146,6 +149,66 @@ function normalizeBacktestWindow(years = defaultYears) {
     cacheKey: normalizedYears,
     limit: normalizedYears * 4 + 4
   };
+}
+
+export function isExtendedBacktestWindow(years = defaultYears) {
+  const window = normalizeBacktestWindow(years);
+  return window.all || Number(window.years) >= 10;
+}
+
+export function publicBacktestRequestPolicy(years, forceRefresh = false) {
+  const extendedHistory = isExtendedBacktestWindow(years);
+  return {
+    allowCold: !extendedHistory,
+    refresh: Boolean(forceRefresh) && !extendedHistory
+  };
+}
+
+export function staleBacktestBackgroundRefreshAllowed(years = defaultYears) {
+  return !normalizeBacktestWindow(years).all;
+}
+
+export async function runGuruBacktestComputationOnce(key, build) {
+  const existing = guruBacktestComputationInFlight.get(key);
+  if (existing) return existing;
+  const pending = Promise.resolve().then(build);
+  guruBacktestComputationInFlight.set(key, pending);
+  try {
+    return await pending;
+  } finally {
+    if (guruBacktestComputationInFlight.get(key) === pending) {
+      guruBacktestComputationInFlight.delete(key);
+    }
+  }
+}
+
+export async function runGuruBacktestComputationAfterCurrent(
+  key,
+  generation,
+  build
+) {
+  const normalizedGeneration = String(generation || "").trim();
+  if (!normalizedGeneration) {
+    throw new Error("A fresh backtest generation is required.");
+  }
+  const generationKey = `${key}:${normalizedGeneration}`;
+  const alreadyQueued = guruBacktestFreshComputationInFlight.get(generationKey);
+  if (alreadyQueued) return alreadyQueued;
+  const current = guruBacktestComputationInFlight.get(key);
+  const pending = (current ? current.catch(() => undefined) : Promise.resolve())
+    .then(build);
+  guruBacktestFreshComputationInFlight.set(generationKey, pending);
+  guruBacktestComputationInFlight.set(key, pending);
+  try {
+    return await pending;
+  } finally {
+    if (guruBacktestFreshComputationInFlight.get(generationKey) === pending) {
+      guruBacktestFreshComputationInFlight.delete(generationKey);
+    }
+    if (guruBacktestComputationInFlight.get(key) === pending) {
+      guruBacktestComputationInFlight.delete(key);
+    }
+  }
 }
 
 function normalizeBacktestDetail(detail) {
@@ -251,10 +314,15 @@ function cachedBacktestIsUsable(cached) {
   return Boolean(cached.status || cached.window || cached.summary);
 }
 
-function cachedBacktestWithHit(cached, { status = "sqlite-hit", stale = false } = {}) {
+function cachedBacktestWithHit(
+  cached,
+  { status = "sqlite-hit", stale = false, warming = null } = {}
+) {
   return {
     ...cached,
-    historyWarming: stale ? true : Boolean(cached.historyWarming),
+    historyWarming: warming == null
+      ? stale || Boolean(cached.historyWarming)
+      : Boolean(warming),
     cache: {
       ...(cached.cache || {}),
       status,
@@ -265,11 +333,11 @@ function cachedBacktestWithHit(cached, { status = "sqlite-hit", stale = false } 
 }
 
 function scheduleStaleBacktestRefresh(guruId, { years, detail }) {
-  if (process.env.BACKTEST_STALE_BACKGROUND_REFRESH === "false") return;
-  if (backtestRefreshInFlight || staleBacktestRefreshInFlight) return;
+  if (process.env.BACKTEST_STALE_BACKGROUND_REFRESH === "false") return false;
+  if (backtestRefreshInFlight || staleBacktestRefreshInFlight) return false;
   const window = normalizeBacktestWindow(years);
   const key = `${guruId}:${window.cacheKey}:${detail || "compact"}`;
-  if (staleBacktestRefreshKeys.has(key)) return;
+  if (staleBacktestRefreshKeys.has(key)) return false;
 
   staleBacktestRefreshKeys.add(key);
   staleBacktestRefreshInFlight = loadGuruBacktest(guruId, {
@@ -292,6 +360,7 @@ function scheduleStaleBacktestRefresh(guruId, { years, detail }) {
     staleBacktestRefreshKeys.delete(key);
     staleBacktestRefreshInFlight = null;
   });
+  return true;
 }
 
 function isTicker(value) {
@@ -493,13 +562,20 @@ function compactRebalance(rebalance) {
   };
 }
 
-function compactBacktestPayload(
+export function compactBacktestPayload(
   payload,
   { maxPoints = responseMaxEquityPoints, includeAttribution = false } = {}
 ) {
   if (!payload || !Array.isArray(payload.equity)) return payload;
-  const sourcePoints = payload.equity.length;
+  const priorSampling = payload.equitySampling || {};
+  const priorSourcePoints = Number(priorSampling.sourcePoints);
+  const sourcePoints = priorSampling.sampled &&
+      Number.isFinite(priorSourcePoints) &&
+      priorSourcePoints >= payload.equity.length
+    ? priorSourcePoints
+    : payload.equity.length;
   const equity = sampleEquity(payload.equity, maxPoints);
+  const sampled = Boolean(priorSampling.sampled) || equity.length < payload.equity.length;
   return {
     ...payload,
     equity,
@@ -511,8 +587,8 @@ function compactBacktestPayload(
       compactQuarterContribution(quarter, includeAttribution)
     ),
     equitySampling: {
-      sampled: equity.length < sourcePoints,
-      method: equity.length < sourcePoints ? "lttb-value" : "none",
+      sampled,
+      method: sampled ? "lttb-value" : "none",
       sourcePoints,
       returnedPoints: equity.length,
       maxPoints
@@ -867,13 +943,55 @@ function buildDisclosureRebalances(transactions, priceMaps, spyPoints) {
 async function loadDisclosureBacktest(
   guru,
   window,
-  { refresh, includeAttribution, persist = true }
+  {
+    refresh,
+    includeAttribution,
+    persist = true,
+    allowCold = true,
+    shareComputation = true,
+    refreshGeneration = ""
+  }
 ) {
   if (guru.disableSimulation) return unsupportedBacktest(guru, window);
 
   const cached = readGuruBacktest(guru.id, window.cacheKey);
-  if (!refresh && cachedBacktestIsFresh(cached)) {
+  const cacheMethodCompatible = cached?.method?.version === disclosureBacktestMethodVersion;
+  if (!refresh && cacheMethodCompatible && cachedBacktestIsFresh(cached)) {
     return compactBacktestPayload(cachedBacktestWithHit(cached), { includeAttribution });
+  }
+  if (!refresh && cacheMethodCompatible && cachedBacktestIsUsable(cached)) {
+    const warming = staleBacktestBackgroundRefreshAllowed(window.methodYears)
+      && scheduleStaleBacktestRefresh(guru.id, {
+        years: window.methodYears,
+        detail: includeAttribution ? "full" : "compact"
+      });
+    return compactBacktestPayload(cachedBacktestWithHit(cached, {
+      status: "sqlite-stale",
+      stale: true,
+      warming
+    }), { includeAttribution });
+  }
+  if (!allowCold) return coldBacktestUnavailable(guru, window);
+
+  if (shareComputation) {
+    const inFlightKey = `${guru.id}:${window.cacheKey}:${persist ? "persist" : "ephemeral"}`;
+    const build = () =>
+      loadDisclosureBacktest(guru, window, {
+        refresh,
+        includeAttribution: true,
+        persist,
+        allowCold,
+        shareComputation: false,
+        refreshGeneration: ""
+      });
+    const payload = refreshGeneration
+      ? await runGuruBacktestComputationAfterCurrent(
+          inFlightKey,
+          refreshGeneration,
+          build
+        )
+      : await runGuruBacktestComputationOnce(inFlightKey, build);
+    return compactBacktestPayload(payload, { includeAttribution });
   }
 
   const dashboard = await loadGuruDashboard({ forceRefresh: false });
@@ -904,6 +1022,7 @@ async function loadDisclosureBacktest(
       },
       window: { start, end },
       method: {
+        version: disclosureBacktestMethodVersion,
         years: window.methodYears,
         benchmark: "SPY",
         rawTransactions: allTransactions.length,
@@ -950,6 +1069,7 @@ async function loadDisclosureBacktest(
       },
       window: { start, end },
       method: {
+        version: disclosureBacktestMethodVersion,
         years: window.methodYears,
         benchmark: "SPY",
         rawTransactions: allTransactions.length,
@@ -1018,6 +1138,7 @@ async function loadDisclosureBacktest(
       end: equity.at(-1)?.date || end
     },
     method: {
+      version: disclosureBacktestMethodVersion,
       years: window.methodYears,
       benchmark: "SPY",
       execution: "Use the first tradable SPY date on or after each public STOCK Act filing date; disclosed trades update the model portfolio after that close.",
@@ -1086,9 +1207,53 @@ function unsupportedBacktest(guru, window) {
   };
 }
 
+function coldBacktestUnavailable(guru, window) {
+  return {
+    generatedAt: new Date().toISOString(),
+    status: "not_ready",
+    guru: {
+      id: guru.id,
+      name: guru.name,
+      type: guru.type,
+      thesisTag: guru.thesisTag
+    },
+    tag: {
+      label: "Extended-history audit not ready",
+      tone: "muted"
+    },
+    method: {
+      version: guru.type === "manager13f"
+        ? manager13fBacktestMethodVersion
+        : guru.type === "congress"
+          ? disclosureBacktestMethodVersion
+          : undefined,
+      years: window.methodYears,
+      benchmark: "SPY",
+      reason: "The requested extended-history backtest is not pre-warmed under the current audit method. The request failed closed without starting a cold synchronous computation."
+    },
+    summary: {},
+    equity: [],
+    rebalances: [],
+    quarterContributions: [],
+    cache: {
+      status: "miss",
+      source: "sqlite",
+      stale: false
+    }
+  };
+}
+
 export async function loadGuruBacktest(
   guruId,
-  { refresh = false, years = defaultYears, detail = "compact", persist = true } = {}
+  {
+    refresh = false,
+    years = defaultYears,
+    detail = "compact",
+    persist = true,
+    allowCold = true,
+    shareComputation = true,
+    refreshGeneration = ""
+  } = {}
 ) {
   const window = normalizeBacktestWindow(years);
   const includeAttribution = detail === "full" || detail === "attribution";
@@ -1099,7 +1264,10 @@ export async function loadGuruBacktest(
     return loadDisclosureBacktest(guru, window, {
       refresh,
       includeAttribution,
-      persist
+      persist,
+      allowCold,
+      shareComputation,
+      refreshGeneration
     });
   }
 
@@ -1113,11 +1281,36 @@ export async function loadGuruBacktest(
     return compactBacktestPayload(cachedBacktestWithHit(cached), { includeAttribution });
   }
   if (!refresh && cacheMethodCompatible && cachedBacktestIsUsable(cached)) {
-    scheduleStaleBacktestRefresh(guruId, { years, detail });
+    const warming = staleBacktestBackgroundRefreshAllowed(window.methodYears)
+      && scheduleStaleBacktestRefresh(guruId, { years, detail });
     return compactBacktestPayload(cachedBacktestWithHit(cached, {
       status: "sqlite-stale",
-      stale: true
+      stale: true,
+      warming
     }), { includeAttribution });
+  }
+  if (!allowCold) return coldBacktestUnavailable(guru, window);
+
+  if (shareComputation) {
+    const inFlightKey = `${guruId}:${window.cacheKey}:${persist ? "persist" : "ephemeral"}`;
+    const build = () =>
+      loadGuruBacktest(guruId, {
+        refresh,
+        years,
+        detail: "full",
+        persist,
+        allowCold,
+        shareComputation: false,
+        refreshGeneration: ""
+      });
+    const payload = refreshGeneration
+      ? await runGuruBacktestComputationAfterCurrent(
+          inFlightKey,
+          refreshGeneration,
+          build
+        )
+      : await runGuruBacktestComputationOnce(inFlightKey, build);
+    return compactBacktestPayload(payload, { includeAttribution });
   }
 
   const end = today();
@@ -1525,7 +1718,12 @@ export async function loadGuruBacktest(
   return persist ? compactBacktestPayload(payload, { includeAttribution }) : payload;
 }
 
-export async function loadGuruBacktests({ refresh = false, years = defaultYears, detail = "compact" } = {}) {
+export async function loadGuruBacktests({
+  refresh = false,
+  years = defaultYears,
+  detail = "compact",
+  allowCold = true
+} = {}) {
   const window = normalizeBacktestWindow(years);
   const normalizedDetail = normalizeBacktestDetail(detail);
   const cacheKey = `${window.cacheKey}:${normalizedDetail}`;
@@ -1541,7 +1739,12 @@ export async function loadGuruBacktests({ refresh = false, years = defaultYears,
   const loadAggregate = async () => {
     const results = [];
     for (const guru of gurus.filter((item) => item.type === "manager13f" || item.type === "congress")) {
-      results.push(await loadGuruBacktest(guru.id, { refresh, years, detail: normalizedDetail }));
+      results.push(await loadGuruBacktest(guru.id, {
+        refresh,
+        years,
+        detail: normalizedDetail,
+        allowCold
+      }));
     }
     const payload = {
       generatedAt: new Date().toISOString(),

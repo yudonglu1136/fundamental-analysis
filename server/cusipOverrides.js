@@ -916,6 +916,7 @@ const cusipTickerMap = new Map([
   ["87165B103", "SYF"],
   ["89417E109", "TRV"],
   ["902494103", "TSN"],
+  ["913017109", "RTX"],
   ["907818108", "UNP"],
   ["911363109", "URI"],
   ["91913Y100", "VLO"],
@@ -961,7 +962,12 @@ const cusipTickerMap = new Map([
   ["928254101", "VIRT"],
   ["88031M109", "TS"],
   ["494368103", "KMB"],
-  ["934423104", "WBD"]
+  ["934423104", "WBD"],
+  ["009158106", "APD"],
+  ["609207105", "MDLZ"],
+  ["72766Q105", "ESI"],
+  ["91911K102", "BHC"],
+  ["G6564A105", "NOMD"],
 ]);
 
 export function tickerForHolding({ issuer, cusip }) {
