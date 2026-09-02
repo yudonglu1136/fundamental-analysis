@@ -4697,17 +4697,23 @@ class SimulationRangeBar extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              TextButton.icon(
-                onPressed: onReset,
-                icon: const Icon(
-                  Icons.keyboard_double_arrow_left_rounded,
-                  size: 16,
+              Tooltip(
+                message: context.tr(
+                  '恢复完整五年审计区间',
+                  'Reset to the full audited 5Y window',
                 ),
-                label: Text(context.ui('All')),
-                style: TextButton.styleFrom(
-                  foregroundColor: palette.accent,
-                  minimumSize: const Size(58, 44),
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: TextButton.icon(
+                  onPressed: onReset,
+                  icon: const Icon(
+                    Icons.keyboard_double_arrow_left_rounded,
+                    size: 16,
+                  ),
+                  label: Text(context.tr('完整 5 年', 'Full 5Y')),
+                  style: TextButton.styleFrom(
+                    foregroundColor: palette.accent,
+                    minimumSize: const Size(78, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                  ),
                 ),
               ),
             ],

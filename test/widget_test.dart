@@ -528,6 +528,38 @@ void main() {
     },
   );
 
+  testWidgets('simulation range reset names the audited five-year window', (
+    WidgetTester tester,
+  ) async {
+    var reset = false;
+    await tester.pumpWidget(
+      LanguageScope(
+        language: AppLanguage.en,
+        child: MaterialApp(
+          theme: ThemeData.dark(),
+          home: Scaffold(
+            body: SimulationRangeBar(
+              palette: Palette(false),
+              range: const RangeValues(20, 100),
+              maxIndex: 100,
+              selectedStart: '2025/09/01',
+              selectedEnd: '2026/09/01',
+              fullStart: '2021/09/01',
+              fullEnd: '2026/09/01',
+              onChanged: (_) {},
+              onReset: () => reset = true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Full 5Y'), findsOneWidget);
+    expect(find.text('All'), findsNothing);
+    await tester.tap(find.text('Full 5Y'));
+    expect(reset, isTrue);
+  });
+
   test(
     'quarterly market lens selects widest-covered quarter and breaks ties by recency',
     () {
