@@ -7,8 +7,10 @@ process.env.AWS_API_ORIGIN = "https://legacy.example";
 process.env.ONTOLOGY_API_ORIGIN = "https://ontology.example";
 
 const {
+  default: proxyHandler,
   forwardedHeaders,
   forwardedResponseHeaders,
+  isPrivateInternalPath,
   targetUrl
 } = await import(`../api/proxy.js?test=${Date.now()}`);
 
@@ -35,6 +37,51 @@ test("keeps unrelated API requests on the legacy backend", () => {
     targetUrl(request("/api/gurus")).href,
     "https://legacy.example/api/gurus"
   );
+});
+
+test("recognizes only the private internal API namespace", () => {
+  assert.equal(isPrivateInternalPath("/api/internal"), true);
+  assert.equal(isPrivateInternalPath("/api/internal/prices/import-series"), true);
+  assert.equal(isPrivateInternalPath("/API/INTERNAL/RELEASE/GURU-PRICE-REPAIR"), true);
+  assert.equal(isPrivateInternalPath("/api/%69nternal/prices/import-series"), true);
+  assert.equal(isPrivateInternalPath("/api/%2569nternal/prices/import-series"), true);
+  assert.equal(isPrivateInternalPath("/api/gurus"), false);
+  assert.equal(isPrivateInternalPath("/api/internalized"), false);
+});
+
+test("rejects internal routes before reading a body or forwarding credentials", async () => {
+  let bodyListenerRegistered = false;
+  const headers = new Map();
+  const response = {
+    statusCode: 200,
+    body: null,
+    setHeader(name, value) {
+      headers.set(String(name).toLowerCase(), value);
+    },
+    end(value) {
+      this.body = Buffer.from(value || "");
+    }
+  };
+  await proxyHandler({
+    method: "POST",
+    url: "/api/internal/prices/import-series",
+    query: { path: "/api/internal/prices/import-series" },
+    headers: {
+      authorization: "Bearer must-not-be-forwarded",
+      host: "thesisforge.tech"
+    },
+    on() {
+      bodyListenerRegistered = true;
+    }
+  }, response);
+
+  assert.equal(response.statusCode, 404);
+  assert.equal(headers.get("cache-control"), "no-store");
+  assert.equal(bodyListenerRegistered, false);
+  assert.deepEqual(JSON.parse(response.body.toString("utf8")), {
+    error: "not_found",
+    message: "This endpoint is not available through the public API proxy."
+  });
 });
 
 test("rewrites the retired DBMF endpoint to Ontology", () => {

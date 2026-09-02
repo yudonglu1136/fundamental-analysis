@@ -195,6 +195,13 @@ test("proxy enforces an irreducible 30% selected-book coverage floor", () => {
   assert.equal(result.failure.code, "proxy_coverage_below_minimum");
   assert.ok(Math.abs(result.failure.coveragePct - 0.29) < 1e-12);
   assert.equal(result.failure.minimumCoverage, 0.3);
+  assert.deepEqual(result.failure.topExcludedHoldings, [{
+    ticker: null,
+    issuer: "PRIVATE",
+    cusip: "PRIVATE",
+    reportedBookWeight: 0.55,
+    reason: "unavailable_for_public_holdings_proxy"
+  }]);
 });
 
 test("a one-stock sleeve is rejected even when duplicate rows make its coverage high", () => {

@@ -162,6 +162,7 @@ export function buildPublicHoldingsProxy({
       (sum, holding) => sum + reportedBookWeight(holding),
       0
     );
+    const excludedPositions = mergeExcludedPositions(rebalance, excluded);
     if (consolidatedEligible.length < positionFloor) {
       return {
         ok: false,
@@ -185,7 +186,17 @@ export function buildPublicHoldingsProxy({
           executionDate: rebalance.executionDate,
           coveragePct: selectedBookCoverage,
           minimumCoverage: coverageFloor,
-          includedPositions: consolidatedEligible.length
+          includedPositions: consolidatedEligible.length,
+          // The positions are delayed public 13F disclosures. Persisting only
+          // the largest exclusions makes a failed sleeve diagnosable without
+          // dumping the full portfolio or any provider price observations.
+          topExcludedHoldings: excludedPositions.slice(0, 8).map((holding) => ({
+            ticker: holding.ticker,
+            issuer: holding.issuer,
+            cusip: holding.cusip,
+            reportedBookWeight: holding.reportedBookWeight,
+            reason: holding.reason
+          }))
         },
         rebalances: []
       };
@@ -202,7 +213,7 @@ export function buildPublicHoldingsProxy({
         weight: proxyWeight
       };
     });
-    const unpricedPositions = mergeExcludedPositions(rebalance, excluded);
+    const unpricedPositions = excludedPositions;
     proxyRebalances.push({
       ...rebalance,
       weights,

@@ -290,6 +290,39 @@ test("audited historical aliases resolve Chamath and Li Lu disclosure identifier
   assert.equal(tickerForHolding({ cusip: "G81477104", issuer: "SINA CORP" }), "SINA");
 });
 
+test("Bloomstran historical aliases retain the verified tradable series", () => {
+  assert.equal(
+    tickerForHolding({ cusip: "92556H206", issuer: "VIACOMCBS INC" }),
+    "PSKY"
+  );
+  assert.notEqual(
+    tickerForHolding({ cusip: "92556H206", issuer: "VIACOMCBS INC" }),
+    "PARA"
+  );
+  assert.equal(
+    tickerForHolding({ cusip: "436106108", issuer: "HOLLYFRONTIER CORP" }),
+    "DINO"
+  );
+  assert.equal(
+    tickerForHolding({ cusip: "780259206", issuer: "ROYAL DUTCH SHELL PLC" }),
+    "SHEL"
+  );
+  // Both names ended in cash and must not be represented as successor stock.
+  assert.equal(tickerForHolding({ cusip: "017175100", issuer: "ALLEGHANY CORP DEL" }), "");
+  assert.equal(tickerForHolding({ cusip: "71531R109", issuer: "PERSHING SQUARE TONTINE HLDGS" }), "");
+});
+
+test("Soros's historical Kennedy-Wilson identifier resolves only to KW", () => {
+  assert.equal(
+    tickerForHolding({ cusip: "489398107", issuer: "KENNEDY-WILSON HLDGS INC" }),
+    "KW"
+  );
+  assert.notEqual(
+    tickerForHolding({ cusip: "489398107", issuer: "KENNEDY-WILSON HLDGS INC" }),
+    "FRFHF"
+  );
+});
+
 test("effective holding resolution binds current and historical ticker continuity", () => {
   assert.equal(tickerForHolding({ cusip: "337738108", issuer: "FISERV INC" }), "FISV");
   assert.equal(tickerForHolding({ cusip: "44891N208", issuer: "IAC INC" }), "PPLI");

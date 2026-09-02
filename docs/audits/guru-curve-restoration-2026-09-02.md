@@ -4,12 +4,12 @@
 
 - **PASS: 36/36 displayable curves; 0 failures.**
 - Enabled manager population: 18; windows recomputed: 5Y and 10Y.
-- Strict ready: 17; explicitly labeled public-holdings proxy ready: 19.
-- 5Y: 12 strict + 6 proxy = 18/18.
+- Strict ready: 18; explicitly labeled public-holdings proxy ready: 18.
+- 5Y: 13 strict + 5 proxy = 18/18.
 - 10Y: 5 strict + 13 proxy = 18/18.
 - Method: `manager13f-drifted-total-return-v8`.
 - Proxy method: `manager13f-public-holdings-proxy-v1`.
-- Security master: `holding-resolution-v1-d31b8b7721ffafc5`.
+- Security master: `holding-resolution-v1-c82cc16972346fdb`.
 - Strict minimum execution coverage: 90%; proxy minimum selected-book coverage: 30%; proxy minimum positions: 2.
 
 The acceptance runner opened the 218,767,360-byte source database read-only, serialized it to an isolated writable database, and recomputed all 36 rows there. Source SHA-256 remained `3cb507a0f5b2c253c189684eeb416573cc80d4e860ea65c477c16fb54b30b51f` before snapshot, after snapshot, and after the run. No private holdings or price rows are stored in this report.
@@ -28,7 +28,7 @@ The acceptance runner opened the 218,767,360-byte source database read-only, ser
 | Li Lu | strict | 1,202 | 100.0% | strict | 2,316 | 100.0% |
 | Chuck Akre | strict | 1,203 | 93.0% | proxy | 2,460 | 80.5% |
 | Dev Kantesaria | strict | 1,202 | 97.4% | strict | 2,400 | 97.4% |
-| Chris Bloomstran | proxy | 1,202 | 84.2% | proxy | 2,463 | 78.5% |
+| Chris Bloomstran | strict | 1,202 | 92.9% | proxy | 2,463 | 78.6% |
 | Samantha McLemore | proxy | 1,140 | 80.2% | proxy | 1,140 | 80.2% |
 | Terry Smith | strict | 1,203 | 99.1% | proxy | 2,461 | 77.7% |
 | Stan Moss | strict | 1,205 | 99.9% | strict | 2,461 | 93.8% |
@@ -52,9 +52,9 @@ Renaissance Technologies and Nick Sleep / Qais Zakaria remain intentionally disa
 ## Verification
 
 - Real isolated acceptance: 36/36 displayable, 0 failures, completed in 14m52s.
-- Backend suite: 318/318 passed.
+- Backend suite: 341/341 passed.
 - Flutter widget suite: 60/60 passed; `flutter analyze`: 0 issues.
-- Performance suite: 31/31 passed.
+- Performance suite: 33/33 passed.
 - Ontology suite: 17/17 passed; module verification passed.
 - Bilingual coverage audit passed.
 - SEC/OpenFIGI classifier/master tests: 22/22 passed; 743 official filings and approximately 85,000 reported rows audited.

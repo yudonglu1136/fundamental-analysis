@@ -66,6 +66,24 @@ export function targetUrl(request) {
   return target;
 }
 
+export function isPrivateInternalPath(value) {
+  const pathname = value instanceof URL
+    ? value.pathname
+    : new URL(String(value || "/"), "https://thesisforge.tech").pathname;
+  let normalized = pathname;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const decoded = decodeURIComponent(normalized);
+      if (decoded === normalized) break;
+      normalized = decoded;
+    } catch {
+      break;
+    }
+  }
+  normalized = normalized.toLowerCase();
+  return normalized === "/api/internal" || normalized.startsWith("/api/internal/");
+}
+
 export function forwardedHeaders(request) {
   const headers = {};
   for (const key of REQUEST_HEADERS) {
@@ -100,6 +118,22 @@ function sendProxyError(response, code, error) {
 }
 
 export default async function handler(request, response) {
+  const target = targetUrl(request);
+  // The production Elastic Beanstalk origin is currently HTTP-only. Internal
+  // bearer credentials must never be forwarded across that public hop; release
+  // automation reaches the same routes through loopback on the EB instance.
+  if (isPrivateInternalPath(target)) {
+    const body = Buffer.from(JSON.stringify({
+      error: "not_found",
+      message: "This endpoint is not available through the public API proxy."
+    }));
+    response.statusCode = 404;
+    response.setHeader("content-type", "application/json; charset=utf-8");
+    response.setHeader("cache-control", "no-store");
+    response.setHeader("content-length", body.length);
+    response.end(body);
+    return;
+  }
   const body = hasRequestBody(request)
     ? await new Promise((resolve, reject) => {
         const chunks = [];
@@ -108,7 +142,6 @@ export default async function handler(request, response) {
         request.on("error", reject);
       })
     : undefined;
-  const target = targetUrl(request);
   const transport = target.protocol === "https:" ? https : http;
 
   await new Promise((resolve) => {

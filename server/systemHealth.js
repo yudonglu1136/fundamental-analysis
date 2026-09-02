@@ -23,6 +23,29 @@ import { listAdminPortfolioUsers } from "./userPortfolioStore.js";
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_HOURS = 24;
 const FUTURE_TOLERANCE_HOURS = 5 / 60;
+const GURU_CURVE_FAILURE_DETAIL_LIMIT = 5;
+
+const guruCurveFailureDateFields = Object.freeze([
+  "date",
+  "reportDate",
+  "executionDate"
+]);
+
+const guruCurveFailureNumericFields = Object.freeze([
+  "coveragePct",
+  "minimumCoverage",
+  "minimumExecutionCoverage",
+  "selectedBookCoverage",
+  "minimumSelectedBookCoverage",
+  "averageSelectedBookCoverage",
+  "maximumExcludedBookWeight",
+  "includedPositions",
+  "minimumPositions",
+  "minimumIncludedPositions",
+  "selectedPositions",
+  "pricedPositions",
+  "unpricedPositions"
+]);
 
 const requiredPublicTables = [
   "dashboard_snapshots",
@@ -234,6 +257,108 @@ function roundedHours(value) {
   return value === null ? null : Math.round(value * 100) / 100;
 }
 
+function sanitizedFailureCode(value) {
+  const code = String(value || "").trim();
+  return /^[a-z0-9][a-z0-9_.:-]{0,95}$/i.test(code) ? code : "";
+}
+
+function sanitizedFailureDate(value) {
+  const raw = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(raw)) return "";
+  const date = isoOrEmpty(raw);
+  return date ? date.slice(0, 10) : "";
+}
+
+function compactGuruCurveFailureDetail(value, fallbackCode = "") {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const detail = {};
+  const code = sanitizedFailureCode(value.code) || sanitizedFailureCode(fallbackCode);
+  if (code) detail.code = code;
+  for (const field of guruCurveFailureDateFields) {
+    const date = sanitizedFailureDate(value[field]);
+    if (date) detail[field] = date;
+  }
+  for (const field of guruCurveFailureNumericFields) {
+    if (value[field] === null || value[field] === undefined || value[field] === "") continue;
+    const numeric = Number(value[field]);
+    if (Number.isFinite(numeric)) detail[field] = numeric;
+  }
+  return Object.keys(detail).length ? detail : null;
+}
+
+function compactGuruCurveFailureGroup(candidates) {
+  const seen = new Set();
+  const details = [];
+  for (const { value, fallbackCode } of candidates) {
+    const detail = compactGuruCurveFailureDetail(value, fallbackCode);
+    if (!detail) continue;
+    const signature = JSON.stringify(detail);
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    details.push(detail);
+  }
+  if (!details.length) return null;
+  const visibleDetails = details.slice(0, GURU_CURVE_FAILURE_DETAIL_LIMIT);
+  const codes = [...new Set(details.map((detail) => detail.code).filter(Boolean))];
+  const visibleCodes = codes.slice(0, GURU_CURVE_FAILURE_DETAIL_LIMIT);
+  return {
+    codes: visibleCodes,
+    details: visibleDetails,
+    omittedDetails: Math.max(0, details.length - visibleDetails.length),
+    ...(codes.length > visibleCodes.length
+      ? { omittedCodes: codes.length - visibleCodes.length }
+      : {})
+  };
+}
+
+function compactStoredGuruCurveFailureSummary(strict) {
+  if (!strict || typeof strict !== "object" || Array.isArray(strict)) {
+    return {
+      strict: {
+        status: "missing",
+        codes: ["strict_missing"],
+        details: [],
+        omittedDetails: 0
+      }
+    };
+  }
+  const dataQuality = strict.dataQuality && typeof strict.dataQuality === "object"
+    ? strict.dataQuality
+    : {};
+  const strictGroup = compactGuruCurveFailureGroup([
+    { value: dataQuality.failure, fallbackCode: "strict_backtest_failed" },
+    { value: dataQuality.priceFailure, fallbackCode: "strict_price_failure" },
+    ...(Array.isArray(dataQuality.coverageFailures)
+      ? dataQuality.coverageFailures.map((value) => ({
+          value,
+          fallbackCode: "execution_coverage_below_minimum"
+        }))
+      : [])
+  ]);
+  const proxyGroup = compactGuruCurveFailureGroup([
+    { value: dataQuality.proxyFailure, fallbackCode: "proxy_backtest_failed" }
+  ]);
+  const status = sanitizedFailureCode(strict.status) || "unknown";
+  const fallbackStrictGroup = strictGroup || (status !== "ready"
+    ? {
+        codes: [`strict_${status}`],
+        details: [],
+        omittedDetails: 0
+      }
+    : {
+        codes: [],
+        details: [],
+        omittedDetails: 0
+      });
+  return {
+    strict: {
+      status,
+      ...fallbackStrictGroup
+    },
+    ...(proxyGroup ? { proxy: proxyGroup } : {})
+  };
+}
+
 function publicStateForAge(value, warningHours, failedHours, now) {
   return {
     success: "healthy",
@@ -421,7 +546,10 @@ export function summarizeGuruCurveAvailability({
                     : "no_current_displayable_curve"
           : null,
         strictFreshness,
-        ...(proxy?.status === "proxy_ready" ? { proxyFreshness } : {})
+        ...(proxy?.status === "proxy_ready" ? { proxyFreshness } : {}),
+        ...(outcome === "failure"
+          ? { failureSummary: compactStoredGuruCurveFailureSummary(strict) }
+          : {})
       });
     }
   }

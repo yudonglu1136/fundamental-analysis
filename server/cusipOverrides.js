@@ -978,6 +978,19 @@ const cusipTickerMap = new Map([
   ["88031M109", "TS"],
   ["494368103", "KMB"],
   ["934423104", "WBD"],
+  // ViacomCBS/Paramount Global Class B continued through the 2025
+  // Paramount Skydance stock/no-election path. Use PSKY because the PARA
+  // symbol was recycled in 2026 and no longer identifies this history.
+  ["92556H206", "PSKY"],
+  // HollyFrontier shares converted one-for-one into HF Sinclair (DINO).
+  ["436106108", "DINO"],
+  // Royal Dutch Shell Class A ADS continued into the unified Shell ADS
+  // without changing the number of ADSs held.
+  ["780259206", "SHEL"],
+  // Kennedy-Wilson's historical common stock traded as KW. Fairfax acquired it
+  // for cash in 2026, so this maps only the filed security's own price history
+  // and must never be redirected to Fairfax.
+  ["489398107", "KW"],
   ["009158106", "APD"],
   ["609207105", "MDLZ"],
   ["72766Q105", "ESI"],

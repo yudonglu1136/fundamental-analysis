@@ -29,3 +29,19 @@ export function requireInternalCron(request, response, next) {
   }
   next();
 }
+
+export function isLoopbackRequest(request) {
+  const address = String(request?.socket?.remoteAddress || "").trim().toLowerCase();
+  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
+}
+
+export function requireLoopbackRequest(request, response, next) {
+  if (!isLoopbackRequest(request)) {
+    response.status(404).json({
+      error: "not_found",
+      message: "This internal release endpoint is available only over loopback."
+    });
+    return;
+  }
+  next();
+}

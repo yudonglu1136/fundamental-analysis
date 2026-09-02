@@ -20,12 +20,14 @@ function normalizeBacktestYears(value) {
 
 export function registerAuditedPriceSeriesImportRoute(app, {
   requireInternalCron,
+  requireLoopbackRequest = (_request, _response, next) => next(),
   gurus,
   writeAuditedPriceSeriesImport,
   loadGuruBacktest
 }) {
   app.post(
     "/api/internal/prices/import-series",
+    requireLoopbackRequest,
     requireInternalCron,
     express.json({ limit: "5mb" }),
     async (request, response) => {

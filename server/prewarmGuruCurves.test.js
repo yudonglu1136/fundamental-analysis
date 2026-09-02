@@ -1,0 +1,239 @@
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import fs from "node:fs";
+import http from "node:http";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+
+const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const prewarmScript = path.join(repoRoot, "scripts", "prewarm-guru-curves.mjs");
+const generation = "a".repeat(64);
+const strictMethodVersion = "strict-v1";
+const proxyMethodVersion = "proxy-v1";
+const securityMasterVersion = "security-v1";
+
+function listen(server) {
+  return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server)));
+}
+
+function runPrewarm({ port, output, marker, notBefore }) {
+  const child = spawn(process.execPath, [
+    prewarmScript,
+    `--base-url=http://127.0.0.1:${port}`,
+    "--windows=5,10",
+    `--refresh-generation=${generation}`,
+    `--not-before=${notBefore}`,
+    `--strict-method-version=${strictMethodVersion}`,
+    `--proxy-method-version=${proxyMethodVersion}`,
+    `--security-master-version=${securityMasterVersion}`,
+    `--output=${output}`,
+    `--success-marker=${marker}`
+  ], {
+    cwd: repoRoot,
+    env: { ...process.env, INTERNAL_CRON_SECRET: "test-secret" },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  const stdout = [];
+  const stderr = [];
+  child.stdout.on("data", (chunk) => stdout.push(chunk));
+  child.stderr.on("data", (chunk) => stderr.push(chunk));
+  return new Promise((resolve, reject) => {
+    child.once("error", reject);
+    child.once("exit", (code, signal) => resolve({
+      code,
+      signal,
+      stdout: Buffer.concat(stdout).toString("utf8"),
+      stderr: Buffer.concat(stderr).toString("utf8")
+    }));
+  });
+}
+
+function managerResults(years, refreshGeneration, generatedAt = new Date().toISOString()) {
+  return Array.from({ length: 18 }, (_, index) => {
+    const proxy = index >= 8;
+    return {
+      guruId: `guru-${index + 1}`,
+      guruType: "manager13f",
+      disabled: false,
+      years,
+      status: proxy ? "proxy_ready" : "ready",
+      generatedAt,
+      methodVersion: strictMethodVersion,
+      securityMasterVersion,
+      proxyMethodVersion: proxy ? proxyMethodVersion : "",
+      proxySecurityMasterVersion: proxy ? securityMasterVersion : "",
+      refreshGeneration
+    };
+  });
+}
+
+function healthPayload() {
+  return {
+    modules: [{
+      id: "guru_backtests",
+      details: {
+        curveAvailability: { ok: true, expectedRows: 36, displayable: 36, failures: [] }
+      }
+    }]
+  };
+}
+
+test("prewarm writes its success marker only after both post-repair windows and 36/36", async (context) => {
+  const requestedGenerations = [];
+  const server = await listen(http.createServer((request, response) => {
+    const url = new URL(request.url, "http://127.0.0.1");
+    response.setHeader("content-type", "application/json");
+    if (url.pathname === "/api/health") {
+      response.end(JSON.stringify(healthPayload()));
+      return;
+    }
+    if (url.pathname === "/api/internal/backtests/status") {
+      response.end(JSON.stringify({ running: false }));
+      return;
+    }
+    if (url.pathname === "/api/internal/backtests/refresh") {
+      const refreshGeneration = url.searchParams.get("refreshGeneration");
+      const years = Number(url.searchParams.get("years"));
+      requestedGenerations.push(refreshGeneration);
+      response.end(JSON.stringify({
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        ok: 8,
+        failed: 10,
+        proxyAvailable: 10,
+        errors: [],
+        refreshGeneration,
+        results: managerResults(years, refreshGeneration)
+      }));
+      return;
+    }
+    response.statusCode = 404;
+    response.end("{}");
+  }));
+  context.after(() => server.close());
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "guru-prewarm-test-"));
+  context.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+  const output = path.join(tempDir, "report.json");
+  const marker = path.join(tempDir, "done.json");
+  const result = await runPrewarm({
+    port: server.address().port,
+    output,
+    marker,
+    notBefore: new Date(Date.now() - 1000).toISOString()
+  });
+
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+  assert.deepEqual(requestedGenerations, [`${generation}:5`, `${generation}:10`]);
+  assert.equal(JSON.parse(fs.readFileSync(output, "utf8")).pass, true);
+  assert.equal(JSON.parse(fs.readFileSync(marker, "utf8")).displayable, 36);
+});
+
+test("old green health cannot hide a missing current-generation manager result", async (context) => {
+  const server = await listen(http.createServer((request, response) => {
+    const url = new URL(request.url, "http://127.0.0.1");
+    response.setHeader("content-type", "application/json");
+    if (url.pathname === "/api/health") {
+      response.end(JSON.stringify(healthPayload()));
+    } else if (url.pathname === "/api/internal/backtests/status") {
+      response.end(JSON.stringify({ running: false }));
+    } else if (url.pathname === "/api/internal/backtests/refresh") {
+      const refreshGeneration = url.searchParams.get("refreshGeneration");
+      const years = Number(url.searchParams.get("years"));
+      response.end(JSON.stringify({
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        refreshGeneration,
+        results: managerResults(years, refreshGeneration).slice(0, 17)
+      }));
+    } else {
+      response.statusCode = 404;
+      response.end("{}");
+    }
+  }));
+  context.after(() => server.close());
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "guru-prewarm-incomplete-test-"));
+  context.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+  const marker = path.join(tempDir, "done.json");
+  const result = await runPrewarm({
+    port: server.address().port,
+    output: path.join(tempDir, "report.json"),
+    marker,
+    notBefore: new Date(Date.now() - 1000).toISOString()
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.equal(fs.existsSync(marker), false);
+  assert.match(result.stderr, /17\/18 unique manager results/);
+});
+
+test("an already-running response cannot reuse an old green health state", async (context) => {
+  const server = await listen(http.createServer((request, response) => {
+    const url = new URL(request.url, "http://127.0.0.1");
+    response.setHeader("content-type", "application/json");
+    if (url.pathname === "/api/health") {
+      response.end(JSON.stringify(healthPayload()));
+    } else if (url.pathname === "/api/internal/backtests/status") {
+      response.end(JSON.stringify({ running: false }));
+    } else if (url.pathname === "/api/internal/backtests/refresh") {
+      response.end(JSON.stringify({ alreadyRunning: true }));
+    } else {
+      response.statusCode = 404;
+      response.end("{}");
+    }
+  }));
+  context.after(() => server.close());
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "guru-prewarm-old-green-test-"));
+  context.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+  const marker = path.join(tempDir, "done.json");
+  const result = await runPrewarm({
+    port: server.address().port,
+    output: path.join(tempDir, "report.json"),
+    marker,
+    notBefore: new Date(Date.now() - 1000).toISOString()
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.equal(fs.existsSync(marker), false);
+  assert.match(result.stderr, /alreadyRunning=true/);
+});
+
+test("HTTP 503 health cannot write a marker even when Guru availability is 36/36", async (context) => {
+  const server = await listen(http.createServer((request, response) => {
+    const url = new URL(request.url, "http://127.0.0.1");
+    response.setHeader("content-type", "application/json");
+    if (url.pathname === "/api/health") {
+      response.statusCode = 503;
+      response.end(JSON.stringify(healthPayload()));
+    } else if (url.pathname === "/api/internal/backtests/status") {
+      response.end(JSON.stringify({ running: false }));
+    } else if (url.pathname === "/api/internal/backtests/refresh") {
+      const refreshGeneration = url.searchParams.get("refreshGeneration");
+      const years = Number(url.searchParams.get("years"));
+      response.end(JSON.stringify({
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        refreshGeneration,
+        results: managerResults(years, refreshGeneration)
+      }));
+    } else {
+      response.statusCode = 404;
+      response.end("{}");
+    }
+  }));
+  context.after(() => server.close());
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "guru-prewarm-health-503-test-"));
+  context.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+  const output = path.join(tempDir, "report.json");
+  const marker = path.join(tempDir, "done.json");
+  const result = await runPrewarm({
+    port: server.address().port,
+    output,
+    marker,
+    notBefore: new Date(Date.now() - 1000).toISOString()
+  });
+
+  assert.equal(result.code, 2);
+  assert.equal(fs.existsSync(marker), false);
+  assert.equal(JSON.parse(fs.readFileSync(output, "utf8")).healthHttpStatus, 503);
+});

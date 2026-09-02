@@ -17,6 +17,9 @@ import {
   guruBacktestRefreshStatus,
   loadGuruBacktest,
   loadGuruBacktests,
+  manager13fBacktestMethodVersion,
+  manager13fProxyMethodVersion,
+  manager13fSecurityMasterVersion,
   publicBacktestRequestPolicy,
   refreshGuruBacktestCache,
   startGuruBacktestRefresher
@@ -26,12 +29,15 @@ import { importValuationTicker } from "./valuationImporter.js";
 import { translateTextsToChinese } from "./translationClient.js";
 import {
   readBackgroundJobRun,
+  readPriceSeriesFromDb,
   writeAuditedPriceSeriesImport,
+  writeAuditedPriceSeriesImportBatch,
   writeAuditedPriceRepair,
   writeBackgroundJobRun
 } from "./localDatabase.js";
-import { requireInternalCron } from "./internalCronAuth.js";
+import { requireInternalCron, requireLoopbackRequest } from "./internalCronAuth.js";
 import { registerAuditedPriceSeriesImportRoute } from "./auditedPriceSeriesImportRoute.js";
+import { registerGuruPriceRepairRoute } from "./guruPriceRepairRoute.js";
 import { startThirteenFRefresh } from "./refreshThirteenF.js";
 import { loadTickerLogo } from "./logoClient.js";
 import {
@@ -82,14 +88,28 @@ app.use(cors({
   methods: ["GET", "POST", "DELETE", "OPTIONS"],
   allowedHeaders: ["authorization", "content-type", "if-none-match"]
 }));
-app.use(express.json());
 installJsonTransport(app);
+registerGuruPriceRepairRoute(app, {
+  requireInternalCron,
+  requireLoopbackRequest,
+  gurus,
+  readPriceSeriesFromDb,
+  writeAuditedPriceSeriesImportBatch,
+  loadGuruBacktest,
+  strictMethodVersion: manager13fBacktestMethodVersion,
+  proxyMethodVersion: manager13fProxyMethodVersion,
+  securityMasterVersion: manager13fSecurityMasterVersion
+});
 registerAuditedPriceSeriesImportRoute(app, {
   requireInternalCron,
+  requireLoopbackRequest,
   gurus,
   writeAuditedPriceSeriesImport,
   loadGuruBacktest
 });
+// Keep the larger parser scoped to the audited series route above. Every other
+// JSON endpoint retains Express's conservative default request-size limit.
+app.use(express.json());
 
 const avatarAssetDir = fs.existsSync(path.join(rootDir, "dist", "guru-avatars"))
   ? path.join(rootDir, "dist", "guru-avatars")
@@ -120,16 +140,20 @@ app.get("/api/logo/:ticker", async (request, response) => {
   }
 });
 
-app.get("/api/internal/backtests/status", requireInternalCron, (_request, response) => {
+app.get("/api/internal/backtests/status", requireLoopbackRequest, requireInternalCron, (_request, response) => {
   response.json(guruBacktestRefreshStatus());
 });
 
-app.post("/api/internal/backtests/refresh", requireInternalCron, async (request, response) => {
+app.post("/api/internal/backtests/refresh", requireLoopbackRequest, requireInternalCron, async (request, response) => {
   try {
+    const refreshGeneration = String(
+      request.query.refreshGeneration || request.body?.refreshGeneration || ""
+    ).trim();
     const payload = await refreshGuruBacktestCache({
       years: request.query.years || request.body?.years || 5,
       detail: request.query.detail || request.body?.detail || "compact",
-      reason: "internal-api"
+      reason: "internal-api",
+      refreshGeneration
     });
     response.json(payload);
   } catch (error) {
@@ -140,7 +164,7 @@ app.post("/api/internal/backtests/refresh", requireInternalCron, async (request,
   }
 });
 
-app.post("/api/internal/backtests/:guruId/refresh", requireInternalCron, async (request, response) => {
+app.post("/api/internal/backtests/:guruId/refresh", requireLoopbackRequest, requireInternalCron, async (request, response) => {
   const guru = gurus.find((item) => item.id === request.params.guruId);
   if (
     !guru ||
@@ -187,7 +211,7 @@ function requestedPriceRepairGuruIds(value) {
   return [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))];
 }
 
-app.post("/api/internal/prices/repair", requireInternalCron, async (request, response) => {
+app.post("/api/internal/prices/repair", requireLoopbackRequest, requireInternalCron, async (request, response) => {
   const guruIds = requestedPriceRepairGuruIds(request.body?.refreshGuruIds);
   const knownGuruIds = new Set(gurus
     .filter((guru) =>
@@ -278,12 +302,12 @@ function requested13fGuruIds(value) {
   return [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))];
 }
 
-app.get("/api/internal/gurus/refresh/status", requireInternalCron, (_request, response) => {
+app.get("/api/internal/gurus/refresh/status", requireLoopbackRequest, requireInternalCron, (_request, response) => {
   response.setHeader("Cache-Control", "no-store");
   response.json(thirteenFRefreshStatus());
 });
 
-app.post("/api/internal/gurus/refresh", requireInternalCron, (request, response) => {
+app.post("/api/internal/gurus/refresh", requireLoopbackRequest, requireInternalCron, (request, response) => {
   const previous = thirteenFRefreshStatus();
   const previousStartedAt = new Date(previous.startedAt || "").getTime();
   const previousIsActive = ["queued", "running"].includes(previous.status) &&

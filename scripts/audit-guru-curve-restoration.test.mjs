@@ -311,3 +311,49 @@ test("SQLite snapshot is consistent and leaves the source byte-identical", async
   assert.equal(copy.prepare("SELECT value FROM sample").get().value, "evidence");
   copy.close();
 });
+
+test("SQLite snapshot includes committed WAL frames without changing the live database", async (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "curve-acceptance-wal-test-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const sourcePath = path.join(directory, "source.sqlite");
+  const copyPath = path.join(directory, "copy.sqlite");
+  const source = new DatabaseSync(sourcePath);
+  source.exec(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA wal_autocheckpoint = 0;
+    CREATE TABLE sample (id INTEGER PRIMARY KEY, value TEXT);
+    INSERT INTO sample (value) VALUES ('committed-in-wal');
+  `);
+
+  const walPath = `${sourcePath}-wal`;
+  assert.equal(fs.existsSync(walPath), true);
+  const mainBefore = fs.readFileSync(sourcePath);
+  const walBefore = fs.readFileSync(walPath);
+
+  const metadata = await snapshotDatabase(sourcePath, copyPath);
+
+  assert.equal(metadata.integrityCheck, "ok");
+  assert.equal(metadata.snapshotBytes, fs.statSync(copyPath).size);
+  assert.equal(fs.statSync(copyPath).mode & 0o777, 0o600);
+  assert.deepEqual(fs.readFileSync(sourcePath), mainBefore);
+  assert.deepEqual(fs.readFileSync(walPath), walBefore);
+
+  const copy = new DatabaseSync(copyPath, { readOnly: true });
+  assert.equal(copy.prepare("SELECT value FROM sample").get().value, "committed-in-wal");
+  copy.close();
+  source.close();
+});
+
+test("SQLite snapshot never overwrites an existing destination", async (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "curve-acceptance-existing-test-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const sourcePath = path.join(directory, "source.sqlite");
+  const copyPath = path.join(directory, "copy.sqlite");
+  const source = new DatabaseSync(sourcePath);
+  source.exec("CREATE TABLE sample (value TEXT); INSERT INTO sample VALUES ('source')");
+  source.close();
+  fs.writeFileSync(copyPath, "do-not-overwrite");
+
+  await assert.rejects(snapshotDatabase(sourcePath, copyPath), { code: "EEXIST" });
+  assert.equal(fs.readFileSync(copyPath, "utf8"), "do-not-overwrite");
+});

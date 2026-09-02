@@ -107,6 +107,24 @@ db.exec(`
     payload_sha256 TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS price_series_import_batch_audits (
+    batch_audit_id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    records_sha256 TEXT NOT NULL UNIQUE,
+    release_id TEXT NOT NULL,
+    source_volume_id TEXT NOT NULL,
+    source_snapshot_id TEXT NOT NULL,
+    encrypted_snapshot_id TEXT NOT NULL,
+    operator TEXT NOT NULL,
+    child_audit_ids_json TEXT NOT NULL,
+    series_manifest_json TEXT NOT NULL,
+    refresh_targets_json TEXT NOT NULL,
+    expectations_json TEXT NOT NULL,
+    group_count INTEGER NOT NULL,
+    row_count INTEGER NOT NULL,
+    imported_row_count INTEGER NOT NULL
+  );
+
   -- The PRIMARY KEY already creates sqlite_autoindex_price_points_1 on
   -- (symbol, date). A second identical index wastes about 50 MB.
 
@@ -365,6 +383,17 @@ for (const [column, definition] of priceRepairAuditMigrations) {
   if (!priceRepairAuditColumns.has(column)) {
     db.exec(`ALTER TABLE price_repair_audits ADD COLUMN ${column} ${definition}`);
   }
+}
+
+const priceSeriesBatchAuditColumns = new Set(
+  db.prepare("PRAGMA table_info(price_series_import_batch_audits)").all()
+    .map((column) => column.name)
+);
+if (!priceSeriesBatchAuditColumns.has("imported_row_count")) {
+  db.exec(`
+    ALTER TABLE price_series_import_batch_audits
+    ADD COLUMN imported_row_count INTEGER NOT NULL DEFAULT 0
+  `);
 }
 
 const readCacheRevisionStatement = db.prepare(`
@@ -2212,7 +2241,7 @@ function normalizeAuditedPriceSeriesImportRow(row, index, symbol) {
   return { symbol, date, ...values, volume };
 }
 
-export function writeAuditedPriceSeriesImport(rows, {
+function writeAuditedPriceSeriesImportInternal(rows, {
   symbol,
   startDate,
   endDate,
@@ -2223,7 +2252,7 @@ export function writeAuditedPriceSeriesImport(rows, {
   sourceReference,
   operator,
   affectedGuruIds = []
-} = {}) {
+} = {}, { manageTransaction = true } = {}) {
   if (
     !Array.isArray(rows) ||
     rows.length < 1 ||
@@ -2345,7 +2374,7 @@ export function writeAuditedPriceSeriesImport(rows, {
   let beforeRows = [];
   let payloadSha256 = "";
 
-  db.exec("BEGIN IMMEDIATE");
+  if (manageTransaction) db.exec("BEGIN IMMEDIATE");
   try {
     const spyDates = readSpyDates
       .all(normalizedStartDate, normalizedEndDate)
@@ -2505,12 +2534,14 @@ export function writeAuditedPriceSeriesImport(rows, {
       normalizedRows.length,
       payloadSha256
     );
-    db.exec("COMMIT");
+    if (manageTransaction) db.exec("COMMIT");
   } catch (error) {
-    try {
-      db.exec("ROLLBACK");
-    } catch {
-      // Preserve the original validation, write, or audit error.
+    if (manageTransaction) {
+      try {
+        db.exec("ROLLBACK");
+      } catch {
+        // Preserve the original validation, write, or audit error.
+      }
     }
     throw error;
   }
@@ -2532,6 +2563,166 @@ export function writeAuditedPriceSeriesImport(rows, {
     completedRows: beforeRows.filter((row) => row.action === "complete-null-fields").length,
     rowCount: normalizedRows.length,
     payloadSha256
+  };
+}
+
+export function writeAuditedPriceSeriesImport(rows, options = {}) {
+  return writeAuditedPriceSeriesImportInternal(rows, options);
+}
+
+export function writeAuditedPriceSeriesImportBatch(requests, {
+  recordsSha256,
+  releaseId,
+  sourceVolumeId,
+  sourceSnapshotId,
+  encryptedSnapshotId,
+  operator,
+  seriesManifest = [],
+  refreshTargets = [],
+  expectations = {}
+} = {}) {
+  if (!Array.isArray(requests) || requests.length > 64) {
+    throw new Error("Price-series import batch may contain at most 64 series groups.");
+  }
+  const totalRows = requests.reduce((sum, request) =>
+    sum + (Array.isArray(request?.rows) ? request.rows.length : 0), 0);
+  if (totalRows > 20_000) {
+    throw new Error("Price-series import batch may contain at most 20,000 rows.");
+  }
+  const normalizedRecordsSha256 = String(recordsSha256 || "").trim().toLowerCase();
+  const normalizedReleaseId = String(releaseId || "").trim();
+  const normalizedSourceVolumeId = String(sourceVolumeId || "").trim().toLowerCase();
+  const normalizedSourceSnapshotId = String(sourceSnapshotId || "").trim().toLowerCase();
+  const normalizedEncryptedSnapshotId = String(encryptedSnapshotId || "").trim().toLowerCase();
+  const normalizedOperator = String(operator || "").trim();
+  if (!/^[a-f0-9]{64}$/.test(normalizedRecordsSha256) ||
+      !/^guru-curves-[A-Za-z0-9._-]{8,80}$/.test(normalizedReleaseId) ||
+      !/^vol-[a-f0-9]{8,32}$/.test(normalizedSourceVolumeId) ||
+      !/^snap-[a-f0-9]{8,32}$/.test(normalizedSourceSnapshotId) ||
+      !/^snap-[a-f0-9]{8,32}$/.test(normalizedEncryptedSnapshotId) ||
+      !/^[A-Za-z0-9][A-Za-z0-9._:@/-]{2,79}$/.test(normalizedOperator)) {
+    throw new Error("Price-series import batch has invalid release identity metadata.");
+  }
+  if (!Array.isArray(seriesManifest) || !seriesManifest.length || seriesManifest.length > 64 ||
+      !Array.isArray(refreshTargets) || !refreshTargets.length ||
+      !expectations || typeof expectations !== "object" || Array.isArray(expectations)) {
+    throw new Error("Price-series import batch requires its complete manifest and expectations.");
+  }
+  const manifestRowCount = seriesManifest.reduce((sum, series) =>
+    sum + Number(series?.rowCount || 0), 0);
+  if (!Number.isSafeInteger(manifestRowCount) || manifestRowCount < 1 ||
+      manifestRowCount > 20_000 || totalRows > manifestRowCount) {
+    throw new Error("Price-series import batch manifest row count is invalid.");
+  }
+
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const existing = db.prepare(`
+      SELECT batch_audit_id, release_id, source_volume_id, source_snapshot_id,
+        encrypted_snapshot_id, operator, child_audit_ids_json, series_manifest_json,
+        refresh_targets_json, expectations_json, group_count, row_count,
+        imported_row_count
+      FROM price_series_import_batch_audits
+      WHERE records_sha256 = ?
+    `).get(normalizedRecordsSha256);
+    if (existing) {
+      const sameIdentity = existing.release_id === normalizedReleaseId &&
+        existing.source_volume_id === normalizedSourceVolumeId &&
+        existing.source_snapshot_id === normalizedSourceSnapshotId &&
+        existing.encrypted_snapshot_id === normalizedEncryptedSnapshotId &&
+        existing.operator === normalizedOperator &&
+        existing.series_manifest_json === JSON.stringify(seriesManifest) &&
+        existing.refresh_targets_json === JSON.stringify(refreshTargets) &&
+        existing.expectations_json === JSON.stringify(expectations) &&
+        Number(existing.row_count) === manifestRowCount;
+      if (!sameIdentity || requests.length) {
+        throw new Error("Price-series import batch audit conflicts with this release attempt.");
+      }
+      db.exec("COMMIT");
+      return {
+        batchAuditId: existing.batch_audit_id,
+        recordsSha256: normalizedRecordsSha256,
+        audits: JSON.parse(existing.child_audit_ids_json).map((auditId) => ({ auditId })),
+        groupCount: Number(existing.group_count) || 0,
+        rowCount: Number(existing.row_count) || 0,
+        importedRowCount: Number(existing.imported_row_count) || 0,
+        replayed: true
+      };
+    }
+    const results = requests.map(({ rows, ...options }) =>
+      writeAuditedPriceSeriesImportInternal(rows, options, { manageTransaction: false })
+    );
+    const createdAt = new Date().toISOString();
+    const batchAuditId = `price-series-batch-${crypto.randomUUID()}`;
+    db.prepare(`
+      INSERT INTO price_series_import_batch_audits (
+        batch_audit_id, created_at, records_sha256, release_id, source_volume_id,
+        source_snapshot_id, encrypted_snapshot_id, operator, child_audit_ids_json,
+        series_manifest_json, refresh_targets_json, expectations_json, group_count, row_count,
+        imported_row_count
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      batchAuditId,
+      createdAt,
+      normalizedRecordsSha256,
+      normalizedReleaseId,
+      normalizedSourceVolumeId,
+      normalizedSourceSnapshotId,
+      normalizedEncryptedSnapshotId,
+      normalizedOperator,
+      JSON.stringify(results.map((result) => result.auditId)),
+      JSON.stringify(seriesManifest),
+      JSON.stringify(refreshTargets),
+      JSON.stringify(expectations),
+      results.length,
+      manifestRowCount,
+      totalRows
+    );
+    db.exec("COMMIT");
+    return {
+      batchAuditId,
+      recordsSha256: normalizedRecordsSha256,
+      audits: results,
+      groupCount: results.length,
+      rowCount: manifestRowCount,
+      importedRowCount: totalRows,
+      replayed: false
+    };
+  } catch (error) {
+    try {
+      db.exec("ROLLBACK");
+    } catch {
+      // Preserve the original validation, write, or audit error.
+    }
+    throw error;
+  }
+}
+
+export function readPriceSeriesImportBatchAudit(recordsSha256) {
+  const normalized = String(recordsSha256 || "").trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(normalized)) return null;
+  const row = db.prepare(`
+    SELECT *
+    FROM price_series_import_batch_audits
+    WHERE records_sha256 = ?
+  `).get(normalized);
+  if (!row) return null;
+  return {
+    batchAuditId: row.batch_audit_id,
+    createdAt: row.created_at,
+    recordsSha256: row.records_sha256,
+    releaseId: row.release_id,
+    sourceVolumeId: row.source_volume_id,
+    sourceSnapshotId: row.source_snapshot_id,
+    encryptedSnapshotId: row.encrypted_snapshot_id,
+    operator: row.operator,
+    childAuditIds: JSON.parse(row.child_audit_ids_json),
+    seriesManifest: JSON.parse(row.series_manifest_json),
+    refreshTargets: JSON.parse(row.refresh_targets_json),
+    expectations: JSON.parse(row.expectations_json),
+    groupCount: Number(row.group_count) || 0,
+    rowCount: Number(row.row_count) || 0,
+    importedRowCount: Number(row.imported_row_count) || 0
   };
 }
 

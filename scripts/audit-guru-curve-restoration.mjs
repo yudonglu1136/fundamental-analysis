@@ -206,42 +206,59 @@ export async function snapshotDatabase(sourcePath, destinationPath) {
   const sourceFileSha256 = await sha256File(resolvedSource);
 
   fs.mkdirSync(path.dirname(resolvedDestination), { recursive: true });
-  const source = new DatabaseSync(resolvedSource, { readOnly: true });
-  let serialized;
+  let destinationCreated = false;
   try {
-    serialized = source.serialize();
-  } finally {
-    source.close();
-  }
-  fs.writeFileSync(resolvedDestination, serialized, { flag: "wx", mode: 0o600 });
+    // Reserve the destination without permitting an existing file to be
+    // overwritten. SQLite accepts an existing empty file for VACUUM INTO.
+    // VACUUM INTO reads through SQLite's transaction layer, so committed WAL
+    // frames are included in one consistent snapshot without checkpointing or
+    // otherwise mutating the live source database. This also works on Node 22,
+    // whose initial node:sqlite DatabaseSync API did not expose serialize().
+    const destinationFd = fs.openSync(resolvedDestination, "wx", 0o600);
+    fs.closeSync(destinationFd);
+    destinationCreated = true;
 
-  const copy = new DatabaseSync(resolvedDestination, { readOnly: true });
-  let integrity;
-  try {
-    integrity = copy.prepare("PRAGMA integrity_check").get()?.integrity_check || "unknown";
-  } finally {
-    copy.close();
-  }
-  if (integrity !== "ok") {
-    throw new Error(`Isolated database failed integrity_check: ${integrity}`);
-  }
-  const afterSnapshot = fs.statSync(resolvedSource);
-  const sourceFileSha256AfterSnapshot = await sha256File(resolvedSource);
+    const source = new DatabaseSync(resolvedSource, { readOnly: true });
+    try {
+      source.prepare("VACUUM INTO ?").run(resolvedDestination);
+    } finally {
+      source.close();
+    }
+    fs.chmodSync(resolvedDestination, 0o600);
 
-  return {
-    sourcePath: resolvedSource,
-    sourceBytes: before.size,
-    sourceModifiedAt: before.mtime.toISOString(),
-    sourceFileSha256,
-    sourceStableDuringSnapshot:
-      before.size === afterSnapshot.size &&
-      before.mtime.toISOString() === afterSnapshot.mtime.toISOString() &&
-      sourceFileSha256 === sourceFileSha256AfterSnapshot,
-    sourceFileSha256AfterSnapshot,
-    snapshotBytes: serialized.byteLength,
-    snapshotSha256: crypto.createHash("sha256").update(serialized).digest("hex"),
-    integrityCheck: integrity
-  };
+    const copy = new DatabaseSync(resolvedDestination, { readOnly: true });
+    let integrity;
+    try {
+      integrity = copy.prepare("PRAGMA integrity_check").get()?.integrity_check || "unknown";
+    } finally {
+      copy.close();
+    }
+    if (integrity !== "ok") {
+      throw new Error(`Isolated database failed integrity_check: ${integrity}`);
+    }
+    const afterSnapshot = fs.statSync(resolvedSource);
+    const sourceFileSha256AfterSnapshot = await sha256File(resolvedSource);
+    const snapshot = fs.statSync(resolvedDestination);
+    const snapshotSha256 = await sha256File(resolvedDestination);
+
+    return {
+      sourcePath: resolvedSource,
+      sourceBytes: before.size,
+      sourceModifiedAt: before.mtime.toISOString(),
+      sourceFileSha256,
+      sourceStableDuringSnapshot:
+        before.size === afterSnapshot.size &&
+        before.mtime.toISOString() === afterSnapshot.mtime.toISOString() &&
+        sourceFileSha256 === sourceFileSha256AfterSnapshot,
+      sourceFileSha256AfterSnapshot,
+      snapshotBytes: snapshot.size,
+      snapshotSha256,
+      integrityCheck: integrity
+    };
+  } catch (error) {
+    if (destinationCreated) fs.rmSync(resolvedDestination, { force: true });
+    throw error;
+  }
 }
 
 function finiteNumber(...values) {

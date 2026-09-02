@@ -2349,9 +2349,26 @@ export async function refreshGuruBacktestCache({
   years = 5,
   detail = "compact",
   reason = "manual",
+  refreshGeneration = "",
   backtestLoader = loadGuruBacktest
 } = {}) {
+  const normalizedGeneration = String(refreshGeneration || "").trim();
+  if (normalizedGeneration && !/^[A-Za-z0-9._:-]{8,240}$/.test(normalizedGeneration)) {
+    throw new Error("Backtest refresh generation is invalid.");
+  }
   if (backtestRefreshInFlight) {
+    if (normalizedGeneration) {
+      const priorRefresh = backtestRefreshInFlight;
+      await priorRefresh.catch(() => undefined);
+      if (backtestRefreshInFlight === priorRefresh) backtestRefreshInFlight = null;
+      return refreshGuruBacktestCache({
+        years,
+        detail,
+        reason,
+        refreshGeneration: normalizedGeneration,
+        backtestLoader
+      });
+    }
     return {
       ...guruBacktestRefreshStatus(),
       alreadyRunning: true
@@ -2369,7 +2386,9 @@ export async function refreshGuruBacktestCache({
       ok: 0,
       failed: 0,
       proxyAvailable: 0,
-      errors: []
+      errors: [],
+      refreshGeneration: normalizedGeneration,
+      results: []
     };
     lastBacktestRefreshStatus = status;
     writeBackgroundJobRun("guru_backtest_refresh", {
@@ -2378,16 +2397,32 @@ export async function refreshGuruBacktestCache({
       payload: {
         reason,
         years,
-        detail
+        detail,
+        ...(normalizedGeneration ? { refreshGeneration: normalizedGeneration } : {})
       }
     });
 
     for (const guru of gurus.filter((item) => item.type === "manager13f" || item.type === "congress")) {
+      let payload = null;
       try {
-        const payload = await backtestLoader(guru.id, {
+        payload = await backtestLoader(guru.id, {
           refresh: true,
           years,
-          detail
+          detail,
+          ...(normalizedGeneration ? { refreshGeneration: normalizedGeneration } : {})
+        });
+        status.results.push({
+          guruId: guru.id,
+          guruType: guru.type,
+          disabled: Boolean(guru.disableSimulation),
+          years: Number(payload?.method?.years),
+          status: payload?.status || "missing",
+          generatedAt: payload?.generatedAt || "",
+          methodVersion: payload?.method?.version || "",
+          securityMasterVersion: payload?.method?.securityMasterVersion || "",
+          proxyMethodVersion: payload?.proxy?.methodVersion || "",
+          proxySecurityMasterVersion: payload?.proxy?.securityMasterVersion || "",
+          refreshGeneration: normalizedGeneration
         });
         if (payload?.status === "proxy_ready") status.proxyAvailable += 1;
         assertGuruBacktestRefreshSucceeded(guru, payload, "cache refresh");
@@ -2399,6 +2434,21 @@ export async function refreshGuruBacktestCache({
           end: payload.window?.end || ""
         });
       } catch (error) {
+        if (!payload) {
+          status.results.push({
+            guruId: guru.id,
+            guruType: guru.type,
+            disabled: Boolean(guru.disableSimulation),
+            years: Number(years),
+            status: "failed",
+            generatedAt: "",
+            methodVersion: "",
+            securityMasterVersion: "",
+            proxyMethodVersion: "",
+            proxySecurityMasterVersion: "",
+            refreshGeneration: normalizedGeneration
+          });
+        }
         status.failed += 1;
         status.errors.push({
           guru: guru.id,
@@ -2423,10 +2473,11 @@ export async function refreshGuruBacktestCache({
     return status;
   })();
 
+  const pending = backtestRefreshInFlight;
   try {
-    return await backtestRefreshInFlight;
+    return await pending;
   } finally {
-    backtestRefreshInFlight = null;
+    if (backtestRefreshInFlight === pending) backtestRefreshInFlight = null;
     clearGuruBacktestAggregateCache();
   }
 }

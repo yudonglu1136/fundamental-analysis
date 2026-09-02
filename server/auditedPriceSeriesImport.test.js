@@ -20,8 +20,10 @@ process.env.PRICE_CACHE_DIR = path.join(tempDir, "prices");
 const {
   filterLedgerAuditedPriceRepairPoints,
   readPriceSeriesFromDb,
+  readPriceSeriesImportBatchAudit,
   readPriceSeriesImportAudit,
   writeAuditedPriceSeriesImport,
+  writeAuditedPriceSeriesImportBatch,
   writePriceSeriesToDb
 } = await import("./localDatabase.js");
 const { requireInternalCron } = await import("./internalCronAuth.js");
@@ -202,6 +204,62 @@ test("series rows and audit ledger roll back together after a write failure", ()
   `).get().count;
   verifyDb.close();
   assert.equal(count, 0);
+});
+
+test("a release batch commits all series and its records-hash ledger atomically", () => {
+  const dates = weekdays("2015-01-05", 3);
+  seedSpy(dates);
+  const recordsSha256 = "b".repeat(64);
+  const requests = ["BATCHA", "BATCHB"].map((symbol) => ({
+    rows: fullRows(dates),
+    ...importOptions(symbol, dates)
+  }));
+  const context = {
+    recordsSha256,
+    releaseId: "guru-curves-atomic-test",
+    sourceVolumeId: "vol-12345678",
+    sourceSnapshotId: "snap-12345678",
+    encryptedSnapshotId: "snap-87654321",
+    operator: "node-test",
+    seriesManifest: requests.map((request) => ({
+      symbol: request.symbol,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      rowCount: request.rows.length,
+      rowsSha256: "c".repeat(64)
+    })),
+    refreshTargets: [{ guruId: "li-lu", years: 10, expectedStatus: "ready" }],
+    expectations: { expectedDisplayableRows: 36 }
+  };
+  const failureDb = new DatabaseSync(databasePath);
+  failureDb.exec(`
+    CREATE TRIGGER abort_test_price_series_batch
+    BEFORE INSERT ON price_points
+    WHEN NEW.symbol = 'BATCHB' AND NEW.date = '${dates[1]}'
+    BEGIN
+      SELECT RAISE(ABORT, 'forced batch import failure');
+    END;
+  `);
+  failureDb.close();
+
+  assert.throws(() => writeAuditedPriceSeriesImportBatch(requests, context),
+    /forced batch import failure/);
+  assert.deepEqual(readPriceSeriesFromDb("BATCHA", dates[0], dates.at(-1)), []);
+  assert.deepEqual(readPriceSeriesFromDb("BATCHB", dates[0], dates.at(-1)), []);
+  assert.equal(readPriceSeriesImportBatchAudit(recordsSha256), null);
+
+  const repairDb = new DatabaseSync(databasePath);
+  repairDb.exec("DROP TRIGGER abort_test_price_series_batch");
+  repairDb.close();
+  const result = writeAuditedPriceSeriesImportBatch(requests, context);
+  assert.match(result.batchAuditId, /^price-series-batch-/);
+  assert.equal(result.audits.length, 2);
+  assert.equal(result.rowCount, 6);
+  const audit = readPriceSeriesImportBatchAudit(recordsSha256);
+  assert.equal(audit.releaseId, context.releaseId);
+  assert.equal(audit.childAuditIds.length, 2);
+  assert.equal(audit.groupCount, 2);
+  assert.equal(audit.rowCount, 6);
 });
 
 function listen(server) {

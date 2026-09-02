@@ -1292,6 +1292,53 @@ test("cache refresh counts proxy_ready as a failed strict refresh", async () => 
   }
 });
 
+test("a mutation generation waits for an older bulk refresh and then recomputes", async () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const originalTypes = gurus.map((guru) => [guru, guru.type]);
+  let releaseFirst;
+  let signalFirst;
+  const firstStarted = new Promise((resolve) => {
+    signalFirst = resolve;
+  });
+  const holdFirst = new Promise((resolve) => {
+    releaseFirst = resolve;
+  });
+  const calls = [];
+  try {
+    for (const [guru] of originalTypes) {
+      if (guru !== ackman) guru.type = "test-disabled";
+    }
+    const loader = async (_guruId, options) => {
+      calls.push(options);
+      if (calls.length === 1) {
+        signalFirst();
+        await holdFirst;
+      }
+      return { status: "ready" };
+    };
+    const older = refreshGuruBacktestCache({
+      years: 5,
+      reason: "pre-mutation-refresh",
+      backtestLoader: loader
+    });
+    await firstStarted;
+    const repaired = refreshGuruBacktestCache({
+      years: 5,
+      reason: "post-mutation-refresh",
+      refreshGeneration: "repair-generation-1234",
+      backtestLoader: loader
+    });
+    releaseFirst();
+    await Promise.all([older, repaired]);
+
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].refreshGeneration, undefined);
+    assert.equal(calls[1].refreshGeneration, "repair-generation-1234");
+  } finally {
+    for (const [guru, type] of originalTypes) guru.type = type;
+  }
+});
+
 test("scheduled refresh warms both the 5Y and 10Y public curve windows sequentially", async () => {
   const calls = [];
   let active = 0;

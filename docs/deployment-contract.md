@@ -53,6 +53,13 @@ Valuation, and Admin paths to the established Elastic Beanstalk service. Both
 origin variables have checked-in fallbacks, but setting them in Vercel makes
 the runtime contract explicit.
 
+The public proxy and EB nginx deliberately reject the case-insensitive
+`/api/internal/*` namespace before reading the request body or forwarding
+`Authorization`. The current EB origin is HTTP-only, so release and maintenance
+calls that carry `INTERNAL_CRON_SECRET` must execute inside the EB instance
+against the Node listener on `127.0.0.1`; public custom domains and the EB CNAME
+are only for non-secret application APIs and `/api/health`.
+
 AWS backend production env must also include both frontend origins:
 
 ```bash
@@ -181,3 +188,36 @@ INCLUDE_FRONTEND_DIST=1 bash scripts/package-aws-backend.sh <version>
 ```
 
 Do not make the fallback the normal path.
+
+## One-time Guru price repair
+
+Normal releases leave every `GURU_PRICE_REPAIR_*` variable unset. For an
+audited curve restoration, create a private gzip JSON artifact outside Git and
+bind it to all of the following before deploying:
+
+- its compressed SHA-256 and private `s3://.../guru-price-repairs/` URI;
+- the current production root volume;
+- a fresh completed snapshot of that volume and a completed encrypted copy;
+- the exact release ID, strict/proxy method versions, security-master version,
+  and explicit `{guruId, years, expectedStatus}` targets.
+
+Temporarily grant the EB instance role `s3:GetObject` only for that exact object,
+plus `ec2:DescribeSnapshots` and `ec2:DescribeInstances` (the EC2 Describe APIs
+require a `*` resource). Tag the encrypted rollback copy with both the release ID
+and `GuruPriceRepairSourceSnapshot=<source snapshot id>`. The postdeploy hook
+validates the running instance's actual root volume, release tags, owners, source
+snapshot lineage, encryption and hashes, makes a consistent SQLite backup,
+and sends the artifact only to the loopback release route. It then waits for
+both 5Y and 10Y current-generation refreshes. A release succeeds and writes its
+`.done` marker only when public health re-audits all 36 manager/window rows as
+displayable. Any non-2xx response, old/in-flight generation, identity mismatch,
+or less than 36/36 fails the deployment.
+
+The release route writes every missing price group, its child ledgers, and one
+artifact-level ledger keyed by `recordsSha256` in a single `BEGIN IMMEDIATE`
+transaction. A later-group conflict rolls back the entire artifact; an exact
+retry reuses the bound batch ledger before recomputing the required curves.
+
+After production verification, delete the private artifact and revoke its
+temporary read policy. Retain the encrypted rollback snapshot, non-price
+manifest, SQLite audit ledger, install report and 36-row acceptance report.

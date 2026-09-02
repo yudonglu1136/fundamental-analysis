@@ -127,6 +127,143 @@ test("public health fails when only one manager has a displayable curve", () => 
   assert.equal(module.details.curveAvailability.failures.length, 1);
 });
 
+test("Guru curve failures expose only compact strict and proxy diagnostics from the stored strict payload", () => {
+  const strict = {
+    generatedAt: "2026-09-01T11:00:00.000Z",
+    status: "insufficient_data",
+    window: { start: "2021-09-02", end: "2026-08-31" },
+    method: {
+      version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      years: 5
+    },
+    dataQuality: {
+      failure: {
+        code: "missing_active_price",
+        date: "2026-08-20",
+        tickers: ["PRIVATE-TICKER"],
+        cusips: ["000000000"],
+        holdings: [{ ticker: "PRIVATE-HOLDING" }],
+        apiToken: "private-token"
+      },
+      coverageFailures: [{
+        reportDate: "2026-06-30",
+        executionDate: "2026-08-17",
+        coveragePct: 0.82,
+        selectedPositions: 10,
+        pricedPositions: 8,
+        unpricedPositions: 2,
+        tickers: ["PRIVATE-COVERAGE-TICKER"]
+      }],
+      proxyFailure: {
+        code: "proxy_included_positions_below_minimum",
+        reportDate: "2026-06-30",
+        executionDate: "2026-08-17",
+        selectedBookCoverage: 0.41,
+        includedPositions: 1,
+        minimumPositions: 2,
+        excludedTickers: ["PRIVATE-EXCLUDED-TICKER"],
+        secret: "private-secret"
+      }
+    }
+  };
+  const summary = summarizeGuruCurveAvailability({
+    managers: [{ id: "manager-1", name: "Manager 1" }],
+    windows: [5],
+    readStrict: () => strict,
+    readProxy: () => ({
+      status: "insufficient_data",
+      dataQuality: {
+        failure: { code: "must_not_come_from_proxy_payload", tickers: ["PROXY-TICKER"] }
+      }
+    }),
+    now
+  });
+  assert.deepEqual(summary.failures[0].failureSummary, {
+    strict: {
+      status: "insufficient_data",
+      codes: ["missing_active_price", "execution_coverage_below_minimum"],
+      details: [{
+        code: "missing_active_price",
+        date: "2026-08-20"
+      }, {
+        code: "execution_coverage_below_minimum",
+        reportDate: "2026-06-30",
+        executionDate: "2026-08-17",
+        coveragePct: 0.82,
+        selectedPositions: 10,
+        pricedPositions: 8,
+        unpricedPositions: 2
+      }],
+      omittedDetails: 0
+    },
+    proxy: {
+      codes: ["proxy_included_positions_below_minimum"],
+      details: [{
+        code: "proxy_included_positions_below_minimum",
+        reportDate: "2026-06-30",
+        executionDate: "2026-08-17",
+        selectedBookCoverage: 0.41,
+        includedPositions: 1,
+        minimumPositions: 2
+      }],
+      omittedDetails: 0
+    }
+  });
+  const serialized = JSON.stringify(summary.failures[0].failureSummary);
+  for (const forbidden of [
+    "PRIVATE-TICKER",
+    "000000000",
+    "PRIVATE-HOLDING",
+    "private-token",
+    "PRIVATE-COVERAGE-TICKER",
+    "PRIVATE-EXCLUDED-TICKER",
+    "private-secret",
+    "must_not_come_from_proxy_payload",
+    "PROXY-TICKER"
+  ]) {
+    assert.equal(serialized.includes(forbidden), false);
+  }
+});
+
+test("Guru curve failure diagnostics are bounded and sanitize malformed codes and dates", () => {
+  const coverageFailures = Array.from({ length: 8 }, (_, index) => ({
+    code: index === 0 ? "token=do-not-copy" : `coverage_failure_${index}`,
+    reportDate: index === 0 ? "not-a-date-private-value" : `2026-0${index + 1}-28`,
+    executionDate: `2026-0${index + 1}-29`,
+    coveragePct: 0.8,
+    includedPositions: 8
+  }));
+  const summary = summarizeGuruCurveAvailability({
+    managers: [{ id: "manager-1", name: "Manager 1" }],
+    windows: [5],
+    readStrict: () => ({
+      generatedAt: "2026-09-01T11:00:00.000Z",
+      status: "insufficient_data",
+      window: { start: "2021-09-02", end: "2026-08-31" },
+      method: {
+        version: manager13fBacktestMethodVersion,
+        securityMasterVersion: manager13fSecurityMasterVersion,
+        years: 5
+      },
+      dataQuality: { coverageFailures }
+    }),
+    readProxy: () => null,
+    now
+  });
+  const failureSummary = summary.failures[0].failureSummary;
+  assert.equal(failureSummary.strict.details.length, 5);
+  assert.equal(failureSummary.strict.omittedDetails, 3);
+  assert.equal(failureSummary.strict.codes.length, 5);
+  assert.equal(failureSummary.strict.omittedCodes, 3);
+  assert.equal(failureSummary.strict.details[0].code, "execution_coverage_below_minimum");
+  assert.equal("reportDate" in failureSummary.strict.details[0], false);
+  assert.equal(
+    JSON.stringify(failureSummary).includes("not-a-date-private-value"),
+    false
+  );
+});
+
 test("Guru curve health re-audits all 18 managers across 5Y and 10Y using current identities", () => {
   const managers = Array.from({ length: 18 }, (_, index) => ({
     id: `manager-${index + 1}`,
