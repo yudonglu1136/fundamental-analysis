@@ -194,6 +194,30 @@ When valuation financials, management guidance, or historical fair values are re
 - Build the production artifact from one audited candidate with `python3 scripts/build-pit-migration-artifact.py --database <run1.sqlite> --release-audit <release-audit.json> --output <valuation-pit-migration.sqlite.gz>`. The generated manifest owns the artifact SHA-256, model version, strict-audit signatures, and expected table counts; never hand-edit those release values into the deployment hook.
 - Deploy only a strict-audit candidate. Record the pre-deploy Elastic Beanstalk version, create a fresh compressed database backup and EBS snapshot, stage the six valuation tables, replace them in one `BEGIN IMMEDIATE` transaction, and retain the prior version and backup for rollback. Re-run health, coverage, valuation, Portfolio, Guru, Ontology, and Transcript checks against production before declaring the update complete.
 
+## Guru Terminal Visual Baseline (2026-09-02)
+
+- Preserve the compact three-column Guru research terminal established by the
+  2026-08-31 Bill Ackman reference screen: universe rail, research workspace,
+  and signal/market-lens rail remain visible together at desktop widths.
+- Keep the desktop brand subtitle as `Guru Stock Analysis`, the functional
+  `Gurus / Firms` universe switch, the compact five-metric manager header, the
+  `New Buys & Sells` module label, and the `1Y / 3Y / 5Y` chart controls. The
+  full audited backtest window is labeled `5Y`; do not expose `10Y` or `All`
+  until those longer windows are actually requested and audited. Do not replace
+  this shell with a taller audit-card layout unless the user explicitly requests
+  a redesign.
+- The compact header must remain economically accurate: `Reported 13F value`
+  is the reported information-table market value, not total fund AUM. Keep
+  common-long and option attribution available in research detail even when the
+  compact header does not show separate cards.
+- Retain the quarterly Market Lens, Renaissance coverage, audited five-year
+  default backtest, force-refresh path, truth-state status, and bilingual error
+  handling behind the restored visual shell. A visual restoration must never
+  roll back those data or safety features.
+- Every deck page with a bounded height must scroll its rows rather than use an
+  overflowing `Column`. Verify the Guru page at 1280x720 and 390x844 with zero
+  Flutter render overflows before release.
+
 ## Bilingual UI Contract
 
 Chinese and English are release-critical product modes, not best-effort labels.

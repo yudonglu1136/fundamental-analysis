@@ -2109,7 +2109,7 @@ class TerminalHeader extends StatelessWidget {
             Text(
               compact
                   ? '${toolbarDateLabel(moduleState.asOf, context.language)} · ${context.ui(moduleState.source.replaceAll(' database', ''))}'
-                  : context.ui(moduleState.source),
+                  : context.ui('Guru Stock Analysis'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -2476,6 +2476,89 @@ class LanguageSegment extends StatelessWidget {
   }
 }
 
+class _UniverseTopTabs extends StatelessWidget {
+  const _UniverseTopTabs({
+    required this.filter,
+    required this.palette,
+    required this.onFilter,
+  });
+
+  final String filter;
+  final Palette palette;
+  final ValueChanged<String> onFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    final firmsSelected = filter == 'manager13f';
+
+    Widget item({
+      required String label,
+      required bool selected,
+      required VoidCallback onTap,
+    }) {
+      return Expanded(
+        child: Semantics(
+          button: true,
+          selected: selected,
+          label: context.ui(label),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: onTap,
+            child: AnimatedContainer(
+              key: ValueKey('guru-universe-${label.toLowerCase()}'),
+              duration: const Duration(milliseconds: 160),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selected
+                    ? palette.accent.withValues(alpha: .13)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: selected
+                      ? palette.accent.withValues(alpha: .18)
+                      : Colors.transparent,
+                ),
+              ),
+              child: Text(
+                context.ui(label),
+                style: TextStyle(
+                  color: selected ? palette.accent : palette.muted,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: palette.card.withValues(alpha: .72),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: palette.border),
+      ),
+      child: Row(
+        children: [
+          item(
+            label: 'Gurus',
+            selected: !firmsSelected,
+            onTap: () => onFilter('all'),
+          ),
+          item(
+            label: 'Firms',
+            selected: firmsSelected,
+            onTap: () => onFilter('manager13f'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class GuruUniversePanel extends StatelessWidget {
   const GuruUniversePanel({
     super.key,
@@ -2513,19 +2596,10 @@ class GuruUniversePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          PanelTitle(
-            icon: Icons.account_tree_rounded,
-            kicker: 'GURU UNIVERSE',
-            title: context.tr('投资人与机构', 'Gurus & firms'),
-            trailing: Text(
-              context.ui('${gurus.length} visible'),
-              style: TextStyle(
-                color: palette.faint,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+          _UniverseTopTabs(
+            filter: filter,
             palette: palette,
+            onFilter: onFilter,
           ),
           const SizedBox(height: 10),
           SizedBox(
@@ -3493,15 +3567,20 @@ class GuruWorkspaceHeader extends StatelessWidget {
     final latestQuarter = reportQuarterLabel(reportDate);
     final filing = formatDate(text(summary['filingDate']));
     final strategy = text(guru['thesisTag'], 'Concentrated');
+    final reported13fBreakdown = context.tr(
+      '普通股多头 ${formatMoney(reported13fCommonLongValue(guru))} · 期权 ${formatMoney(reported13fOptionsValue(guru))}',
+      'Common-long ${formatMoney(reported13fCommonLongValue(guru))} · Options ${formatMoney(reported13fOptionsValue(guru))}',
+    );
+    final reported13fBreakdownShort = context.tr(
+      '多头 ${formatMoney(reported13fCommonLongValue(guru))} · 期权 ${formatMoney(reported13fOptionsValue(guru))}',
+      'Long ${formatMoney(reported13fCommonLongValue(guru))} · Opt ${formatMoney(reported13fOptionsValue(guru))}',
+    );
     return Panel(
       palette: palette,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // Six audit metrics cannot remain legible beside the identity block in
-          // the normal three-column terminal layout.  Collapse to a grid until
-          // the workspace itself (not the browser) is genuinely wide enough.
-          final compact = constraints.maxWidth < 1040;
+          final compact = constraints.maxWidth < 760;
           final veryCompact = constraints.maxWidth < 420;
           final identity = Row(
             children: [
@@ -3572,21 +3651,10 @@ class GuruWorkspaceHeader extends StatelessWidget {
           final metrics = type == 'manager13f'
               ? [
                   _GuruHeaderMetric(
-                    label: 'Reported 13F table value',
+                    label: 'Reported 13F value',
                     value: formatMoney(reported13fTableValue(guru)),
-                    sub: '13F information-table total',
-                    palette: palette,
-                  ),
-                  _GuruHeaderMetric(
-                    label: 'Reported common-long',
-                    value: formatMoney(reported13fCommonLongValue(guru)),
-                    sub: 'excludes reported options',
-                    palette: palette,
-                  ),
-                  _GuruHeaderMetric(
-                    label: 'Reported options',
-                    value: formatMoney(reported13fOptionsValue(guru)),
-                    sub: 'puts and calls in table',
+                    sub: reported13fBreakdownShort,
+                    tooltip: reported13fBreakdown,
                     palette: palette,
                   ),
                   _GuruHeaderMetric(
@@ -3605,6 +3673,12 @@ class GuruWorkspaceHeader extends StatelessWidget {
                     label: 'Filing Lag',
                     value: filingLagVerbose(summary),
                     sub: 'vs quarter end',
+                    palette: palette,
+                  ),
+                  _GuruHeaderMetric(
+                    label: 'Strategy',
+                    value: compactStrategy(context.ui(strategy)),
+                    sub: text(guru['disclosureKind'], 'High Conviction'),
                     palette: palette,
                   ),
                 ]
@@ -3701,7 +3775,7 @@ class GuruWorkspaceHeader extends StatelessWidget {
               children: [
                 identity,
                 const SizedBox(height: 18),
-                GridWrap(minTileWidth: 180, spacing: 10, children: metrics),
+                GridWrap(minTileWidth: 130, spacing: 10, children: metrics),
               ],
             );
           }
@@ -3730,16 +3804,18 @@ class _GuruHeaderMetric extends StatelessWidget {
     required this.value,
     required this.sub,
     required this.palette,
+    this.tooltip,
   });
 
   final String label;
   final String value;
   final String sub;
   final Palette palette;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final metric = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -3780,6 +3856,8 @@ class _GuruHeaderMetric extends StatelessWidget {
         ],
       ),
     );
+    final message = text(tooltip);
+    return message.isEmpty ? metric : Tooltip(message: message, child: metric);
   }
 }
 
@@ -3805,7 +3883,7 @@ class GuruModuleTabs extends StatelessWidget {
       ),
       (
         Icons.swap_vert_rounded,
-        context.tr('申报持仓变化', 'Reported Changes'),
+        context.tr('新买入/卖出', 'New Buys & Sells'),
         'Reported position changes',
       ),
       (
@@ -7000,7 +7078,7 @@ class _CompactTickerDeckState extends State<_CompactTickerDeck> {
       _DeckPageSpec(
         icon: Icons.grid_view_rounded,
         kicker: quarterKicker,
-        title: context.tr('本季度集中持仓', 'Quarterly Crowded Holdings'),
+        title: context.tr('拥挤持仓', 'Crowded Holdings'),
         body: _CrowdedHoldingsDeckPage(
           exposures: widget.exposures.take(widget.itemLimit).toList(),
           palette: widget.palette,
@@ -7021,7 +7099,7 @@ class _CompactTickerDeckState extends State<_CompactTickerDeck> {
       _DeckPageSpec(
         icon: Icons.trending_up_rounded,
         kicker: changeKicker,
-        title: context.tr('本季度集中加仓', 'Quarterly Add Ranking'),
+        title: context.tr('集中加仓', 'Crowded Adds'),
         body: _ActivityRankingDeckPage(
           items: addItems.take(widget.itemLimit).toList(),
           positive: true,
@@ -7032,7 +7110,7 @@ class _CompactTickerDeckState extends State<_CompactTickerDeck> {
       _DeckPageSpec(
         icon: Icons.trending_down_rounded,
         kicker: changeKicker,
-        title: context.tr('本季度集中减仓', 'Quarterly Trim Ranking'),
+        title: context.tr('集中减仓', 'Crowded Trims'),
         body: _ActivityRankingDeckPage(
           items: trimItems.take(widget.itemLimit).toList(),
           positive: false,
@@ -7274,18 +7352,19 @@ class _CrowdedHoldingsDeckPage extends StatelessWidget {
       0,
       (max, item) => math.max(max, item.guruCount),
     );
-    return Column(
-      children: [
-        for (var index = 0; index < exposures.length; index += 1)
-          _CrowdedHoldingDeckRow(
-            rank: index + 1,
-            item: exposures[index],
-            maxBreadth: maxBreadth,
-            palette: palette,
-            isLast: index == exposures.length - 1,
-            onTap: () => onOpen(exposures[index].ticker),
-          ),
-      ],
+    return ListView.builder(
+      key: const ValueKey('crowded-holdings-list'),
+      padding: EdgeInsets.zero,
+      primary: false,
+      itemCount: exposures.length,
+      itemBuilder: (context, index) => _CrowdedHoldingDeckRow(
+        rank: index + 1,
+        item: exposures[index],
+        maxBreadth: maxBreadth,
+        palette: palette,
+        isLast: index == exposures.length - 1,
+        onTap: () => onOpen(exposures[index].ticker),
+      ),
     );
   }
 }
@@ -7438,19 +7517,22 @@ class _RecentFilingDeckPage extends StatelessWidget {
         palette: palette,
       );
     }
-    return Column(
-      children: [
-        for (final filing in filings)
-          _DeckListRow(
-            title: filing.guruName,
-            subtitle:
-                '${filing.quarter} · filed ${formatDate(filing.filingDate)}',
-            value: filing.quarter,
-            meta: formatMoney(filing.value),
-            tone: palette.secondary,
-            palette: palette,
-          ),
-      ],
+    return ListView.builder(
+      padding: EdgeInsets.zero,
+      primary: false,
+      itemCount: filings.length,
+      itemBuilder: (context, index) {
+        final filing = filings[index];
+        return _DeckListRow(
+          title: filing.guruName,
+          subtitle:
+              '${filing.quarter} · filed ${formatDate(filing.filingDate)}',
+          value: filing.quarter,
+          meta: formatMoney(filing.value),
+          tone: palette.secondary,
+          palette: palette,
+        );
+      },
     );
   }
 }
@@ -7483,41 +7565,40 @@ class _ActivityRankingDeckPage extends StatelessWidget {
       (max, item) => item.amountReliable ? math.max(max, item.amount) : max,
     );
     final tone = positive ? palette.positive : palette.negative;
-    return Column(
-      children: [
-        for (final item in items)
-          Builder(
-            builder: (context) {
-              final titleLabel = positive
-                  ? context.tr('加仓汇总', 'Add Summary')
-                  : context.tr('减仓汇总', 'Trim Summary');
-              return _DeckListRow(
-                title: '${item.ticker} · $titleLabel',
-                subtitle: activityRankSubtitle(item, context.language),
-                meta: activityRankActionSummary(item, context.language),
-                value: item.amountReliable
-                    ? context.tr(
-                        '代理 ${formatMoney(item.amount)}',
-                        'proxy ${formatMoney(item.amount)}',
-                      )
-                    : context.tr('代理不可靠', 'proxy N/A'),
-                tone: tone,
-                progress: !item.amountReliable || maxAmount <= 0
-                    ? 0.0
-                    : math
-                          .max(.06, item.amount / maxAmount)
-                          .clamp(0.0, 1.0)
-                          .toDouble(),
-                palette: palette,
-                onTap: () => onOpen(item.ticker),
-                semanticLabel: context.tr(
-                  '打开 ${item.ticker} 的本季度申报变化分析',
-                  'Open quarterly reported-change analysis for ${item.ticker}',
-                ),
-              );
-            },
+    return ListView.builder(
+      padding: EdgeInsets.zero,
+      primary: false,
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        final titleLabel = positive
+            ? context.tr('加仓汇总', 'Add Summary')
+            : context.tr('减仓汇总', 'Trim Summary');
+        return _DeckListRow(
+          title: '${item.ticker} · $titleLabel',
+          subtitle: activityRankSubtitle(item, context.language),
+          meta: activityRankActionSummary(item, context.language),
+          value: item.amountReliable
+              ? context.tr(
+                  '代理 ${formatMoney(item.amount)}',
+                  'proxy ${formatMoney(item.amount)}',
+                )
+              : context.tr('代理不可靠', 'proxy N/A'),
+          tone: tone,
+          progress: !item.amountReliable || maxAmount <= 0
+              ? 0.0
+              : math
+                    .max(.06, item.amount / maxAmount)
+                    .clamp(0.0, 1.0)
+                    .toDouble(),
+          palette: palette,
+          onTap: () => onOpen(item.ticker),
+          semanticLabel: context.tr(
+            '打开 ${item.ticker} 的本季度申报变化分析',
+            'Open quarterly reported-change analysis for ${item.ticker}',
           ),
-      ],
+        );
+      },
     );
   }
 }

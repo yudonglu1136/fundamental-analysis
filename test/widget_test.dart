@@ -231,6 +231,7 @@ void main() {
     final controller = TextEditingController();
     addTearDown(controller.dispose);
     String search = '';
+    String filter = '';
 
     await tester.pumpWidget(
       LanguageScope(
@@ -247,7 +248,7 @@ void main() {
                 filter: 'all',
                 palette: Palette(false),
                 onSearch: (value) => search = value,
-                onFilter: (_) {},
+                onFilter: (value) => filter = value,
                 onSelect: (_) {},
               ),
             ),
@@ -264,6 +265,12 @@ void main() {
     controller.clear();
     await tester.pump();
     expect(tester.widget<TextField>(field).controller!.text, isEmpty);
+
+    await tester.tap(find.byKey(const ValueKey('guru-universe-firms')));
+    expect(filter, 'manager13f');
+
+    await tester.tap(find.byKey(const ValueKey('guru-universe-gurus')));
+    expect(filter, 'all');
   });
 
   test('loads guru data only when the guru route first needs it', () {
@@ -473,6 +480,53 @@ void main() {
       'cached',
     );
   });
+
+  testWidgets(
+    'compact guru header discloses common-long and options ownership',
+    (WidgetTester tester) async {
+      final guru = <String, dynamic>{
+        'name': 'Test Manager',
+        'entityName': 'Test Capital',
+        'type': 'manager13f',
+        'thesisTag': 'Concentrated',
+        'disclosureKind': '13F filing',
+        'simulationTag': {'label': '13F copy simulation'},
+        'summary': {
+          'reported13fValue': 150,
+          'totalPositions': 3,
+          'reportDate': '2026-06-30',
+          'filingDate': '2026-08-14',
+        },
+        'holdings': [
+          {'value': 100, 'putCall': ''},
+          {'value': 30, 'putCall': 'CALL'},
+          {'value': 20, 'putCall': 'PUT'},
+        ],
+      };
+
+      await tester.pumpWidget(
+        LanguageScope(
+          language: AppLanguage.en,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: Scaffold(
+              body: SizedBox(
+                width: 1000,
+                child: GuruWorkspaceHeader(guru: guru, palette: Palette(false)),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Reported 13F value'), findsOneWidget);
+      expect(find.text(r'Long $100 · Opt $50'), findsOneWidget);
+      expect(
+        tester.widget<Tooltip>(find.byType(Tooltip).first).message,
+        r'Common-long $100 · Options $50',
+      );
+    },
+  );
 
   test(
     'quarterly market lens selects widest-covered quarter and breaks ties by recency',
@@ -752,6 +806,15 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final gurus = _marketLensTestGurus();
+    final crowdedExposures = List<ExposureItem>.generate(
+      16,
+      (index) => ExposureItem(
+        ticker: 'T$index',
+        value: 1000 - index.toDouble(),
+        guruNames: const {'Manager A', 'Manager B'},
+        positions: const [],
+      ),
+    );
     await tester.pumpWidget(
       LanguageScope(
         language: AppLanguage.en,
@@ -764,7 +827,7 @@ void main() {
                 child: GuruRightRail(
                   gurus: gurus,
                   signals: const [],
-                  exposures: buildExposures(gurus),
+                  exposures: crowdedExposures,
                   activeGuruId: 'manager-a',
                   palette: Palette(false),
                   onSelectGuru: (_) {},
@@ -782,6 +845,16 @@ void main() {
     final expand = find.byKey(const ValueKey('quarterly-market-lens-expand'));
     expect(expand, findsOneWidget);
     expect(tester.getSize(expand), const Size(44, 44));
+    expect(find.text('T15'), findsNothing);
+    await tester.scrollUntilVisible(
+      find.text('T15'),
+      240,
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey('crowded-holdings-list')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(find.text('T15'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
