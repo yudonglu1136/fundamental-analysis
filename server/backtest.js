@@ -7,6 +7,19 @@ import {
   resolveTrailingCommonPriceEnd,
   simulateDriftedPortfolio
 } from "./backtestEngine.js";
+import { buildTrailingAwarePublicHoldingsProxy } from "./backtestProxy.js";
+import { auditPublicHoldingsProxyPayload } from "./backtestProxyAudit.js";
+import {
+  auditManager13fStrictReadyPayload,
+  normalizedManager13fExecutionCoverage
+} from "./backtestStrictAudit.js";
+import {
+  activeTradingDatesForPriceWindow,
+  collapseSupersededSameSessionSnapshots,
+  holdingPriceLoadUniverse,
+  manager13fActivePriceWindows
+} from "./backtestSchedule.js";
+import { holdingResolutionVersion } from "./cusipOverrides.js";
 import {
   is13fCommonLongHolding,
   selectUnambiguous13fOriginals,
@@ -14,27 +27,67 @@ import {
 } from "./thirteenF.js";
 import {
   readGuruBacktest,
+  readGuruBacktestProxy,
   readGuruBacktestVersion,
   writeBackgroundJobRun,
-  writeGuruBacktest
+  writeGuruBacktest,
+  writeGuruBacktestProxy
 } from "./localDatabase.js";
 
 const defaultYears = "all";
 const allYearsCacheKey = 0;
 const maxHoldingsPerFiling = Number(process.env.BACKTEST_MAX_HOLDINGS || 60);
-export const manager13fBacktestMethodVersion = "manager13f-drifted-total-return-v6";
+export const manager13fBacktestMethodVersion = "manager13f-drifted-total-return-v8";
+export const manager13fProxyMethodVersion = "manager13f-public-holdings-proxy-v1";
+export const manager13fSecurityMasterVersion = holdingResolutionVersion();
 export const disclosureBacktestMethodVersion = "stock-act-disclosure-fail-closed-v1";
-const minExecutionCoverage = Math.max(
-  0,
-  Math.min(1, Number(process.env.BACKTEST_MIN_EXECUTION_COVERAGE || 0.9))
+export const sameExecutionSessionPolicy =
+  "When distinct 13F report periods first become tradable on the same session, execute only the latest report period and audit-exclude stale snapshots; unresolved duplicates within that latest period remain fail closed.";
+export const minExecutionCoverage = normalizedManager13fExecutionCoverage(
+  process.env.BACKTEST_MIN_EXECUTION_COVERAGE
+);
+export function normalizeBacktestProxySetting(
+  value,
+  fallback,
+  minimum,
+  maximum,
+  { round = false } = {}
+) {
+  const parsed = Number(value);
+  const normalized = Number.isFinite(parsed) ? parsed : fallback;
+  const bounded = Math.max(minimum, Math.min(maximum, normalized));
+  return round ? Math.round(bounded) : bounded;
+}
+
+export const minProxyCoverage = normalizeBacktestProxySetting(
+  process.env.BACKTEST_MIN_PROXY_COVERAGE,
+  0.3,
+  0.3,
+  0.9
+);
+export const minProxyPositions = normalizeBacktestProxySetting(
+  process.env.BACKTEST_MIN_PROXY_POSITIONS,
+  2,
+  2,
+  60,
+  { round: true }
 );
 const priceConcurrency = Math.max(1, Math.min(12, Number(process.env.BACKTEST_PRICE_CONCURRENCY || 6)));
 const configuredMaxTrailingPriceLagDays = Number(
   process.env.BACKTEST_MAX_TRAILING_PRICE_LAG_DAYS || 7
 );
-const maxTrailingPriceLagDays = Number.isFinite(configuredMaxTrailingPriceLagDays)
+export const maxTrailingPriceLagDays = Number.isFinite(configuredMaxTrailingPriceLagDays)
   ? Math.max(0, Math.min(14, configuredMaxTrailingPriceLagDays))
   : 7;
+export const backtestMarketEndFreshnessBufferDays = 5;
+export const backtestEndGraceDays = Math.max(
+  1,
+  maxTrailingPriceLagDays + backtestMarketEndFreshnessBufferDays,
+  Number(
+    process.env.BACKTEST_CACHE_END_GRACE_DAYS ||
+    maxTrailingPriceLagDays + backtestMarketEndFreshnessBufferDays
+  )
+);
 const responseMaxEquityPoints = Math.max(120, Number(process.env.BACKTEST_RESPONSE_MAX_POINTS || 520));
 const dayMs = 1000 * 60 * 60 * 24;
 const backtestCacheTtlMs = Math.max(
@@ -43,7 +96,7 @@ const backtestCacheTtlMs = Math.max(
 );
 const backtestEndGraceMs = Math.max(
   dayMs,
-  Number(process.env.BACKTEST_CACHE_END_GRACE_DAYS || 5) * dayMs
+  backtestEndGraceDays * dayMs
 );
 const backtestAutoRefreshIntervalMs = Math.max(
   1000 * 60 * 60,
@@ -68,6 +121,7 @@ const aggregateBacktestStaleTtlMs = Math.max(
 let backtestAutoRefreshTimer = null;
 let backtestAutoRefreshKickoffTimer = null;
 let backtestRefreshInFlight = null;
+let scheduledBacktestRefreshInFlight = null;
 let staleBacktestRefreshInFlight = null;
 const staleBacktestRefreshKeys = new Set();
 const aggregateBacktestCache = new Map();
@@ -81,6 +135,7 @@ let lastBacktestRefreshStatus = {
   reason: "",
   ok: 0,
   failed: 0,
+  proxyAvailable: 0,
   errors: []
 };
 
@@ -96,8 +151,10 @@ export function assertGuruBacktestRefreshSucceeded(guru, payload, phase = "refre
   if (actualStatus !== expectedStatus) {
     const reason = String(payload?.method?.reason || "").trim();
     const failure = payload?.dataQuality?.failure || payload?.dataQuality?.coverageFailures?.[0];
-    const diagnostic = failure || payload?.dataQuality?.trailingPriceEnd
+    const readyCacheRetention = payload?.dataQuality?.readyCacheRetention || null;
+    const diagnostic = failure || payload?.dataQuality?.trailingPriceEnd || readyCacheRetention
       ? {
+          readyCacheRetention,
           failure: failure || null,
           trailingPriceEnd: payload?.dataQuality?.trailingPriceEnd || null
         }
@@ -265,15 +322,15 @@ function dateMs(value) {
   return Number.isFinite(time) ? time : 0;
 }
 
-function cachedBacktestIsFresh(cached) {
+function cachedBacktestIsFresh(cached, now = Date.now()) {
   if (!cached) return false;
   if (process.env.BACKTEST_CACHE_TTL_HOURS === "0") return true;
 
   const generatedAt = dateMs(cached.generatedAt);
-  if (!generatedAt || Date.now() - generatedAt > backtestCacheTtlMs) return false;
+  if (!generatedAt || now - generatedAt > backtestCacheTtlMs) return false;
 
   const windowEnd = dateMs(cached.window?.end || cached.endDate);
-  if (!windowEnd || Date.now() - windowEnd > backtestEndGraceMs) return false;
+  if (!windowEnd || now - windowEnd > backtestEndGraceMs) return false;
 
   return true;
 }
@@ -312,6 +369,112 @@ function cachedBacktestIsUsable(cached) {
   if (!cached || typeof cached !== "object") return false;
   if (Array.isArray(cached.equity)) return true;
   return Boolean(cached.status || cached.window || cached.summary);
+}
+
+function cacheYearsMatch(cached, expectedYears) {
+  return expectedYears === undefined || expectedYears === null ||
+    String(cached?.method?.years) === String(expectedYears);
+}
+
+function strictManagerCacheCompatible(cached, expectedYears) {
+  return cached?.method?.version === manager13fBacktestMethodVersion &&
+    cached?.method?.securityMasterVersion === manager13fSecurityMasterVersion &&
+    cacheYearsMatch(cached, expectedYears);
+}
+
+function proxyManagerCacheCompatible(cached, expectedYears) {
+  return cached?.status === "proxy_ready" &&
+    cached?.method?.version === manager13fBacktestMethodVersion &&
+    cached?.method?.securityMasterVersion === manager13fSecurityMasterVersion &&
+    cached?.method?.variant === manager13fProxyMethodVersion &&
+    cached?.proxy?.methodVersion === manager13fProxyMethodVersion &&
+    cached?.proxy?.securityMasterVersion === manager13fSecurityMasterVersion &&
+    cacheYearsMatch(cached, expectedYears) &&
+    auditPublicHoldingsProxyPayload(cached, {
+      minimumCoverage: minProxyCoverage,
+      minimumPositions: minProxyPositions
+    }).ok &&
+    Array.isArray(cached?.equity) &&
+    cached.equity.length >= 2;
+}
+
+/**
+ * A valid strict curve always wins, including when a newer proxy row exists.
+ * A compatible proxy may replace only a strict failure/miss in the public read
+ * path; it never changes the strict refresh result or its persistence slot.
+ */
+export function selectManagerBacktestCache(strictCached, proxyCached, expectedYears) {
+  const strictCompatible = strictManagerCacheCompatible(strictCached, expectedYears);
+  const proxyCompatible = proxyManagerCacheCompatible(proxyCached, expectedYears);
+  const strictReady = strictCompatible &&
+    strictCached?.status === "ready" &&
+    auditManager13fStrictReadyPayload(strictCached, {
+      minimumCoverage: minExecutionCoverage
+    }).ok &&
+    Array.isArray(strictCached?.equity) &&
+    strictCached.equity.length >= 2;
+  if (strictReady) return { payload: strictCached, kind: "strict" };
+  const proxyMatchesStrictFailure = proxyCompatible &&
+    strictCompatible &&
+    strictCached?.status === "insufficient_data" &&
+    cachedBacktestIsUsable(strictCached) &&
+    proxyCached?.proxy?.strictFailureGeneratedAt === strictCached?.generatedAt;
+  if (proxyMatchesStrictFailure && cachedBacktestIsUsable(proxyCached)) {
+    return { payload: proxyCached, kind: "proxy" };
+  }
+  if (
+    strictCompatible &&
+    strictCached?.status !== "ready" &&
+    strictCached?.status !== "proxy_ready" &&
+    cachedBacktestIsUsable(strictCached)
+  ) {
+    return { payload: strictCached, kind: "strict" };
+  }
+  return { payload: null, kind: "miss" };
+}
+
+export function persistBacktestRefreshResult(
+  guruId,
+  years,
+  payload,
+  methodVersion,
+  { preserveReady = true } = {}
+) {
+  const securityMasterVersion = String(
+    payload?.method?.securityMasterVersion || ""
+  ).trim();
+  const result = writeGuruBacktest(guruId, years, payload, {
+    preserveReadyMethodVersion: preserveReady ? methodVersion : "",
+    preserveReadySecurityMasterVersion: preserveReady
+      ? securityMasterVersion
+      : ""
+  });
+  if (!result?.retainedReady) return payload;
+
+  const readyCacheRetention = {
+    retained: true,
+    reason: "transient_refresh_failed",
+    generatedAt: result.retainedGeneratedAt,
+    window: result.retainedWindow,
+    methodVersion: result.retainedMethodVersion,
+    ...(result.retainedSecurityMasterVersion
+      ? { securityMasterVersion: result.retainedSecurityMasterVersion }
+      : {})
+  };
+  return {
+    ...payload,
+    dataQuality: {
+      ...(payload?.dataQuality || {}),
+      readyCacheRetention
+    },
+    cache: {
+      ...(payload?.cache || {}),
+      status: "refresh-failed-ready-retained",
+      source: "sqlite",
+      retainedReady: true,
+      retainedGeneratedAt: result.retainedGeneratedAt
+    }
+  };
 }
 
 function cachedBacktestWithHit(
@@ -494,6 +657,10 @@ function compactContribution(row) {
     industry: row.industry,
     value: row.value,
     weight: row.weight,
+    ...(Number.isFinite(row.reportedBookWeight)
+      ? { reportedBookWeight: row.reportedBookWeight }
+      : {}),
+    ...(Number.isFinite(row.proxyWeight) ? { proxyWeight: row.proxyWeight } : {}),
     endingWeight: row.endingWeight,
     startPrice: row.startPrice,
     endPrice: row.endPrice,
@@ -553,11 +720,15 @@ function compactRebalance(rebalance) {
     selectedValue: rebalance.selectedValue,
     pricedValue: rebalance.pricedValue,
     coveragePct: rebalance.coveragePct,
+    selectedBookCoverage: rebalance.selectedBookCoverage,
+    excludedWeightPct: rebalance.excludedWeightPct,
+    proxyNormalizationFactor: rebalance.proxyNormalizationFactor,
     cashWeight: rebalance.cashWeight,
     unpricedPositions: rebalance.unpricedPositions,
     positions: rebalance.positions,
     selectedPositions: rebalance.selectedPositions,
     pricedPositions: rebalance.pricedPositions,
+    includedPositions: rebalance.includedPositions,
     topHoldings: (rebalance.topHoldings || []).slice(0, 8)
   };
 }
@@ -697,6 +868,208 @@ function buildWeights(snapshot, priceMaps, executionDate) {
         value: holding.value,
         weight: holding.weight
       }))
+  };
+}
+
+function compactStrictFailure(failure) {
+  if (!failure || typeof failure !== "object") return null;
+  return {
+    code: failure.code || "strict_backtest_failed",
+    date: failure.date || null,
+    tickers: Array.isArray(failure.tickers) ? failure.tickers.slice(0, 8) : [],
+    missingWeight: failure.missingWeight != null && Number.isFinite(Number(failure.missingWeight))
+      ? Number(failure.missingWeight)
+      : null
+  };
+}
+
+export function buildPublicHoldingsProxyPayload({
+  guru,
+  window,
+  start,
+  end,
+  history,
+  backtestHistory,
+  excludedFilings,
+  reportingCiks,
+  duplicateAccessions,
+  blockedReportDates,
+  executionExclusions,
+  universe,
+  rebalances,
+  tradingDates,
+  priceMaps,
+  strictFailureCode,
+  strictFailure = null,
+  coverageFailures = []
+}) {
+  const proxyModel = buildTrailingAwarePublicHoldingsProxy({
+    rebalances,
+    tradingDates,
+    priceMaps,
+    benchmarkSymbol: "SPY",
+    requestedEnd: end,
+    maxLagDays: maxTrailingPriceLagDays,
+    minimumCoverage: minProxyCoverage,
+    minimumPositions: minProxyPositions
+  });
+  if (!proxyModel.ok) {
+    return { payload: null, failure: proxyModel.failure, model: proxyModel };
+  }
+
+  const proxySimulation = simulateDriftedPortfolio({
+    rebalances: proxyModel.rebalances,
+    tradingDates,
+    priceMaps,
+    benchmarkSymbol: "SPY",
+    endDate: proxyModel.effectiveEnd
+  });
+  if (!proxySimulation.ok) {
+    return {
+      payload: null,
+      failure: proxySimulation.failure || {
+        code: "proxy_attribution_reconciliation_failed",
+        reconciliation: proxySimulation.reconciliation || null
+      },
+      model: proxyModel
+    };
+  }
+
+  const equity = proxySimulation.equity;
+  const portfolioReturns = proxySimulation.portfolioReturns;
+  const benchmarkReturns = proxySimulation.benchmarkReturns;
+  const portfolioMetrics = metrics(
+    equity.map((point) => ({ date: point.date, value: point.value })),
+    portfolioReturns
+  );
+  const benchmarkMetrics = metrics(
+    equity.map((point) => ({ date: point.date, value: point.benchmark })),
+    benchmarkReturns
+  );
+  const observedStrictCoverage = rebalances
+    .map((rebalance) => Number(rebalance.coveragePct))
+    .filter(Number.isFinite);
+  const proxy = {
+    kind: "public_holdings_proxy",
+    methodVersion: manager13fProxyMethodVersion,
+    securityMasterVersion: manager13fSecurityMasterVersion,
+    disclosureCode: "incomplete_selected_book_public_holdings_proxy",
+    minimumSelectedBookCoverage: proxyModel.minimumSelectedBookCoverage,
+    averageSelectedBookCoverage: proxyModel.averageSelectedBookCoverage,
+    maximumExcludedBookWeight: proxyModel.maximumExcludedBookWeight,
+    minimumIncludedPositions: proxyModel.minimumIncludedPositions,
+    topExcludedHoldings: proxyModel.topExcludedHoldings,
+    minimumProxyCoverage: proxyModel.minimumProxyCoverage,
+    minimumProxyPositions: proxyModel.minimumProxyPositions,
+    // Transitional aliases for existing clients.
+    minimumReportedCoverage: proxyModel.minimumSelectedBookCoverage,
+    averageReportedCoverage: proxyModel.averageSelectedBookCoverage,
+    excludedWeightMax: proxyModel.maximumExcludedBookWeight
+  };
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    status: "proxy_ready",
+    guru: {
+      id: guru.id,
+      name: guru.name,
+      chineseName: guru.chineseName,
+      entityName: guru.entityName,
+      type: guru.type,
+      thesisTag: guru.thesisTag
+    },
+    tag: {
+      label: "Public holdings proxy",
+      tone: portfolioMetrics.cagr >= benchmarkMetrics.cagr ? "positive" : "negative"
+    },
+    window: {
+      start: equity[0]?.date || proxyModel.rebalances[0]?.executionDate || start,
+      end: equity.at(-1)?.date || proxyModel.effectiveEnd,
+      requestedEnd: end
+    },
+    proxy,
+    method: {
+      version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      variant: manager13fProxyMethodVersion,
+      years: window.methodYears,
+      benchmark: "SPY",
+      execution: "Execute at the close of the first SPY trading session strictly after each filing becomes public.",
+      sameExecutionSessionPolicy,
+      weighting: "Normalize only a fully priceable public sleeve after preserving each holding's weight against the selected disclosed common-long book.",
+      returnEngine: "Event-rebalanced public-sleeve units drift between filing executions; daily equity and attribution share the same state.",
+      returnBasis: "Dividend- and split-adjusted close total return for included holdings and SPY.",
+      maxHoldingsPerFiling,
+      minimumExecutionCoverage: minExecutionCoverage,
+      minimumProxyCoverage: proxyModel.minimumProxyCoverage,
+      minimumProxyPositions: proxyModel.minimumProxyPositions,
+      rawFilings: history.length,
+      excludedFilings: excludedFilings.length,
+      reportingCiks,
+      duplicateAccessions: duplicateAccessions.length,
+      blockedReportDates: blockedReportDates.length,
+      executionExclusions: executionExclusions.length,
+      reason: strictFailureCode === "missing_active_price"
+        ? "The strict selected-book curve failed on an active adjusted-close gap; a separately labeled fully priceable public-sleeve proxy is available."
+        : "The strict selected-book curve failed its execution-coverage gate; a separately labeled fully priceable public-sleeve proxy is available."
+    },
+    summary: {
+      ...portfolioMetrics,
+      benchmark: benchmarkMetrics,
+      excessCagr: portfolioMetrics.cagr - benchmarkMetrics.cagr,
+      excessTotalReturn: portfolioMetrics.totalReturn - benchmarkMetrics.totalReturn,
+      rebalances: proxyModel.rebalances.length,
+      averagePositions: proxyModel.rebalances.length
+        ? proxyModel.rebalances.reduce((sum, item) => sum + item.includedPositions, 0) /
+          proxyModel.rebalances.length
+        : 0,
+      averageCoverage: proxyModel.averageSelectedBookCoverage,
+      filings: backtestHistory.length,
+      rawFilings: history.length,
+      excludedFilings: excludedFilings.length,
+      legacyExecutionFallbacks: proxyModel.rebalances.filter((item) =>
+        item.usedLegacyFilingDateFallback
+      ).length,
+      universe: universe.length
+    },
+    dataQuality: {
+      returnBasis: "total_return_adjusted_close",
+      strictBacktestStatus: "insufficient_data",
+      strictFailureCode,
+      strictFailure: compactStrictFailure(strictFailure),
+      strictMinimumExecutionCoverage: minExecutionCoverage,
+      strictFailingRebalances: coverageFailures.length,
+      strictMinimumObservedExecutionCoverage: observedStrictCoverage.length
+        ? Math.min(...observedStrictCoverage)
+        : null,
+      proxyPricePolicy: "include_only_complete_active_adjusted_close_series",
+      proxyMinimumSelectedBookCoverage: proxyModel.minimumSelectedBookCoverage,
+      proxyAverageSelectedBookCoverage: proxyModel.averageSelectedBookCoverage,
+      trailingPriceEnd: proxyModel.trailingPriceEnd,
+      attributionReconciliation: proxySimulation.reconciliation
+    },
+    equity,
+    rebalances: proxyModel.rebalances.map(({ weights, ...rebalance }) => ({
+      ...rebalance,
+      unpricedPositions: (rebalance.unpricedPositions || []).slice(0, 8)
+    })),
+    quarterContributions: proxySimulation.quarterContributions,
+    cache: {
+      status: "refreshed",
+      source: "SEC EDGAR + public-sleeve adjusted close + SQLite"
+    }
+  };
+  return { payload, failure: null, model: proxyModel };
+}
+
+function linkProxyToStrictFailure(proxyAttempt, strictPayload) {
+  if (!proxyAttempt?.payload) return null;
+  return {
+    ...proxyAttempt.payload,
+    generatedAt: strictPayload.generatedAt,
+    proxy: {
+      ...proxyAttempt.payload.proxy,
+      strictFailureGeneratedAt: strictPayload.generatedAt
+    }
   };
 }
 
@@ -949,10 +1322,12 @@ async function loadDisclosureBacktest(
     persist = true,
     allowCold = true,
     shareComputation = true,
-    refreshGeneration = ""
+    refreshGeneration = "",
+    preserveReadyOnFailure = true
   }
 ) {
   if (guru.disableSimulation) return unsupportedBacktest(guru, window);
+  const preserveReady = preserveReadyOnFailure && !refreshGeneration;
 
   const cached = readGuruBacktest(guru.id, window.cacheKey);
   const cacheMethodCompatible = cached?.method?.version === disclosureBacktestMethodVersion;
@@ -982,7 +1357,10 @@ async function loadDisclosureBacktest(
         persist,
         allowCold,
         shareComputation: false,
-        refreshGeneration: ""
+        refreshGeneration: "",
+        // A mutation-following recomputation must invalidate a pre-mutation
+        // curve if the repaired generation still fails its audit gates.
+        preserveReadyOnFailure: preserveReady
       });
     const payload = refreshGeneration
       ? await runGuruBacktestComputationAfterCurrent(
@@ -1033,8 +1411,18 @@ async function loadDisclosureBacktest(
       rebalances: [],
       quarterContributions: []
     };
-    if (persist) writeGuruBacktest(guru.id, window.cacheKey, payload);
-    return persist ? compactBacktestPayload(payload, { includeAttribution }) : payload;
+    const persistedPayload = persist
+      ? persistBacktestRefreshResult(
+          guru.id,
+          window.cacheKey,
+          payload,
+          disclosureBacktestMethodVersion,
+          { preserveReady }
+        )
+      : payload;
+    return persist
+      ? compactBacktestPayload(persistedPayload, { includeAttribution })
+      : payload;
   }
 
   const universe = [...new Set(transactions.map((row) => row.ticker))]
@@ -1042,14 +1430,18 @@ async function loadDisclosureBacktest(
     .slice(0, maxHoldingsPerFiling * 2);
   const priceMaps = new Map([["SPY", priceMap(spyPoints)]]);
 
-  await mapWithConcurrency(universe, priceConcurrency, async (ticker) => {
-    try {
-      const series = await loadPriceSeries(ticker, { start, end });
-      priceMaps.set(ticker, priceMap(series.points || []));
-    } catch {
-      priceMaps.set(ticker, new Map());
+  await mapWithConcurrency(
+    holdingPriceLoadUniverse(universe, "SPY"),
+    priceConcurrency,
+    async (ticker) => {
+      try {
+        const series = await loadPriceSeries(ticker, { start, end });
+        priceMaps.set(ticker, priceMap(series.points || []));
+      } catch {
+        priceMaps.set(ticker, new Map());
+      }
     }
-  });
+  );
 
   const rebalances = buildDisclosureRebalances(transactions, priceMaps, spyPoints);
 
@@ -1080,8 +1472,18 @@ async function loadDisclosureBacktest(
       rebalances: [],
       quarterContributions: []
     };
-    if (persist) writeGuruBacktest(guru.id, window.cacheKey, payload);
-    return persist ? compactBacktestPayload(payload, { includeAttribution }) : payload;
+    const persistedPayload = persist
+      ? persistBacktestRefreshResult(
+          guru.id,
+          window.cacheKey,
+          payload,
+          disclosureBacktestMethodVersion,
+          { preserveReady }
+        )
+      : payload;
+    return persist
+      ? compactBacktestPayload(persistedPayload, { includeAttribution })
+      : payload;
   }
 
   const firstDate = rebalances[0]?.executionDate;
@@ -1227,6 +1629,9 @@ function coldBacktestUnavailable(guru, window) {
         : guru.type === "congress"
           ? disclosureBacktestMethodVersion
           : undefined,
+      securityMasterVersion: guru.type === "manager13f"
+        ? manager13fSecurityMasterVersion
+        : undefined,
       years: window.methodYears,
       benchmark: "SPY",
       reason: "The requested extended-history backtest is not pre-warmed under the current audit method. The request failed closed without starting a cold synchronous computation."
@@ -1252,7 +1657,8 @@ export async function loadGuruBacktest(
     persist = true,
     allowCold = true,
     shareComputation = true,
-    refreshGeneration = ""
+    refreshGeneration = "",
+    preserveReadyOnFailure = true
   } = {}
 ) {
   const window = normalizeBacktestWindow(years);
@@ -1267,20 +1673,28 @@ export async function loadGuruBacktest(
       persist,
       allowCold,
       shareComputation,
-      refreshGeneration
+      refreshGeneration,
+      preserveReadyOnFailure
     });
   }
 
   if (guru.type !== "manager13f" || guru.disableSimulation) {
     return unsupportedBacktest(guru, window);
   }
+  const preserveReady = preserveReadyOnFailure && !refreshGeneration;
 
-  const cached = readGuruBacktest(guruId, window.cacheKey);
-  const cacheMethodCompatible = cached?.method?.version === manager13fBacktestMethodVersion;
-  if (!refresh && cacheMethodCompatible && cachedBacktestIsFresh(cached)) {
+  const strictCached = readGuruBacktest(guruId, window.cacheKey);
+  const proxyCached = readGuruBacktestProxy(guruId, window.cacheKey);
+  const cachedSelection = selectManagerBacktestCache(
+    strictCached,
+    proxyCached,
+    window.methodYears
+  );
+  const cached = cachedSelection.payload;
+  if (!refresh && cached && cachedBacktestIsFresh(cached)) {
     return compactBacktestPayload(cachedBacktestWithHit(cached), { includeAttribution });
   }
-  if (!refresh && cacheMethodCompatible && cachedBacktestIsUsable(cached)) {
+  if (!refresh && cached && cachedBacktestIsUsable(cached)) {
     const warming = staleBacktestBackgroundRefreshAllowed(window.methodYears)
       && scheduleStaleBacktestRefresh(guruId, { years, detail });
     return compactBacktestPayload(cachedBacktestWithHit(cached, {
@@ -1301,7 +1715,10 @@ export async function loadGuruBacktest(
         persist,
         allowCold,
         shareComputation: false,
-        refreshGeneration: ""
+        refreshGeneration: "",
+        // A mutation-following recomputation must invalidate a pre-mutation
+        // curve if the repaired generation still fails its audit gates.
+        preserveReadyOnFailure: preserveReady
       });
     const payload = refreshGeneration
       ? await runGuruBacktestComputationAfterCurrent(
@@ -1370,6 +1787,7 @@ export async function loadGuruBacktest(
       window: { start, end },
       method: {
         version: manager13fBacktestMethodVersion,
+        securityMasterVersion: manager13fSecurityMasterVersion,
         years: window.methodYears,
         benchmark: "SPY",
         maxHoldingsPerFiling,
@@ -1392,21 +1810,73 @@ export async function loadGuruBacktest(
       rebalances: [],
       quarterContributions: []
     };
-    if (persist) writeGuruBacktest(guruId, window.cacheKey, payload);
-    return persist ? compactBacktestPayload(payload, { includeAttribution }) : payload;
+    const persistedPayload = persist
+      ? persistBacktestRefreshResult(
+          guruId,
+          window.cacheKey,
+          payload,
+          manager13fBacktestMethodVersion,
+          { preserveReady }
+        )
+      : payload;
+    return persist
+      ? compactBacktestPayload(persistedPayload, { includeAttribution })
+      : payload;
   }
 
-  const universe = [...new Set(backtestHistory
-    .flatMap((snapshot) => (snapshot.holdings || [])
-      .filter((holding) =>
-        is13fCommonLongHolding(holding) &&
-        holding.value > 0 &&
-        holding.shares > 0 &&
-        isTicker(holding.ticker)
-      )
-      .sort((a, b) => b.value - a.value)
-      .slice(0, maxHoldingsPerFiling)
-      .map((holding) => holding.ticker)))];
+  const selectedTickers = (snapshot) => (snapshot.holdings || [])
+    .filter((holding) =>
+      is13fCommonLongHolding(holding) &&
+      holding.value > 0 &&
+      holding.shares > 0
+    )
+    .sort((a, b) => b.value - a.value)
+    .slice(0, maxHoldingsPerFiling)
+    .map((holding) => holding.ticker)
+    .filter(isTicker);
+  const executionExclusions = [];
+  const executionCandidates = [];
+  for (const snapshot of backtestHistory) {
+    const decision = filingExecutionDecision(snapshot, tradingDates);
+    if (!decision.executionDate) {
+      executionExclusions.push({
+        reportDate: snapshot.reportDate,
+        filingDate: snapshot.filingDate,
+        acceptanceDateTime:
+          snapshot.acceptanceDateTime || snapshot.filing?.acceptanceDateTime || null,
+        accessionNumber: snapshot.filing?.accessionNumber,
+        code: "execution_session_unavailable",
+        reason: decision.reason
+      });
+      continue;
+    }
+    executionCandidates.push({
+      snapshot,
+      decision,
+      selectedTickers: selectedTickers(snapshot)
+    });
+  }
+  const normalizedSchedule = collapseSupersededSameSessionSnapshots(executionCandidates);
+  for (const exclusion of normalizedSchedule.exclusions) {
+    const snapshot = exclusion.candidate.snapshot;
+    executionExclusions.push({
+      reportDate: snapshot.reportDate,
+      filingDate: snapshot.filingDate,
+      acceptanceDateTime:
+        snapshot.acceptanceDateTime || snapshot.filing?.acceptanceDateTime || null,
+      accessionNumber: snapshot.filing?.accessionNumber,
+      executionDate: exclusion.executionDate,
+      code: exclusion.code,
+      supersededByReportDate: exclusion.supersededByReportDate,
+      supersededByAccessionNumber: exclusion.supersededByAccessionNumber,
+      reason: exclusion.reason
+    });
+  }
+  const executionSchedule = normalizedSchedule.schedule;
+  const universe = [...new Set(executionSchedule.flatMap((candidate) =>
+    candidate.selectedTickers
+  ))];
+  const activePriceWindows = manager13fActivePriceWindows(executionSchedule, end);
   const priceMaps = new Map([["SPY", spyTotalReturnMap]]);
   const priceSeriesQuality = new Map([["SPY", {
     source: spySeries.source,
@@ -1414,46 +1884,47 @@ export async function loadGuruBacktest(
     points: spyTotalReturnMap.size
   }]]);
 
-  await mapWithConcurrency(universe, priceConcurrency, async (ticker) => {
-    try {
-      const series = await loadPriceSeries(ticker, {
-        start,
-        end,
-        requireAdjusted: true,
-        expectedTradingDates: tradingDates
-      });
-      const map = adjustedClosePriceMap(series.points || []);
-      priceMaps.set(ticker, map);
-      priceSeriesQuality.set(ticker, {
-        source: series.source,
-        returnBasis: series.returnBasis,
-        points: map.size
-      });
-    } catch (error) {
-      priceMaps.set(ticker, new Map());
-      priceSeriesQuality.set(ticker, {
-        source: "unavailable",
-        returnBasis: "unavailable",
-        points: 0,
-        error: error.message
-      });
+  await mapWithConcurrency(
+    holdingPriceLoadUniverse(universe, "SPY"),
+    priceConcurrency,
+    async (ticker) => {
+      try {
+        const activeWindow = activePriceWindows.get(ticker) || { start, end };
+        const series = await loadPriceSeries(ticker, {
+          start: activeWindow.start,
+          end: activeWindow.end,
+          requireAdjusted: true,
+          expectedTradingDates: activeTradingDatesForPriceWindow(
+            tradingDates,
+            activeWindow
+          )
+        });
+        const intervalAwarePoints = series.failure?.code === "expected_internal_session_gap"
+          ? series.observedAdjustedPoints || []
+          : series.points || [];
+        const map = adjustedClosePriceMap(intervalAwarePoints);
+        priceMaps.set(ticker, map);
+        priceSeriesQuality.set(ticker, {
+          source: series.source,
+          ...(series.upstreamSource ? { upstreamSource: series.upstreamSource } : {}),
+          returnBasis: series.returnBasis,
+          points: map.size,
+          ...(series.failure ? { failure: series.failure } : {})
+        });
+      } catch (error) {
+        priceMaps.set(ticker, new Map());
+        priceSeriesQuality.set(ticker, {
+          source: "unavailable",
+          returnBasis: "unavailable",
+          points: 0,
+          error: error.message
+        });
+      }
     }
-  });
+  );
 
-  const executionExclusions = [];
   const rebalances = [];
-  for (const snapshot of backtestHistory) {
-    const decision = filingExecutionDecision(snapshot, tradingDates);
-    if (!decision.executionDate) {
-      executionExclusions.push({
-        reportDate: snapshot.reportDate,
-        filingDate: snapshot.filingDate,
-        acceptanceDateTime: snapshot.acceptanceDateTime || snapshot.filing?.acceptanceDateTime || null,
-        accessionNumber: snapshot.filing?.accessionNumber,
-        reason: decision.reason
-      });
-      continue;
-    }
+  for (const { snapshot, decision } of executionSchedule) {
     const values = summarize13fHoldingValues(snapshot.holdings || []);
     const weightModel = buildWeights(snapshot, priceMaps, decision.executionDate);
     rebalances.push({
@@ -1492,6 +1963,28 @@ export async function loadGuruBacktest(
     !rebalance.weights.length || rebalance.coveragePct < minExecutionCoverage
   );
 
+  const coverageProxyAttempt = rebalances.length && coverageFailures.length
+    ? buildPublicHoldingsProxyPayload({
+        guru,
+        window,
+        start,
+        end,
+        history,
+        backtestHistory,
+        excludedFilings,
+        reportingCiks,
+        duplicateAccessions,
+        blockedReportDates,
+        executionExclusions,
+        universe,
+        rebalances,
+        tradingDates,
+        priceMaps,
+        strictFailureCode: "execution_coverage_below_minimum",
+        coverageFailures
+      })
+    : { payload: null, failure: null };
+
   if (rebalances.length < 1 || coverageFailures.length) {
     const payload = {
       generatedAt: new Date().toISOString(),
@@ -1509,6 +2002,7 @@ export async function loadGuruBacktest(
       window: { start, end },
       method: {
         version: manager13fBacktestMethodVersion,
+        securityMasterVersion: manager13fSecurityMasterVersion,
         years: window.methodYears,
         benchmark: "SPY",
         maxHoldingsPerFiling,
@@ -1518,6 +2012,7 @@ export async function loadGuruBacktest(
         duplicateAccessions,
         blockedReportDates,
         executionExclusions,
+        sameExecutionSessionPolicy,
         minimumExecutionCoverage: minExecutionCoverage,
         reason: coverageFailures.length
           ? "At least one filing falls below the minimum adjusted-close execution coverage; the backtest fails closed instead of renormalizing the covered subset."
@@ -1526,6 +2021,7 @@ export async function loadGuruBacktest(
       dataQuality: {
         returnBasis: "total_return_adjusted_close",
         failurePolicy: "fail_closed",
+        proxyFailure: coverageProxyAttempt.failure,
         coverageFailures: coverageFailures.map((rebalance) => ({
           reportDate: rebalance.reportDate,
           executionDate: rebalance.executionDate,
@@ -1538,8 +2034,25 @@ export async function loadGuruBacktest(
       rebalances: [],
       quarterContributions: []
     };
-    if (persist) writeGuruBacktest(guruId, window.cacheKey, payload);
-    return persist ? compactBacktestPayload(payload, { includeAttribution }) : payload;
+    const linkedProxyPayload = linkProxyToStrictFailure(coverageProxyAttempt, payload);
+    const persistedPayload = persist
+      ? persistBacktestRefreshResult(
+          guruId,
+          window.cacheKey,
+          payload,
+          manager13fBacktestMethodVersion,
+          { preserveReady }
+        )
+      : payload;
+    if (linkedProxyPayload) {
+      if (persist) {
+        writeGuruBacktestProxy(guruId, window.cacheKey, linkedProxyPayload);
+      }
+      return compactBacktestPayload(linkedProxyPayload, { includeAttribution });
+    }
+    return persist
+      ? compactBacktestPayload(persistedPayload, { includeAttribution })
+      : payload;
   }
 
   const firstDate = rebalances[0]?.executionDate;
@@ -1560,6 +2073,28 @@ export async function loadGuruBacktest(
     endDate: effectiveEnd
   });
   if (!simulation.ok) {
+    const activePriceProxyAttempt = simulation.failure?.code === "missing_active_price"
+      ? buildPublicHoldingsProxyPayload({
+          guru,
+          window,
+          start,
+          end,
+          history,
+          backtestHistory,
+          excludedFilings,
+          reportingCiks,
+          duplicateAccessions,
+          blockedReportDates,
+          executionExclusions,
+          universe,
+          rebalances,
+          tradingDates,
+          priceMaps,
+          strictFailureCode: "missing_active_price",
+          strictFailure: simulation.failure,
+          coverageFailures
+        })
+      : { payload: null, failure: null };
     const payload = {
       generatedAt: new Date().toISOString(),
       status: "insufficient_data",
@@ -1576,6 +2111,7 @@ export async function loadGuruBacktest(
       window: { start, end },
       method: {
         version: manager13fBacktestMethodVersion,
+        securityMasterVersion: manager13fSecurityMasterVersion,
         years: window.methodYears,
         benchmark: "SPY",
         rawFilings: history.length,
@@ -1584,6 +2120,7 @@ export async function loadGuruBacktest(
         duplicateAccessions,
         blockedReportDates,
         executionExclusions,
+        sameExecutionSessionPolicy,
         reason: simulation.failure?.code === "missing_active_price"
           ? "A held security lacks an adjusted-close observation while active; the backtest fails closed instead of booking a zero return or carrying a stale quote."
           : simulation.failure?.code === "duplicate_execution_date"
@@ -1597,15 +2134,33 @@ export async function loadGuruBacktest(
         failure: simulation.failure || {
           code: "attribution_reconciliation_failed",
           reconciliation: simulation.reconciliation || null
-        }
+        },
+        proxyFailure: activePriceProxyAttempt.failure
       },
       summary: {},
       equity: [],
       rebalances: [],
       quarterContributions: []
     };
-    if (persist) writeGuruBacktest(guruId, window.cacheKey, payload);
-    return persist ? compactBacktestPayload(payload, { includeAttribution }) : payload;
+    const linkedProxyPayload = linkProxyToStrictFailure(activePriceProxyAttempt, payload);
+    const persistedPayload = persist
+      ? persistBacktestRefreshResult(
+          guruId,
+          window.cacheKey,
+          payload,
+          manager13fBacktestMethodVersion,
+          { preserveReady }
+        )
+      : payload;
+    if (linkedProxyPayload) {
+      if (persist) {
+        writeGuruBacktestProxy(guruId, window.cacheKey, linkedProxyPayload);
+      }
+      return compactBacktestPayload(linkedProxyPayload, { includeAttribution });
+    }
+    return persist
+      ? compactBacktestPayload(persistedPayload, { includeAttribution })
+      : payload;
   }
 
   const equity = simulation.equity;
@@ -1639,13 +2194,15 @@ export async function loadGuruBacktest(
     },
     method: {
       version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
       years: window.methodYears,
       benchmark: "SPY",
       execution: "Retain the SEC acceptance timestamp and execute at the close of the first SPY trading session strictly after its public calendar date. Legacy snapshots without acceptance time use the same conservative next-session rule after filingDate.",
-      weighting: "Rank only non-option SH rows by disclosed value. Priced common longs keep their selected-book weights; unmapped or unpriced weight remains cash and is never renormalized into covered names.",
+      weighting: "Rank non-option SH rows by disclosed value after excluding titles that explicitly identify debt, preferreds, rights, or warrants. Priced common longs keep their selected-book weights; unmapped or unpriced weight remains cash and is never renormalized into covered names.",
       returnEngine: "Event-rebalanced holdings with position units drifting between filing executions; daily equity and security attribution share the same state.",
       returnBasis: "Dividend- and split-adjusted close total return for both holdings and SPY.",
       amendmentPolicy: "Retain the first public original per reporting CIK and report date, exclude ambiguous amendments, then merge every configured CIK for the quarter. The combined book is executable only after its last component is public.",
+      sameExecutionSessionPolicy,
       reportingCiks,
       duplicateAccessions,
       blockedReportDates,
@@ -1658,7 +2215,7 @@ export async function loadGuruBacktest(
       assumptions: [
         "13F only contains long U.S.-reportable holdings and is delayed from quarter end.",
         "The simulation never uses the filing-date close: it trades at the following trading-session close and applies new units after that close.",
-        "Put/call rows and other non-SH rows are excluded from common-long weights and reported separately as options notional or other reported value.",
+        "Put/call rows, non-SH rows, and SH rows whose titles explicitly identify debt, preferreds, rights, or warrants are excluded from common-long weights and reported separately as options notional or other reported value.",
         "Unmapped or missing execution-price rows remain explicit cash; the entire result fails closed below the minimum coverage threshold.",
         "A missing active adjusted close stops the backtest; it is never converted into a zero return or silently forward-filled.",
         `When the SPY series reaches its requested market end and at least two active holdings share the same trailing vendor cutoff, the effective end may move back by at most ${maxTrailingPriceLagDays} calendar days to that common observed date; a single stale holding or mixed cutoff dates remain fail closed, and requested/effective dates remain auditable.`,
@@ -1784,7 +2341,7 @@ export async function loadGuruBacktests({
 export function guruBacktestRefreshStatus() {
   return {
     ...lastBacktestRefreshStatus,
-    running: Boolean(backtestRefreshInFlight)
+    running: Boolean(backtestRefreshInFlight || scheduledBacktestRefreshInFlight)
   };
 }
 
@@ -1811,6 +2368,7 @@ export async function refreshGuruBacktestCache({
       reason,
       ok: 0,
       failed: 0,
+      proxyAvailable: 0,
       errors: []
     };
     lastBacktestRefreshStatus = status;
@@ -1831,6 +2389,7 @@ export async function refreshGuruBacktestCache({
           years,
           detail
         });
+        if (payload?.status === "proxy_ready") status.proxyAvailable += 1;
         assertGuruBacktestRefreshSucceeded(guru, payload, "cache refresh");
         status.ok += 1;
         console.log("[backtest-refresh] refreshed", {
@@ -1872,12 +2431,112 @@ export async function refreshGuruBacktestCache({
   }
 }
 
+export const scheduledGuruBacktestWindows = Object.freeze([5, 10]);
+
+export async function refreshScheduledGuruBacktestWindows({
+  reason = "scheduled",
+  detail = "compact",
+  refresh = refreshGuruBacktestCache
+} = {}) {
+  if (scheduledBacktestRefreshInFlight) return scheduledBacktestRefreshInFlight;
+
+  const startedAt = new Date().toISOString();
+  lastBacktestRefreshStatus = {
+    running: true,
+    startedAt,
+    finishedAt: null,
+    reason,
+    ok: 0,
+    failed: 0,
+    proxyAvailable: 0,
+    errors: [],
+    windows: scheduledGuruBacktestWindows.map((years) => ({
+      years,
+      status: "pending",
+      ok: 0,
+      failed: 0,
+      proxyAvailable: 0
+    }))
+  };
+  writeBackgroundJobRun("guru_backtest_refresh", {
+    startedAt,
+    status: "running",
+    payload: lastBacktestRefreshStatus
+  });
+
+  const pending = (async () => {
+    const results = [];
+    for (const years of scheduledGuruBacktestWindows) {
+      try {
+        results.push(await refresh({
+          years,
+          detail,
+          reason: `${reason}-${years}y`
+        }));
+      } catch (error) {
+        results.push({
+          running: false,
+          startedAt: new Date().toISOString(),
+          finishedAt: new Date().toISOString(),
+          reason: `${reason}-${years}y`,
+          years,
+          ok: 0,
+          failed: 1,
+          proxyAvailable: 0,
+          errors: [{ guru: "scheduler", message: error.message }]
+        });
+      }
+    }
+    const finishedAt = new Date().toISOString();
+    lastBacktestRefreshStatus = {
+      running: false,
+      startedAt,
+      finishedAt,
+      reason,
+      ok: results.reduce((sum, result) => sum + Number(result?.ok || 0), 0),
+      failed: results.reduce((sum, result) => sum + Number(result?.failed || 0), 0),
+      proxyAvailable: results.reduce(
+        (sum, result) => sum + Number(result?.proxyAvailable || 0),
+        0
+      ),
+      errors: results.flatMap((result, index) =>
+        (result?.errors || []).map((error) => ({
+          ...error,
+          years: scheduledGuruBacktestWindows[index]
+        }))
+      ),
+      windows: results.map((result, index) => ({
+        years: scheduledGuruBacktestWindows[index],
+        status: Number(result?.failed || 0) > 0 ? "failed" : "success",
+        ok: Number(result?.ok || 0),
+        failed: Number(result?.failed || 0),
+        proxyAvailable: Number(result?.proxyAvailable || 0)
+      }))
+    };
+    writeBackgroundJobRun("guru_backtest_refresh", {
+      startedAt,
+      finishedAt,
+      status: lastBacktestRefreshStatus.failed > 0 ? "failed" : "success",
+      payload: lastBacktestRefreshStatus
+    });
+    return results;
+  })();
+  scheduledBacktestRefreshInFlight = pending;
+  try {
+    return await pending;
+  } finally {
+    if (scheduledBacktestRefreshInFlight === pending) {
+      scheduledBacktestRefreshInFlight = null;
+    }
+  }
+}
+
 export function startGuruBacktestRefresher() {
   if (process.env.GURU_BACKTEST_AUTO_REFRESH === "false") return null;
   if (backtestAutoRefreshTimer) return backtestAutoRefreshTimer;
 
   const run = () => {
-    refreshGuruBacktestCache({ reason: "scheduled" }).catch((error) => {
+    refreshScheduledGuruBacktestWindows({ reason: "scheduled" }).catch((error) => {
       lastBacktestRefreshStatus = {
         ...lastBacktestRefreshStatus,
         running: false,

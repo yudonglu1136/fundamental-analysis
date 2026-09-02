@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,9 +26,12 @@ import { importValuationTicker } from "./valuationImporter.js";
 import { translateTextsToChinese } from "./translationClient.js";
 import {
   readBackgroundJobRun,
+  writeAuditedPriceSeriesImport,
   writeAuditedPriceRepair,
   writeBackgroundJobRun
 } from "./localDatabase.js";
+import { requireInternalCron } from "./internalCronAuth.js";
+import { registerAuditedPriceSeriesImportRoute } from "./auditedPriceSeriesImportRoute.js";
 import { startThirteenFRefresh } from "./refreshThirteenF.js";
 import { loadTickerLogo } from "./logoClient.js";
 import {
@@ -82,6 +84,12 @@ app.use(cors({
 }));
 app.use(express.json());
 installJsonTransport(app);
+registerAuditedPriceSeriesImportRoute(app, {
+  requireInternalCron,
+  gurus,
+  writeAuditedPriceSeriesImport,
+  loadGuruBacktest
+});
 
 const avatarAssetDir = fs.existsSync(path.join(rootDir, "dist", "guru-avatars"))
   ? path.join(rootDir, "dist", "guru-avatars")
@@ -111,37 +119,6 @@ app.get("/api/logo/:ticker", async (request, response) => {
     response.status(404).json({ error: "logo_not_found" });
   }
 });
-
-function secureCompare(left, right) {
-  const leftBuffer = Buffer.from(String(left || ""));
-  const rightBuffer = Buffer.from(String(right || ""));
-  if (!leftBuffer.length || leftBuffer.length !== rightBuffer.length) return false;
-  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
-}
-
-function internalCronAuthorized(request) {
-  const secret = process.env.INTERNAL_CRON_SECRET || process.env.CRON_SECRET || "";
-  if (!secret) return false;
-  const authorization = String(request.headers.authorization || "");
-  const bearer = authorization.toLowerCase().startsWith("bearer ")
-    ? authorization.slice(7).trim()
-    : "";
-  const provided =
-    String(request.headers["x-cron-secret"] || "") ||
-    bearer;
-  return secureCompare(provided, secret);
-}
-
-function requireInternalCron(request, response, next) {
-  if (!internalCronAuthorized(request)) {
-    response.status(403).json({
-      error: "cron_forbidden",
-      message: "Internal refresh endpoint requires a configured cron secret."
-    });
-    return;
-  }
-  next();
-}
 
 app.get("/api/internal/backtests/status", requireInternalCron, (_request, response) => {
   response.json(guruBacktestRefreshStatus());

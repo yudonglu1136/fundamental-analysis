@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { gurus } from "./gurus.js";
-import { tickerForHolding } from "./cusipOverrides.js";
+import { holdingResolutionVersion, tickerForHolding } from "./cusipOverrides.js";
 
 import {
   assessCorporateActionAdjustedShareChange,
   group13fFilingsByReportDate,
+  isClearlyNonCommonEquityTitle,
   is13fCommonLongHolding,
   is13fOptionHolding,
   manager13fCiks,
@@ -22,7 +23,9 @@ test("13F values separate common longs, option underlying value, and other rows"
     { id: "common", shareType: "SH", putCall: "", value: 600 },
     { id: "call", shareType: "SH", putCall: "CALL", value: 250 },
     { id: "put", shareType: "SH", putCall: "put", value: 100 },
-    { id: "principal", shareType: "PRN", putCall: "", value: 50 }
+    { id: "principal", shareType: "PRN", putCall: "", value: 50 },
+    { id: "note-in-shares", title: "NOTE 3.750% 5/0", shareType: "SH", putCall: "", value: 25 },
+    { id: "warrant-in-shares", title: "*W EXP 01/16/2030", shareType: "SH", putCall: "", value: 15 }
   ];
 
   assert.equal(is13fCommonLongHolding(holdings[0]), true);
@@ -31,16 +34,96 @@ test("13F values separate common longs, option underlying value, and other rows"
   const buckets = partition13fHoldings(holdings);
   assert.deepEqual(buckets.commonLongHoldings.map((row) => row.id), ["common"]);
   assert.deepEqual(buckets.optionHoldings.map((row) => row.id), ["call", "put"]);
-  assert.deepEqual(buckets.otherReportedHoldings.map((row) => row.id), ["principal"]);
+  assert.deepEqual(buckets.otherReportedHoldings.map((row) => row.id), [
+    "principal",
+    "note-in-shares",
+    "warrant-in-shares"
+  ]);
 
   const summary = summarize13fHoldingValues(holdings);
-  assert.equal(summary.reported13fTableValue, 1000);
+  assert.equal(summary.reported13fTableValue, 1040);
   assert.equal(summary.commonLongValue, 600);
   assert.equal(summary.optionsNotional, 350);
   assert.equal(summary.callOptionsNotional, 250);
   assert.equal(summary.putOptionsNotional, 100);
-  assert.equal(summary.otherReportedValue, 50);
+  assert.equal(summary.otherReportedValue, 90);
   assert.match(summary.valueSemantics.optionsNotional, /not option premium or fund AUM/i);
+  assert.match(summary.valueSemantics.commonLongValue, /excluding titles/i);
+});
+
+test("common-long title classifier excludes explicit non-common claims without guessing on ordinary equity titles", () => {
+  for (const title of [
+    "NOTE 3.750% 5/0",
+    "6.875% CON PFD A",
+    "CNV PFD STK SR A",
+    "6.5 DEP CUM SR D",
+    "7 DEP CM SR A WI",
+    "7.25% CVT PFD",
+    "SPON ADR PREF",
+    "UNIT 02/15/2029",
+    "UNIT 99/99/9999",
+    "DEP SHS RP1/20 B",
+    "RIGHT 10/10/2024",
+    "WARRANT",
+    "WTS EXP 12/31/2027",
+    "*W EXP 01/16/2030"
+  ]) {
+    const holding = { title, shareType: "SH", putCall: "" };
+    assert.equal(isClearlyNonCommonEquityTitle(holding), true, title);
+    assert.equal(is13fCommonLongHolding(holding), false, title);
+  }
+
+  for (const title of ["", "COM", "CL A", "SPONSORED ADS", "ORD SHS", "COM UNIT PART IN"]) {
+    const holding = { title, shareType: "SH", putCall: "" };
+    assert.equal(isClearlyNonCommonEquityTitle(holding), false, title || "blank title");
+    assert.equal(is13fCommonLongHolding(holding), true, title || "blank title");
+  }
+  const preferredIncomeEtf = {
+    issuer: "ISHARES TR",
+    title: "PFD AND INCM SEC",
+    shareType: "SH",
+    putCall: ""
+  };
+  assert.equal(isClearlyNonCommonEquityTitle(preferredIncomeEtf), false);
+  assert.equal(is13fCommonLongHolding(preferredIncomeEtf), true);
+  const spacUnit = {
+    issuer: "DRAGONEER GROWTH OPPRTUN CO",
+    title: "UNIT",
+    shareType: "SH",
+    putCall: ""
+  };
+  assert.equal(isClearlyNonCommonEquityTitle(spacUnit), true);
+  assert.equal(is13fCommonLongHolding(spacUnit), false);
+  for (const issuer of ["KIMBELL ROYALTY PARTNERS LP", "SPROTT PHYSICAL GOLD TRUST"]) {
+    const beneficialUnit = { issuer, title: "UNIT", shareType: "SH", putCall: "" };
+    assert.equal(isClearlyNonCommonEquityTitle(beneficialUnit), false, issuer);
+    assert.equal(is13fCommonLongHolding(beneficialUnit), true, issuer);
+  }
+  for (const holding of [
+    { issuer: "PETROBRAS PREF ADR", title: "SP ADR NON VTG" },
+    { issuer: "ALBEMARLE 7.25 CONV PREFERRED 2027", title: "SPN ADS COM A" },
+    { issuer: "AXIA ENERGIA-ADR PREF", title: "ADR" },
+    { issuer: "AXIA ENERGIA", title: "SPON ADS PF CL C" },
+    { issuer: "AXIA ENERGIA", title: "ADR PF" },
+    { issuer: "AXIA ENERGIA ADR", title: "PF CL C" }
+  ]) {
+    const preferredShareClass = { ...holding, shareType: "SH", putCall: "" };
+    assert.equal(isClearlyNonCommonEquityTitle(preferredShareClass), true, holding.issuer);
+    assert.equal(is13fCommonLongHolding(preferredShareClass), false, holding.issuer);
+  }
+  for (const holding of [
+    { issuer: "PREFORMED LINE PRODUCTS CO", title: "COM" },
+    { issuer: "PREFERRED BANK", title: "COM" },
+    { issuer: "PREFERRED APARTMENT COMMUNITIES INC", title: "COM" },
+    { issuer: "PFIZER INC", title: "COM" },
+    { issuer: "P F CHANGS CHINA BISTRO INC", title: "COM" },
+    { issuer: "ORDINARY ISSUER", title: "PF" },
+    { issuer: "ORDINARY ISSUER", title: "COM PF CL A" }
+  ]) {
+    const ordinaryShareClass = { ...holding, shareType: "SH", putCall: "" };
+    assert.equal(isClearlyNonCommonEquityTitle(ordinaryShareClass), false, holding.issuer);
+    assert.equal(is13fCommonLongHolding(ordinaryShareClass), true, holding.issuer);
+  }
 });
 
 test("amendments fail closed to the first public original and never win by row count", () => {
@@ -180,6 +263,13 @@ test("Renaissance's largest previously unresolved Q2 holdings map to tradable ti
   assert.equal(tickerForHolding({ cusip: "G7997R103", issuer: "SEAGATE TECHNOLOGY HLDNGS PL" }), "STX");
 });
 
+test("13F resolver falls back to the audited S&P security manifest by exact CUSIP", () => {
+  assert.equal(tickerForHolding({ cusip: "532457108", issuer: "ELI LILLY & CO" }), "LLY");
+  assert.equal(tickerForHolding({ cusip: "902973304", issuer: "US BANCORP DEL" }), "USB");
+  assert.equal(tickerForHolding({ cusip: "92343V104", issuer: "VERIZON COMMUNICATIONS INC" }), "VZ");
+  assert.equal(tickerForHolding({ cusip: "not-a-cusip", issuer: "UNKNOWN ISSUER" }), "");
+});
+
 test("Ackman successor CUSIPs retain the economically continuous market ticker", () => {
   assert.equal(tickerForHolding({ cusip: "44267D107", issuer: "HOWARD HUGHES CORP" }), "HHH");
   assert.equal(tickerForHolding({ cusip: "44267T102", issuer: "HOWARD HUGHES HOLDINGS INC" }), "HHH");
@@ -191,6 +281,22 @@ test("Ackman successor CUSIPs retain the economically continuous market ticker",
   assert.equal(tickerForHolding({ cusip: "009158106", issuer: "AIR PRODS & CHEMS INC" }), "APD");
   assert.equal(tickerForHolding({ cusip: "91911K102", issuer: "VALEANT PHARMACEUTICALS INTL" }), "BHC");
   assert.equal(tickerForHolding({ cusip: "G6564A105", issuer: "NOMAD HLDGS LTD" }), "NOMD");
+});
+
+test("audited historical aliases resolve Chamath and Li Lu disclosure identifiers", () => {
+  assert.equal(tickerForHolding({ cusip: "22053A107", issuer: "CORTEXYME INC" }), "QNCX");
+  assert.equal(tickerForHolding({ cusip: "056752908", issuer: "BAIDU INC" }), "BIDU");
+  assert.equal(tickerForHolding({ cusip: "056752908", issuer: "UNKNOWN ISSUER" }), "");
+  assert.equal(tickerForHolding({ cusip: "G81477104", issuer: "SINA CORP" }), "SINA");
+});
+
+test("effective holding resolution binds current and historical ticker continuity", () => {
+  assert.equal(tickerForHolding({ cusip: "337738108", issuer: "FISERV INC" }), "FISV");
+  assert.equal(tickerForHolding({ cusip: "44891N208", issuer: "IAC INC" }), "PPLI");
+  assert.equal(tickerForHolding({ cusip: "741503403", issuer: "PRICELINE GRP INC" }), "BKNG");
+  assert.equal(tickerForHolding({ cusip: "464287614", issuer: "ISHARES RUSSELL 1000 GROWTH" }), "IWF");
+  assert.equal(tickerForHolding({ cusip: "58463J304", issuer: "MEDICAL PROPERTIES TRUST INC" }), "MPT");
+  assert.match(holdingResolutionVersion(), /^holding-resolution-v1-[a-f0-9]{16}$/);
 });
 
 test("a multi-CIK quarter with an orphan amendment is excluded as incomplete", () => {

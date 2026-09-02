@@ -17,6 +17,7 @@ process.env.PRICE_CACHE_DIR = path.join(tempDir, "prices");
 
 const { filingsFromRecentShape } = await import("./secClient.js");
 const {
+  filterLedgerAuditedPriceRepairPoints,
   readPriceSeriesFromDb,
   readPriceRepairAudit,
   writeAuditedPriceRepair,
@@ -63,6 +64,25 @@ test("adjusted close survives the SQLite price cache round trip", () => {
   assert.equal(points.length, 1);
   assert.equal(points[0].close, 100);
   assert.equal(points[0].adjustedClose, 95);
+});
+
+test("a generic cache write cannot inherit adjusted close from an older source", () => {
+  writePriceSeriesToDb("NOADJINHERIT", [{
+    date: "2024-01-02",
+    close: 100,
+    adjustedClose: 95
+  }], "older-source");
+  writePriceSeriesToDb("NOADJINHERIT", [{
+    date: "2024-01-02",
+    close: 101,
+    adjustedClose: null
+  }], "newer-source-without-adjustment");
+
+  const points = readPriceSeriesFromDb("NOADJINHERIT", "2024-01-02", "2024-01-02");
+  assert.equal(points.length, 1);
+  assert.equal(points[0].close, 101);
+  assert.equal(points[0].adjustedClose, null);
+  assert.equal(points[0].source, "newer-source-without-adjustment");
 });
 
 test("audited price repair validates and atomically records exact adjusted rows", () => {
@@ -169,6 +189,11 @@ test("audited price repair validates and atomically records exact adjusted rows"
   assert.equal(completed[0].adjustedClose, 40.75);
   assert.equal(completed[0].volume, 3000);
   assert.equal(completed[0].source, "audited:fixture-provider");
+  assert.equal(filterLedgerAuditedPriceRepairPoints(completed).length, 1);
+  assert.equal(filterLedgerAuditedPriceRepairPoints([{
+    ...completed[0],
+    volume: 3001
+  }]).length, 0);
 
   const failureDb = new DatabaseSync(databasePath);
   failureDb.exec(`
@@ -259,6 +284,26 @@ test("adjusted-close requirement fails closed when Yahoo omits one or every adju
   assert.deepEqual(partial.points, []);
   assert.equal(partial.failure.code, "adjusted_close_unavailable");
   assert.equal(partial.failure.adjustedPointCount, 1);
+  assert.equal(partial.observedAdjustedPoints, undefined);
+
+  const intervalAwarePartial = enforceAdjustedPriceRequirement({
+    symbol: "TEST",
+    source: "yahoo",
+    returnBasis: "unadjusted_close",
+    points: partialPoints
+  }, {
+    start: "2024-01-02",
+    end: "2024-01-03",
+    requireAdjusted: true,
+    expectedTradingDates: ["2024-01-02", "2024-01-03"]
+  });
+  assert.deepEqual(intervalAwarePartial.points, []);
+  assert.deepEqual(
+    intervalAwarePartial.observedAdjustedPoints.map((point) => point.date),
+    ["2024-01-02"]
+  );
+  assert.equal(intervalAwarePartial.failure.code, "expected_internal_session_gap");
+  assert.deepEqual(intervalAwarePartial.failure.missingDates, ["2024-01-03"]);
 
   const missingPoints = normalizeYahooChartPoints({
     timestamp: [1704153600, 1704240000],
@@ -427,6 +472,65 @@ test("an adjusted SQLite series with an internal benchmark-session gap is refres
   }
 });
 
+test("a fresh provider internal-session gap is retried once with provider rows only", async () => {
+  writePriceSeriesToDb("RETRYFIXTURE", [
+    { date: "2024-01-02", close: 101, adjustedClose: 101 },
+    { date: "2024-01-03", close: 999, adjustedClose: 999 },
+    { date: "2024-01-04", close: 103, adjustedClose: 103 }
+  ], "unledgered-stale-row");
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    const retry = fetchCalls === 2;
+    return {
+      ok: true,
+      json: async () => ({
+        chart: {
+          result: [{
+            timestamp: retry
+              ? [1704240000]
+              : [1704153600, 1704326400],
+            indicators: {
+              quote: [{ close: retry ? [102] : [101, 103] }],
+              adjclose: [{ adjclose: retry ? [102] : [101, 103] }]
+            }
+          }]
+        }
+      })
+    };
+  };
+
+  try {
+    const series = await loadPriceSeries("RETRYFIXTURE", {
+      start: "2023-01-01",
+      end: "2024-01-04",
+      requireAdjusted: true,
+      expectedTradingDates: ["2024-01-02", "2024-01-03", "2024-01-04"]
+    });
+    assert.equal(fetchCalls, 2);
+    assert.equal(series.providerAttempts, 2);
+    assert.deepEqual(series.expectedInternalSessionRetry, {
+      attempted: true,
+      initialMissingDates: ["2024-01-03"],
+      remainingMissingDates: []
+    });
+    assert.deepEqual(series.points.map((point) => point.date), [
+      "2024-01-02",
+      "2024-01-03",
+      "2024-01-04"
+    ]);
+    assert.equal(series.points[1].adjustedClose, 102);
+    assert.equal(
+      readPriceSeriesFromDb("RETRYFIXTURE", "2024-01-03", "2024-01-03")[0].source,
+      "yahoo"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("an audited SQLite point is merged after an upstream IPO-range refresh", async () => {
   writePriceSeriesToDb("SPY", [
     { date: "2024-01-02", close: 470, adjustedClose: 470 },
@@ -498,7 +602,7 @@ test("an audited SQLite point is merged after an upstream IPO-range refresh", as
       requireAdjusted: true,
       expectedTradingDates: ["2024-01-02", "2024-01-03", "2024-01-04"]
     });
-    assert.equal(fetchCalls, 1);
+    assert.equal(fetchCalls, 2);
     assert.equal(series.source, "yahoo+sqlite-merged");
     assert.equal(series.cache, "refreshed-merged");
     assert.deepEqual(series.points.map((point) => point.date), [
@@ -518,7 +622,7 @@ test("an audited SQLite point is merged after an upstream IPO-range refresh", as
       expectedTradingDates: ["2024-01-02", "2024-01-03", "2024-01-04"]
     });
     assert.equal(cached.cache, "hit");
-    assert.equal(fetchCalls, 1);
+    assert.equal(fetchCalls, 2);
     assert.equal(
       readPriceSeriesFromDb("AUDMERGE", "2024-01-03", "2024-01-03")[0].source,
       "audited:fixture-provider"
@@ -536,20 +640,24 @@ test("an unledgered stale SQLite point cannot fill a fresh upstream gap", async 
   ], "old-yahoo-cache");
 
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({
-    ok: true,
-    json: async () => ({
-      chart: {
-        result: [{
-          timestamp: [1704153600, 1704326400],
-          indicators: {
-            quote: [{ close: [101, 103] }],
-            adjclose: [{ adjclose: [101, 103] }]
-          }
-        }]
-      }
-    })
-  });
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return {
+      ok: true,
+      json: async () => ({
+        chart: {
+          result: [{
+            timestamp: [1704153600, 1704326400],
+            indicators: {
+              quote: [{ close: [101, 103] }],
+              adjclose: [{ adjclose: [101, 103] }]
+            }
+          }]
+        }
+      })
+    };
+  };
 
   try {
     const series = await loadPriceSeries("UNTRUSTEDMERGEFIXTURE", {
@@ -558,11 +666,22 @@ test("an unledgered stale SQLite point cannot fill a fresh upstream gap", async 
       requireAdjusted: true,
       expectedTradingDates: ["2024-01-02", "2024-01-03", "2024-01-04"]
     });
-    assert.equal(series.source, "yahoo");
-    assert.deepEqual(series.points.map((point) => point.date), [
-      "2024-01-02",
-      "2024-01-04"
-    ]);
+    assert.equal(fetchCalls, 2);
+    assert.equal(series.source, "unavailable");
+    assert.equal(series.upstreamSource, "yahoo");
+    assert.equal(series.returnBasis, "unavailable");
+    assert.deepEqual(series.points, []);
+    assert.deepEqual(
+      series.observedAdjustedPoints.map((point) => point.date),
+      ["2024-01-02", "2024-01-04"]
+    );
+    assert.equal(series.failure.code, "expected_internal_session_gap");
+    assert.equal(
+      series.failure.policy,
+      "fail_closed_after_single_provider_retry_without_unledgered_db_fill"
+    );
+    assert.equal(series.failure.providerAttempts, 2);
+    assert.deepEqual(series.failure.missingDates, ["2024-01-03"]);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -601,6 +720,61 @@ test("a fresh upstream row without adjusted close cannot inherit a stale DB valu
     assert.equal(series.returnBasis, "unavailable");
     assert.deepEqual(series.points, []);
     assert.equal(series.failure.adjustedPointCount, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a rejected Yahoo refresh cannot poison the next adjusted-price call", async () => {
+  writePriceSeriesToDb("FRESHNULLTWICE", [{
+    date: "2024-01-10",
+    close: 110,
+    adjustedClose: 90
+  }], "old-yahoo-cache");
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return {
+      ok: true,
+      json: async () => ({
+        chart: {
+          result: [{
+            timestamp: [1704153600, 1704844800],
+            indicators: {
+              quote: [{ close: [100, 110] }],
+              adjclose: [{ adjclose: [100, null] }]
+            }
+          }]
+        }
+      })
+    };
+  };
+
+  const request = {
+    start: "2024-01-01",
+    end: "2024-01-10",
+    requireAdjusted: true
+  };
+
+  try {
+    const first = await loadPriceSeries("FRESHNULLTWICE", request);
+    const second = await loadPriceSeries("FRESHNULLTWICE", request);
+
+    for (const series of [first, second]) {
+      assert.equal(series.source, "unavailable");
+      assert.equal(series.returnBasis, "unavailable");
+      assert.deepEqual(series.points, []);
+      assert.equal(series.failure.code, "adjusted_close_unavailable");
+      assert.equal(series.failure.adjustedPointCount, 1);
+    }
+    assert.equal(fetchCalls, 2);
+    assert.deepEqual(
+      readPriceSeriesFromDb("FRESHNULLTWICE", "2024-01-01", "2024-01-10")
+        .map((point) => [point.date, point.adjustedClose, point.source]),
+      [["2024-01-10", 90, "old-yahoo-cache"]]
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }

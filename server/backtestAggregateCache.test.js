@@ -1,13 +1,70 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
+import { DatabaseSync } from "node:sqlite";
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "guru-backtest-cache-test-"));
 const databasePath = path.join(tempDir, "cache.sqlite");
 fs.closeSync(fs.openSync(databasePath, "w"));
+const securityMasterPath = path.join(tempDir, "empty-security-master.json");
+const holdingManifestPath = path.join(tempDir, "empty-sec-manifest.json");
+const emptyHoldingManifestRecords = {
+  managers: [],
+  filings: [],
+  cusips: []
+};
+const emptyHoldingManifestRecordsSha256 = crypto.createHash("sha256")
+  .update(stableJson(emptyHoldingManifestRecords))
+  .digest("hex");
+fs.writeFileSync(holdingManifestPath, JSON.stringify({
+  schemaVersion: 1,
+  generatedAt: "2026-09-02T17:30:00.000Z",
+  sourcePolicy: "direct_official_sec_submissions_and_archive_documents_no_derived_cache",
+  holdingSelectionPolicy: "top_60_common_long_shares_excluding_explicit_non_common_titles_by_reported_value_per_filing",
+  recordsSha256: emptyHoldingManifestRecordsSha256,
+  ...emptyHoldingManifestRecords
+}));
+const emptySecurityMasterRecords = {
+  securities: [],
+  unresolved: [],
+  ambiguous: []
+};
+function stableJson(value) {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) =>
+      `${JSON.stringify(key)}:${stableJson(value[key])}`
+    ).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+fs.writeFileSync(securityMasterPath, JSON.stringify({
+  schemaVersion: 2,
+  generatedAt: "2026-09-02T00:00:00.000Z",
+  matchingPolicy: "test_empty_master",
+  source: {
+    identifierProvider: "OpenFIGI",
+    holdingManifestPath,
+    holdingManifestPolicy: "direct_official_sec_submissions_and_archive_documents_no_derived_cache",
+    holdingSelectionPolicy: "top_60_common_long_shares_excluding_explicit_non_common_titles_by_reported_value_per_filing",
+    holdingManifestRecordsSha256: emptyHoldingManifestRecordsSha256
+  },
+  selection: {
+    observedCusips: 0,
+    resolvedCusips: 0,
+    unresolvedCusips: 0,
+    ambiguousCusips: 0
+  },
+  recordsSha256: crypto.createHash("sha256")
+    .update(stableJson(emptySecurityMasterRecords))
+    .digest("hex"),
+  ...emptySecurityMasterRecords
+}));
 process.env.SQLITE_DB_PATH = databasePath;
+process.env.GURU_SECURITY_MASTER_PATH = securityMasterPath;
 process.env.SYNC_BUNDLED_VALUATION_SNAPSHOTS = "false";
 process.env.SYNC_BUNDLED_GURU_BACKTESTS = "false";
 process.env.SYNC_BUNDLED_DIVIDEND_CALENDAR = "false";
@@ -16,9 +73,15 @@ process.env.BACKTEST_CACHE_TTL_HOURS = "0";
 process.env.BACKTEST_STALE_BACKGROUND_REFRESH = "false";
 
 const { gurus } = await import("./gurus.js");
-const { writeGuruBacktest } = await import("./localDatabase.js");
+const {
+  readGuruBacktest,
+  readGuruBacktestProxy,
+  writeGuruBacktest,
+  writeGuruBacktestProxy
+} = await import("./localDatabase.js");
 const {
   assertGuruBacktestRefreshSucceeded,
+  buildPublicHoldingsProxyPayload,
   clearGuruBacktestAggregateCache,
   compactBacktestPayload,
   disclosureBacktestMethodVersion,
@@ -27,10 +90,17 @@ const {
   loadGuruBacktest,
   loadGuruBacktests,
   manager13fBacktestMethodVersion,
+  manager13fProxyMethodVersion,
+  manager13fSecurityMasterVersion,
+  normalizeBacktestProxySetting,
+  persistBacktestRefreshResult,
   publicBacktestRequestPolicy,
   refreshGuruBacktestCache,
+  refreshScheduledGuruBacktestWindows,
   runGuruBacktestComputationAfterCurrent,
   runGuruBacktestComputationOnce,
+  scheduledGuruBacktestWindows,
+  selectManagerBacktestCache,
   staleBacktestBackgroundRefreshAllowed
 } = await import("./backtest.js");
 
@@ -52,16 +122,32 @@ function fixture(guru, marker, generatedAt) {
       end: "2026-08-28"
     },
     method: guru.type === "manager13f"
-      ? { version: manager13fBacktestMethodVersion }
+      ? {
+          version: manager13fBacktestMethodVersion,
+          securityMasterVersion: manager13fSecurityMasterVersion,
+          minimumExecutionCoverage: 0.9
+        }
       : guru.type === "congress"
         ? { version: disclosureBacktestMethodVersion }
         : {},
-    summary: { marker },
+    summary: { marker, averageCoverage: 1 },
     equity: [
       { date: "2020-01-02", value: 1, benchmark: 1 },
       { date: "2026-08-28", value: 2, benchmark: 1.8 }
     ],
-    rebalances: [],
+    rebalances: guru.type === "manager13f"
+      ? [{
+          reportDate: "2026-06-30",
+          executionDate: "2026-08-17",
+          coveragePct: 1
+        }]
+      : [],
+    dataQuality: guru.type === "manager13f"
+      ? {
+          minimumExecutionCoverage: 0.9,
+          minimumObservedExecutionCoverage: 1
+        }
+      : {},
     quarterContributions: [{
       id: "2026-q2",
       label: "2026 Q2",
@@ -69,6 +155,712 @@ function fixture(guru, marker, generatedAt) {
     }]
   };
 }
+
+function proxyFixture(guru, marker, generatedAt, {
+  proxyMethodVersion = manager13fProxyMethodVersion,
+  securityMasterVersion = manager13fSecurityMasterVersion,
+  strictFailureGeneratedAt = generatedAt
+} = {}) {
+  const payload = fixture(guru, marker, generatedAt);
+  payload.status = "proxy_ready";
+  payload.method = {
+    version: manager13fBacktestMethodVersion,
+    securityMasterVersion,
+    variant: proxyMethodVersion
+  };
+  payload.proxy = {
+    kind: "public_holdings_proxy",
+    methodVersion: proxyMethodVersion,
+    securityMasterVersion,
+    strictFailureGeneratedAt,
+    disclosureCode: "incomplete_selected_book_public_holdings_proxy",
+    minimumSelectedBookCoverage: 0.4,
+    averageSelectedBookCoverage: 0.4,
+    maximumExcludedBookWeight: 0.6,
+    minimumIncludedPositions: 2,
+    topExcludedHoldings: []
+  };
+  payload.rebalances = [{
+    reportDate: "2026-06-30",
+    executionDate: "2026-08-17",
+    selectedBookCoverage: 0.4,
+    includedPositions: 2
+  }];
+  return payload;
+}
+
+function withMethodYears(payload, years) {
+  payload.method = { ...(payload.method || {}), years };
+  return payload;
+}
+
+test("a transient failed refresh retains a ready curve from the current method", () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const ready = fixture(ackman, "ready-before-transient-failure", "2026-09-02T00:00:00.000Z");
+  writeGuruBacktest(ackman.id, 7, ready);
+
+  const failed = {
+    generatedAt: "2026-09-02T01:00:00.000Z",
+    status: "insufficient_data",
+    guru: ready.guru,
+    window: ready.window,
+    method: {
+      version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      reason: "A provider response omitted an internal trading session."
+    },
+    dataQuality: {
+      failure: {
+        code: "expected_internal_session_gap",
+        missingDates: ["2026-08-28"]
+      }
+    },
+    summary: {},
+    equity: [],
+    rebalances: [],
+    quarterContributions: []
+  };
+  const refreshResult = persistBacktestRefreshResult(
+    ackman.id,
+    7,
+    failed,
+    manager13fBacktestMethodVersion
+  );
+
+  assert.equal(refreshResult.status, "insufficient_data");
+  assert.equal(refreshResult.cache?.retainedReady, true);
+  assert.equal(refreshResult.cache?.status, "refresh-failed-ready-retained");
+  assert.deepEqual(refreshResult.dataQuality?.readyCacheRetention, {
+    retained: true,
+    reason: "transient_refresh_failed",
+    generatedAt: ready.generatedAt,
+    window: ready.window,
+    methodVersion: manager13fBacktestMethodVersion,
+    securityMasterVersion: manager13fSecurityMasterVersion
+  });
+  assert.throws(
+    () => assertGuruBacktestRefreshSucceeded(ackman, refreshResult),
+    /readyCacheRetention.*retained.*true/
+  );
+
+  const retained = readGuruBacktest(ackman.id, 7);
+  assert.equal(retained.status, "ready");
+  assert.equal(retained.summary.marker, "ready-before-transient-failure");
+  assert.equal(retained.equity.length, 2);
+
+  const replacement = fixture(
+    ackman,
+    "ready-after-successful-refresh",
+    "2026-09-02T02:00:00.000Z"
+  );
+  persistBacktestRefreshResult(
+    ackman.id,
+    7,
+    replacement,
+    manager13fBacktestMethodVersion
+  );
+  assert.equal(
+    readGuruBacktest(ackman.id, 7).summary.marker,
+    "ready-after-successful-refresh"
+  );
+});
+
+test("a transient congress refresh failure retains its current ready curve", () => {
+  const congress = gurus.find((guru) => guru.type === "congress");
+  assert.ok(congress);
+  const ready = fixture(
+    congress,
+    "congress-ready-before-transient-failure",
+    "2026-09-02T00:00:00.000Z"
+  );
+  writeGuruBacktest(congress.id, 45, ready);
+
+  const failed = {
+    generatedAt: "2026-09-02T01:00:00.000Z",
+    status: "insufficient_data",
+    guru: ready.guru,
+    window: ready.window,
+    method: {
+      version: disclosureBacktestMethodVersion,
+      reason: "A disclosure refresh was temporarily unavailable."
+    },
+    dataQuality: { failure: { code: "provider_unavailable" } },
+    summary: {},
+    equity: [],
+    rebalances: [],
+    quarterContributions: []
+  };
+  const refreshResult = persistBacktestRefreshResult(
+    congress.id,
+    45,
+    failed,
+    disclosureBacktestMethodVersion
+  );
+
+  assert.equal(refreshResult.cache?.retainedReady, true);
+  assert.equal(
+    readGuruBacktest(congress.id, 45).summary.marker,
+    "congress-ready-before-transient-failure"
+  );
+});
+
+test("a failed refresh never retains a corrupt current-method strict row", () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const ready = fixture(ackman, "corrupt-before-refresh", "2026-09-02T00:00:00.000Z");
+  writeGuruBacktest(ackman.id, 44, ready);
+
+  const corrupt = structuredClone(ready);
+  delete corrupt.guru.type;
+  corrupt.rebalances[0].coveragePct = 0.2;
+  corrupt.dataQuality.minimumObservedExecutionCoverage = 0.2;
+  corrupt.summary.averageCoverage = 0.2;
+  const rawDatabase = new DatabaseSync(databasePath);
+  try {
+    rawDatabase.prepare(`
+      UPDATE guru_backtests
+      SET payload_json = ?
+      WHERE guru_id = ? AND years = ?
+    `).run(JSON.stringify(corrupt), ackman.id, 44);
+  } finally {
+    rawDatabase.close();
+  }
+
+  const failed = {
+    generatedAt: "2026-09-02T01:00:00.000Z",
+    status: "insufficient_data",
+    guru: ready.guru,
+    window: ready.window,
+    method: {
+      version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      reason: "The refreshed strict curve failed coverage."
+    },
+    dataQuality: { failure: { code: "execution_coverage_below_minimum" } },
+    summary: {},
+    equity: [],
+    rebalances: [],
+    quarterContributions: []
+  };
+  const refreshResult = persistBacktestRefreshResult(
+    ackman.id,
+    44,
+    failed,
+    manager13fBacktestMethodVersion
+  );
+
+  assert.equal(refreshResult.cache?.retainedReady, undefined);
+  assert.equal(readGuruBacktest(ackman.id, 44).status, "insufficient_data");
+});
+
+test("an incompatible ready curve is not retained across a method change", () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const oldReady = fixture(ackman, "old-method", "2026-09-02T00:00:00.000Z");
+  oldReady.method.version = "manager13f-drifted-total-return-v5";
+  writeGuruBacktest(ackman.id, 8, oldReady);
+
+  const failed = {
+    generatedAt: "2026-09-02T01:00:00.000Z",
+    status: "insufficient_data",
+    guru: oldReady.guru,
+    window: oldReady.window,
+    method: {
+      version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      reason: "The current method could not produce an audited curve."
+    },
+    dataQuality: {
+      failure: { code: "expected_internal_session_gap" }
+    },
+    summary: {},
+    equity: [],
+    rebalances: [],
+    quarterContributions: []
+  };
+  const refreshResult = persistBacktestRefreshResult(
+    ackman.id,
+    8,
+    failed,
+    manager13fBacktestMethodVersion
+  );
+
+  assert.equal(refreshResult.cache?.retainedReady, undefined);
+  assert.equal(readGuruBacktest(ackman.id, 8).status, "insufficient_data");
+  assert.equal(
+    readGuruBacktest(ackman.id, 8).method.version,
+    manager13fBacktestMethodVersion
+  );
+});
+
+test("a ready curve from an older security master is not retained", () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const oldReady = fixture(
+    ackman,
+    "old-security-master",
+    "2026-09-02T00:00:00.000Z"
+  );
+  oldReady.method.securityMasterVersion = "openfigi-sec-v2-old-records";
+  writeGuruBacktest(ackman.id, 38, oldReady);
+
+  const failed = {
+    generatedAt: "2026-09-02T01:00:00.000Z",
+    status: "insufficient_data",
+    guru: oldReady.guru,
+    window: oldReady.window,
+    method: {
+      version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      reason: "The current security master could not produce a strict curve."
+    },
+    dataQuality: { failure: { code: "execution_coverage_below_minimum" } },
+    summary: {},
+    equity: [],
+    rebalances: [],
+    quarterContributions: []
+  };
+  const refreshResult = persistBacktestRefreshResult(
+    ackman.id,
+    38,
+    failed,
+    manager13fBacktestMethodVersion
+  );
+
+  assert.equal(refreshResult.cache?.retainedReady, undefined);
+  assert.equal(readGuruBacktest(ackman.id, 38).status, "insufficient_data");
+  assert.equal(
+    readGuruBacktest(ackman.id, 38).method.securityMasterVersion,
+    manager13fSecurityMasterVersion
+  );
+});
+
+test("a mutation-following failed refresh invalidates the pre-mutation ready curve", () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const ready = fixture(ackman, "pre-mutation", "2026-09-02T00:00:00.000Z");
+  writeGuruBacktest(ackman.id, 9, ready);
+
+  const failed = {
+    generatedAt: "2026-09-02T01:00:00.000Z",
+    status: "insufficient_data",
+    guru: ready.guru,
+    window: ready.window,
+    method: {
+      version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      reason: "The audited price-repair generation still failed coverage."
+    },
+    dataQuality: {
+      failure: { code: "missing_active_price" }
+    },
+    summary: {},
+    equity: [],
+    rebalances: [],
+    quarterContributions: []
+  };
+  const refreshResult = persistBacktestRefreshResult(
+    ackman.id,
+    9,
+    failed,
+    manager13fBacktestMethodVersion,
+    { preserveReady: false }
+  );
+
+  assert.equal(refreshResult.cache?.retainedReady, undefined);
+  const stored = readGuruBacktest(ackman.id, 9);
+  assert.equal(stored.status, "insufficient_data");
+  assert.equal(stored.dataQuality.failure.code, "missing_active_price");
+  assert.equal(stored.summary.marker, undefined);
+});
+
+test("strict and proxy rows coexist, and a strict ready curve always wins public reads", async () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const strict = withMethodYears(
+    fixture(ackman, "strict-wins", "2026-09-02T00:00:00.000Z"),
+    31
+  );
+  const proxy = withMethodYears(
+    proxyFixture(ackman, "proxy-remains-separate", "2026-09-02T01:00:00.000Z"),
+    31
+  );
+  writeGuruBacktest(ackman.id, 31, strict);
+  writeGuruBacktestProxy(ackman.id, 31, proxy);
+
+  assert.equal(readGuruBacktest(ackman.id, 31).summary.marker, "strict-wins");
+  assert.equal(readGuruBacktestProxy(ackman.id, 31).summary.marker, "proxy-remains-separate");
+  assert.equal(selectManagerBacktestCache(strict, proxy).kind, "strict");
+
+  const publicPayload = await loadGuruBacktest(ackman.id, {
+    years: 31,
+    allowCold: false
+  });
+  assert.equal(publicPayload.status, "ready");
+  assert.equal(publicPayload.summary.marker, "strict-wins");
+});
+
+test("the strict cache rejects and ignores proxy payloads", () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const proxy = proxyFixture(ackman, "wrong-table", "2026-09-02T00:00:00.000Z");
+  assert.throws(
+    () => writeGuruBacktest(ackman.id, 36, proxy),
+    /Proxy curves must be written with writeGuruBacktestProxy/
+  );
+  assert.equal(selectManagerBacktestCache(proxy, null).kind, "miss");
+});
+
+test("manager cache selection rejects a payload whose declared years do not match the requested key", () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const strict = fixture(ackman, "wrong-window", "2026-09-02T00:00:00.000Z");
+  strict.method.years = 5;
+  assert.equal(selectManagerBacktestCache(strict, null, 10).kind, "miss");
+  assert.equal(selectManagerBacktestCache(strict, null, 5).kind, "strict");
+
+  const strictFailure = {
+    ...strict,
+    status: "insufficient_data",
+    equity: []
+  };
+  const proxy = proxyFixture(
+    ackman,
+    "wrong-proxy-window",
+    strictFailure.generatedAt,
+    { strictFailureGeneratedAt: strictFailure.generatedAt }
+  );
+  proxy.method.years = 5;
+  assert.equal(selectManagerBacktestCache(strictFailure, proxy, 10).kind, "miss");
+  assert.equal(selectManagerBacktestCache(strictFailure, proxy, 5).kind, "proxy");
+});
+
+test("a strict ready row must re-pass the current 90% coverage audit", () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const corrupt = fixture(
+    ackman,
+    "corrupt-strict-coverage",
+    "2026-09-02T00:00:00.000Z"
+  );
+  corrupt.rebalances[0].coveragePct = 0.2;
+  corrupt.dataQuality.minimumObservedExecutionCoverage = 0.2;
+  corrupt.summary.averageCoverage = 0.2;
+  corrupt.guru.type = "congress";
+
+  assert.throws(
+    () => writeGuruBacktest(ackman.id, 43, corrupt),
+    /Strict cache row failed its coverage audit: strict_rebalance_coverage_below_minimum/
+  );
+  assert.equal(selectManagerBacktestCache(corrupt, null).kind, "miss");
+});
+
+test("a persisted proxy must re-pass the public coverage and position floors", () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const strictFailure = {
+    ...fixture(ackman, "strict-failure", "2026-09-02T00:00:00.000Z"),
+    status: "insufficient_data",
+    equity: []
+  };
+  const corruptCoverage = proxyFixture(
+    ackman,
+    "corrupt-coverage",
+    strictFailure.generatedAt
+  );
+  corruptCoverage.proxy.minimumSelectedBookCoverage = 0.01;
+  corruptCoverage.rebalances[0].selectedBookCoverage = 0.01;
+  assert.throws(
+    () => writeGuruBacktestProxy(ackman.id, 40, corruptCoverage),
+    /failed its public coverage audit: proxy_summary_coverage_below_minimum/
+  );
+  assert.equal(selectManagerBacktestCache(strictFailure, corruptCoverage).kind, "strict");
+
+  const corruptPositions = proxyFixture(
+    ackman,
+    "corrupt-positions",
+    strictFailure.generatedAt
+  );
+  corruptPositions.proxy.minimumIncludedPositions = 1;
+  corruptPositions.rebalances[0].includedPositions = 1;
+  assert.throws(
+    () => writeGuruBacktestProxy(ackman.id, 41, corruptPositions),
+    /failed its public coverage audit: proxy_summary_positions_below_minimum/
+  );
+  assert.equal(selectManagerBacktestCache(strictFailure, corruptPositions).kind, "strict");
+
+  const inflatedDisclosure = proxyFixture(
+    ackman,
+    "inflated-disclosure",
+    strictFailure.generatedAt
+  );
+  inflatedDisclosure.proxy.minimumSelectedBookCoverage = 0.9;
+  assert.throws(
+    () => writeGuruBacktestProxy(ackman.id, 42, inflatedDisclosure),
+    /failed its public coverage audit: proxy_summary_minimum_coverage_mismatch/
+  );
+  assert.equal(selectManagerBacktestCache(strictFailure, inflatedDisclosure).kind, "strict");
+});
+
+test("a refresh downgrade can store a proxy without replacing a retained strict curve", async () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const strict = withMethodYears(
+    fixture(ackman, "strict-before-downgrade", "2026-09-02T00:00:00.000Z"),
+    32
+  );
+  writeGuruBacktest(ackman.id, 32, strict);
+  const failed = {
+    generatedAt: "2026-09-02T01:00:00.000Z",
+    status: "insufficient_data",
+    guru: strict.guru,
+    window: strict.window,
+    method: {
+      version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      years: 32
+    },
+    dataQuality: { failure: { code: "missing_active_price" } },
+    summary: {},
+    equity: [],
+    rebalances: [],
+    quarterContributions: []
+  };
+  const refreshResult = persistBacktestRefreshResult(
+    ackman.id,
+    32,
+    failed,
+    manager13fBacktestMethodVersion
+  );
+  assert.equal(refreshResult.cache.retainedReady, true);
+  writeGuruBacktestProxy(
+    ackman.id,
+    32,
+    withMethodYears(
+      proxyFixture(ackman, "proxy-after-downgrade", "2026-09-02T01:00:00.000Z"),
+      32
+    )
+  );
+
+  const publicPayload = await loadGuruBacktest(ackman.id, {
+    years: 32,
+    allowCold: false
+  });
+  assert.equal(publicPayload.status, "ready");
+  assert.equal(publicPayload.summary.marker, "strict-before-downgrade");
+  assert.equal(readGuruBacktestProxy(ackman.id, 32).summary.marker, "proxy-after-downgrade");
+});
+
+test("a compatible proxy is public only when no compatible strict ready curve exists", async () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const strictFailure = {
+    generatedAt: "2026-09-02T00:00:00.000Z",
+    status: "insufficient_data",
+    guru: { id: ackman.id, name: ackman.name, type: ackman.type },
+    window: { start: "2021-01-01", end: "2026-08-28" },
+    method: {
+      version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      years: 33
+    },
+    summary: {},
+    equity: [],
+    rebalances: [],
+    quarterContributions: []
+  };
+  const proxy = proxyFixture(
+    ackman,
+    "proxy-public",
+    strictFailure.generatedAt,
+    { strictFailureGeneratedAt: strictFailure.generatedAt }
+  );
+  proxy.method.years = 33;
+  writeGuruBacktest(ackman.id, 33, strictFailure);
+  writeGuruBacktestProxy(ackman.id, 33, proxy);
+
+  assert.equal(selectManagerBacktestCache(strictFailure, proxy).kind, "proxy");
+  const publicPayload = await loadGuruBacktest(ackman.id, {
+    years: 33,
+    allowCold: false
+  });
+  assert.equal(publicPayload.status, "proxy_ready");
+  assert.equal(publicPayload.summary.marker, "proxy-public");
+});
+
+test("an incompatible proxy method is ignored and cannot mask a strict failure", async () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const strictFailure = {
+    generatedAt: "2026-09-02T00:00:00.000Z",
+    status: "insufficient_data",
+    guru: { id: ackman.id, name: ackman.name, type: ackman.type },
+    window: { start: "2021-01-01", end: "2026-08-28" },
+    method: {
+      version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      years: 34
+    },
+    summary: { marker: "strict-failure" },
+    equity: [],
+    rebalances: [],
+    quarterContributions: []
+  };
+  const oldProxy = proxyFixture(
+    ackman,
+    "old-proxy",
+    strictFailure.generatedAt,
+    {
+      proxyMethodVersion: "manager13f-public-holdings-proxy-v0",
+      strictFailureGeneratedAt: strictFailure.generatedAt
+    }
+  );
+  oldProxy.method.years = 34;
+  writeGuruBacktest(ackman.id, 34, strictFailure);
+  writeGuruBacktestProxy(ackman.id, 34, oldProxy);
+
+  assert.equal(selectManagerBacktestCache(strictFailure, oldProxy).kind, "strict");
+  const publicPayload = await loadGuruBacktest(ackman.id, {
+    years: 34,
+    allowCold: false
+  });
+  assert.equal(publicPayload.status, "insufficient_data");
+  assert.equal(publicPayload.summary.marker, "strict-failure");
+});
+
+test("a proxy from an older security master cannot mask a strict failure", async () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const strictFailure = {
+    generatedAt: "2026-09-02T00:30:00.000Z",
+    status: "insufficient_data",
+    guru: { id: ackman.id, name: ackman.name, type: ackman.type },
+    window: { start: "2021-01-01", end: "2026-08-28" },
+    method: {
+      version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      years: 39
+    },
+    summary: { marker: "current-master-strict-failure" },
+    equity: [],
+    rebalances: [],
+    quarterContributions: []
+  };
+  const oldMasterProxy = proxyFixture(
+    ackman,
+    "old-master-proxy",
+    strictFailure.generatedAt,
+    {
+      securityMasterVersion: "openfigi-sec-v2-old-records",
+      strictFailureGeneratedAt: strictFailure.generatedAt
+    }
+  );
+  oldMasterProxy.method.years = 39;
+  writeGuruBacktest(ackman.id, 39, strictFailure);
+  writeGuruBacktestProxy(ackman.id, 39, oldMasterProxy);
+
+  assert.equal(selectManagerBacktestCache(strictFailure, oldMasterProxy).kind, "strict");
+  const publicPayload = await loadGuruBacktest(ackman.id, {
+    years: 39,
+    allowCold: false
+  });
+  assert.equal(publicPayload.status, "insufficient_data");
+  assert.equal(publicPayload.summary.marker, "current-master-strict-failure");
+});
+
+test("an old proxy generation cannot mask a newer strict failure", async () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const strictFailure = {
+    generatedAt: "2026-09-02T02:00:00.000Z",
+    status: "insufficient_data",
+    guru: { id: ackman.id, name: ackman.name, type: ackman.type },
+    window: { start: "2021-01-01", end: "2026-08-28" },
+    method: {
+      version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      years: 35
+    },
+    summary: { marker: "new-strict-failure" },
+    equity: [],
+    rebalances: [],
+    quarterContributions: []
+  };
+  const staleProxy = proxyFixture(
+    ackman,
+    "stale-proxy",
+    "2026-09-02T00:00:00.000Z",
+    { strictFailureGeneratedAt: "2026-09-02T00:00:00.000Z" }
+  );
+  staleProxy.method.years = 35;
+  writeGuruBacktest(ackman.id, 35, strictFailure);
+  writeGuruBacktestProxy(ackman.id, 35, staleProxy);
+
+  assert.equal(selectManagerBacktestCache(strictFailure, staleProxy).kind, "strict");
+  const publicPayload = await loadGuruBacktest(ackman.id, {
+    years: 35,
+    allowCold: false
+  });
+  assert.equal(publicPayload.status, "insufficient_data");
+  assert.equal(publicPayload.summary.marker, "new-strict-failure");
+});
+
+test("active-price proxy payload exposes compact stable selected-book metadata", () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const dates = ["2024-01-02", "2024-01-03", "2024-01-04"];
+  const priceMaps = new Map([
+    ["SPY", new Map(dates.map((date, index) => [date, 100 + index]))],
+    ["AAA", new Map(dates.map((date, index) => [date, 50 + index]))],
+    ["BBB", new Map(dates.map((date, index) => [date, 70 + index]))]
+  ]);
+  const result = buildPublicHoldingsProxyPayload({
+    guru: ackman,
+    window: { methodYears: 5 },
+    start: dates[0],
+    end: dates.at(-1),
+    history: [{}, {}],
+    backtestHistory: [{}, {}],
+    excludedFilings: [],
+    reportingCiks: [ackman.cik],
+    duplicateAccessions: [],
+    blockedReportDates: [],
+    executionExclusions: [],
+    universe: ["AAA", "BBB"],
+    rebalances: [{
+      reportDate: "2023-12-31",
+      filingDate: "2024-01-01",
+      executionDate: dates[0],
+      selectedValue: 100,
+      selectedPositions: 3,
+      pricedPositions: 2,
+      coveragePct: 0.45,
+      cashWeight: 0.55,
+      unpricedPositions: [{ issuer: "Private asset", weight: 0.55, value: 55 }],
+      weights: [
+        { ticker: "AAA", issuer: "Alpha", value: 30, weight: 0.3 },
+        { ticker: "BBB", issuer: "Beta", value: 15, weight: 0.15 }
+      ]
+    }],
+    tradingDates: dates,
+    priceMaps,
+    strictFailureCode: "missing_active_price",
+    strictFailure: {
+      code: "missing_active_price",
+      date: dates[1],
+      tickers: ["GAP"],
+      missingWeight: 0.1,
+      oversizedDiagnostic: "must-not-leak"
+    }
+  });
+
+  assert.equal(result.failure, null);
+  assert.equal(result.payload.status, "proxy_ready");
+  assert.equal(
+    result.payload.proxy.disclosureCode,
+    "incomplete_selected_book_public_holdings_proxy"
+  );
+  assert.ok(Math.abs(result.payload.proxy.minimumSelectedBookCoverage - 0.45) < 1e-12);
+  assert.equal(result.payload.proxy.minimumIncludedPositions, 2);
+  assert.deepEqual(result.payload.proxy.topExcludedHoldings, [{
+    ticker: null,
+    issuer: "Private asset",
+    maxExcludedBookWeight: 0.55
+  }]);
+  assert.equal(result.payload.proxy.disclosure, undefined);
+  assert.equal(result.payload.dataQuality.priceSeries, undefined);
+  assert.deepEqual(result.payload.dataQuality.strictFailure, {
+    code: "missing_active_price",
+    date: dates[1],
+    tickers: ["GAP"],
+    missingWeight: 0.1
+  });
+});
 
 test("public cold policy uses the same normalized window as the backtest engine", () => {
   assert.equal(isExtendedBacktestWindow(5), false);
@@ -95,6 +887,13 @@ test("public cold policy uses the same normalized window as the backtest engine"
   assert.equal(staleBacktestBackgroundRefreshAllowed(10), true);
   assert.equal(staleBacktestBackgroundRefreshAllowed("all"), false);
   assert.equal(staleBacktestBackgroundRefreshAllowed("max"), false);
+});
+
+test("proxy env settings fail safely to finite floors", () => {
+  assert.equal(normalizeBacktestProxySetting("invalid", 0.3, 0.3, 0.9), 0.3);
+  assert.equal(normalizeBacktestProxySetting(Number.NaN, 2, 2, 60, { round: true }), 2);
+  assert.equal(normalizeBacktestProxySetting(0.1, 0.3, 0.3, 0.9), 0.3);
+  assert.equal(normalizeBacktestProxySetting(100, 2, 2, 60, { round: true }), 60);
 });
 
 test("same manager and window share one expensive computation", async () => {
@@ -295,7 +1094,11 @@ test("a stale All cache is served without claiming a background refresh", async 
 test("aggregate backtests cache by window/detail and invalidate on data or refresh version", async () => {
   const supported = gurus.filter((guru) => guru.type === "manager13f" || guru.type === "congress");
   for (const guru of supported) {
-    writeGuruBacktest(guru.id, 0, fixture(guru, "v1", "2026-08-30T00:00:00.000Z"));
+    writeGuruBacktest(
+      guru.id,
+      0,
+      withMethodYears(fixture(guru, "v1", "2026-08-30T00:00:00.000Z"), "all")
+    );
   }
 
   const compact = await loadGuruBacktests({ years: "all", detail: "compact" });
@@ -311,7 +1114,7 @@ test("aggregate backtests cache by window/detail and invalidate on data or refre
   writeGuruBacktest(
     changedGuru.id,
     0,
-    fixture(changedGuru, "v2", "2026-08-30T00:01:00.000Z")
+    withMethodYears(fixture(changedGuru, "v2", "2026-08-30T00:01:00.000Z"), "all")
   );
   const afterDataChange = await loadGuruBacktests({ years: "all", detail: "compact" });
   assert.notStrictEqual(afterDataChange, compact, "row version change must invalidate the aggregate");
@@ -347,7 +1150,11 @@ test("aggregate cache cannot outlive the freshness of its individual backtests",
     process.env.BACKTEST_CACHE_TTL_HOURS = "20";
     Date.now = () => new Date("2026-08-30T01:00:00.000Z").getTime();
     for (const guru of supported) {
-      writeGuruBacktest(guru.id, 0, fixture(guru, "ttl", "2026-08-30T00:00:00.000Z"));
+      writeGuruBacktest(
+        guru.id,
+        0,
+        withMethodYears(fixture(guru, "ttl", "2026-08-30T00:00:00.000Z"), "all")
+      );
     }
     clearGuruBacktestAggregateCache();
 
@@ -386,7 +1193,11 @@ test("aggregate cache cannot outlive the freshness of its individual backtests",
 test("concurrent aggregate misses share one in-flight build", async () => {
   const supported = gurus.filter((guru) => guru.type === "manager13f" || guru.type === "congress");
   for (const guru of supported) {
-    writeGuruBacktest(guru.id, 0, fixture(guru, "single-flight", "2026-08-30T03:00:00.000Z"));
+    writeGuruBacktest(
+      guru.id,
+      0,
+      withMethodYears(fixture(guru, "single-flight", "2026-08-30T03:00:00.000Z"), "all")
+    );
   }
   clearGuruBacktestAggregateCache();
 
@@ -399,13 +1210,19 @@ test("concurrent aggregate misses share one in-flight build", async () => {
   }
 });
 
-test("backtest refresh status gate accepts only ready, except explicitly disabled managers", () => {
+test("backtest refresh status gate rejects a proxy for the strict ready contract", () => {
   const ackman = gurus.find((guru) => guru.id === "bill-ackman");
   const renaissance = gurus.find((guru) => guru.id === "renaissance-technologies");
 
   assert.equal(expectedGuruBacktestStatus(ackman), "ready");
   assert.equal(expectedGuruBacktestStatus(renaissance), "unsupported");
   assert.doesNotThrow(() => assertGuruBacktestRefreshSucceeded(ackman, { status: "ready" }));
+  assert.throws(() =>
+    assertGuruBacktestRefreshSucceeded(ackman, {
+      status: "proxy_ready",
+      proxy: { kind: "public_holdings_proxy" }
+    }), /bill-ackman refresh backtest status is proxy_ready; expected ready/i
+  );
   assert.doesNotThrow(() =>
     assertGuruBacktestRefreshSucceeded(renaissance, { status: "unsupported" })
   );
@@ -440,9 +1257,96 @@ test("cache refresh counts insufficient_data as failed instead of ok", async () 
 
     assert.equal(result.ok, 0);
     assert.equal(result.failed, 1);
+    assert.equal(result.proxyAvailable, 0);
     assert.equal(result.errors[0]?.guru, "bill-ackman");
     assert.match(result.errors[0]?.message || "", /insufficient_data; expected ready/i);
   } finally {
     for (const [guru, type] of originalTypes) guru.type = type;
   }
+});
+
+test("cache refresh counts proxy_ready as a failed strict refresh", async () => {
+  const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const originalTypes = gurus.map((guru) => [guru, guru.type]);
+  try {
+    for (const [guru] of originalTypes) {
+      if (guru !== ackman) guru.type = "test-disabled";
+    }
+    const result = await refreshGuruBacktestCache({
+      years: 5,
+      reason: "proxy-is-not-strict-test",
+      backtestLoader: async () => proxyFixture(
+        ackman,
+        "proxy-is-public-only",
+        "2026-09-02T00:00:00.000Z"
+      )
+    });
+
+    assert.equal(result.ok, 0);
+    assert.equal(result.failed, 1);
+    assert.equal(result.proxyAvailable, 1);
+    assert.equal(result.errors[0]?.guru, "bill-ackman");
+    assert.match(result.errors[0]?.message || "", /proxy_ready; expected ready/i);
+  } finally {
+    for (const [guru, type] of originalTypes) guru.type = type;
+  }
+});
+
+test("scheduled refresh warms both the 5Y and 10Y public curve windows sequentially", async () => {
+  const calls = [];
+  let active = 0;
+  let maximumConcurrency = 0;
+  const results = await refreshScheduledGuruBacktestWindows({
+    reason: "daily",
+    refresh: async (options) => {
+      active += 1;
+      maximumConcurrency = Math.max(maximumConcurrency, active);
+      calls.push(options);
+      await Promise.resolve();
+      active -= 1;
+      return { years: options.years };
+    }
+  });
+
+  assert.deepEqual(scheduledGuruBacktestWindows, [5, 10]);
+  assert.deepEqual(calls, [
+    { years: 5, detail: "compact", reason: "daily-5y" },
+    { years: 10, detail: "compact", reason: "daily-10y" }
+  ]);
+  assert.deepEqual(results, [{ years: 5 }, { years: 10 }]);
+  assert.equal(maximumConcurrency, 1);
+});
+
+test("scheduled refresh status preserves a 5Y failure when 10Y succeeds", async () => {
+  await refreshScheduledGuruBacktestWindows({
+    reason: "daily",
+    refresh: async ({ years }) => years === 5
+      ? {
+          ok: 17,
+          failed: 1,
+          proxyAvailable: 1,
+          errors: [{ guru: "manager-one", message: "5Y failed" }]
+        }
+      : {
+          ok: 18,
+          failed: 0,
+          proxyAvailable: 0,
+          errors: []
+        }
+  });
+
+  const status = (await import("./backtest.js")).guruBacktestRefreshStatus();
+  assert.equal(status.running, false);
+  assert.equal(status.ok, 35);
+  assert.equal(status.failed, 1);
+  assert.equal(status.proxyAvailable, 1);
+  assert.deepEqual(status.windows, [
+    { years: 5, status: "failed", ok: 17, failed: 1, proxyAvailable: 1 },
+    { years: 10, status: "success", ok: 18, failed: 0, proxyAvailable: 0 }
+  ]);
+  assert.deepEqual(status.errors, [{
+    guru: "manager-one",
+    message: "5Y failed",
+    years: 5
+  }]);
 });

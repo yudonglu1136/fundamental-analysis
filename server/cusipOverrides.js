@@ -1,3 +1,13 @@
+import crypto from "node:crypto";
+import {
+  guruSecurityForCusip,
+  guruSecurityMasterVersion
+} from "./guruSecurityMaster.js";
+import {
+  sp500CusipEntries,
+  sp500PriceTickerForCusip
+} from "./sp500ValuationUniverse.js";
+
 const issuerTickerMap = new Map([
   ["AMAZON COM INC", "AMZN"],
   ["AMAZON COM INC COM", "AMZN"],
@@ -52,6 +62,9 @@ const issuerTickerMap = new Map([
   ["AURORA INNOVATION CLASS A COMMON", "AUR"],
   ["AXSOME THERAPEUTICS INC", "AXSM"],
   ["AZZ INC", "AZZ"],
+  // Two early Himalaya filings supplied a non-standard Baidu identifier.
+  // Keep the adjudication issuer-scoped instead of globally aliasing that CUSIP.
+  ["BAIDU INC", "BIDU"],
   ["AEHR TEST SYS", "AEHR"],
   ["ARGAN INC", "AGX"],
   ["ASTRONICS CORP", "ATRO"],
@@ -410,6 +423,10 @@ const issuerTickerMap = new Map([
 ]);
 
 const cusipTickerMap = new Map([
+  // Cortexyme retained its listed entity/history through the QNCX rename.
+  ["22053A107", "QNCX"],
+  // Historical SINA ordinary shares; the price series ends at its 2021 take-private.
+  ["G81477104", "SINA"],
   ["02005N100", "ALLY"],
   ["023193105", "AMBQ"],
   ["036752103", "ELV"],
@@ -430,7 +447,6 @@ const cusipTickerMap = new Map([
   ["526057302", "LEN.B"],
   ["55616P104", "M"],
   ["570535104", "MKL"],
-  ["58463J304", "MPW"],
   ["682189105", "ON"],
   ["654902204", "NOK"],
   ["670346105", "NUE"],
@@ -498,7 +514,7 @@ const cusipTickerMap = new Map([
   ["219948106", "CPAY"],
   ["19247G107", "COHR"],
   ["21037T109", "CEG"],
-  ["21036P108", "CHTR"],
+  ["21036P108", "STZ"],
   ["23918K108", "DVA"],
   ["247361702", "DAL"],
   ["22160N109", "CSGP"],
@@ -511,7 +527,7 @@ const cusipTickerMap = new Map([
   ["253393102", "DKS"],
   ["25809K105", "DASH"],
   ["26856L103", "ELF"],
-  ["278768106", "SATS"],
+  ["278768106", "ECHO"],
   ["27579R104", "EWBC"],
   ["29358P101", "ENSG"],
   ["29444U700", "EQIX"],
@@ -717,7 +733,6 @@ const cusipTickerMap = new Map([
   ["349381103", "FIGR"],
   ["40131M109", "GH"],
   ["45104G104", "IBN"],
-  ["464287614", "IWM"],
   ["464288257", "ACWI"],
   ["46429B671", "MCHI"],
   ["46434G772", "EWT"],
@@ -871,7 +886,8 @@ const cusipTickerMap = new Map([
   ["30231G102", "XOM"],
   ["303075105", "FDS"],
   ["315948109", "FBTC"],
-  ["337738108", "FI"],
+  // Fiserv resumed FISV in 2025; Yahoo exposes the continuous issuer history there.
+  ["337738108", "FISV"],
   ["33829M101", "FIVE"],
   ["36266G107", "GEHC"],
   ["369550108", "GD"],
@@ -883,7 +899,6 @@ const cusipTickerMap = new Map([
   ["405166109", "HGTY"],
   ["410867105", "THG"],
   ["422806208", "HEI.A"],
-  ["44891N208", "IAC"],
   ["452308109", "ITW"],
   ["452327109", "ILMN"],
   ["461804106", "ITIC"],
@@ -891,7 +906,7 @@ const cusipTickerMap = new Map([
   ["496902404", "KGC"],
   ["50212V100", "LPLA"],
   ["539830109", "LMT"],
-  ["571748102", "MMC"],
+  ["571748102", "MRSH"],
   ["58933Y105", "MRK"],
   ["512816109", "LAMR"],
   ["651639106", "NEM"],
@@ -968,11 +983,61 @@ const cusipTickerMap = new Map([
   ["72766Q105", "ESI"],
   ["91911K102", "BHC"],
   ["G6564A105", "NOMD"],
+  // Priceline renamed to Booking Holdings and changed ticker from PCLN to BKNG.
+  ["741503403", "BKNG"],
 ]);
 
-export function tickerForHolding({ issuer, cusip }) {
-  const byCusip = cusipTickerMap.get(String(cusip || "").trim().toUpperCase());
-  if (byCusip) return byCusip;
+const effectiveResolutionSha256 = crypto
+  .createHash("sha256")
+  .update(JSON.stringify({
+    guruSecurityMasterVersion: guruSecurityMasterVersion(),
+    issuerTickerMap: [...issuerTickerMap.entries()].sort(),
+    cusipTickerMap: [...cusipTickerMap.entries()].sort(),
+    sp500CusipEntries: sp500CusipEntries().sort()
+  }))
+  .digest("hex");
+
+export function holdingResolutionVersion() {
+  return `holding-resolution-v1-${effectiveResolutionSha256.slice(0, 16)}`;
+}
+
+export function tickerResolutionForHolding({ issuer, cusip }) {
+  const normalizedCusip = String(cusip || "").trim().toUpperCase();
+  const curatedTicker = cusipTickerMap.get(normalizedCusip) || "";
+  const manifestTicker = sp500PriceTickerForCusip(normalizedCusip);
+  const security = guruSecurityForCusip(normalizedCusip);
+  const masterTicker = security?.ticker || "";
+  const exactCandidates = [
+    ...new Set([curatedTicker, manifestTicker, masterTicker].filter(Boolean))
+  ];
+  if (exactCandidates.length) {
+    if (exactCandidates.length === 1) {
+      const ticker = exactCandidates[0];
+      const source = manifestTicker
+        ? "sp500_valuation_manifest"
+        : masterTicker
+          ? "guru_security_master"
+          : "curated_override";
+      return {
+        status: "resolved",
+        ticker,
+        securityId: source === "guru_security_master" ? security.securityId : null,
+        source,
+        rule: source === "guru_security_master"
+          ? "exact_cusip_openfigi_us_equity_provider_validated"
+          : "exact_cusip",
+        candidates: exactCandidates
+      };
+    }
+    return {
+      status: "conflict",
+      ticker: "",
+      securityId: null,
+      source: "cross_source_conflict",
+      rule: "fail_closed_unadjudicated_cusip_conflict",
+      candidates: exactCandidates
+    };
+  }
 
   const normalized = String(issuer || "")
     .replace(/[.,]/g, "")
@@ -980,5 +1045,26 @@ export function tickerForHolding({ issuer, cusip }) {
     .trim()
     .toUpperCase();
 
-  return issuerTickerMap.get(normalized) || "";
+  const ticker = issuerTickerMap.get(normalized) || "";
+  return ticker
+    ? {
+        status: "resolved",
+        ticker,
+        securityId: null,
+        source: "curated_issuer_override",
+        rule: "exact_normalized_issuer",
+        candidates: [ticker]
+      }
+    : {
+        status: "unresolved",
+        ticker: "",
+        securityId: null,
+        source: "none",
+        rule: "no_exact_identifier_match",
+        candidates: []
+      };
+}
+
+export function tickerForHolding(holding) {
+  return tickerResolutionForHolding(holding).ticker;
 }

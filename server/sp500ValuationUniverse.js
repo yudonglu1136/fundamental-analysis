@@ -16,14 +16,46 @@ const manifest = loadManifest();
 const companies = Array.isArray(manifest.companies) ? manifest.companies : [];
 const companyByTicker = new Map();
 const canonicalByAlias = new Map();
+const priceTickerByCusip = new Map();
+
+function normalizedCusip(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function normalizedTicker(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function registerCusip(cusip, ticker) {
+  const key = normalizedCusip(cusip);
+  const priceTicker = normalizedTicker(ticker);
+  if (!key || !priceTicker) return;
+  const existing = priceTickerByCusip.get(key);
+  if (existing && existing !== priceTicker) {
+    throw new Error(
+      `Conflicting S&P 500 CUSIP mapping for ${key}: ${existing} versus ${priceTicker}`
+    );
+  }
+  priceTickerByCusip.set(key, priceTicker);
+}
 
 for (const company of companies) {
-  const canonical = String(company?.ticker || "").toUpperCase();
+  const canonical = normalizedTicker(company?.ticker);
   if (!canonical) continue;
   companyByTicker.set(canonical, company);
   canonicalByAlias.set(canonical, canonical);
   for (const alias of company.aliases || []) {
-    canonicalByAlias.set(String(alias).toUpperCase(), canonical);
+    canonicalByAlias.set(normalizedTicker(alias), canonical);
+  }
+  registerCusip(
+    company.cusip,
+    company.priceTicker || company.sourceTicker || company.ticker
+  );
+  for (const shareClass of company.shareClasses || []) {
+    registerCusip(
+      shareClass.cusip,
+      shareClass.priceTicker || shareClass.sourceTicker || shareClass.ticker
+    );
   }
 }
 
@@ -49,11 +81,20 @@ export function sp500CompanyTickers() {
   return companies.map((company) => String(company.ticker).toUpperCase());
 }
 
+export function sp500PriceTickerForCusip(value) {
+  return priceTickerByCusip.get(normalizedCusip(value)) || "";
+}
+
+export function sp500CusipEntries() {
+  return [...priceTickerByCusip.entries()];
+}
+
 export function sp500UniverseSummary() {
   return {
     asOf: manifest.asOf || null,
     securityCount: manifest.securityCount || 0,
     companyCount: companies.length,
+    cusipCount: priceTickerByCusip.size,
     manifestPath
   };
 }

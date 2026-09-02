@@ -4,8 +4,10 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { holdingResolutionVersion } from "../server/cusipOverrides.js";
 
-const managerMethodVersion = "manager13f-drifted-total-return-v6";
+const managerMethodVersion = "manager13f-drifted-total-return-v8";
+const managerSecurityMasterVersion = holdingResolutionVersion();
 const congressMethodVersion = "stock-act-disclosure-fail-closed-v1";
 
 function argument(name, fallback = "") {
@@ -66,6 +68,7 @@ function failClosedPayload(guru, asOf, generatedAt) {
   const evidence = manager ? "Form 13F filing" : "STOCK Act disclosure";
   const method = {
     version: manager ? managerMethodVersion : congressMethodVersion,
+    ...(manager ? { securityMasterVersion: managerSecurityMasterVersion } : {}),
     years: "all",
     benchmark: "SPY",
     fixtureMode: "deterministic_fail_closed",
@@ -265,6 +268,7 @@ const manifest = {
   backtests: {
     yearsKey: 0,
     managerMethodVersion,
+    managerSecurityMasterVersion,
     congressMethodVersion,
     managerCount,
     congressCount,

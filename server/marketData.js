@@ -40,16 +40,33 @@ function adjustedRangeCovered(points, start, end) {
   return rangeCovered(points, start, end) && observedAdjustedCloseCovered(points);
 }
 
-function expectedInternalSessionsCovered(points, expectedTradingDates) {
-  if (!points.length || !(expectedTradingDates || []).length) return true;
-  const observedDates = new Set(points.map((point) => point?.date).filter(Boolean));
-  const orderedObservedDates = [...observedDates].sort();
+function missingExpectedInternalSessions(points, expectedTradingDates) {
+  if (!points.length || !(expectedTradingDates || []).length) return [];
+  const observedRows = points.filter((point) => point?.date);
+  const observedDates = new Set(observedRows
+    .filter((point) => Number.isFinite(point.adjustedClose) && point.adjustedClose > 0)
+    .map((point) => point.date));
+  const orderedObservedDates = observedRows.map((point) => point.date).sort();
   const firstObservedDate = orderedObservedDates[0];
   const lastObservedDate = orderedObservedDates.at(-1);
-  return (expectedTradingDates || [])
+  return [...new Set((expectedTradingDates || [])
     .map((point) => typeof point === "string" ? point : point?.date)
-    .filter((date) => date && date >= firstObservedDate && date <= lastObservedDate)
-    .every((date) => observedDates.has(date));
+    .filter((date) => date && date >= firstObservedDate && date <= lastObservedDate))]
+    .filter((date) => !observedDates.has(date));
+}
+
+function mergeProviderPoints(primaryPoints, retryPoints) {
+  const byDate = new Map();
+  for (const point of [...(primaryPoints || []), ...(retryPoints || [])]) {
+    if (point?.date) byDate.set(point.date, point);
+  }
+  return [...byDate.values()].sort((left, right) =>
+    String(left.date).localeCompare(String(right.date))
+  );
+}
+
+function expectedInternalSessionsCovered(points, expectedTradingDates) {
+  return missingExpectedInternalSessions(points, expectedTradingDates).length === 0;
 }
 
 function observedAdjustedCloseCovered(points) {
@@ -68,29 +85,61 @@ export function enforceAdjustedPriceRequirement(payload, {
   start,
   end,
   requireAdjusted = false,
-  requireFullRange = false
+  requireFullRange = false,
+  expectedTradingDates = []
 } = {}) {
   const points = payload?.points || [];
+  const observedAdjustedPoints = points.filter((point) =>
+    Number.isFinite(point?.adjustedClose) && point.adjustedClose > 0
+  );
   const everyObservedPointAdjusted = observedAdjustedCloseCovered(points);
   const requiredRangeCovered = !requireFullRange || rangeCovered(points, start, end);
-  if (!requireAdjusted || (everyObservedPointAdjusted && requiredRangeCovered)) {
+  const missingInternalSessions = missingExpectedInternalSessions(
+    points,
+    expectedTradingDates
+  );
+  if (
+    !requireAdjusted ||
+    (
+      everyObservedPointAdjusted &&
+      requiredRangeCovered &&
+      missingInternalSessions.length === 0
+    )
+  ) {
     return payload;
   }
+  const internalSessionGap = requiredRangeCovered &&
+    missingInternalSessions.length > 0 &&
+    observedAdjustedPoints.length > 0;
   return {
     ...payload,
     source: "unavailable",
     upstreamSource: payload?.source || "unavailable",
     returnBasis: "unavailable",
     points: [],
+    // Keep canonical `points` fail-closed. The manager 13F engine explicitly
+    // opts into these verified observations so its strict simulation can stop
+    // on the missing active date while the proxy audits each holding interval
+    // independently instead of discarding complete earlier intervals.
+    ...(internalSessionGap ? { observedAdjustedPoints } : {}),
     failure: {
-      code: "adjusted_close_unavailable",
-      policy: "fail_closed_without_unadjusted_close_fallback",
+      code: internalSessionGap
+        ? "expected_internal_session_gap"
+        : "adjusted_close_unavailable",
+      policy: internalSessionGap
+        ? "fail_closed_after_single_provider_retry_without_unledgered_db_fill"
+        : "fail_closed_without_unadjusted_close_fallback",
       requireFullRange,
       rangeCovered: rangeCovered(points, start, end),
       observedPointCount: points.length,
       adjustedPointCount: points.filter((point) =>
         Number.isFinite(point.adjustedClose) && point.adjustedClose > 0
-      ).length
+      ).length,
+      ...(internalSessionGap ? {
+        providerAttempts: Number(payload?.providerAttempts) || 1,
+        missingDates: missingInternalSessions,
+        missingDateCount: missingInternalSessions.length
+      } : {})
     }
   };
 }
@@ -233,9 +282,41 @@ export async function loadPriceSeries(symbol, {
 
   let source = "yahoo";
   let points = [];
+  let providerAttempts = 0;
+  let expectedInternalSessionRetry = null;
 
   try {
+    providerAttempts = 1;
     points = await fetchYahooSeries(normalized, start, end);
+    const firstMissingDates = requireAdjusted
+      ? missingExpectedInternalSessions(points, expectedTradingDates)
+      : [];
+    if (firstMissingDates.length) {
+      providerAttempts = 2;
+      try {
+        const retryPoints = await fetchYahooSeries(
+          normalized,
+          firstMissingDates[0],
+          firstMissingDates.at(-1)
+        );
+        points = mergeProviderPoints(points, retryPoints);
+        expectedInternalSessionRetry = {
+          attempted: true,
+          initialMissingDates: firstMissingDates,
+          remainingMissingDates: missingExpectedInternalSessions(
+            points,
+            expectedTradingDates
+          )
+        };
+      } catch (error) {
+        expectedInternalSessionRetry = {
+          attempted: true,
+          initialMissingDates: firstMissingDates,
+          remainingMissingDates: firstMissingDates,
+          retryError: String(error?.message || error || "Provider retry failed.")
+        };
+      }
+    }
   } catch {
     points = await loadLocalSeries(normalized, start, end);
     source = points.length ? "local-csv" : "unavailable";
@@ -246,9 +327,10 @@ export async function loadPriceSeries(symbol, {
     source,
     returnBasis: returnBasis(points),
     generatedAt: new Date().toISOString(),
+    providerAttempts,
+    ...(expectedInternalSessionRetry ? { expectedInternalSessionRetry } : {}),
     points
   };
-  writePriceSeriesToDb(normalized, points, source);
   let responsePayload = payload;
   if (
     requireAdjusted &&
@@ -264,8 +346,11 @@ export async function loadPriceSeries(symbol, {
     const auditedSupplementKeys = new Set(
       auditedSupplements.map((point) => `${point.symbol}:${point.date}`)
     );
-    const mergedPoints = storedPoints.filter((point) =>
-      freshDates.has(point.date) || auditedSupplementKeys.has(`${point.symbol}:${point.date}`)
+    const mergedPoints = mergeProviderPoints(
+      storedPoints.filter((point) =>
+        auditedSupplementKeys.has(`${point.symbol}:${point.date}`)
+      ),
+      points
     );
     const mergedUsable = observedAdjustedCloseCovered(mergedPoints) &&
       expectedInternalSessionsCovered(mergedPoints, expectedTradingDates) &&
@@ -280,13 +365,23 @@ export async function loadPriceSeries(symbol, {
       };
     }
   }
-  await writeJson(cacheFile, responsePayload);
-  return enforceAdjustedPriceRequirement(responsePayload, {
+  const enforcedPayload = enforceAdjustedPriceRequirement(responsePayload, {
     start,
     end,
     requireAdjusted,
-    requireFullRange
+    requireFullRange,
+    expectedTradingDates
   });
+  // Persist only the exact payload that passed the caller's adjusted-close
+  // contract. Writing fresh rows before this audit can complete a truncated
+  // SQLite range while inheriting an older adjusted close on an overlapping
+  // date, allowing a second identical call to publish a curve the first call
+  // correctly rejected.
+  if (!enforcedPayload.failure && enforcedPayload.points?.length) {
+    writePriceSeriesToDb(normalized, enforcedPayload.points, source);
+  }
+  await writeJson(cacheFile, enforcedPayload);
+  return enforcedPayload;
 }
 
 export function nearestPoint(points, date) {

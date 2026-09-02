@@ -1,6 +1,9 @@
 import fs from "node:fs";
 import crypto from "node:crypto";
 import path from "node:path";
+import { auditPublicHoldingsProxyPayload } from "./backtestProxyAudit.js";
+import { auditManager13fStrictReadyPayload } from "./backtestStrictAudit.js";
+import { gurus } from "./gurus.js";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import {
@@ -84,6 +87,26 @@ db.exec(`
     payload_sha256 TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS price_series_import_audits (
+    audit_id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    snapshot_id TEXT NOT NULL,
+    snapshot_state TEXT NOT NULL,
+    source_reference TEXT NOT NULL,
+    operator TEXT NOT NULL,
+    policy TEXT NOT NULL,
+    affected_gurus_json TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    interval_start TEXT NOT NULL,
+    interval_end TEXT NOT NULL,
+    before_rows_json TEXT NOT NULL,
+    rows_json TEXT NOT NULL,
+    row_count INTEGER NOT NULL,
+    payload_sha256 TEXT NOT NULL
+  );
+
   -- The PRIMARY KEY already creates sqlite_autoindex_price_points_1 on
   -- (symbol, date). A second identical index wastes about 50 MB.
 
@@ -93,6 +116,17 @@ db.exec(`
     generated_at TEXT NOT NULL,
     start_date TEXT,
     end_date TEXT,
+    payload_json TEXT NOT NULL,
+    PRIMARY KEY (guru_id, years)
+  );
+
+  CREATE TABLE IF NOT EXISTS guru_backtest_proxies (
+    guru_id TEXT NOT NULL,
+    years INTEGER NOT NULL,
+    generated_at TEXT NOT NULL,
+    start_date TEXT,
+    end_date TEXT,
+    method_version TEXT NOT NULL,
     payload_json TEXT NOT NULL,
     PRIMARY KEY (guru_id, years)
   );
@@ -198,6 +232,7 @@ db.exec(`
     ('guru_snapshots', 0),
     ('guru_assets', 0),
     ('guru_backtests', 0),
+    ('guru_backtest_proxies', 0),
     ('valuation_snapshots', 0),
     ('valuation_ticker_snapshots', 0),
     ('valuation_podcast_insights', 0);
@@ -252,6 +287,19 @@ db.exec(`
   CREATE TRIGGER IF NOT EXISTS guru_backtests_revision_delete
   AFTER DELETE ON guru_backtests BEGIN
     UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_backtests';
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS guru_backtest_proxies_revision_insert
+  AFTER INSERT ON guru_backtest_proxies BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_backtest_proxies';
+  END;
+  CREATE TRIGGER IF NOT EXISTS guru_backtest_proxies_revision_update
+  AFTER UPDATE ON guru_backtest_proxies BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_backtest_proxies';
+  END;
+  CREATE TRIGGER IF NOT EXISTS guru_backtest_proxies_revision_delete
+  AFTER DELETE ON guru_backtest_proxies BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_backtest_proxies';
   END;
 
   CREATE TRIGGER IF NOT EXISTS valuation_snapshots_revision_insert
@@ -435,6 +483,28 @@ function syncBundledGuruBacktests() {
       FROM guru_backtests
     `).get();
     if (!bundledSummary?.count) return;
+    const bundledHasProxyTable = Boolean(bundledDb.prepare(`
+      SELECT 1
+      FROM sqlite_master
+      WHERE type = 'table' AND name = 'guru_backtest_proxies'
+    `).get());
+    const bundledProxySummary = bundledHasProxyTable
+      ? bundledDb.prepare(`
+          SELECT
+            COUNT(*) AS count,
+            MAX(generated_at) AS generated_at,
+            MAX(end_date) AS end_date,
+            MIN(method_version) AS min_method_version,
+            MAX(method_version) AS max_method_version
+          FROM guru_backtest_proxies
+        `).get()
+      : {
+          count: 0,
+          generated_at: null,
+          end_date: null,
+          min_method_version: null,
+          max_method_version: null
+        };
 
     const currentSummary = db.prepare(`
       SELECT
@@ -443,19 +513,61 @@ function syncBundledGuruBacktests() {
         MAX(end_date) AS end_date
       FROM guru_backtests
     `).get();
-    const shouldSync =
-      Number(bundledSummary.count || 0) > Number(currentSummary?.count || 0) ||
-      (bundledSummary.generated_at &&
-        (!currentSummary?.generated_at || bundledSummary.generated_at > currentSummary.generated_at)) ||
-      (bundledSummary.end_date &&
-        (!currentSummary?.end_date || bundledSummary.end_date > currentSummary.end_date));
-    if (!shouldSync) return;
-
+    const currentProxySummary = db.prepare(`
+      SELECT
+        COUNT(*) AS count,
+        MAX(generated_at) AS generated_at,
+        MAX(end_date) AS end_date,
+        MIN(method_version) AS min_method_version,
+        MAX(method_version) AS max_method_version
+      FROM guru_backtest_proxies
+    `).get();
     const rows = bundledDb.prepare(`
       SELECT guru_id, years, generated_at, start_date, end_date, payload_json
       FROM guru_backtests
     `).all();
     if (!rows.length) return;
+    const proxyRows = bundledHasProxyTable
+      ? bundledDb.prepare(`
+          SELECT guru_id, years, generated_at, start_date, end_date, method_version, payload_json
+          FROM guru_backtest_proxies
+        `).all()
+      : [];
+    const currentRowsByKey = new Map(db.prepare(`
+      SELECT guru_id, years, payload_json
+      FROM guru_backtests
+    `).all().map((row) => [`${row.guru_id}:${row.years}`, row]));
+    const currentProxyRowsByKey = new Map(db.prepare(`
+      SELECT guru_id, years, method_version, payload_json
+      FROM guru_backtest_proxies
+    `).all().map((row) => [`${row.guru_id}:${row.years}`, row]));
+    const strictCompatibilityChanged = rows.some((row) =>
+      guruBacktestCompatibilityIdentity(row) !== guruBacktestCompatibilityIdentity(
+        currentRowsByKey.get(`${row.guru_id}:${row.years}`)
+      )
+    );
+    const proxyCompatibilityChanged = proxyRows.some((row) =>
+      guruBacktestProxyCompatibilityIdentity(row) !== guruBacktestProxyCompatibilityIdentity(
+        currentProxyRowsByKey.get(`${row.guru_id}:${row.years}`)
+      )
+    );
+    const shouldSync =
+      Number(bundledSummary.count || 0) > Number(currentSummary?.count || 0) ||
+      (bundledSummary.generated_at &&
+        (!currentSummary?.generated_at || bundledSummary.generated_at > currentSummary.generated_at)) ||
+      (bundledSummary.end_date &&
+        (!currentSummary?.end_date || bundledSummary.end_date > currentSummary.end_date)) ||
+      Number(bundledProxySummary.count || 0) > Number(currentProxySummary?.count || 0) ||
+      (bundledProxySummary.generated_at &&
+        (!currentProxySummary?.generated_at ||
+          bundledProxySummary.generated_at > currentProxySummary.generated_at)) ||
+      (bundledProxySummary.end_date &&
+        (!currentProxySummary?.end_date || bundledProxySummary.end_date > currentProxySummary.end_date)) ||
+      bundledProxySummary.min_method_version !== currentProxySummary?.min_method_version ||
+      bundledProxySummary.max_method_version !== currentProxySummary?.max_method_version ||
+      strictCompatibilityChanged ||
+      proxyCompatibilityChanged;
+    if (!shouldSync) return;
 
     const writeBacktest = db.prepare(`
       INSERT INTO guru_backtests (guru_id, years, generated_at, start_date, end_date, payload_json)
@@ -468,7 +580,26 @@ function syncBundledGuruBacktests() {
       WHERE
         guru_backtests.generated_at IS NULL OR
         excluded.generated_at > guru_backtests.generated_at OR
-        excluded.end_date > guru_backtests.end_date
+        excluded.end_date > guru_backtests.end_date OR
+        ? = 1
+    `);
+    const writeProxy = db.prepare(`
+      INSERT INTO guru_backtest_proxies (
+        guru_id, years, generated_at, start_date, end_date, method_version, payload_json
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(guru_id, years) DO UPDATE SET
+        generated_at = excluded.generated_at,
+        start_date = excluded.start_date,
+        end_date = excluded.end_date,
+        method_version = excluded.method_version,
+        payload_json = excluded.payload_json
+      WHERE
+        guru_backtest_proxies.generated_at IS NULL OR
+        excluded.generated_at > guru_backtest_proxies.generated_at OR
+        excluded.end_date > guru_backtest_proxies.end_date OR
+        excluded.method_version != guru_backtest_proxies.method_version OR
+        ? = 1
     `);
 
     db.exec("BEGIN");
@@ -480,7 +611,29 @@ function syncBundledGuruBacktests() {
           row.generated_at,
           row.start_date,
           row.end_date,
-          row.payload_json
+          row.payload_json,
+          Number(
+            guruBacktestCompatibilityIdentity(row) !== guruBacktestCompatibilityIdentity(
+              currentRowsByKey.get(`${row.guru_id}:${row.years}`)
+            )
+          )
+        );
+      }
+      for (const row of proxyRows) {
+        writeProxy.run(
+          row.guru_id,
+          row.years,
+          row.generated_at,
+          row.start_date,
+          row.end_date,
+          row.method_version,
+          row.payload_json,
+          Number(
+            guruBacktestProxyCompatibilityIdentity(row) !==
+              guruBacktestProxyCompatibilityIdentity(
+                currentProxyRowsByKey.get(`${row.guru_id}:${row.years}`)
+              )
+          )
         );
       }
       db.exec("COMMIT");
@@ -488,7 +641,10 @@ function syncBundledGuruBacktests() {
       db.exec("ROLLBACK");
       throw error;
     }
-    console.info(`[database] synced bundled guru backtests into ${dbPath}: ${rows.length} rows`);
+    console.info(
+      `[database] synced bundled guru backtests into ${dbPath}: ` +
+      `${rows.length} strict rows, ${proxyRows.length} proxy rows`
+    );
   } catch (error) {
     console.warn(`[database] bundled guru backtest sync skipped: ${error.message}`);
   } finally {
@@ -824,6 +980,32 @@ function parsePayload(value) {
   }
 }
 
+function normalizedCacheIdentityPart(value) {
+  return String(value || "").trim();
+}
+
+function guruBacktestCompatibilityIdentity(row) {
+  if (!row) return "missing";
+  const payload = parsePayload(row.payload_json);
+  return JSON.stringify([
+    normalizedCacheIdentityPart(payload?.method?.version),
+    normalizedCacheIdentityPart(payload?.method?.securityMasterVersion)
+  ]);
+}
+
+function guruBacktestProxyCompatibilityIdentity(row) {
+  if (!row) return "missing";
+  const payload = parsePayload(row.payload_json);
+  return JSON.stringify([
+    normalizedCacheIdentityPart(row.method_version),
+    normalizedCacheIdentityPart(payload?.method?.version),
+    normalizedCacheIdentityPart(payload?.method?.variant),
+    normalizedCacheIdentityPart(payload?.method?.securityMasterVersion),
+    normalizedCacheIdentityPart(payload?.proxy?.methodVersion),
+    normalizedCacheIdentityPart(payload?.proxy?.securityMasterVersion)
+  ]);
+}
+
 function normalizeTickerKey(value) {
   return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.-]/g, "");
 }
@@ -960,9 +1142,21 @@ export function readGuruBacktest(guruId, years = 5) {
   return parsePayload(row?.payload_json);
 }
 
+export function readGuruBacktestProxy(guruId, years = 5) {
+  const row = db.prepare(`
+    SELECT payload_json
+    FROM guru_backtest_proxies
+    WHERE guru_id = ? AND years = ?
+  `).get(guruId, years);
+  return parsePayload(row?.payload_json);
+}
+
 export function readGuruBacktestVersion(years = 5) {
-  const revision = readCacheRevision("guru_backtests");
-  const rows = db.prepare(`
+  const revision = [
+    readCacheRevision("guru_backtests"),
+    readCacheRevision("guru_backtest_proxies")
+  ].join(":");
+  const strictRows = db.prepare(`
     SELECT
       guru_id,
       generated_at,
@@ -972,13 +1166,23 @@ export function readGuruBacktestVersion(years = 5) {
     WHERE years = ?
     ORDER BY guru_id ASC
   `).all(years);
-  if (!rows.length) return `${revision}:empty`;
-  return `${revision}:` + rows.map((row) => [
-    row.guru_id,
-    row.generated_at,
-    row.start_date || "",
-    row.end_date || ""
-  ].join(":")).join("|");
+  const proxyRows = db.prepare(`
+    SELECT
+      guru_id,
+      generated_at,
+      start_date,
+      end_date,
+      method_version
+    FROM guru_backtest_proxies
+    WHERE years = ?
+    ORDER BY guru_id ASC
+  `).all(years);
+  if (!strictRows.length && !proxyRows.length) return `${revision}:empty`;
+  return `${revision}:` + [
+    ...strictRows.map((row) => ["strict", row.guru_id, row.generated_at, row.start_date || "", row.end_date || ""]),
+    ...proxyRows.map((row) => ["proxy", row.guru_id, row.method_version, row.generated_at, row.start_date || "", row.end_date || ""])
+  ].map((row) => row.join(":"))
+    .join("|");
 }
 
 export function readValuationSnapshot() {
@@ -1277,7 +1481,52 @@ export function readValuationPodcastInsightSummary(limit = 500) {
   };
 }
 
-export function writeGuruBacktest(guruId, years, payload) {
+export function writeGuruBacktest(guruId, years, payload, {
+  preserveReadyMethodVersion = "",
+  preserveReadySecurityMasterVersion = ""
+} = {}) {
+  if (payload?.status === "proxy_ready") {
+    throw new Error("Proxy curves must be written with writeGuruBacktestProxy.");
+  }
+  const configuredGuruType = gurus.find((guru) => guru.id === guruId)?.type || "";
+  const configuredManager13f = configuredGuruType === "manager13f";
+  if (payload?.status === "ready" && configuredManager13f) {
+    const strictAudit = auditManager13fStrictReadyPayload(payload);
+    if (!strictAudit.ok) {
+      throw new Error(`Strict cache row failed its coverage audit: ${strictAudit.reason}.`);
+    }
+  }
+  const normalizedMethodVersion = String(preserveReadyMethodVersion || "").trim();
+  const normalizedSecurityMasterVersion = String(
+    preserveReadySecurityMasterVersion || ""
+  ).trim();
+  const retained = payload?.status === "insufficient_data" &&
+    payload?.method?.version === normalizedMethodVersion &&
+    String(payload?.method?.securityMasterVersion || "").trim() ===
+      normalizedSecurityMasterVersion
+    ? readGuruBacktest(guruId, years)
+    : null;
+  const retainReadyCurve = Boolean(
+    retained &&
+    retained?.status === "ready" &&
+    retained?.method?.version === normalizedMethodVersion &&
+    String(retained?.method?.securityMasterVersion || "").trim() ===
+      normalizedSecurityMasterVersion &&
+    (!configuredManager13f || auditManager13fStrictReadyPayload(retained).ok) &&
+    Array.isArray(retained?.equity) &&
+    retained.equity.length >= 2
+  );
+  if (retainReadyCurve) {
+    return {
+      written: false,
+      retainedReady: true,
+      retainedGeneratedAt: retained.generatedAt || null,
+      retainedWindow: retained.window || null,
+      retainedMethodVersion: retained.method.version,
+      retainedSecurityMasterVersion: retained.method.securityMasterVersion
+    };
+  }
+
   db.prepare(`
     INSERT INTO guru_backtests (guru_id, years, generated_at, start_date, end_date, payload_json)
     VALUES (?, ?, ?, ?, ?, ?)
@@ -1292,6 +1541,71 @@ export function writeGuruBacktest(guruId, years, payload) {
     payload.generatedAt || new Date().toISOString(),
     payload.window?.start || payload.startDate || "",
     payload.window?.end || payload.endDate || "",
+    JSON.stringify(payload)
+  );
+  return {
+    written: true,
+    retainedReady: false
+  };
+}
+
+export function writeGuruBacktestProxy(guruId, years, payload) {
+  if (payload?.status !== "proxy_ready") {
+    throw new Error("Only proxy_ready payloads may be written to guru_backtest_proxies.");
+  }
+  const proxyMethodVersion = String(payload?.proxy?.methodVersion || "").trim();
+  const methodVariant = String(payload?.method?.variant || "").trim();
+  if (!proxyMethodVersion || proxyMethodVersion !== methodVariant) {
+    throw new Error("Matching proxy method versions are required.");
+  }
+  const proxySecurityMasterVersion = String(
+    payload?.proxy?.securityMasterVersion || ""
+  ).trim();
+  const methodSecurityMasterVersion = String(
+    payload?.method?.securityMasterVersion || ""
+  ).trim();
+  if (!proxySecurityMasterVersion ||
+      proxySecurityMasterVersion !== methodSecurityMasterVersion) {
+    throw new Error("Matching proxy security-master versions are required.");
+  }
+  const strictFailureGeneratedAt = String(
+    payload?.proxy?.strictFailureGeneratedAt || ""
+  ).trim();
+  const generatedAt = String(payload?.generatedAt || "").trim();
+  if (!strictFailureGeneratedAt || strictFailureGeneratedAt !== generatedAt) {
+    throw new Error("A proxy cache row must identify its strict failure generation.");
+  }
+  if (!Array.isArray(payload?.equity) || payload.equity.length < 2) {
+    throw new Error("A proxy cache row requires a non-empty equity curve.");
+  }
+  const proxyAudit = auditPublicHoldingsProxyPayload(payload);
+  if (!proxyAudit.ok) {
+    throw new Error(`Proxy cache row failed its public coverage audit: ${proxyAudit.reason}.`);
+  }
+  db.prepare(`
+    INSERT INTO guru_backtest_proxies (
+      guru_id,
+      years,
+      generated_at,
+      start_date,
+      end_date,
+      method_version,
+      payload_json
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(guru_id, years) DO UPDATE SET
+      generated_at = excluded.generated_at,
+      start_date = excluded.start_date,
+      end_date = excluded.end_date,
+      method_version = excluded.method_version,
+      payload_json = excluded.payload_json
+  `).run(
+    guruId,
+    years,
+    generatedAt,
+    payload.window?.start || "",
+    payload.window?.end || "",
+    proxyMethodVersion,
     JSON.stringify(payload)
   );
 }
@@ -1401,27 +1715,79 @@ export function readPriceSeriesFromDb(symbol, start, end) {
 }
 
 const auditedPriceRepairPointStatement = db.prepare(`
-  SELECT 1
+  SELECT repaired.value AS audited_row_json,
+    before_row.value AS before_row_json
   FROM price_repair_audits AS audit,
     json_each(audit.rows_json) AS repaired
+  LEFT JOIN json_each(audit.before_rows_json) AS before_row
+    ON json_extract(before_row.value, '$.symbol') = json_extract(repaired.value, '$.symbol')
+    AND json_extract(before_row.value, '$.date') = json_extract(repaired.value, '$.date')
   WHERE audit.provider = ?
     AND json_extract(repaired.value, '$.symbol') = ?
     AND json_extract(repaired.value, '$.date') = ?
+  ORDER BY audit.created_at DESC
   LIMIT 1
 `);
+
+const auditedPriceSeriesImportPointStatement = db.prepare(`
+  SELECT imported.value AS audited_row_json,
+    before_row.value AS before_row_json
+  FROM price_series_import_audits AS audit,
+    json_each(audit.rows_json) AS imported
+  LEFT JOIN json_each(audit.before_rows_json) AS before_row
+    ON json_extract(before_row.value, '$.symbol') = audit.symbol
+    AND json_extract(before_row.value, '$.date') = json_extract(imported.value, '$.date')
+  WHERE audit.provider = ?
+    AND audit.symbol = ?
+    AND json_extract(imported.value, '$.symbol') = ?
+    AND json_extract(imported.value, '$.date') = ?
+  ORDER BY audit.created_at DESC
+  LIMIT 1
+`);
+
+function pricePointMatchesAuditedLedgerRow(point, ledgerRow) {
+  if (!ledgerRow?.audited_row_json) return false;
+  const audited = parsePayload(ledgerRow.audited_row_json);
+  const before = parsePayload(ledgerRow.before_row_json) || {};
+  if (!audited || typeof audited !== "object") return false;
+  const expected = {};
+  for (const field of ["open", "high", "low", "close", "adjustedClose", "volume"]) {
+    expected[field] = before.action === "complete-null-fields" && before[field] != null
+      ? before[field]
+      : audited[field];
+  }
+  const numericMatches = (left, right) =>
+    Number.isFinite(Number(left)) &&
+    Number.isFinite(Number(right)) &&
+    Math.abs(Number(left) - Number(right)) <=
+      Math.max(1e-6, Math.abs(Number(right)) * 1e-6);
+  return ["open", "high", "low", "close", "adjustedClose"].every((field) =>
+    numericMatches(point?.[field], expected[field])
+  ) && Number.isSafeInteger(Number(point?.volume)) &&
+    Number(point.volume) === Number(expected.volume);
+}
 
 export function filterLedgerAuditedPriceRepairPoints(points = []) {
   return (points || []).filter((point) => {
     const source = String(point?.source || "");
-    if (!source.startsWith("audited:")) return false;
-    const provider = source.slice("audited:".length);
     const symbol = String(point?.symbol || "").trim().toUpperCase();
     const date = String(point?.date || "").trim();
-    return Boolean(provider && symbol && date && auditedPriceRepairPointStatement.get(
-      provider,
-      symbol,
-      date
-    ));
+    if (!symbol || !date) return false;
+    if (source.startsWith("audited:")) {
+      const provider = source.slice("audited:".length);
+      const ledgerRow = provider
+        ? auditedPriceRepairPointStatement.get(provider, symbol, date)
+        : null;
+      return pricePointMatchesAuditedLedgerRow(point, ledgerRow);
+    }
+    if (source.startsWith("audited-series:")) {
+      const provider = source.slice("audited-series:".length);
+      const ledgerRow = provider
+        ? auditedPriceSeriesImportPointStatement.get(provider, symbol, symbol, date)
+        : null;
+      return pricePointMatchesAuditedLedgerRow(point, ledgerRow);
+    }
+    return false;
   });
 }
 
@@ -1439,7 +1805,9 @@ export function writePriceSeriesToDb(symbol, points, source = "unknown") {
       high = excluded.high,
       low = excluded.low,
       close = excluded.close,
-      adjusted_close = COALESCE(excluded.adjusted_close, price_points.adjusted_close),
+      -- Keep adjusted-close provenance aligned with the incoming cache row.
+      -- Audited repair writes use their separate ledger-backed transaction.
+      adjusted_close = excluded.adjusted_close,
       volume = excluded.volume,
       source = excluded.source,
       updated_at = excluded.updated_at
@@ -1802,6 +2170,404 @@ export function readPriceRepairAudit(auditId) {
   };
 }
 
+const auditedPriceSeriesImportMaxRows = 5000;
+
+function normalizeAuditedPriceSeriesImportRow(row, index, symbol) {
+  if (!row || typeof row !== "object" || Array.isArray(row)) {
+    throw new Error(`Price-series import row ${index} must be an object.`);
+  }
+  const rowSymbol = String(row.symbol || symbol).trim().toUpperCase();
+  if (rowSymbol !== symbol) {
+    throw new Error(`Price-series import row ${index} does not match symbol ${symbol}.`);
+  }
+  const date = String(row.date || "").trim();
+  if (!auditedPriceDatePattern.test(date)) {
+    throw new Error(`Price-series import row ${index} has an invalid date.`);
+  }
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) {
+    throw new Error(`Price-series import row ${index} has an invalid calendar date.`);
+  }
+  const values = {};
+  for (const field of ["open", "high", "low", "close", "adjustedClose"]) {
+    const value = Number(row[field]);
+    if (!Number.isFinite(value) || value <= 0 || value > 10_000_000) {
+      throw new Error(`Price-series import row ${index} has an invalid ${field}.`);
+    }
+    values[field] = value;
+  }
+  const volume = Number(row.volume);
+  if (!Number.isSafeInteger(volume) || volume < 0 || volume > 100_000_000_000) {
+    throw new Error(`Price-series import row ${index} has an invalid volume.`);
+  }
+  if (values.high < values.low) {
+    throw new Error(`Price-series import row ${index} has a high below its low.`);
+  }
+  if (values.open < values.low || values.close < values.low) {
+    throw new Error(`Price-series import row ${index} has an open or close below its low.`);
+  }
+  if (values.open > values.high || values.close > values.high) {
+    throw new Error(`Price-series import row ${index} has an open or close above its high.`);
+  }
+  return { symbol, date, ...values, volume };
+}
+
+export function writeAuditedPriceSeriesImport(rows, {
+  symbol,
+  startDate,
+  endDate,
+  provider,
+  reason,
+  snapshotId,
+  snapshotState,
+  sourceReference,
+  operator,
+  affectedGuruIds = []
+} = {}) {
+  if (
+    !Array.isArray(rows) ||
+    rows.length < 1 ||
+    rows.length > auditedPriceSeriesImportMaxRows
+  ) {
+    throw new Error(
+      `Price-series import requires between 1 and ${auditedPriceSeriesImportMaxRows} rows.`
+    );
+  }
+  const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+  if (!auditedPriceSymbolPattern.test(normalizedSymbol) || normalizedSymbol === "SPY") {
+    throw new Error("Price-series import symbol is invalid or reserved.");
+  }
+  const normalizedStartDate = normalizeAuditedPriceDate(startDate, "interval start");
+  const normalizedEndDate = normalizeAuditedPriceDate(endDate, "interval end");
+  if (normalizedStartDate > normalizedEndDate) {
+    throw new Error("Price-series import interval start must not follow its end.");
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  if (normalizedEndDate > today) {
+    throw new Error("Price-series import interval may not extend into the future.");
+  }
+  const normalizedProvider = String(provider || "").trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9._-]{1,63}$/.test(normalizedProvider)) {
+    throw new Error("Price-series import provider is invalid.");
+  }
+  const normalizedReason = String(reason || "").trim();
+  if (normalizedReason.length < 8 || normalizedReason.length > 240) {
+    throw new Error("Price-series import reason must contain between 8 and 240 characters.");
+  }
+  const normalizedSnapshotId = String(snapshotId || "").trim().toLowerCase();
+  if (!/^snap-[a-f0-9]{8,32}$/.test(normalizedSnapshotId)) {
+    throw new Error("Price-series import requires the pre-write EBS snapshot id.");
+  }
+  const normalizedSnapshotState = String(snapshotState || "").trim().toLowerCase();
+  if (normalizedSnapshotState !== "completed") {
+    throw new Error("Price-series import requires a completed pre-write EBS snapshot.");
+  }
+  const normalizedSourceReference = String(sourceReference || "").trim();
+  if (normalizedSourceReference.length < 8 || normalizedSourceReference.length > 240) {
+    throw new Error(
+      "Price-series import source reference must contain between 8 and 240 characters."
+    );
+  }
+  const normalizedOperator = String(operator || "").trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:@/-]{2,79}$/.test(normalizedOperator)) {
+    throw new Error("Price-series import operator is invalid.");
+  }
+  const normalizedAffectedGuruIds = [...new Set(
+    affectedGuruIds.map((guruId) => String(guruId || "").trim()).filter(Boolean)
+  )].sort();
+  if (!normalizedAffectedGuruIds.length || normalizedAffectedGuruIds.length > 5) {
+    throw new Error("Price-series import requires between one and five affected gurus.");
+  }
+
+  const normalizedRows = rows.map((row, index) =>
+    normalizeAuditedPriceSeriesImportRow(row, index, normalizedSymbol)
+  );
+  for (let index = 0; index < normalizedRows.length; index += 1) {
+    const row = normalizedRows[index];
+    if (row.date < normalizedStartDate || row.date > normalizedEndDate) {
+      throw new Error(`Price-series import row ${index} falls outside the requested interval.`);
+    }
+    const weekday = new Date(`${row.date}T00:00:00.000Z`).getUTCDay();
+    if (row.date > today || weekday === 0 || weekday === 6) {
+      throw new Error(`Price-series import date ${row.date} is not an eligible completed weekday.`);
+    }
+    if (index > 0 && normalizedRows[index - 1].date >= row.date) {
+      throw new Error("Price-series import rows must be unique and strictly sorted by date.");
+    }
+  }
+
+  const readExistingPrice = db.prepare(`
+    SELECT symbol, date, open, high, low, close, adjusted_close, volume, source, updated_at
+    FROM price_points
+    WHERE symbol = ? AND date = ?
+  `);
+  const readSpyDates = db.prepare(`
+    SELECT date
+    FROM price_points
+    WHERE symbol = 'SPY' AND date >= ? AND date <= ?
+    ORDER BY date ASC
+  `);
+  const insertPrice = db.prepare(`
+    INSERT INTO price_points (
+      symbol, date, open, high, low, close, adjusted_close, volume, source, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const completePrice = db.prepare(`
+    UPDATE price_points
+    SET open = COALESCE(open, ?),
+      high = COALESCE(high, ?),
+      low = COALESCE(low, ?),
+      close = COALESCE(close, ?),
+      adjusted_close = COALESCE(adjusted_close, ?),
+      volume = COALESCE(volume, ?),
+      source = ?,
+      updated_at = ?
+    WHERE symbol = ? AND date = ?
+      AND (
+        open IS NULL OR high IS NULL OR low IS NULL OR close IS NULL OR
+        adjusted_close IS NULL OR volume IS NULL
+      )
+  `);
+  const insertAudit = db.prepare(`
+    INSERT INTO price_series_import_audits (
+      audit_id, created_at, provider, reason, snapshot_id, snapshot_state,
+      source_reference, operator, policy, affected_gurus_json, symbol,
+      interval_start, interval_end, before_rows_json, rows_json, row_count,
+      payload_sha256
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const numericMatches = (left, right) =>
+    Math.abs(Number(left) - Number(right)) <= Math.max(1e-6, Math.abs(Number(right)) * 1e-6);
+  const createdAt = new Date().toISOString();
+  const source = `audited-series:${normalizedProvider}`;
+  const policy = "complete_spy_session_series_insert_missing_or_complete_null_fields";
+  const auditId = `price-series-import-${crypto.randomUUID()}`;
+  let beforeRows = [];
+  let payloadSha256 = "";
+
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const spyDates = readSpyDates
+      .all(normalizedStartDate, normalizedEndDate)
+      .map((row) => row.date);
+    if (!spyDates.length) {
+      throw new Error("Price-series import interval contains no stored SPY sessions.");
+    }
+    const importedDates = normalizedRows.map((row) => row.date);
+    const importedDateSet = new Set(importedDates);
+    const spyDateSet = new Set(spyDates);
+    const missingDates = spyDates.filter((date) => !importedDateSet.has(date));
+    const extraDates = importedDates.filter((date) => !spyDateSet.has(date));
+    if (missingDates.length || extraDates.length || importedDates.length !== spyDates.length) {
+      const detail = [
+        missingDates.length ? `missing ${missingDates.slice(0, 5).join(", ")}` : "",
+        extraDates.length ? `not SPY sessions ${extraDates.slice(0, 5).join(", ")}` : ""
+      ].filter(Boolean).join("; ");
+      throw new Error(
+        `Price-series import must cover every stored SPY session in the interval${
+          detail ? ` (${detail})` : ""
+        }.`
+      );
+    }
+
+    const actions = new Map();
+    beforeRows = [];
+    for (const row of normalizedRows) {
+      const existing = readExistingPrice.get(normalizedSymbol, row.date);
+      const key = `${normalizedSymbol}:${row.date}`;
+      if (!existing) {
+        actions.set(key, "insert");
+        beforeRows.push({
+          symbol: normalizedSymbol,
+          date: row.date,
+          action: "insert",
+          existed: false
+        });
+        continue;
+      }
+      const existingValues = {
+        open: existing.open,
+        high: existing.high,
+        low: existing.low,
+        close: existing.close,
+        adjustedClose: existing.adjusted_close,
+        volume: existing.volume
+      };
+      const missingFields = Object.entries(existingValues)
+        .filter(([, value]) => value === null || value === undefined)
+        .map(([field]) => field);
+      if (!missingFields.length) {
+        throw new Error(
+          `Price-series import may not overwrite a complete row: ${normalizedSymbol} ${row.date}.`
+        );
+      }
+      for (const field of ["open", "high", "low", "close", "adjustedClose"]) {
+        const value = existingValues[field];
+        if (value !== null && value !== undefined && !numericMatches(value, row[field])) {
+          throw new Error(
+            `Price-series import conflicts with existing ${field}: ${normalizedSymbol} ${row.date}.`
+          );
+        }
+      }
+      if (
+        existingValues.volume !== null &&
+        existingValues.volume !== undefined &&
+        Number(existingValues.volume) !== row.volume
+      ) {
+        throw new Error(
+          `Price-series import conflicts with existing volume: ${normalizedSymbol} ${row.date}.`
+        );
+      }
+      actions.set(key, "complete-null-fields");
+      beforeRows.push({
+        symbol: normalizedSymbol,
+        date: row.date,
+        action: "complete-null-fields",
+        existed: true,
+        source: existing.source || "",
+        updatedAt: existing.updated_at || "",
+        ...existingValues,
+        missingFields
+      });
+    }
+
+    const canonicalPayload = {
+      provider: normalizedProvider,
+      reason: normalizedReason,
+      snapshotId: normalizedSnapshotId,
+      snapshotState: normalizedSnapshotState,
+      sourceReference: normalizedSourceReference,
+      operator: normalizedOperator,
+      policy,
+      affectedGuruIds: normalizedAffectedGuruIds,
+      symbol: normalizedSymbol,
+      startDate: normalizedStartDate,
+      endDate: normalizedEndDate,
+      beforeRows,
+      rows: normalizedRows
+    };
+    payloadSha256 = crypto
+      .createHash("sha256")
+      .update(JSON.stringify(canonicalPayload))
+      .digest("hex");
+
+    for (const row of normalizedRows) {
+      const action = actions.get(`${normalizedSymbol}:${row.date}`);
+      if (action === "insert") {
+        insertPrice.run(
+          normalizedSymbol,
+          row.date,
+          row.open,
+          row.high,
+          row.low,
+          row.close,
+          row.adjustedClose,
+          row.volume,
+          source,
+          createdAt
+        );
+      } else {
+        const result = completePrice.run(
+          row.open,
+          row.high,
+          row.low,
+          row.close,
+          row.adjustedClose,
+          row.volume,
+          source,
+          createdAt,
+          normalizedSymbol,
+          row.date
+        );
+        if (result.changes !== 1) {
+          throw new Error(
+            `Price-series import lost its null-field guard: ${normalizedSymbol} ${row.date}.`
+          );
+        }
+      }
+    }
+    insertAudit.run(
+      auditId,
+      createdAt,
+      normalizedProvider,
+      normalizedReason,
+      normalizedSnapshotId,
+      normalizedSnapshotState,
+      normalizedSourceReference,
+      normalizedOperator,
+      policy,
+      JSON.stringify(normalizedAffectedGuruIds),
+      normalizedSymbol,
+      normalizedStartDate,
+      normalizedEndDate,
+      JSON.stringify(beforeRows),
+      JSON.stringify(normalizedRows),
+      normalizedRows.length,
+      payloadSha256
+    );
+    db.exec("COMMIT");
+  } catch (error) {
+    try {
+      db.exec("ROLLBACK");
+    } catch {
+      // Preserve the original validation, write, or audit error.
+    }
+    throw error;
+  }
+
+  return {
+    auditId,
+    createdAt,
+    provider: normalizedProvider,
+    snapshotId: normalizedSnapshotId,
+    snapshotState: normalizedSnapshotState,
+    sourceReference: normalizedSourceReference,
+    operator: normalizedOperator,
+    policy,
+    affectedGuruIds: normalizedAffectedGuruIds,
+    symbol: normalizedSymbol,
+    startDate: normalizedStartDate,
+    endDate: normalizedEndDate,
+    insertedRows: beforeRows.filter((row) => row.action === "insert").length,
+    completedRows: beforeRows.filter((row) => row.action === "complete-null-fields").length,
+    rowCount: normalizedRows.length,
+    payloadSha256
+  };
+}
+
+export function readPriceSeriesImportAudit(auditId) {
+  const normalized = String(auditId || "").trim();
+  if (!normalized) return null;
+  const row = db.prepare(`
+    SELECT audit_id, created_at, provider, reason, snapshot_id, snapshot_state,
+      source_reference, operator, policy, affected_gurus_json, symbol,
+      interval_start, interval_end, before_rows_json, rows_json, row_count,
+      payload_sha256
+    FROM price_series_import_audits
+    WHERE audit_id = ?
+  `).get(normalized);
+  if (!row) return null;
+  return {
+    auditId: row.audit_id,
+    createdAt: row.created_at,
+    provider: row.provider,
+    reason: row.reason,
+    snapshotId: row.snapshot_id,
+    snapshotState: row.snapshot_state,
+    sourceReference: row.source_reference,
+    operator: row.operator,
+    policy: row.policy,
+    affectedGuruIds: parsePayload(row.affected_gurus_json) || [],
+    symbol: row.symbol,
+    startDate: row.interval_start,
+    endDate: row.interval_end,
+    beforeRows: parsePayload(row.before_rows_json) || [],
+    rows: parsePayload(row.rows_json) || [],
+    rowCount: Number(row.row_count) || 0,
+    payloadSha256: row.payload_sha256
+  };
+}
+
 export function writePortfolioNavPoint(point) {
   const accountId = String(point?.accountId || "portfolio").trim() || "portfolio";
   const date = String(point?.date || "").trim();
@@ -2116,6 +2882,13 @@ const tableSummarySpecs = [
   {
     table: "guru_backtests",
     label: "Guru backtests",
+    latest: "generated_at",
+    sourceDate: "end_date",
+    maxDate: "end_date"
+  },
+  {
+    table: "guru_backtest_proxies",
+    label: "Guru public-holdings proxies",
     latest: "generated_at",
     sourceDate: "end_date",
     maxDate: "end_date"

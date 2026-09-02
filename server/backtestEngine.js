@@ -231,6 +231,13 @@ function allocateAtClose(rebalance, portfolioValue, priceMaps) {
       industry: holding.industry || null,
       disclosedValue: holding.value,
       weight: holding.weight,
+      ...(holding.reportedBookWeight != null &&
+        Number.isFinite(Number(holding.reportedBookWeight))
+        ? { reportedBookWeight: Number(holding.reportedBookWeight) }
+        : {}),
+      ...(holding.proxyWeight != null && Number.isFinite(Number(holding.proxyWeight))
+        ? { proxyWeight: Number(holding.proxyWeight) }
+        : {}),
       startValue,
       startPrice,
       units: startValue / startPrice
@@ -316,6 +323,12 @@ function finishInterval(active, marked, endDate, benchmarkPrice, nextExecutionDa
     industry: position.industry,
     value: position.disclosedValue,
     weight: position.weight,
+    ...(Number.isFinite(position.reportedBookWeight)
+      ? { reportedBookWeight: position.reportedBookWeight }
+      : {}),
+    ...(Number.isFinite(position.proxyWeight)
+      ? { proxyWeight: position.proxyWeight }
+      : {}),
     endingWeight: endPortfolioValue > 0 ? position.endValue / endPortfolioValue : 0,
     startPrice: position.startPrice,
     endPrice: position.endPrice,

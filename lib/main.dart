@@ -754,6 +754,15 @@ String? _guruBacktestWindowValue(Object? value) {
   return const {'5', '10', 'all'}.contains(normalized) ? normalized : null;
 }
 
+bool _isStrictReadyBacktest(Map<String, dynamic>? payload) =>
+    text(payload?['status']) == 'ready';
+
+bool _isProxyReadyBacktest(Map<String, dynamic>? payload) =>
+    text(payload?['status']) == 'proxy_ready';
+
+bool _isDisplayableBacktest(Map<String, dynamic>? payload) =>
+    _isStrictReadyBacktest(payload) || _isProxyReadyBacktest(payload);
+
 bool _supabaseReady = false;
 Object? _supabaseInitError;
 Future<bool>? _supabaseInitFuture;
@@ -3439,21 +3448,34 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
         asMap(payload['method'])['years'],
       );
       final windowMatches = responseWindow == requestedYears;
-      final payloadReady = text(payload['status']) == 'ready';
-      final ready = payloadReady && windowMatches;
-      final existingReady = text(_backtestPayload?['status']) == 'ready';
+      final payloadStrictReady = _isStrictReadyBacktest(payload);
+      final payloadProxyReady = _isProxyReadyBacktest(payload);
+      final payloadDisplayable =
+          windowMatches && (payloadStrictReady || payloadProxyReady);
+      final existingStrictReady = _isStrictReadyBacktest(_backtestPayload);
+      final existingDisplayable = _isDisplayableBacktest(_backtestPayload);
+      final explicitDifferentWindow =
+          explicitWindow && requestedYears != _backtestWindow;
+      final adoptDisplayable =
+          payloadDisplayable &&
+          (!existingDisplayable ||
+              payloadStrictReady ||
+              !existingStrictReady ||
+              explicitDifferentWindow);
+      final adoptPayload =
+          windowMatches && (adoptDisplayable || !existingDisplayable);
       setState(() {
         if (!windowMatches) {
           final mismatch = context.tr(
             '历史区间响应不一致：请求 $requestedYears，返回 ${responseWindow ?? '未知'}。已保留最近可用曲线。',
             'Backtest window mismatch: requested $requestedYears, received ${responseWindow ?? 'unknown'}. The latest available curve was kept.',
           );
-          if (existingReady) {
+          if (existingDisplayable) {
             _backtestWindowError = mismatch;
           } else {
             _backtestError = mismatch;
           }
-        } else if (ready || !existingReady) {
+        } else if (adoptPayload) {
           _backtestPayload = payload;
           _backtestWindow = requestedYears;
           _backtestFullAttribution =
@@ -3461,24 +3483,29 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
               text(asMap(payload['detail'])['attribution']) == 'full';
           if (!_isBacktestWarming(payload)) _backtestWarmupPolls = 0;
         } else {
-          _backtestWindowError = text(
-            asMap(payload['method'])['reason'],
-            context.tr(
-              '所选历史区间尚未通过审计；继续显示最近可用曲线。',
-              'The requested history has not passed audit; keeping the latest available curve.',
-            ),
-          );
+          _backtestWindowError = payloadProxyReady && existingStrictReady
+              ? context.tr(
+                  '该区间返回了公开持仓代理；已保留严格审计曲线。',
+                  'This window returned a public-holdings proxy; the strict audited curve was kept.',
+                )
+              : text(
+                  asMap(payload['method'])['reason'],
+                  context.tr(
+                    '所选历史区间尚未通过审计；继续显示最近可用曲线。',
+                    'The requested history has not passed audit; keeping the latest available curve.',
+                  ),
+                );
         }
         _backtestRequestedWindow = null;
       });
-      if (windowMatches && (ready || !existingReady)) {
+      if (adoptPayload) {
         _scheduleBacktestWarmupPoll(payload);
-      } else if (existingReady) {
+      } else if (existingDisplayable) {
         _resumeBacktestWarmupPoll();
       }
       if (_module == 2 &&
           !fullAttribution &&
-          text(_backtestPayload?['status']) == 'ready' &&
+          _isDisplayableBacktest(_backtestPayload) &&
           text(asMap(_backtestPayload?['detail'])['attribution']) != 'full') {
         scheduleMicrotask(() {
           if (mounted &&
@@ -3494,7 +3521,7 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
           requestId != _backtestRequestId) {
         return;
       }
-      if (text(_backtestPayload?['status']) == 'ready') {
+      if (_isDisplayableBacktest(_backtestPayload)) {
         setState(() {
           _backtestWindowError = error.toString();
           _backtestRequestedWindow = null;
@@ -3533,7 +3560,7 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
   void _resumeBacktestWarmupPoll() {
     final payload = _backtestPayload;
     if (payload != null &&
-        text(payload['status']) == 'ready' &&
+        _isDisplayableBacktest(payload) &&
         _isBacktestWarming(payload)) {
       _scheduleBacktestWarmupPoll(payload);
     }
@@ -3544,8 +3571,8 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
     if (requestedYears == null || requestedYears == _backtestRequestedWindow) {
       return;
     }
-    final existingReady = text(_backtestPayload?['status']) == 'ready';
-    if (existingReady && requestedYears == _backtestWindow) {
+    final existingDisplayable = _isDisplayableBacktest(_backtestPayload);
+    if (existingDisplayable && requestedYears == _backtestWindow) {
       _backtestWarmupTimer?.cancel();
       _backtestWarmupPolls = 0;
       _backtestRequestId += 1;
@@ -4196,6 +4223,199 @@ class _ModuleTabButton extends StatelessWidget {
   }
 }
 
+class _PublicHoldingsProxyNotice extends StatelessWidget {
+  const _PublicHoldingsProxyNotice({
+    required this.payload,
+    required this.palette,
+    required this.noticeKey,
+  });
+
+  final Map<String, dynamic>? payload;
+  final Palette palette;
+  final Key noticeKey;
+
+  String _percent(Map<String, dynamic> proxy, List<String> keys) {
+    final key = keys.firstWhere(
+      (candidate) => proxy.containsKey(candidate) && proxy[candidate] != null,
+      orElse: () => '',
+    );
+    if (key.isEmpty) return '—';
+    var value = number(proxy[key]);
+    if (!value.isFinite) return '—';
+    if (value.abs() > 1) value /= 100;
+    return '${(value * 100).toStringAsFixed(1)}%';
+  }
+
+  String _count(Map<String, dynamic> proxy, List<String> keys) {
+    final key = keys.firstWhere(
+      (candidate) => proxy.containsKey(candidate) && proxy[candidate] != null,
+      orElse: () => '',
+    );
+    if (key.isEmpty) return '—';
+    return number(proxy[key]).round().toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final proxy = asMap(payload?['proxy']);
+    final minimumCoverage = _percent(proxy, const [
+      'minimumSelectedBookCoverage',
+      'minimumReportedCoverage',
+    ]);
+    final averageCoverage = _percent(proxy, const [
+      'averageSelectedBookCoverage',
+      'averageReportedCoverage',
+    ]);
+    final excludedWeight = _percent(proxy, const [
+      'maximumExcludedBookWeight',
+      'excludedWeightMax',
+    ]);
+    final includedPositions = _count(proxy, const [
+      'minimumIncludedPositions',
+      'includedPositionCountMin',
+    ]);
+    final topExcluded = asList(proxy['topExcludedHoldings'])
+        .map(asMap)
+        .map((row) => text(row['ticker'], text(row['issuer'])))
+        .where((value) => value.isNotEmpty)
+        .take(4)
+        .join(', ');
+    final summary = context.tr(
+      '公开持仓代理 · Top-60 可定价权重最低 $minimumCoverage · 最少 $includedPositions 只',
+      'Public sleeve proxy · $minimumCoverage min Top-60 priceable weight · $includedPositions+ holdings',
+    );
+
+    Widget metric(String label, String value) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: palette.card.withValues(alpha: .72),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: palette.accent.withValues(alpha: .24)),
+      ),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: '$label ',
+              style: TextStyle(
+                color: palette.muted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            TextSpan(
+              text: value,
+              style: TextStyle(
+                color: palette.text,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        style: const TextStyle(fontSize: 11, height: 1.2),
+      ),
+    );
+
+    return Material(
+      key: noticeKey,
+      color: palette.accent.withValues(alpha: .08),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: palette.accent.withValues(alpha: .3)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: const ValueKey('guru-proxy-disclosure-expander'),
+          dense: true,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 11),
+          childrenPadding: const EdgeInsets.fromLTRB(11, 0, 11, 11),
+          collapsedIconColor: palette.accent,
+          iconColor: palette.accent,
+          leading: Icon(
+            Icons.visibility_outlined,
+            color: palette.accent,
+            size: 17,
+          ),
+          title: Text(
+            summary,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: palette.accent,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              height: 1.25,
+            ),
+          ),
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: [
+                  metric(
+                    context.tr(
+                      'Top-60 最低可定价权重',
+                      'Minimum Top-60 priceable weight',
+                    ),
+                    minimumCoverage,
+                  ),
+                  metric(
+                    context.tr(
+                      'Top-60 平均可定价权重',
+                      'Average Top-60 priceable weight',
+                    ),
+                    averageCoverage,
+                  ),
+                  metric(
+                    context.tr('最高排除权重', 'Maximum excluded weight'),
+                    excludedWeight,
+                  ),
+                ],
+              ),
+            ),
+            if (topExcluded.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  context.tr(
+                    '主要排除标的：$topExcluded',
+                    'Largest excluded holdings: $topExcluded',
+                  ),
+                  style: TextStyle(
+                    color: palette.muted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                context.tr(
+                  '仅重新归一化 Top-60 披露普通多头中、持有期价格完整的部分；13F 滞后且不包含完整基金头寸。该曲线不是经过严格覆盖审计的基金业绩。',
+                  'Only the fully priceable part of the Top-60 disclosed common-long book is renormalized. 13F data are delayed and omit the complete fund. This is not a strict coverage-audited fund return.',
+                ),
+                style: TextStyle(
+                  color: palette.text,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class GuruSimulationModule extends StatefulWidget {
   const GuruSimulationModule({
     super.key,
@@ -4387,6 +4607,7 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
   @override
   Widget build(BuildContext context) {
     final sim = asMap(widget.guru['simulationTag']);
+    final isProxy = _isProxyReadyBacktest(widget.payload);
     if (text(sim['tone']) == 'muted') {
       return Panel(
         palette: widget.palette,
@@ -4462,7 +4683,17 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
     final resetLabel = loadedAll
         ? context.tr('全部', 'All')
         : context.tr('完整 $loadedWindow 年', 'Full ${loadedWindow}Y');
-    final resetTooltip = loadedAll
+    final resetTooltip = isProxy
+        ? loadedAll
+              ? context.tr(
+                  '恢复全部公开持仓代理历史',
+                  'Reset to all public-sleeve proxy history',
+                )
+              : context.tr(
+                  '恢复完整 $loadedWindow 年公开持仓代理区间',
+                  'Reset to the full ${loadedWindow}Y public-sleeve proxy window',
+                )
+        : loadedAll
         ? context.tr('恢复全部已审计历史', 'Reset to all audited history')
         : context.tr(
             '恢复完整 $loadedWindow 年审计区间',
@@ -4483,7 +4714,9 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
           PanelTitle(
             icon: Icons.stacked_line_chart_rounded,
             kicker: 'COPY SIMULATION',
-            title: context.tr('模拟：组合与 SPY 对比', 'Simulation: Portfolio vs SPY'),
+            title: isProxy
+                ? context.tr('公开持仓代理 vs SPY', 'Public sleeve proxy vs SPY')
+                : context.tr('模拟：组合与 SPY 对比', 'Simulation: Portfolio vs SPY'),
             palette: widget.palette,
             trailing: _RetryIconButton(
               onPressed: widget.loading || widget.requestedWindow != null
@@ -4500,7 +4733,7 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
             )
           else if (widget.error != null && widget.payload == null)
             EmptyState(text: widget.error!, palette: widget.palette)
-          else if (text(widget.payload?['status']) != 'ready')
+          else if (!_isDisplayableBacktest(widget.payload))
             EmptyState(
               text: context.ui(
                 text(
@@ -4589,8 +4822,9 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
                   runSpacing: 8,
                   children: [
                     _PerformanceLegendItem(
-                      label:
-                          '${compactName(text(widget.guru['name']))} Portfolio',
+                      label: isProxy
+                          ? context.tr('公开持仓代理', 'Public sleeve proxy')
+                          : '${compactName(text(widget.guru['name']))} Portfolio',
                       value: formatReturn(summary.totalReturn),
                       color: widget.palette.positive,
                       palette: widget.palette,
@@ -4698,10 +4932,23 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
               height: chartHeight,
               child: EquityChart(equity: chartEquity, palette: widget.palette),
             ),
+            if (isProxy) ...[
+              const SizedBox(height: 8),
+              _PublicHoldingsProxyNotice(
+                payload: widget.payload,
+                palette: widget.palette,
+                noticeKey: const ValueKey('guru-simulation-proxy-notice'),
+              ),
+            ],
             const SizedBox(height: 10),
             if (warming) ...[
               Text(
-                loadedAll
+                isProxy
+                    ? context.tr(
+                        '正在后台刷新公开持仓代理；先显示已缓存区间。',
+                        'The public-sleeve proxy is refreshing; showing the cached window first.',
+                      )
+                    : loadedAll
                     ? context.tr(
                         '正在后台刷新全部可审计历史；先显示已缓存区间。',
                         'The full audited history is refreshing; showing the cached window first.',
@@ -6354,6 +6601,14 @@ class GuruQuarterContributionModule extends StatelessWidget {
             trailing: _RetryIconButton(onPressed: onRetry, palette: palette),
           ),
           const SizedBox(height: 16),
+          if (_isProxyReadyBacktest(payload)) ...[
+            _PublicHoldingsProxyNotice(
+              payload: payload,
+              palette: palette,
+              noticeKey: const ValueKey('guru-quarterly-proxy-notice'),
+            ),
+            const SizedBox(height: 14),
+          ],
           if (loading && (payload == null || !hasFullAttribution))
             const SizedBox(
               height: 300,
@@ -9716,6 +9971,7 @@ class _BacktestPreviewState extends State<BacktestPreview> {
   @override
   Widget build(BuildContext context) {
     final sim = asMap(widget.guru['simulationTag']);
+    final isProxy = _isProxyReadyBacktest(_payload);
     if (text(widget.guru['type']) != 'manager13f' ||
         text(sim['tone']) == 'muted') {
       return Panel(
@@ -9752,7 +10008,9 @@ class _BacktestPreviewState extends State<BacktestPreview> {
           PanelTitle(
             icon: Icons.stacked_line_chart_rounded,
             kicker: 'COPY SIMULATION',
-            title: 'Portfolio vs SPY',
+            title: isProxy
+                ? context.tr('公开持仓代理与 SPY 对比', 'Public sleeve proxy vs SPY')
+                : 'Portfolio vs SPY',
             palette: widget.palette,
           ),
           const SizedBox(height: 12),
@@ -9763,7 +10021,7 @@ class _BacktestPreviewState extends State<BacktestPreview> {
             )
           else if (_error != null && _payload == null)
             EmptyState(text: _error!, palette: widget.palette)
-          else if (text(_payload?['status']) != 'ready')
+          else if (!_isDisplayableBacktest(_payload))
             EmptyState(
               text: context.ui(
                 text(
@@ -9811,6 +10069,14 @@ class _BacktestPreviewState extends State<BacktestPreview> {
               height: 180,
               child: EquityChart(equity: equity, palette: widget.palette),
             ),
+            if (isProxy) ...[
+              const SizedBox(height: 8),
+              _PublicHoldingsProxyNotice(
+                payload: _payload,
+                palette: widget.palette,
+                noticeKey: const ValueKey('guru-preview-proxy-notice'),
+              ),
+            ],
           ],
         ],
       ),

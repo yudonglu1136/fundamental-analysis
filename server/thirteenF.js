@@ -11,12 +11,63 @@ function normalizedShareType(holding) {
   return String(holding?.shareType || "").trim().toUpperCase();
 }
 
+function normalizedTitle(holding) {
+  return String(holding?.title || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, " ");
+}
+
+function normalizedIssuer(holding) {
+  return String(holding?.issuer || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * Some SEC information tables report debt, preferred shares, rights, or
+ * warrants with an `SH` amount type.  `SH` describes the amount unit; it does
+ * not by itself make the security common equity.  Keep unknown/blank titles
+ * eligible so the classifier fails closed only on an explicit non-common
+ * claim rather than guessing from an incomplete filing.
+ */
+export function isClearlyNonCommonEquityTitle(holding) {
+  const title = normalizedTitle(holding);
+  const issuer = normalizedIssuer(holding);
+  // PFF's SEC class title describes the preferred-income ETF mandate; it is
+  // not a preferred claim issued by the fund.
+  if (issuer === "ISHARES TR" && title === "PFD AND INCM SEC") return false;
+  const issuerIdentifiesPreferredSecurity =
+    /(^|[^A-Z0-9])PREF(?:ERRED)?[^A-Z0-9]+(?:ADR|ADS)(?=$|[^A-Z0-9])/.test(issuer) ||
+    /(^|[^A-Z0-9])(?:ADR|ADS)[^A-Z0-9]+PREF(?:ERRED)?(?=$|[^A-Z0-9])/.test(issuer) ||
+    /(^|[^A-Z0-9])CONV(?:ERTIBLE)?[^A-Z0-9]+PREF(?:ERRED)?(?=$|[^A-Z0-9])/.test(issuer);
+  if (issuerIdentifiesPreferredSecurity) return true;
+  if (!title) return false;
+  if (title === "UNIT" &&
+      /(?:ACQUISITION|GROWTH OPPRTUN CO|GROWTH OPPORTUNITY)/.test(issuer)) {
+    return true;
+  }
+  const isPfAdrOrAdsShareClass =
+    /(^|[^A-Z0-9])PF(?=$|[^A-Z0-9])/.test(title) &&
+    /(^|[^A-Z0-9])(?:ADR|ADS)(?=$|[^A-Z0-9])/.test(`${issuer} ${title}`);
+  return isPfAdrOrAdsShareClass ||
+    /(^|[\s*-])(NOTES?|BONDS?|DEBT|DEB(?:ENTURES?)?|DBCV|PFD|PREF(?:ERRED)?|CONV(?:ERTIBLE)?|WARRANTS?|WTS?|RIGHTS?)(?=$|[\s/.-])/.test(title) ||
+    /(^|\s)DEP\s+(?:CUM|CM)(?=$|\s)/.test(title) ||
+    /^UNIT\s+\d{2}\/\d{2}\//.test(title) ||
+    /(^|\s)DEP\s+SHS\s+RP\s*\d+\/\d+\s+[A-Z](?=$|\s)/.test(title) ||
+    /(^|\s)CVT(?=$|[\s/.-])/.test(title) ||
+    /(^|[\s*])W\s+EXP(?=\s|$)/.test(title);
+}
+
 export function is13fOptionHolding(holding) {
   return ["PUT", "CALL"].includes(normalizedPutCall(holding));
 }
 
 export function is13fCommonLongHolding(holding) {
-  return !is13fOptionHolding(holding) && normalizedShareType(holding) === "SH";
+  return !is13fOptionHolding(holding) &&
+    normalizedShareType(holding) === "SH" &&
+    !isClearlyNonCommonEquityTitle(holding);
 }
 
 export function partition13fHoldings(holdings = []) {
@@ -59,7 +110,7 @@ export function summarize13fHoldingValues(holdings = []) {
     otherReportedPositionCount: buckets.otherReportedHoldings.length,
     valueSemantics: {
       reported13fTableValue: "Sum of every reported Form 13F information-table value.",
-      commonLongValue: "Sum of non-put/call rows reported in shares (SH).",
+      commonLongValue: "Sum of non-put/call rows reported in shares (SH), excluding titles that explicitly identify debt, preferreds, rights, or warrants.",
       optionsNotional: "Sum of reported underlying-security values for put/call rows; not option premium or fund AUM.",
       otherReportedValue: "Reported value outside common-long SH rows and put/call rows."
     }

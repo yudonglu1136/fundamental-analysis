@@ -4,9 +4,20 @@ import {
   databaseInfo,
   readBackgroundJobRuns,
   readDatabaseTableSummaries,
+  readGuruBacktest,
+  readGuruBacktestProxy,
   readValuationPodcastInsightSummary
 } from "./localDatabase.js";
-import { guruBacktestRefreshStatus } from "./backtest.js";
+import {
+  backtestEndGraceDays,
+  guruBacktestRefreshStatus,
+  manager13fBacktestMethodVersion,
+  manager13fProxyMethodVersion,
+  manager13fSecurityMasterVersion
+} from "./backtest.js";
+import { auditPublicHoldingsProxyPayload } from "./backtestProxyAudit.js";
+import { auditManager13fStrictReadyPayload } from "./backtestStrictAudit.js";
+import { gurus } from "./gurus.js";
 import { listAdminPortfolioUsers } from "./userPortfolioStore.js";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -19,6 +30,7 @@ const requiredPublicTables = [
   "guru_exposure_snapshots",
   "guru_assets",
   "guru_backtests",
+  "guru_backtest_proxies",
   "valuation_snapshots",
   "valuation_ticker_snapshots",
   "valuation_podcast_insights",
@@ -42,7 +54,7 @@ const publicDataModules = [
   {
     id: "guru_backtests",
     label: "Guru simulation / backtests",
-    tables: ["guru_backtests"],
+    tables: ["guru_backtests", "guru_backtest_proxies"],
     cadence: "quarterly_filing_event",
     freshnessBasis: "source_as_of",
     warningHours: 100 * DAY_HOURS,
@@ -297,6 +309,174 @@ function tableModuleHealth(spec, tables, now) {
   };
 }
 
+const requiredGuruCurveWindows = Object.freeze([5, 10]);
+const guruCurveRefreshIntervalHours = Math.max(
+  1,
+  Number(process.env.BACKTEST_AUTO_REFRESH_INTERVAL_HOURS || 24)
+);
+const guruCurveHealthMaxGeneratedAgeHours = Math.max(
+  guruCurveRefreshIntervalHours + 12,
+  Number(
+    process.env.GURU_CURVE_HEALTH_MAX_GENERATED_AGE_HOURS ||
+    guruCurveRefreshIntervalHours + 24
+  )
+);
+const guruCurveHealthEndGraceDays = Math.max(
+  1,
+  backtestEndGraceDays
+);
+
+function guruCurveFreshness(payload, now) {
+  const generatedAt = isoOrEmpty(payload?.generatedAt);
+  const endDate = isoOrEmpty(payload?.window?.end || payload?.endDate);
+  const generatedAgeHours = hoursSince(generatedAt, now);
+  const endAgeHours = hoursSince(endDate, now);
+  const generatedAtReady = generatedAgeHours !== null &&
+    generatedAgeHours >= -FUTURE_TOLERANCE_HOURS &&
+    generatedAgeHours <= guruCurveHealthMaxGeneratedAgeHours;
+  const endDateReady = endAgeHours !== null &&
+    endAgeHours >= -FUTURE_TOLERANCE_HOURS &&
+    endAgeHours <= guruCurveHealthEndGraceDays * DAY_HOURS;
+  return {
+    ok: generatedAtReady && endDateReady,
+    generatedAt,
+    endDate,
+    generatedAgeHours: roundedHours(generatedAgeHours),
+    endAgeHours: roundedHours(endAgeHours),
+    maxGeneratedAgeHours: guruCurveHealthMaxGeneratedAgeHours,
+    maxEndAgeHours: guruCurveHealthEndGraceDays * DAY_HOURS
+  };
+}
+
+function backtestIdentityMatches(payload, years, { proxy = false } = {}) {
+  if (payload?.method?.version !== manager13fBacktestMethodVersion ||
+      payload?.method?.securityMasterVersion !== manager13fSecurityMasterVersion ||
+      Number(payload?.method?.years) !== years) {
+    return false;
+  }
+  if (!proxy) return true;
+  return payload?.method?.variant === manager13fProxyMethodVersion &&
+    payload?.proxy?.methodVersion === manager13fProxyMethodVersion &&
+    payload?.proxy?.securityMasterVersion === manager13fSecurityMasterVersion;
+}
+
+export function summarizeGuruCurveAvailability({
+  managers = gurus.filter((guru) =>
+    guru.type === "manager13f" && !guru.disableSimulation
+  ),
+  windows = requiredGuruCurveWindows,
+  readStrict = readGuruBacktest,
+  readProxy = readGuruBacktestProxy,
+  now = Date.now()
+} = {}) {
+  const results = [];
+  for (const guru of managers) {
+    for (const years of windows) {
+      const strict = readStrict(guru.id, years);
+      const proxy = readProxy(guru.id, years);
+      const strictAudit = strict?.status === "ready"
+        ? auditManager13fStrictReadyPayload(strict)
+        : { ok: false, reason: `strict_${strict?.status || "missing"}` };
+      const strictFreshness = guruCurveFreshness(strict, now);
+      const strictReady = strict?.status === "ready" &&
+        backtestIdentityMatches(strict, years) &&
+        strictFreshness.ok &&
+        strictAudit.ok;
+      const proxyAudit = proxy?.status === "proxy_ready"
+        ? auditPublicHoldingsProxyPayload(proxy)
+        : { ok: false, reason: `proxy_${proxy?.status || "missing"}` };
+      const proxyFreshness = guruCurveFreshness(proxy, now);
+      const proxyReady = !strictReady &&
+        strict?.status === "insufficient_data" &&
+        backtestIdentityMatches(strict, years) &&
+        strictFreshness.ok &&
+        proxy?.status === "proxy_ready" &&
+        backtestIdentityMatches(proxy, years, { proxy: true }) &&
+        proxyFreshness.ok &&
+        proxy?.proxy?.strictFailureGeneratedAt === strict?.generatedAt &&
+        Array.isArray(proxy?.equity) && proxy.equity.length >= 2 &&
+        proxyAudit.ok;
+      const outcome = strictReady ? "ready" : proxyReady ? "proxy_ready" : "failure";
+      results.push({
+        guruId: guru.id,
+        guruName: guru.name,
+        years,
+        outcome,
+        reason: outcome === "failure"
+          ? strict && !backtestIdentityMatches(strict, years)
+            ? "strict_method_or_security_master_incompatible"
+            : strict && !strictFreshness.ok
+              ? "strict_curve_stale"
+            : strict?.status === "ready" && !strictAudit.ok
+              ? strictAudit.reason
+              : proxy?.status === "proxy_ready" && !backtestIdentityMatches(proxy, years, { proxy: true })
+                ? "proxy_method_or_security_master_incompatible"
+                : proxy?.status === "proxy_ready" && !proxyFreshness.ok
+                  ? "proxy_curve_stale"
+                : proxy?.status === "proxy_ready" && !proxyAudit.ok
+                  ? proxyAudit.reason
+                  : proxy?.status === "proxy_ready" &&
+                      proxy?.proxy?.strictFailureGeneratedAt !== strict?.generatedAt
+                    ? "proxy_not_linked_to_current_strict_failure"
+                    : "no_current_displayable_curve"
+          : null,
+        strictFreshness,
+        ...(proxy?.status === "proxy_ready" ? { proxyFreshness } : {})
+      });
+    }
+  }
+  const expectedRows = managers.length * windows.length;
+  const displayable = results.filter((row) => row.outcome !== "failure").length;
+  const byWindow = Object.fromEntries(windows.map((years) => {
+    const rows = results.filter((row) => row.years === years);
+    return [`${years}Y`, {
+      expected: managers.length,
+      strictReady: rows.filter((row) => row.outcome === "ready").length,
+      proxyReady: rows.filter((row) => row.outcome === "proxy_ready").length,
+      failures: rows.filter((row) => row.outcome === "failure").length,
+      displayable: rows.filter((row) => row.outcome !== "failure").length
+    }];
+  }));
+  return {
+    ok: managers.length === 18 && results.length === expectedRows && displayable === expectedRows,
+    expectedManagers: 18,
+    managerCount: managers.length,
+    windows: [...windows],
+    expectedRows,
+    displayable,
+    strictReady: results.filter((row) => row.outcome === "ready").length,
+    proxyReady: results.filter((row) => row.outcome === "proxy_ready").length,
+    failures: results.filter((row) => row.outcome === "failure"),
+    byWindow,
+    methodVersion: manager13fBacktestMethodVersion,
+    proxyMethodVersion: manager13fProxyMethodVersion,
+    securityMasterVersion: manager13fSecurityMasterVersion,
+    readiness: {
+      refreshIntervalHours: guruCurveRefreshIntervalHours,
+      maxGeneratedAgeHours: guruCurveHealthMaxGeneratedAgeHours,
+      maxEndAgeHours: guruCurveHealthEndGraceDays * DAY_HOURS
+    }
+  };
+}
+
+function guruBacktestModuleHealth(spec, tables, curveAvailability, now) {
+  const module = tableModuleHealth(spec, tables, now);
+  if (curveAvailability?.ok) {
+    return {
+      ...module,
+      details: { ...module.details, curveAvailability }
+    };
+  }
+  const displayable = Number(curveAvailability?.displayable || 0);
+  const expected = Number(curveAvailability?.expectedRows || 36);
+  return {
+    ...module,
+    state: "failed",
+    message: `Only ${displayable}/${expected} required 5Y/10Y manager curves are current and displayable.`,
+    details: { ...module.details, curveAvailability }
+  };
+}
+
 function ontologyModuleHealth(ontology, now) {
   const observedAt = isoOrEmpty(ontology?.manifest?.generated_at) || isoOrEmpty(ontology?.updatedAt);
   const financialAsOf = isoOrEmpty(ontology?.manifest?.financial_as_of);
@@ -367,6 +547,7 @@ function ontologyModuleHealth(ontology, now) {
 export function buildPublicSystemHealth({
   database: databaseOverride,
   tables: tablesOverride,
+  guruCurves: guruCurvesOverride,
   ontology = {},
   now = Date.now()
 } = {}) {
@@ -407,9 +588,16 @@ export function buildPublicSystemHealth({
       failedTables
     }
   };
+  const guruCurves = guruCurvesOverride || safeRead(
+    "Guru curve availability",
+    { ok: false, expectedRows: 36, displayable: 0, failures: [] },
+    () => summarizeGuruCurveAvailability({ now })
+  );
   const modules = [
     databaseModule,
-    ...publicDataModules.map((spec) => tableModuleHealth(spec, tableRows, now)),
+    ...publicDataModules.map((spec) => spec.id === "guru_backtests"
+      ? guruBacktestModuleHealth(spec, tableRows, guruCurves, now)
+      : tableModuleHealth(spec, tableRows, now)),
     ontologyModuleHealth(ontology, now)
   ];
   const status = publicOverallState(modules.map((module) => module.state));

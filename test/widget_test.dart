@@ -124,9 +124,12 @@ class _ControlledGuruApiClient extends ApiClient {
 Map<String, dynamic> _guruBacktestPayload(
   String years, {
   String? methodYears,
+  String status = 'ready',
   bool warming = false,
   bool fullAttribution = false,
   double endingValue = 140,
+  String? methodReason,
+  Map<String, dynamic>? proxy,
 }) {
   final starts = <String, String>{
     '5': '2021-09-01',
@@ -134,9 +137,27 @@ Map<String, dynamic> _guruBacktestPayload(
     'all': '2013-08-14',
   };
   return <String, dynamic>{
-    'status': 'ready',
+    'status': status,
+    if (status == 'proxy_ready')
+      'proxy':
+          proxy ??
+          <String, dynamic>{
+            'kind': 'public_holdings_proxy',
+            'minimumSelectedBookCoverage': .82,
+            'averageSelectedBookCoverage': .93,
+            'maximumExcludedBookWeight': .18,
+            'minimumIncludedPositions': 3,
+            'disclosureCode': 'top60_priceable_public_long_proxy',
+            'disclosure': 'Only priced public holdings are included.',
+            'topExcludedHoldings': <Map<String, dynamic>>[
+              <String, dynamic>{'ticker': 'MISS', 'issuer': 'Missing Co'},
+            ],
+          },
     'historyWarming': warming,
-    'method': <String, dynamic>{'years': methodYears ?? years},
+    'method': <String, dynamic>{
+      'years': methodYears ?? years,
+      'reason': ?methodReason,
+    },
     'detail': <String, dynamic>{
       'attribution': fullAttribution ? 'full' : 'compact',
     },
@@ -210,15 +231,17 @@ Future<void> _pumpGuruStateMachine(
   _ControlledGuruApiClient api, {
   int initialModule = 0,
   Map<String, dynamic>? guru,
+  AppLanguage language = AppLanguage.en,
+  Size viewportSize = const Size(1000, 1200),
 }) async {
-  tester.view.physicalSize = const Size(1000, 1200);
+  tester.view.physicalSize = viewportSize;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 
   await tester.pumpWidget(
     LanguageScope(
-      language: AppLanguage.en,
+      language: language,
       child: MaterialApp(
         theme: ThemeData.dark(),
         home: Scaffold(
@@ -756,6 +779,8 @@ void main() {
         'sourcePoints': 1200,
       },
       'equity': [
+        {'date': '2021-01-03', 'value': 100.0, 'benchmark': 100.0},
+        {'date': '2022-01-03', 'value': 104.0, 'benchmark': 102.0},
         {'date': '2023-01-03', 'value': 100.0, 'benchmark': 100.0},
         {'date': '2024-01-03', 'value': 112.0, 'benchmark': 108.0},
         {'date': '2025-01-03', 'value': 125.0, 'benchmark': 116.0},
@@ -812,6 +837,33 @@ void main() {
     );
     expect(find.text('-55.0%'), findsOneWidget);
     expect(find.text('MDD'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('guru-simulation-proxy-notice')),
+      findsNothing,
+    );
+    expect(find.text('Simulation: Portfolio vs SPY'), findsOneWidget);
+
+    await tester.tap(find.text('1Y'));
+    await tester.pump();
+    var selectedChart = tester.widget<EquityChart>(
+      find.descendant(of: chart, matching: find.byType(EquityChart)),
+    );
+    expect(selectedChart.equity, hasLength(2));
+
+    await tester.tap(find.text('3Y'));
+    await tester.pump();
+    selectedChart = tester.widget<EquityChart>(
+      find.descendant(of: chart, matching: find.byType(EquityChart)),
+    );
+    expect(selectedChart.equity, hasLength(4));
+
+    await tester.tap(find.text('5Y'));
+    await tester.pump();
+    selectedChart = tester.widget<EquityChart>(
+      find.descendant(of: chart, matching: find.byType(EquityChart)),
+    );
+    expect(selectedChart.equity, hasLength(6));
+
     await tester.tap(find.text('10Y'));
     await tester.tap(find.text('All'));
     expect(requestedWindows, ['10', 'all']);
@@ -819,7 +871,7 @@ void main() {
     final slider = tester.widget<RangeSlider>(find.byType(RangeSlider));
     slider.onChanged!(const RangeValues(1, 3));
     await tester.pump();
-    final selectedChart = tester.widget<EquityChart>(
+    selectedChart = tester.widget<EquityChart>(
       find.descendant(of: chart, matching: find.byType(EquityChart)),
     );
     expect(selectedChart.equity, hasLength(3));
@@ -828,6 +880,262 @@ void main() {
     expect(find.text('MDD≈'), findsOneWidget);
     expect(
       find.textContaining('selected-range MDD is approximate'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'proxy-ready history shows the curve, range, coverage and disclosure',
+    (WidgetTester tester) async {
+      final api = _ControlledGuruApiClient();
+      await _pumpGuruStateMachine(tester, api);
+
+      api.backtestRequests.single.completer.complete(
+        _guruBacktestPayload('5', status: 'proxy_ready'),
+      );
+      await _flushGuruState(tester);
+
+      expect(find.text('Public sleeve proxy vs SPY'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('guru-simulation-proxy-notice')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('guru-simulation-range-bar')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('guru-simulation-equity-chart')),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('82.0% min Top-60 priceable weight'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('3+ holdings'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('guru-proxy-disclosure-expander')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Average Top-60 priceable weight 93.0%', findRichText: true),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Maximum excluded weight 18.0%', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.text('Largest excluded holdings: MISS'), findsOneWidget);
+      expect(
+        find.textContaining(
+          'This is not a strict coverage-audited fund return.',
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'proxy curve fits the real 1280x720 three-column slot and mobile stays overflow-safe',
+    (WidgetTester tester) async {
+      final desktopApi = _ControlledGuruApiClient();
+      await _pumpGuruStateMachine(
+        tester,
+        desktopApi,
+        // At a 1280x720 shell, the 66px terminal header, 10px content inset,
+        // 270px universe rail and 280px right rail leave this workspace slot.
+        viewportSize: const Size(690, 644),
+      );
+      desktopApi.backtestRequests.single.completer.complete(
+        _guruBacktestPayload('5', status: 'proxy_ready'),
+      );
+      await _flushGuruState(tester);
+
+      final desktopChart = find.byKey(
+        const ValueKey('guru-simulation-equity-chart'),
+      );
+      final desktopNotice = find.byKey(
+        const ValueKey('guru-simulation-proxy-notice'),
+      );
+      expect(desktopChart, findsOneWidget);
+      expect(desktopNotice, findsOneWidget);
+      expect(tester.getBottomLeft(desktopChart).dy, lessThanOrEqualTo(644));
+      expect(
+        tester.getTopLeft(desktopChart).dy,
+        lessThan(tester.getTopLeft(desktopNotice).dy),
+      );
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      final mobileApi = _ControlledGuruApiClient();
+      await _pumpGuruStateMachine(
+        tester,
+        mobileApi,
+        viewportSize: const Size(390, 844),
+      );
+      mobileApi.backtestRequests.single.completer.complete(
+        _guruBacktestPayload('5', status: 'proxy_ready'),
+      );
+      await _flushGuruState(tester);
+
+      final mobileChart = find.byKey(
+        const ValueKey('guru-simulation-equity-chart'),
+      );
+      expect(mobileChart, findsOneWidget);
+      expect(tester.getSize(mobileChart).width, greaterThan(320));
+      expect(find.text('1Y'), findsOneWidget);
+      expect(find.text('All'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'same-window proxy response cannot downgrade a strict ready curve',
+    (WidgetTester tester) async {
+      final api = _ControlledGuruApiClient();
+      await _pumpGuruStateMachine(tester, api);
+      api.backtestRequests.single.completer.complete(
+        _guruBacktestPayload('5', endingValue: 140),
+      );
+      await _flushGuruState(tester);
+
+      await tester.tap(find.byTooltip('Refresh'));
+      await tester.pump();
+      expect(api.backtestRequests, hasLength(2));
+      api.backtestRequests[1].completer.complete(
+        _guruBacktestPayload(
+          '5',
+          status: 'proxy_ready',
+          endingValue: 220,
+          methodReason:
+              'The strict selected-book curve failed its execution-coverage gate; a separately labeled fully priceable public-sleeve proxy is available.',
+        ),
+      );
+      await _flushGuruState(tester);
+
+      expect(find.text('Simulation: Portfolio vs SPY'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('guru-simulation-proxy-notice')),
+        findsNothing,
+      );
+      expect(
+        find.textContaining('strict audited curve was kept'),
+        findsOneWidget,
+      );
+      final chart = tester.widget<EquityChart>(find.byType(EquityChart));
+      expect(number(chart.equity.last['value']), closeTo(1.4, 0.000001));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'same-window proxy fallback never leaks its backend reason in Chinese',
+    (WidgetTester tester) async {
+      const backendReason =
+          'The strict selected-book curve failed its execution-coverage gate; a separately labeled fully priceable public-sleeve proxy is available.';
+      final api = _ControlledGuruApiClient();
+      await _pumpGuruStateMachine(tester, api, language: AppLanguage.zh);
+      api.backtestRequests.single.completer.complete(_guruBacktestPayload('5'));
+      await _flushGuruState(tester);
+
+      await tester.tap(find.byTooltip('刷新'));
+      await tester.pump();
+      api.backtestRequests[1].completer.complete(
+        _guruBacktestPayload(
+          '5',
+          status: 'proxy_ready',
+          endingValue: 220,
+          methodReason: backendReason,
+        ),
+      );
+      await _flushGuruState(tester);
+
+      expect(find.text('模拟：组合与 SPY 对比'), findsOneWidget);
+      expect(find.textContaining('已保留严格审计曲线'), findsOneWidget);
+      expect(find.textContaining(backendReason), findsNothing);
+      expect(
+        find.byKey(const ValueKey('guru-simulation-proxy-notice')),
+        findsNothing,
+      );
+      final chart = tester.widget<EquityChart>(find.byType(EquityChart));
+      expect(number(chart.equity.last['value']), closeTo(1.4, 0.000001));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('proxy-ready history has explicit Chinese labeling', (
+    WidgetTester tester,
+  ) async {
+    final api = _ControlledGuruApiClient();
+    await _pumpGuruStateMachine(tester, api, language: AppLanguage.zh);
+    api.backtestRequests.single.completer.complete(
+      _guruBacktestPayload('5', status: 'proxy_ready'),
+    );
+    await _flushGuruState(tester);
+
+    expect(find.text('公开持仓代理 vs SPY'), findsOneWidget);
+    expect(find.textContaining('Top-60 可定价权重最低 82.0%'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('guru-proxy-disclosure-expander')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('不是经过严格覆盖审计'), findsOneWidget);
+    expect(find.textContaining('Only priced public holdings'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'explicit window selection may replace strict ready with that window proxy',
+    (WidgetTester tester) async {
+      final api = _ControlledGuruApiClient();
+      await _pumpGuruStateMachine(tester, api);
+      api.backtestRequests.single.completer.complete(_guruBacktestPayload('5'));
+      await _flushGuruState(tester);
+
+      await tester.tap(find.text('10Y'));
+      await tester.pump();
+      api.backtestRequests[1].completer.complete(
+        _guruBacktestPayload('10', status: 'proxy_ready', endingValue: 180),
+      );
+      await _flushGuruState(tester);
+
+      expect(find.text('Full 10Y'), findsOneWidget);
+      expect(find.text('Public sleeve proxy vs SPY'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('guru-simulation-proxy-notice')),
+        findsOneWidget,
+      );
+      final chart = tester.widget<EquityChart>(find.byType(EquityChart));
+      expect(number(chart.equity.last['value']), closeTo(1.8, 0.000001));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('proxy-ready history supports full quarterly attribution', (
+    WidgetTester tester,
+  ) async {
+    final api = _ControlledGuruApiClient();
+    await _pumpGuruStateMachine(tester, api);
+    api.backtestRequests.single.completer.complete(
+      _guruBacktestPayload('5', status: 'proxy_ready'),
+    );
+    await _flushGuruState(tester);
+
+    await tester.tap(find.text('Quarterly Contribution').first);
+    await tester.pump();
+    expect(api.backtestRequests, hasLength(2));
+    expect(api.backtestRequests[1].path, contains('detail=full'));
+    api.backtestRequests[1].completer.complete(
+      _guruBacktestPayload('5', status: 'proxy_ready', fullAttribution: true),
+    );
+    await _flushGuruState(tester);
+
+    expect(find.text('TEST'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('guru-quarterly-proxy-notice')),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
