@@ -2314,9 +2314,95 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final background = tester.getRect(
+      find.byKey(const ValueKey('login-background')),
+    );
     final panel = tester.getRect(find.byKey(const ValueKey('login-panel')));
+    expect(background, const Rect.fromLTWH(0, 0, 390, 844));
     expect(panel.left, greaterThanOrEqualTo(16));
     expect(panel.right, lessThanOrEqualTo(374));
+    expect(panel.center.dy, closeTo(422, 1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('auth shell fills and centers a desktop viewport', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LanguageScope(
+          language: AppLanguage.en,
+          child: LoginScreen(
+            authConfigured: true,
+            localBypassEnabled: false,
+            language: AppLanguage.en,
+            onLanguage: (_) {},
+            onGoogle: () {},
+            onLocal: () {},
+            onRetry: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final background = tester.getRect(
+      find.byKey(const ValueKey('login-background')),
+    );
+    final panel = tester.getRect(find.byKey(const ValueKey('login-panel')));
+    expect(background, const Rect.fromLTWH(0, 0, 1280, 900));
+    expect(panel.center.dx, closeTo(640, 1));
+    expect(panel.center.dy, closeTo(450, 1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('auth shell keeps error actions scrollable on a short viewport', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 480);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LanguageScope(
+          language: AppLanguage.en,
+          child: LoginScreen(
+            authConfigured: false,
+            localBypassEnabled: true,
+            authMessage: 'Supabase auth did not initialize.',
+            language: AppLanguage.en,
+            onLanguage: (_) {},
+            onGoogle: () {},
+            onLocal: () {},
+            onRetry: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scrollable = tester.state<ScrollableState>(
+      find.byType(Scrollable).first,
+    );
+    expect(scrollable.position.maxScrollExtent, greaterThan(0));
+
+    await tester.drag(
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Retry auth initialization').hitTestable(),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 

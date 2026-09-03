@@ -1088,6 +1088,7 @@ class LoginScreen extends StatelessWidget {
     final palette = Palette(false);
     return Scaffold(
       body: Container(
+        key: const ValueKey('login-background'),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -1098,8 +1099,8 @@ class LoginScreen extends StatelessWidget {
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Center(
+            child: Center(
+              child: SingleChildScrollView(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 520),
                   child: Container(
