@@ -153,7 +153,8 @@ app.post("/api/internal/backtests/refresh", requireLoopbackRequest, requireInter
       years: request.query.years || request.body?.years || 5,
       detail: request.query.detail || request.body?.detail || "compact",
       reason: "internal-api",
-      refreshGeneration
+      refreshGeneration,
+      population: request.query.population || request.body?.population || "all-supported"
     });
     response.json(payload);
   } catch (error) {

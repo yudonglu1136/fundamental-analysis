@@ -24,6 +24,8 @@ const yahooTransportRetryMaxMs = Math.max(
   yahooTransportRetryBaseMs,
   Math.min(5_000, Math.round(Number(process.env.YAHOO_TRANSPORT_RETRY_MAX_MS) || 2_000))
 );
+const yahooPrimaryChartHost = "query2.finance.yahoo.com";
+const yahooAlternateChartHost = "query1.finance.yahoo.com";
 
 function yahooSymbol(symbol) {
   return yahooChartSymbol(symbol);
@@ -139,7 +141,9 @@ export function enforceAdjustedPriceRequirement(payload, {
         ? "expected_internal_session_gap"
         : "adjusted_close_unavailable",
       policy: internalSessionGap
-        ? "fail_closed_after_single_provider_retry_without_unledgered_db_fill"
+        ? payload?.expectedInternalSessionRetry?.alternateHostAttempted
+          ? "fail_closed_after_dual_host_provider_retry_without_unledgered_db_fill"
+          : "fail_closed_after_single_provider_retry_without_unledgered_db_fill"
         : "fail_closed_without_unadjusted_close_fallback",
       requireFullRange,
       rangeCovered: rangeCovered(points, start, end),
@@ -251,9 +255,11 @@ function wait(milliseconds) {
     : Promise.resolve();
 }
 
-async function fetchYahooSeriesOnce(symbol, start, end) {
+async function fetchYahooSeriesOnce(symbol, start, end, {
+  hostname = yahooPrimaryChartHost
+} = {}) {
   const encoded = encodeURIComponent(yahooSymbol(symbol));
-  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encoded}?period1=${unix(start)}&period2=${unix(end) + 86400}&interval=1d`;
+  const url = `https://${hostname}/v8/finance/chart/${encoded}?period1=${unix(start)}&period2=${unix(end) + 86400}&interval=1d`;
   const response = await fetch(url, {
     headers: {
       "User-Agent": "Mozilla/5.0 guru-analysis-dashboard/0.1",
@@ -272,12 +278,15 @@ async function fetchYahooSeriesOnce(symbol, start, end) {
   return normalizeYahooChartPoints(json.chart?.result?.[0], symbol);
 }
 
-async function fetchYahooSeries(symbol, start, end, { onAttempt = null } = {}) {
+async function fetchYahooSeries(symbol, start, end, {
+  hostname = yahooPrimaryChartHost,
+  onAttempt = null
+} = {}) {
   let lastError = null;
   for (let attempt = 1; attempt <= yahooTransportMaxAttempts; attempt += 1) {
-    if (typeof onAttempt === "function") onAttempt();
+    if (typeof onAttempt === "function") onAttempt({ hostname, attempt });
     try {
-      return await fetchYahooSeriesOnce(symbol, start, end);
+      return await fetchYahooSeriesOnce(symbol, start, end, { hostname });
     } catch (error) {
       lastError = error;
       if (
@@ -353,10 +362,12 @@ export async function loadPriceSeries(symbol, {
   let source = "yahoo";
   let points = [];
   let providerAttempts = 0;
+  const providerHosts = [];
   let expectedInternalSessionRetry = null;
   let providerFailure = null;
-  const recordProviderAttempt = () => {
+  const recordProviderAttempt = ({ hostname } = {}) => {
     providerAttempts += 1;
+    if (hostname && !providerHosts.includes(hostname)) providerHosts.push(hostname);
   };
 
   try {
@@ -367,30 +378,41 @@ export async function loadPriceSeries(symbol, {
       ? missingExpectedInternalSessions(points, expectedTradingDates)
       : [];
     if (firstMissingDates.length) {
+      let alternateHostError = null;
       try {
-        const retryPoints = await fetchYahooSeries(
+        const allowedDates = new Set(firstMissingDates);
+        const alternatePoints = await fetchYahooSeries(
           normalized,
           firstMissingDates[0],
           firstMissingDates.at(-1),
-          { onAttempt: recordProviderAttempt }
+          {
+            hostname: yahooAlternateChartHost,
+            onAttempt: recordProviderAttempt
+          }
         );
-        points = mergeProviderPoints(points, retryPoints);
-        expectedInternalSessionRetry = {
-          attempted: true,
-          initialMissingDates: firstMissingDates,
-          remainingMissingDates: missingExpectedInternalSessions(
-            points,
-            expectedTradingDates
-          )
-        };
+        // The alternate host may return neighboring sessions for a bounded
+        // request. It may only fill dates the primary response did not already
+        // supply with an adjusted observation; primary rows never get replaced.
+        points = mergeProviderPoints(
+          points,
+          alternatePoints.filter((point) => allowedDates.has(point.date))
+        );
       } catch (error) {
-        expectedInternalSessionRetry = {
-          attempted: true,
-          initialMissingDates: firstMissingDates,
-          remainingMissingDates: firstMissingDates,
-          retryError: String(error?.message || error || "Provider retry failed.")
-        };
+        alternateHostError = String(
+          error?.message || error || "Alternate Yahoo host retry failed."
+        );
       }
+      expectedInternalSessionRetry = {
+        attempted: true,
+        initialMissingDates: firstMissingDates,
+        remainingMissingDates: missingExpectedInternalSessions(
+          points,
+          expectedTradingDates
+        ),
+        alternateHostAttempted: true,
+        alternateHost: yahooAlternateChartHost,
+        ...(alternateHostError ? { alternateHostError } : {})
+      };
     }
   } catch (error) {
     providerFailure = {
@@ -412,6 +434,7 @@ export async function loadPriceSeries(symbol, {
     returnBasis: returnBasis(points),
     generatedAt: new Date().toISOString(),
     providerAttempts,
+    ...(providerHosts.length ? { providerHosts } : {}),
     ...(expectedInternalSessionRetry ? { expectedInternalSessionRetry } : {}),
     ...(providerFailure ? { providerFailure } : {}),
     points

@@ -115,6 +115,7 @@ function healthPayload() {
 
 test("prewarm writes its success marker only after both windows cover every configured manager", async (context) => {
   const requestedGenerations = [];
+  const requestedPopulations = [];
   const server = await listen(http.createServer((request, response) => {
     const url = new URL(request.url, "http://127.0.0.1");
     response.setHeader("content-type", "application/json");
@@ -130,6 +131,7 @@ test("prewarm writes its success marker only after both windows cover every conf
       const refreshGeneration = url.searchParams.get("refreshGeneration");
       const years = Number(url.searchParams.get("years"));
       requestedGenerations.push(refreshGeneration);
+      requestedPopulations.push(url.searchParams.get("population"));
       response.end(JSON.stringify({
         startedAt: new Date().toISOString(),
         finishedAt: new Date().toISOString(),
@@ -159,6 +161,7 @@ test("prewarm writes its success marker only after both windows cover every conf
 
   assert.equal(result.code, 0, result.stderr || result.stdout);
   assert.deepEqual(requestedGenerations, [`${generation}:5`, `${generation}:10`]);
+  assert.deepEqual(requestedPopulations, ["enabled-manager13f", "enabled-manager13f"]);
   assert.equal(JSON.parse(fs.readFileSync(output, "utf8")).pass, true);
   assert.equal(JSON.parse(fs.readFileSync(marker, "utf8")).displayable, expectedCurveRows);
 });

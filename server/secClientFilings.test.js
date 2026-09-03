@@ -779,7 +779,9 @@ test("a fresh provider internal-session gap is retried once with provider rows o
     assert.deepEqual(series.expectedInternalSessionRetry, {
       attempted: true,
       initialMissingDates: ["2024-01-03"],
-      remainingMissingDates: []
+      remainingMissingDates: [],
+      alternateHostAttempted: true,
+      alternateHost: "query1.finance.yahoo.com"
     });
     assert.deepEqual(series.points.map((point) => point.date), [
       "2024-01-02",
@@ -791,6 +793,68 @@ test("a fresh provider internal-session gap is retried once with provider rows o
       readPriceSeriesFromDb("RETRYFIXTURE", "2024-01-03", "2024-01-03")[0].source,
       "yahoo"
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("an incomplete primary Yahoo response uses exact rows from the alternate Yahoo chart host", async () => {
+  const originalFetch = globalThis.fetch;
+  const requestedHosts = [];
+  globalThis.fetch = async (url) => {
+    const hostname = new URL(url).hostname;
+    requestedHosts.push(hostname);
+    const alternate = hostname === "query1.finance.yahoo.com";
+    return {
+      ok: true,
+      json: async () => ({
+        chart: {
+          result: [{
+            timestamp: alternate
+              ? [1704240000, 1704326400]
+              : [1704153600, 1704326400],
+            indicators: {
+              quote: [{ close: alternate ? [102, 999] : [101, 103] }],
+              adjclose: [{ adjclose: alternate ? [102, 999] : [101, 103] }]
+            }
+          }]
+        }
+      })
+    };
+  };
+
+  try {
+    const series = await loadPriceSeries("ALTERNATEHOSTFIXTURE", {
+      start: "2023-01-01",
+      end: "2024-01-04",
+      requireAdjusted: true,
+      expectedTradingDates: ["2024-01-02", "2024-01-03", "2024-01-04"]
+    });
+    assert.deepEqual(requestedHosts, [
+      "query2.finance.yahoo.com",
+      "query1.finance.yahoo.com"
+    ]);
+    assert.equal(series.providerAttempts, 2);
+    assert.deepEqual(series.providerHosts, [
+      "query2.finance.yahoo.com",
+      "query1.finance.yahoo.com"
+    ]);
+    assert.equal(series.source, "yahoo+sqlite-merged");
+    assert.equal(series.returnBasis, "total_return_adjusted_close");
+    assert.deepEqual(series.expectedInternalSessionRetry, {
+      attempted: true,
+      initialMissingDates: ["2024-01-03"],
+      remainingMissingDates: [],
+      alternateHostAttempted: true,
+      alternateHost: "query1.finance.yahoo.com"
+    });
+    assert.deepEqual(series.points.map((point) => point.date), [
+      "2024-01-02",
+      "2024-01-03",
+      "2024-01-04"
+    ]);
+    assert.equal(series.points[1].adjustedClose, 102);
+    assert.equal(series.points[2].adjustedClose, 103);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -1030,7 +1094,7 @@ test("an unledgered stale SQLite point cannot fill a fresh upstream gap", async 
     assert.equal(series.failure.code, "expected_internal_session_gap");
     assert.equal(
       series.failure.policy,
-      "fail_closed_after_single_provider_retry_without_unledgered_db_fill"
+      "fail_closed_after_dual_host_provider_retry_without_unledgered_db_fill"
     );
     assert.equal(series.failure.providerAttempts, 2);
     assert.deepEqual(series.failure.missingDates, ["2024-01-03"]);

@@ -253,6 +253,7 @@ for (const years of windows) {
   const url = new URL("api/internal/backtests/refresh", baseUrl);
   url.searchParams.set("years", String(years));
   url.searchParams.set("detail", "compact");
+  url.searchParams.set("population", "enabled-manager13f");
   const generation = `${refreshGeneration}:${years}`;
   url.searchParams.set("refreshGeneration", generation);
   console.log(JSON.stringify({

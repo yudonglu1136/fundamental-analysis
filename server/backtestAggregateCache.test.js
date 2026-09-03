@@ -1433,6 +1433,78 @@ test("cache refresh counts proxy_ready as a failed strict refresh", async () => 
   }
 });
 
+test("production prewarm population refreshes only enabled manager13f profiles", async () => {
+  const enabledManagerIds = gurus.filter((guru) =>
+    guru.type === "manager13f" && !guru.disableSimulation
+  ).map((guru) => guru.id);
+  const scopedCalls = [];
+  const scoped = await refreshGuruBacktestCache({
+    years: 5,
+    reason: "production-prewarm-population-test",
+    population: "enabled-manager13f",
+    backtestLoader: async (guruId) => {
+      scopedCalls.push(guruId);
+      const guru = gurus.find((item) => item.id === guruId);
+      return withMethodYears(
+        fixture(guru, "enabled-manager13f", "2026-09-03T00:00:00.000Z"),
+        5
+      );
+    }
+  });
+
+  assert.deepEqual(scopedCalls, enabledManagerIds);
+  assert.equal(scoped.population, "enabled-manager13f");
+  assert.equal(scoped.ok, enabledManagerIds.length);
+  assert.equal(scoped.failed, 0);
+  assert.equal(scopedCalls.includes("nancy-pelosi"), false);
+  assert.equal(scopedCalls.includes("renaissance-technologies"), false);
+  assert.equal(scopedCalls.includes("nick-sleep-qais-zakaria"), false);
+});
+
+test("default bulk refresh retains congress and disabled-manager behavior", async () => {
+  const supportedGurus = gurus.filter((guru) =>
+    guru.type === "manager13f" || guru.type === "congress"
+  );
+  const defaultCalls = [];
+  const result = await refreshGuruBacktestCache({
+    years: 5,
+    reason: "default-population-compatibility-test",
+    backtestLoader: async (guruId) => {
+      defaultCalls.push(guruId);
+      const guru = gurus.find((item) => item.id === guruId);
+      const payload = withMethodYears(
+        fixture(guru, "all-supported", "2026-09-03T00:00:00.000Z"),
+        5
+      );
+      if (guru.disableSimulation) payload.status = "unsupported";
+      return payload;
+    }
+  });
+
+  assert.deepEqual(defaultCalls, supportedGurus.map((guru) => guru.id));
+  assert.equal(result.population, "all-supported");
+  assert.equal(result.ok, supportedGurus.length);
+  assert.equal(result.failed, 0);
+  assert.equal(defaultCalls.includes("nancy-pelosi"), true);
+  assert.equal(defaultCalls.includes("renaissance-technologies"), true);
+  assert.equal(defaultCalls.includes("nick-sleep-qais-zakaria"), true);
+});
+
+test("bulk refresh rejects an unknown population before loading any guru", async () => {
+  let calls = 0;
+  await assert.rejects(
+    refreshGuruBacktestCache({
+      population: "managers-ish",
+      backtestLoader: async () => {
+        calls += 1;
+        return { status: "ready" };
+      }
+    }),
+    /Backtest refresh population is invalid/
+  );
+  assert.equal(calls, 0);
+});
+
 test("a mutation generation waits for an older bulk refresh and then recomputes", async () => {
   const ackman = gurus.find((guru) => guru.id === "bill-ackman");
   const originalTypes = gurus.map((guru) => [guru, guru.type]);

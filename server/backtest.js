@@ -2852,11 +2852,16 @@ export async function refreshGuruBacktestCache({
   detail = "compact",
   reason = "manual",
   refreshGeneration = "",
+  population = "all-supported",
   backtestLoader = loadGuruBacktest
 } = {}) {
   const normalizedGeneration = String(refreshGeneration || "").trim();
   if (normalizedGeneration && !/^[A-Za-z0-9._:-]{8,240}$/.test(normalizedGeneration)) {
     throw new Error("Backtest refresh generation is invalid.");
+  }
+  const normalizedPopulation = String(population || "all-supported").trim().toLowerCase();
+  if (!["all-supported", "enabled-manager13f"].includes(normalizedPopulation)) {
+    throw new Error("Backtest refresh population is invalid.");
   }
   if (backtestRefreshInFlight) {
     if (normalizedGeneration) {
@@ -2868,6 +2873,7 @@ export async function refreshGuruBacktestCache({
         detail,
         reason,
         refreshGeneration: normalizedGeneration,
+        population: normalizedPopulation,
         backtestLoader
       });
     }
@@ -2890,6 +2896,7 @@ export async function refreshGuruBacktestCache({
       proxyAvailable: 0,
       errors: [],
       refreshGeneration: normalizedGeneration,
+      population: normalizedPopulation,
       results: []
     };
     lastBacktestRefreshStatus = status;
@@ -2900,11 +2907,15 @@ export async function refreshGuruBacktestCache({
         reason,
         years,
         detail,
+        population: normalizedPopulation,
         ...(normalizedGeneration ? { refreshGeneration: normalizedGeneration } : {})
       }
     });
 
-    for (const guru of gurus.filter((item) => item.type === "manager13f" || item.type === "congress")) {
+    const refreshGurus = gurus.filter((item) => normalizedPopulation === "enabled-manager13f"
+      ? item.type === "manager13f" && !item.disableSimulation
+      : item.type === "manager13f" || item.type === "congress");
+    for (const guru of refreshGurus) {
       let payload = null;
       try {
         payload = await backtestLoader(guru.id, {
