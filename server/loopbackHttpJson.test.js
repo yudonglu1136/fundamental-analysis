@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import http from "node:http";
 import test from "node:test";
 
@@ -27,6 +28,48 @@ test("loopback JSON client accepts headers delayed within its explicit overall t
 
   assert.equal(result.status, 200);
   assert.deepEqual(result.body, { authorization: "Bearer test-secret" });
+});
+
+test("loopback JSON client sends a JSON POST body without the fetch headers timeout", async (context) => {
+  const server = await listen(http.createServer((request, response) => {
+    const chunks = [];
+    request.on("data", (chunk) => chunks.push(chunk));
+    request.on("end", () => {
+      response.setHeader("content-type", "application/json");
+      response.end(JSON.stringify({
+        method: request.method,
+        contentType: request.headers["content-type"],
+        body: JSON.parse(Buffer.concat(chunks).toString("utf8"))
+      }));
+    });
+  }));
+  context.after(() => server.close());
+
+  const result = await requestLoopbackJson(
+    new URL(`http://127.0.0.1:${server.address().port}/release`),
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ release: "catalog-v5" }),
+      timeoutMs: 500
+    }
+  );
+
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body, {
+    method: "POST",
+    contentType: "application/json",
+    body: { release: "catalog-v5" }
+  });
+});
+
+test("price-repair installer uses the explicit loopback client for its long release POST", () => {
+  const source = fs.readFileSync(
+    new URL("../scripts/install-guru-price-repair.mjs", import.meta.url),
+    "utf8"
+  );
+  assert.match(source, /requestLoopbackJson\([\s\S]*api\/internal\/release\/guru-price-repair/);
+  assert.doesNotMatch(source, /\bfetch\s*\(/);
 });
 
 test("loopback JSON client aborts delayed headers at the configured overall timeout", async (context) => {

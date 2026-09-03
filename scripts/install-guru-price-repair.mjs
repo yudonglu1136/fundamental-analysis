@@ -3,6 +3,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { requestLoopbackJson } from "./loopback-http-json.mjs";
+
 function parseArgs(argv) {
   const options = {};
   for (const argument of argv) {
@@ -38,11 +40,13 @@ function delay(milliseconds) {
 async function waitForApi(baseUrl, secret, attempts = 90) {
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      const response = await fetch(new URL("api/internal/backtests/status", baseUrl), {
-        headers: { authorization: `Bearer ${secret}` },
-        redirect: "error",
-        signal: AbortSignal.timeout(10_000)
-      });
+      const response = await requestLoopbackJson(
+        new URL("api/internal/backtests/status", baseUrl),
+        {
+          headers: { authorization: `Bearer ${secret}` },
+          timeoutMs: 10_000
+        }
+      );
       if (response.status >= 200 && response.status < 600) return;
     } catch {
       // The EB application process can still be switching during postdeploy.
@@ -79,25 +83,27 @@ if (!secret) throw new Error("Guru price repair requires INTERNAL_CRON_SECRET in
 
 const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
 await waitForApi(baseUrl, secret);
-const response = await fetch(new URL("api/internal/release/guru-price-repair", baseUrl), {
-  method: "POST",
-  headers: {
-    authorization: `Bearer ${secret}`,
-    "content-type": "application/json"
-  },
-  body: JSON.stringify({
-    artifact,
-    snapshotId,
-    snapshotState: "completed",
-    encryptedSnapshotId,
-    sourceVolumeId,
-    releaseId,
-    operator
-  }),
-  redirect: "error",
-  signal: AbortSignal.timeout(2 * 60 * 60 * 1000)
-});
-const report = await response.json().catch(() => ({}));
+const response = await requestLoopbackJson(
+  new URL("api/internal/release/guru-price-repair", baseUrl),
+  {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${secret}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      artifact,
+      snapshotId,
+      snapshotState: "completed",
+      encryptedSnapshotId,
+      sourceVolumeId,
+      releaseId,
+      operator
+    }),
+    timeoutMs: 2 * 60 * 60 * 1000
+  }
+);
+const report = response.body;
 if (!response.ok || !report.pass || report.recordsSha256 !== artifact.recordsSha256) {
   const code = String(report.error || `http_${response.status}`);
   const message = String(report.message || "Guru price repair did not pass its target refresh gate.");

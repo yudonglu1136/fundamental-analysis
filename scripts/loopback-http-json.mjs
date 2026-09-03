@@ -33,6 +33,7 @@ function requestTimeoutError(url, timeoutMs) {
 export function requestLoopbackJson(value, {
   method = "GET",
   headers = {},
+  body,
   timeoutMs,
   maxResponseBytes = DEFAULT_MAX_RESPONSE_BYTES
 } = {}) {
@@ -119,6 +120,6 @@ export function requestLoopbackJson(value, {
       request.destroy(error);
     }, overallTimeoutMs);
     timer.unref?.();
-    request.end();
+    request.end(body);
   });
 }
