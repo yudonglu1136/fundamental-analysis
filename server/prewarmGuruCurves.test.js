@@ -17,8 +17,16 @@ function listen(server) {
   return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server)));
 }
 
-function runPrewarm({ port, output, marker, notBefore }) {
-  const child = spawn(process.execPath, [
+function runPrewarm({
+  port,
+  output,
+  marker,
+  notBefore,
+  refreshTimeoutMs,
+  statusRequestTimeoutMs,
+  idlePollIntervalMs
+}) {
+  const argumentsList = [
     prewarmScript,
     `--base-url=http://127.0.0.1:${port}`,
     "--windows=5,10",
@@ -29,7 +37,15 @@ function runPrewarm({ port, output, marker, notBefore }) {
     `--security-master-version=${securityMasterVersion}`,
     `--output=${output}`,
     `--success-marker=${marker}`
-  ], {
+  ];
+  if (refreshTimeoutMs) argumentsList.push(`--refresh-timeout-ms=${refreshTimeoutMs}`);
+  if (statusRequestTimeoutMs) {
+    argumentsList.push(`--status-request-timeout-ms=${statusRequestTimeoutMs}`);
+  }
+  if (idlePollIntervalMs) {
+    argumentsList.push(`--idle-poll-interval-ms=${idlePollIntervalMs}`);
+  }
+  const child = spawn(process.execPath, argumentsList, {
     cwd: repoRoot,
     env: { ...process.env, INTERNAL_CRON_SECRET: "test-secret" },
     stdio: ["ignore", "pipe", "pipe"]
@@ -134,6 +150,135 @@ test("prewarm writes its success marker only after both post-repair windows and 
   assert.deepEqual(requestedGenerations, [`${generation}:5`, `${generation}:10`]);
   assert.equal(JSON.parse(fs.readFileSync(output, "utf8")).pass, true);
   assert.equal(JSON.parse(fs.readFileSync(marker, "utf8")).displayable, 36);
+});
+
+test("prewarm retries a transient idle-status response timeout within the refresh deadline", async (context) => {
+  let statusRequests = 0;
+  let refreshRequests = 0;
+  const server = await listen(http.createServer((request, response) => {
+    const url = new URL(request.url, "http://127.0.0.1");
+    response.setHeader("content-type", "application/json");
+    if (url.pathname === "/api/health") {
+      response.end(JSON.stringify(healthPayload()));
+      return;
+    }
+    if (url.pathname === "/api/internal/backtests/status") {
+      statusRequests += 1;
+      if (statusRequests === 2) {
+        setTimeout(() => response.end(JSON.stringify({ running: false })), 100);
+        return;
+      }
+      response.end(JSON.stringify({ running: false }));
+      return;
+    }
+    if (url.pathname === "/api/internal/backtests/refresh") {
+      refreshRequests += 1;
+      const refreshGeneration = url.searchParams.get("refreshGeneration");
+      const years = Number(url.searchParams.get("years"));
+      response.end(JSON.stringify({
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        refreshGeneration,
+        results: managerResults(years, refreshGeneration)
+      }));
+      return;
+    }
+    response.statusCode = 404;
+    response.end("{}");
+  }));
+  context.after(() => server.close());
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "guru-prewarm-idle-retry-test-"));
+  context.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+  const marker = path.join(tempDir, "done.json");
+  const result = await runPrewarm({
+    port: server.address().port,
+    output: path.join(tempDir, "report.json"),
+    marker,
+    notBefore: new Date(Date.now() - 1000).toISOString(),
+    refreshTimeoutMs: 300,
+    statusRequestTimeoutMs: 20,
+    idlePollIntervalMs: 5
+  });
+
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+  assert.ok(statusRequests >= 4, `expected retry plus window checks, received ${statusRequests}`);
+  assert.equal(refreshRequests, 2);
+  assert.equal(JSON.parse(fs.readFileSync(marker, "utf8")).displayable, 36);
+});
+
+test("prewarm fails immediately when idle-status returns non-2xx", async (context) => {
+  let statusRequests = 0;
+  let refreshRequests = 0;
+  const server = await listen(http.createServer((request, response) => {
+    const url = new URL(request.url, "http://127.0.0.1");
+    response.setHeader("content-type", "application/json");
+    if (url.pathname === "/api/internal/backtests/status") {
+      statusRequests += 1;
+      response.statusCode = statusRequests === 1 ? 200 : 503;
+      response.end(JSON.stringify({ running: false }));
+      return;
+    }
+    if (url.pathname === "/api/internal/backtests/refresh") refreshRequests += 1;
+    response.statusCode = 404;
+    response.end("{}");
+  }));
+  context.after(() => server.close());
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "guru-prewarm-idle-http-test-"));
+  context.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+  const result = await runPrewarm({
+    port: server.address().port,
+    output: path.join(tempDir, "report.json"),
+    marker: path.join(tempDir, "done.json"),
+    notBefore: new Date(Date.now() - 1000).toISOString(),
+    refreshTimeoutMs: 300,
+    statusRequestTimeoutMs: 20,
+    idlePollIntervalMs: 5
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /Guru refresh status returned HTTP 503/);
+  assert.equal(statusRequests, 2);
+  assert.equal(refreshRequests, 0);
+});
+
+test("prewarm bounds idle-status retries by the refresh timeout", async (context) => {
+  let statusRequests = 0;
+  let refreshRequests = 0;
+  const server = await listen(http.createServer((request, response) => {
+    const url = new URL(request.url, "http://127.0.0.1");
+    if (url.pathname === "/api/internal/backtests/status") {
+      statusRequests += 1;
+      if (statusRequests === 1) {
+        response.setHeader("content-type", "application/json");
+        response.end(JSON.stringify({ running: false }));
+      }
+      return;
+    }
+    if (url.pathname === "/api/internal/backtests/refresh") refreshRequests += 1;
+    response.statusCode = 404;
+    response.end("{}");
+  }));
+  context.after(() => server.close());
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "guru-prewarm-idle-deadline-test-"));
+  context.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+  const startedAt = Date.now();
+  const result = await runPrewarm({
+    port: server.address().port,
+    output: path.join(tempDir, "report.json"),
+    marker: path.join(tempDir, "done.json"),
+    notBefore: new Date(Date.now() - 1000).toISOString(),
+    refreshTimeoutMs: 80,
+    statusRequestTimeoutMs: 20,
+    idlePollIntervalMs: 5
+  });
+  const elapsedMs = Date.now() - startedAt;
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /did not finish within 80ms/);
+  assert.match(result.stderr, /Last transport error: ETIMEDOUT/);
+  assert.ok(statusRequests >= 3, `expected multiple bounded retries, received ${statusRequests}`);
+  assert.equal(refreshRequests, 0);
+  assert.ok(elapsedMs < 1000, `deadline exceeded test budget: ${elapsedMs}ms`);
 });
 
 test("old green health cannot hide a missing current-generation manager result", async (context) => {

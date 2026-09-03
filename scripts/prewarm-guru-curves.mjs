@@ -6,6 +6,16 @@ import { requestLoopbackJson } from "./loopback-http-json.mjs";
 
 const DEFAULT_REFRESH_TIMEOUT_MS = 25 * 60 * 1000;
 const MAX_REFRESH_TIMEOUT_MS = 30 * 60 * 1000;
+const DEFAULT_STATUS_REQUEST_TIMEOUT_MS = 10_000;
+const DEFAULT_IDLE_POLL_INTERVAL_MS = 5_000;
+const RETRYABLE_STATUS_ERROR_CODES = new Set([
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "EPIPE",
+  "ETIMEDOUT"
+]);
 
 function parseArgs(argv) {
   const options = {};
@@ -41,6 +51,18 @@ function refreshTimeoutMs(value) {
   return parsed;
 }
 
+function boundedPositiveInteger(value, fallback, maximum, label) {
+  const parsed = Number(value || fallback);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0 || parsed > maximum) {
+    throw new Error(`${label} must be an integer from 1 to ${maximum}ms.`);
+  }
+  return parsed;
+}
+
+function isRetryableStatusTransportError(error) {
+  return RETRYABLE_STATUS_ERROR_CODES.has(String(error?.code || "").toUpperCase());
+}
+
 function atomicWriteJson(filePath, payload) {
   if (!filePath) return;
   fs.mkdirSync(path.dirname(path.resolve(filePath)), { recursive: true });
@@ -65,20 +87,42 @@ async function waitForApi(baseUrl, secret, attempts = 90) {
   throw new Error("Local Guru API did not become reachable before prewarm timeout.");
 }
 
-async function waitForBulkRefreshIdle(baseUrl, secret, attempts = 720) {
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    const response = await requestLoopbackJson(new URL("api/internal/backtests/status", baseUrl), {
-      headers: { authorization: `Bearer ${secret}` },
-      timeoutMs: 10_000
-    });
-    if (!response.ok) {
-      throw new Error(`Guru refresh status returned HTTP ${response.status}.`);
+async function waitForBulkRefreshIdle(baseUrl, secret, {
+  timeoutMs,
+  statusRequestTimeoutMs,
+  pollIntervalMs
+}) {
+  const deadline = Date.now() + timeoutMs;
+  let lastTransportError = null;
+  while (Date.now() < deadline) {
+    const remainingMs = Math.max(1, deadline - Date.now());
+    try {
+      const response = await requestLoopbackJson(
+        new URL("api/internal/backtests/status", baseUrl),
+        {
+          headers: { authorization: `Bearer ${secret}` },
+          timeoutMs: Math.min(statusRequestTimeoutMs, remainingMs)
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`Guru refresh status returned HTTP ${response.status}.`);
+      }
+      if (!response.body.running) return;
+      lastTransportError = null;
+    } catch (error) {
+      if (!isRetryableStatusTransportError(error)) throw error;
+      lastTransportError = error;
     }
-    const body = response.body;
-    if (!body.running) return;
-    await delay(5000);
+
+    const delayMs = Math.min(pollIntervalMs, Math.max(0, deadline - Date.now()));
+    if (delayMs > 0) await delay(delayMs);
   }
-  throw new Error("An older Guru bulk refresh did not finish before the prewarm timeout.");
+  const suffix = lastTransportError
+    ? ` Last transport error: ${lastTransportError.code}.`
+    : "";
+  throw new Error(
+    `An older Guru bulk refresh did not finish within ${timeoutMs}ms.${suffix}`
+  );
 }
 
 function validIsoDate(value) {
@@ -139,6 +183,18 @@ const baseUrl = loopbackBaseUrl(options["base-url"]);
 const refreshRequestTimeoutMs = refreshTimeoutMs(
   options["refresh-timeout-ms"] || process.env.GURU_PREWARM_REFRESH_TIMEOUT_MS
 );
+const statusRequestTimeoutMs = boundedPositiveInteger(
+  options["status-request-timeout-ms"] || process.env.GURU_PREWARM_STATUS_REQUEST_TIMEOUT_MS,
+  DEFAULT_STATUS_REQUEST_TIMEOUT_MS,
+  DEFAULT_STATUS_REQUEST_TIMEOUT_MS,
+  "Guru prewarm status request timeout"
+);
+const idlePollIntervalMs = boundedPositiveInteger(
+  options["idle-poll-interval-ms"] || process.env.GURU_PREWARM_IDLE_POLL_INTERVAL_MS,
+  DEFAULT_IDLE_POLL_INTERVAL_MS,
+  DEFAULT_IDLE_POLL_INTERVAL_MS,
+  "Guru prewarm idle poll interval"
+);
 const secret = String(process.env.INTERNAL_CRON_SECRET || process.env.CRON_SECRET || "");
 if (!secret) throw new Error("Guru prewarm requires INTERNAL_CRON_SECRET in process memory.");
 const refreshGeneration = String(options["refresh-generation"] || "").trim().toLowerCase();
@@ -174,7 +230,11 @@ const report = {
 };
 await waitForApi(baseUrl, secret);
 for (const years of windows) {
-  await waitForBulkRefreshIdle(baseUrl, secret);
+  await waitForBulkRefreshIdle(baseUrl, secret, {
+    timeoutMs: refreshRequestTimeoutMs,
+    statusRequestTimeoutMs,
+    pollIntervalMs: idlePollIntervalMs
+  });
   const url = new URL("api/internal/backtests/refresh", baseUrl);
   url.searchParams.set("years", String(years));
   url.searchParams.set("detail", "compact");
