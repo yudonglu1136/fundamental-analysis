@@ -8,7 +8,8 @@
 - 10Y 的严格回测仍因早期历史价格覆盖不足而失败；产品只展示单独存储、明确标注的 **manager-level public 13F proxy**，没有把 proxy 冒充严格基金收益。
 - 中英文 UI 都明确显示“管理人级公开 13F · 非 MEDALLION”／“MANAGER-LEVEL PUBLIC 13F · NOT MEDALLION”。
 - 生产健康状态为 **28 位启用经理、56/56 个 5Y/10Y 窗口可展示、0 failures**。
-- 最终 runtime commit 为 `90a5f0306b1c732b0b5ab3fbb09539e7f7aaf82d`；本报告之后的 docs-only commit 不改变线上 runtime。
+- 发布验收中发现并修复了并发健康探针导致的 Ontology 假性 503；最终冷缓存 12 并发与热缓存 12 并发均为 **12/12 HTTP 200**。
+- 最终 runtime commit 为 `4b8dd17`；本报告之后的 docs-only commit 不改变线上 runtime。
 
 本报告不包含授权行情明细、内部凭证、私有持仓或用户组合数据。
 
@@ -131,12 +132,41 @@ Renaissance 最新 activity 仍是一个有界的代表性 Top-80 响应，不�
 
 每条曲线都绑定精确 `method.years`、当前模型版本和同一个 security-master hash。5Y cache 不能满足 10Y 请求，严格结果始终优先于 proxy，proxy 也不能让严格 refresh 假装成功。
 
+### 5.1 生产健康抖动的发现与修复
+
+最终 smoke test 没有只看一次绿色结果。发布门在三个公网入口观察到 `/api/health` 在 HTTP 200 与 503 之间切换；失败时 Guru 曲线仍始终为 56/56，只有 Ontology 变为 `verified:false` / `timed out`。
+
+根因是 health self-contention：
+
+- 每个 health caller 都会先进行一次外部 Ontology HTTPS 验证；旧 timeout 为 2.5 秒；
+- 随后每个 caller 都同步读取、解析并重新审计 56 个完整 curve payload；
+- 多个域名和监控同时探测时，第一个调用的 3–4 秒同步审计会阻塞 Node event loop，其余调用无法及时处理 Ontology fetch 回调，最终把可用的外部服务误报为超时。
+
+最终修复：
+
+1. 对完整 public-health aggregate 使用 **single-flight**，并发 caller 只共享一轮 Ontology 验证和一轮 56-curve 审计；
+2. 成功结果最多缓存 30 秒，失败结果最多缓存 5 秒，TTL 从完整审计结束后开始；
+3. 缓存 TTL 有硬上限，环境变量不能把缓存无限延长；
+4. 过期后的失败重验会替换旧 green，不使用 stale-if-error，不回退本地 Ontology，也不降低 payload/schema 验证；
+5. 外部 Ontology timeout 从 2.5 秒提高到 5 秒，只提供合理网络余量，不代替 single-flight。
+
+量化结果：
+
+| 验收 | HTTP 200 | HTTP 503 | client timeout | 耗时 |
+| --- | ---: | ---: | ---: | ---: |
+| 修复前，EB 8 并发 | 1/8 | 5/8 | 2/8 | 两个请求超过 20 秒 |
+| 修复后，三入口冷缓存 12 并发 | 12/12 | 0 | 0 | 3.01–3.85 秒 |
+| 修复后，三入口热缓存 12 并发 | 12/12 | 0 | 0 | 0.38–0.95 秒 |
+
+同一台本地机器、同一数据库输入上的等价诊断显示：16 个 caller 从 16 次完整审计降为 1 次，工作量减少 **93.75%**；总耗时从 1,546.1ms 降至 130.5ms，减少 **91.56%**。该行是机制验证，不冒充生产 latency；上表的冷/热结果才是生产请求证据。
+
 ## 6. 测试结果
 
 | 检查 | 结果 |
 | --- | --- |
-| Node/server suite | 476/476 passed |
+| Node/server suite | 483/483 passed |
 | Flutter widget suite | 74/74 passed |
+| Performance / transport / cache suite | 40/40 passed |
 | `flutter analyze` | 0 issues |
 | Flutter production build | passed |
 | Vercel production build | passed |
@@ -153,14 +183,16 @@ Renaissance 最新 activity 仍是一个有界的代表性 Top-80 响应，不�
 ### GitHub
 
 - 分支：`trunk`
-- runtime commit：`90a5f0306b1c732b0b5ab3fbb09539e7f7aaf82d`
+- Renaissance runtime commits：`7293d9c`、`90a5f03`
+- 最终 runtime commit：`4b8dd17`
 - `HEAD == origin/trunk`：PASS（runtime 发布时）
 - licensed market rows、数据库和私有修复包未提交到 Git：PASS
 
 ### AWS Elastic Beanstalk backend/API
 
-- application version：`guru-renaissance-20260903-90a5f03`
+- application version：`guru-health-20260903-4b8dd17`
 - 状态：**Ready / Green / Ok**
+- backend package SHA-256：`b46e9caa96b635532a98a887fc1902a92f659c988827bc078a8d54e4938ba508`
 - Renaissance 原子刷新：snapshot、activity、exposure、5Y、10Y 同一轮更新完成
 - 一致性数据库备份与加密 rollback snapshot：PASS；精确基础设施标识仅保留在私有发布日志
 - SQLite integrity check：`ok`
@@ -175,8 +207,8 @@ Renaissance 最新 activity 仍是一个有界的代表性 Top-80 响应，不�
 
 ### Vercel Flutter frontend
 
-- production deployment ID：`dpl_jXr8BuaJuF9Q2sLCgqdsNs9xr3uL`
-- deployment URL：`https://fundamental-analysis-85hhrilbi-yudonglu1136s-projects.vercel.app`
+- production deployment ID：`dpl_8BTdFDhJRdCLffxhWVpdXQ6cFjAY`
+- deployment URL：`https://fundamental-analysis-61bw41aq8-yudonglu1136s-projects.vercel.app`
 - `thesisforge.tech` 与 `www.thesisforge.tech`：显式指向同一 READY deployment
 - 两域 `index.html` SHA-256：`23551ebaeac833a140e9ca1ead407f45c0bddd75a6db2561b1f4125b3293ea0d`
 - 两域 `main.dart.js` SHA-256：`9be31287d86aac59e8a1d25b955f1952e41d38d6cd23b700b1a16ae685ff4367`
@@ -199,6 +231,7 @@ Renaissance 最新 activity 仍是一个有界的代表性 Top-80 响应，不�
 3. 新买入/卖出、季度贡献、持仓轨迹和自由区间选择均通过生产 UI 验收；
 4. 38/38 头像完整、有效、唯一且线上可加载；
 5. GitHub runtime commit、AWS backend 与 Vercel frontend 已同步；
-6. 全量测试、构建、外部健康检查、回滚保护和临时访问清理均通过。
+6. 冷缓存和热缓存的三入口并发健康检查均为 12/12 HTTP 200；
+7. 全量测试、构建、外部健康检查、回滚保护和临时访问清理均通过。
 
 **Release verdict：PASS。**
