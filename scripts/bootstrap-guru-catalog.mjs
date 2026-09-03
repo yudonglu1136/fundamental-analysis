@@ -255,13 +255,25 @@ export function loadExpectedRefreshTargets(
   const prewarmFinishedAtMs = prewarmFinishedAt ? Date.parse(prewarmFinishedAt) : Number.NaN;
   if (source.kind === "prewarm_report") {
     const availability = payload.curveAvailability;
+    const enabledManagerCount = [...configuredById.values()].filter((guru) =>
+      guru.type === "manager13f" && !guru.disableSimulation
+    ).length;
+    const availabilityWindows = Array.isArray(availability?.windows)
+      ? availability.windows.map(Number).sort((left, right) => left - right)
+      : [];
     if (!validIsoTimestamp(prewarmStartedAt) || !validIsoTimestamp(prewarmFinishedAt) ||
         prewarmStartedAtMs > prewarmFinishedAtMs ||
         prewarmFinishedAtMs > Date.now() + 5 * 60 * 1000 ||
         Number(payload.healthHttpStatus) !== 200 || availability?.ok !== true ||
+        Number(availability?.managerCount) !== enabledManagerCount ||
+        availabilityWindows.length !== windows.length ||
+        availabilityWindows.some((years, index) => years !== windows[index]) ||
         Number(availability?.expectedRows) !== Number(runtime.expectedCurveRows) ||
         Number(availability?.displayable) !== Number(runtime.expectedCurveRows) ||
-        Number(availability?.failures?.length || 0) !== 0 ||
+        !Array.isArray(availability?.failures) || availability.failures.length !== 0 ||
+        availability?.methodVersion !== runtime.strictMethodVersion ||
+        availability?.proxyMethodVersion !== runtime.proxyMethodVersion ||
+        availability?.securityMasterVersion !== runtime.securityMasterVersion ||
         !/^[a-f0-9]{64}$/.test(String(payload.refreshGeneration || ""))) {
       throw new Error(
         "Production-prewarm expectations lack a complete, healthy, current-generation matrix."

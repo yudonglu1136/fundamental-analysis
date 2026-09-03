@@ -48,6 +48,18 @@ function configuredCatalog() {
   });
 }
 
+function productionTopologyCatalog() {
+  return configuredCatalog().map((guru, index) => {
+    if (index < 9) {
+      return { ...guru, type: "other", disableSimulation: true };
+    }
+    if (index < 11) {
+      return { ...guru, disableSimulation: true };
+    }
+    return guru;
+  });
+}
+
 function baselineDashboard(catalog = configuredCatalog()) {
   return {
     generatedAt: "2026-09-03T10:00:00.000Z",
@@ -340,9 +352,13 @@ function expectationsDocument({ installReport = false, includeExtra = false } = 
   };
 }
 
-function prewarmExpectationsDocument() {
+function prewarmExpectationsDocument(catalog = configuredCatalog()) {
   const refreshGeneration = "b".repeat(64);
-  const refreshes = configuredCatalog().flatMap((guru, managerIndex) =>
+  const enabledManagers = catalog.filter((guru) =>
+    guru.type === "manager13f" && !guru.disableSimulation
+  );
+  const expectedCurveRows = enabledManagers.length * requiredWindows.length;
+  const refreshes = enabledManagers.flatMap((guru, managerIndex) =>
     requiredWindows.map((years) => {
       const expectedStatus = (managerIndex + years) % 2 === 0 ? "ready" : "proxy_ready";
       return {
@@ -376,15 +392,23 @@ function prewarmExpectationsDocument() {
       strictMethodVersion,
       proxyMethodVersion,
       securityMasterVersion,
-      expectedDisplayableRows: 76
+      expectedDisplayableRows: expectedCurveRows
     },
-    windows: requiredWindows.map((years) => ({ years, managerCount: 38 })),
+    windows: requiredWindows.map((years) => ({
+      years,
+      managerCount: enabledManagers.length
+    })),
     refreshes,
     curveAvailability: {
       ok: true,
-      expectedRows: 76,
-      displayable: 76,
-      failures: []
+      managerCount: enabledManagers.length,
+      windows: [...requiredWindows],
+      expectedRows: expectedCurveRows,
+      displayable: expectedCurveRows,
+      failures: [],
+      methodVersion: strictMethodVersion,
+      proxyMethodVersion,
+      securityMasterVersion
     }
   };
 }
@@ -711,6 +735,57 @@ test("production-prewarm expectations bind the complete enabled-manager matrix",
       name: "health matrix",
       mutate: (payload) => { payload.curveAvailability.displayable = 75; },
       pattern: /complete, healthy, current-generation matrix/i
+    },
+    {
+      name: "health manager count",
+      mutate: (payload) => { payload.curveAvailability.managerCount = 37; },
+      pattern: /complete, healthy, current-generation matrix/i
+    },
+    {
+      name: "health windows missing",
+      mutate: (payload) => { payload.curveAvailability.windows = [5]; },
+      pattern: /complete, healthy, current-generation matrix/i
+    },
+    {
+      name: "health windows duplicated",
+      mutate: (payload) => { payload.curveAvailability.windows = [5, 5]; },
+      pattern: /complete, healthy, current-generation matrix/i
+    },
+    {
+      name: "health strict method",
+      mutate: (payload) => { payload.curveAvailability.methodVersion = "stale-strict"; },
+      pattern: /complete, healthy, current-generation matrix/i
+    },
+    {
+      name: "health proxy method",
+      mutate: (payload) => {
+        payload.curveAvailability.proxyMethodVersion = "stale-proxy";
+      },
+      pattern: /complete, healthy, current-generation matrix/i
+    },
+    {
+      name: "health security master",
+      mutate: (payload) => {
+        payload.curveAvailability.securityMasterVersion = "stale-security";
+      },
+      pattern: /complete, healthy, current-generation matrix/i
+    },
+    {
+      name: "health failures missing",
+      mutate: (payload) => { delete payload.curveAvailability.failures; },
+      pattern: /complete, healthy, current-generation matrix/i
+    },
+    {
+      name: "health failures non-array",
+      mutate: (payload) => { payload.curveAvailability.failures = {}; },
+      pattern: /complete, healthy, current-generation matrix/i
+    },
+    {
+      name: "health failures nonempty",
+      mutate: (payload) => {
+        payload.curveAvailability.failures = [{ guruId: "legacy-profile-1", years: 5 }];
+      },
+      pattern: /complete, healthy, current-generation matrix/i
     }
   ];
   for (const item of cases) {
@@ -726,6 +801,34 @@ test("production-prewarm expectations bind the complete enabled-manager matrix",
       item.name
     );
   }
+});
+
+test("production-prewarm expectations accept the real 38/29/27/54 topology", () => {
+  const catalog = productionTopologyCatalog();
+  const enabledManagers = catalog.filter((guru) =>
+    guru.type === "manager13f" && !guru.disableSimulation
+  );
+  const document = prewarmExpectationsDocument(catalog);
+  const runtime = {
+    configuredGurus: catalog,
+    expectedCurveRows: 54,
+    strictMethodVersion,
+    proxyMethodVersion,
+    securityMasterVersion
+  };
+  const result = loadExpectedRefreshTargets(document, {
+    selectedGuruIds: selectedIds,
+    requiredWindows,
+    runtime
+  });
+
+  assert.equal(catalog.length, 38);
+  assert.equal(catalog.filter((guru) => guru.type === "manager13f").length, 29);
+  assert.equal(enabledManagers.length, 27);
+  assert.equal(document.refreshes.length, 54);
+  assert.equal(result.allTargets.length, 54);
+  assert.equal(result.targets.length, 18);
+  assert.equal(result.ignoredTargets.length, 36);
 });
 
 test("dashboard construction is exact, ordered, metadata-current, and non-mutating", () => {

@@ -144,6 +144,46 @@ function curveAvailability(health) {
     ?.details?.curveAvailability || null;
 }
 
+function hasExactAttestedCurveMatrix(report) {
+  const expectedKeys = new Set(
+    REQUIRED_WINDOWS.flatMap((years) =>
+      EXPECTED_MANAGER_IDS.map((guruId) => `${guruId}:${years}`)
+    )
+  );
+  const actualKeys = new Set(
+    report.refreshes.map((row) => `${row.guruId}:${Number(row.years)}`)
+  );
+  const reportedWindows = report.windows
+    .map((item) => Number(item.years))
+    .sort((left, right) => left - right);
+  return report.refreshes.length === EXPECTED_CURVE_ROWS &&
+    actualKeys.size === expectedKeys.size &&
+    [...expectedKeys].every((key) => actualKeys.has(key)) &&
+    reportedWindows.length === REQUIRED_WINDOWS.length &&
+    REQUIRED_WINDOWS.every((years, index) => years === reportedWindows[index]);
+}
+
+function hasExactCurveAvailability(availability, {
+  strictMethodVersion,
+  proxyMethodVersion,
+  securityMasterVersion
+}) {
+  const reportedWindows = Array.isArray(availability?.windows)
+    ? availability.windows.map(Number).sort((left, right) => left - right)
+    : [];
+  return availability?.ok === true &&
+    Number(availability?.managerCount) === EXPECTED_MANAGER_COUNT &&
+    reportedWindows.length === REQUIRED_WINDOWS.length &&
+    REQUIRED_WINDOWS.every((years, index) => years === reportedWindows[index]) &&
+    Number(availability?.expectedRows) === EXPECTED_CURVE_ROWS &&
+    Number(availability?.displayable) === EXPECTED_CURVE_ROWS &&
+    Array.isArray(availability?.failures) &&
+    availability.failures.length === 0 &&
+    availability?.methodVersion === strictMethodVersion &&
+    availability?.proxyMethodVersion === proxyMethodVersion &&
+    availability?.securityMasterVersion === securityMasterVersion;
+}
+
 function auditWindowResults(body, {
   years,
   refreshGeneration,
@@ -347,10 +387,12 @@ report.healthHttpStatus = healthResponse.status;
 report.curveAvailability = curveAvailability(health);
 report.pass = Boolean(
   healthResponse.ok &&
-  report.curveAvailability?.ok &&
-  Number(report.curveAvailability?.expectedRows) === EXPECTED_CURVE_ROWS &&
-  Number(report.curveAvailability?.displayable) === EXPECTED_CURVE_ROWS &&
-  Number(report.curveAvailability?.failures?.length || 0) === 0
+  hasExactAttestedCurveMatrix(report) &&
+  hasExactCurveAvailability(report.curveAvailability, {
+    strictMethodVersion,
+    proxyMethodVersion,
+    securityMasterVersion
+  })
 );
 report.finishedAt = new Date().toISOString();
 atomicWriteJson(options.output, report);

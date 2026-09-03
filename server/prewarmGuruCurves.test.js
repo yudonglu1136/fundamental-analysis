@@ -97,16 +97,22 @@ function managerResults(years, refreshGeneration, generatedAt = new Date().toISO
   });
 }
 
-function healthPayload() {
+function healthPayload(overrides = {}) {
   return {
     modules: [{
       id: "guru_backtests",
       details: {
         curveAvailability: {
           ok: true,
+          managerCount: expectedManagerCount,
+          windows: [5, 10],
           expectedRows: expectedCurveRows,
           displayable: expectedCurveRows,
-          failures: []
+          failures: [],
+          methodVersion: strictMethodVersion,
+          proxyMethodVersion,
+          securityMasterVersion,
+          ...overrides
         }
       }
     }]
@@ -430,4 +436,57 @@ test("HTTP 503 health cannot write a marker even when every Guru curve is availa
   assert.equal(result.code, 2);
   assert.equal(fs.existsSync(marker), false);
   assert.equal(JSON.parse(fs.readFileSync(output, "utf8")).healthHttpStatus, 503);
+});
+
+test("prewarm marker requires exact health topology and release identities", async (context) => {
+  const cases = [
+    ["manager count", { managerCount: expectedManagerCount + 1 }],
+    ["windows", { windows: [5] }],
+    ["strict method", { methodVersion: "stale-strict" }],
+    ["proxy method", { proxyMethodVersion: "stale-proxy" }],
+    ["security master", { securityMasterVersion: "stale-security" }],
+    ["failures shape", { failures: null }],
+    ["nonempty failures", { failures: [{ guruId: expectedManagerIds[0], years: 5 }] }]
+  ];
+
+  for (const [name, overrides] of cases) {
+    await context.test(name, async (subtest) => {
+      const server = await listen(http.createServer((request, response) => {
+        const url = new URL(request.url, "http://127.0.0.1");
+        response.setHeader("content-type", "application/json");
+        if (url.pathname === "/api/health") {
+          response.end(JSON.stringify(healthPayload(overrides)));
+        } else if (url.pathname === "/api/internal/backtests/status") {
+          response.end(JSON.stringify({ running: false }));
+        } else if (url.pathname === "/api/internal/backtests/refresh") {
+          const refreshGeneration = url.searchParams.get("refreshGeneration");
+          const years = Number(url.searchParams.get("years"));
+          response.end(JSON.stringify({
+            startedAt: new Date().toISOString(),
+            finishedAt: new Date().toISOString(),
+            refreshGeneration,
+            results: managerResults(years, refreshGeneration)
+          }));
+        } else {
+          response.statusCode = 404;
+          response.end("{}");
+        }
+      }));
+      subtest.after(() => server.close());
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "guru-prewarm-health-identity-test-"));
+      subtest.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+      const output = path.join(tempDir, "report.json");
+      const marker = path.join(tempDir, "done.json");
+      const result = await runPrewarm({
+        port: server.address().port,
+        output,
+        marker,
+        notBefore: new Date(Date.now() - 1000).toISOString()
+      });
+
+      assert.equal(result.code, 2, result.stderr || result.stdout);
+      assert.equal(fs.existsSync(marker), false);
+      assert.equal(JSON.parse(fs.readFileSync(output, "utf8")).pass, false);
+    });
+  }
 });
