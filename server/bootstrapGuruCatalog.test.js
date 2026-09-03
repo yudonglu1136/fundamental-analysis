@@ -1044,6 +1044,79 @@ test("missing_active_price accepts only complete fail-closed evidence and exact 
   }
 });
 
+test("missing_active_price linkage matches only the canonical first-eight ticker summary", () => {
+  const runtime = runtimeFixture().runtime;
+  const target = {
+    guruId: selectedIds[0],
+    years: 5,
+    expectedStatus: "proxy_ready"
+  };
+  const buildManyTickerPair = () => {
+    const pair = missingActivePricePairFixture(target.guruId, target.years);
+    const tickers = Array.from({ length: 12 }, (_, index) => `MISS${index + 1}`);
+    const weights = tickers.map((ticker) => ({ ticker, weight: 0.01 }));
+    pair.strict.dataQuality.failure.tickers = tickers;
+    pair.strict.dataQuality.failure.details = weights;
+    pair.strict.dataQuality.failure.missingWeight = 0.12;
+    pair.proxy.dataQuality.strictFailure.tickers = tickers.slice(0, 8);
+    pair.proxy.dataQuality.strictFailure.missingWeight = 0.12;
+    return pair;
+  };
+
+  const valid = buildManyTickerPair();
+  assert.equal(
+    validateCurveTarget(target, valid.strict, valid.proxy, runtime).displayed,
+    valid.proxy
+  );
+
+  const cases = [
+    {
+      name: "reordered canonical tickers",
+      mutate(pair) {
+        [
+          pair.proxy.dataQuality.strictFailure.tickers[0],
+          pair.proxy.dataQuality.strictFailure.tickers[1]
+        ] = [
+          pair.proxy.dataQuality.strictFailure.tickers[1],
+          pair.proxy.dataQuality.strictFailure.tickers[0]
+        ];
+      }
+    },
+    {
+      name: "tampered canonical ticker",
+      mutate(pair) { pair.proxy.dataQuality.strictFailure.tickers[7] = "OTHER"; }
+    },
+    {
+      name: "uncompacted ticker list",
+      mutate(pair) {
+        pair.proxy.dataQuality.strictFailure.tickers =
+          pair.strict.dataQuality.failure.tickers.slice();
+      }
+    },
+    {
+      name: "truncated below canonical length",
+      mutate(pair) { pair.proxy.dataQuality.strictFailure.tickers.pop(); }
+    },
+    {
+      name: "non-canonical extra field",
+      mutate(pair) { pair.proxy.dataQuality.strictFailure.totalTickers = 12; }
+    },
+    {
+      name: "stringified missing weight",
+      mutate(pair) { pair.proxy.dataQuality.strictFailure.missingWeight = "0.12"; }
+    }
+  ];
+  for (const item of cases) {
+    const pair = buildManyTickerPair();
+    item.mutate(pair);
+    assert.throws(
+      () => validateCurveTarget(target, pair.strict, pair.proxy, runtime),
+      /strict linkage/i,
+      item.name
+    );
+  }
+});
+
 test("dependency-injected bootstrap still enforces reason and derived curve cardinality", async () => {
   const document = expectationsDocument();
   const invalidReason = runtimeFixture({ document });

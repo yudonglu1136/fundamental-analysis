@@ -9,6 +9,7 @@ import {
 } from "./backtestEngine.js";
 import { buildTrailingAwarePublicHoldingsProxy } from "./backtestProxy.js";
 import { auditPublicHoldingsProxyPayload } from "./backtestProxyAudit.js";
+import { compactStrictFailure } from "./backtestFailure.js";
 import {
   auditManager13fStrictReadyPayload,
   normalizedManager13fExecutionCoverage
@@ -1296,18 +1297,6 @@ export function buildManager13fWeights(
         value: holding.value,
         weight: holding.weight
       }))
-  };
-}
-
-function compactStrictFailure(failure) {
-  if (!failure || typeof failure !== "object") return null;
-  return {
-    code: failure.code || "strict_backtest_failed",
-    date: failure.date || null,
-    tickers: Array.isArray(failure.tickers) ? failure.tickers.slice(0, 8) : [],
-    missingWeight: failure.missingWeight != null && Number.isFinite(Number(failure.missingWeight))
-      ? Number(failure.missingWeight)
-      : null
   };
 }
 

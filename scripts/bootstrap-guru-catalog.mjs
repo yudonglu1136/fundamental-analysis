@@ -14,6 +14,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { compactStrictFailure } from "../server/backtestFailure.js";
 
 const bootstrapExposureQuarters = 40;
 const allowedExpectedStatuses = new Set(["ready", "proxy_ready"]);
@@ -767,12 +768,24 @@ function validMissingActivePriceFailure(strictPayload) {
 
 function proxyStrictFailureMatchesMissingPrice(proxyPayload, strictFailure) {
   const proxyFailure = proxyPayload?.dataQuality?.strictFailure;
-  const proxyTickers = Array.isArray(proxyFailure?.tickers) ? proxyFailure.tickers : [];
-  return proxyFailure?.code === "missing_active_price" &&
-    proxyFailure?.date === strictFailure.date &&
-    Number(proxyFailure?.missingWeight) === Number(strictFailure.missingWeight) &&
-    proxyTickers.length === strictFailure.tickers.length &&
-    proxyTickers.every((ticker, index) => ticker === strictFailure.tickers[index]);
+  const expectedFailure = compactStrictFailure(strictFailure);
+  if (!proxyFailure || typeof proxyFailure !== "object" ||
+      Array.isArray(proxyFailure) || !expectedFailure) {
+    return false;
+  }
+  const expectedKeys = Object.keys(expectedFailure);
+  const proxyKeys = Object.keys(proxyFailure);
+  if (proxyKeys.length !== expectedKeys.length ||
+      expectedKeys.some((key) => !Object.hasOwn(proxyFailure, key))) {
+    return false;
+  }
+  const proxyTickers = proxyFailure.tickers;
+  return proxyFailure.code === expectedFailure.code &&
+    proxyFailure.date === expectedFailure.date &&
+    proxyFailure.missingWeight === expectedFailure.missingWeight &&
+    Array.isArray(proxyTickers) &&
+    proxyTickers.length === expectedFailure.tickers.length &&
+    proxyTickers.every((ticker, index) => ticker === expectedFailure.tickers[index]);
 }
 
 function assertDisplayableCurve(payload, target, label) {
