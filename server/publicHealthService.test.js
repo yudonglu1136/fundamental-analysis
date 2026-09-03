@@ -179,3 +179,29 @@ test("supports an explicit zero TTL and clamps configured TTLs to safe maxima", 
   await safeDefault.read();
   assert.equal(safeDefaultCalls, 2);
 });
+
+test("starts the failure TTL after an expensive aggregate audit completes", async () => {
+  let currentTime = 80_000;
+  let resolveCalls = 0;
+  const service = createPublicHealthService({
+    resolveOntology: async () => {
+      resolveCalls += 1;
+      return { ok: false, verified: false };
+    },
+    buildHealth: (options) => {
+      currentTime += 4_000;
+      return buildFixture(options);
+    },
+    now: () => currentTime,
+    failureTtlMs: 1_000
+  });
+
+  assert.equal((await service.read()).ok, false);
+  assert.equal(resolveCalls, 1);
+  currentTime = 84_999;
+  assert.equal((await service.read()).ok, false);
+  assert.equal(resolveCalls, 1);
+  currentTime = 85_000;
+  assert.equal((await service.read()).ok, false);
+  assert.equal(resolveCalls, 2);
+});

@@ -1,5 +1,5 @@
 const DEFAULT_SUCCESS_TTL_MS = 30_000;
-const DEFAULT_FAILURE_TTL_MS = 1_000;
+const DEFAULT_FAILURE_TTL_MS = 5_000;
 
 function boundedTtl(value, maximum) {
   const numeric = Number(value);
@@ -61,9 +61,10 @@ export function createPublicHealthService({
         ...(Number.isFinite(generatedAt) ? { now: generatedAt } : {})
       });
       const ttl = health?.ok === true ? healthyTtl : failedTtl;
+      const completedAt = Number(now());
       cached = {
         value: health,
-        expiresAt: (Number.isFinite(generatedAt) ? generatedAt : Date.now()) + ttl
+        expiresAt: (Number.isFinite(completedAt) ? completedAt : Date.now()) + ttl
       };
       return health;
     })();
@@ -76,9 +77,5 @@ export function createPublicHealthService({
     }
   }
 
-  function clear() {
-    cached = null;
-  }
-
-  return { read, clear };
+  return { read };
 }

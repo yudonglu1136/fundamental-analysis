@@ -108,9 +108,11 @@ See `docs/deployment-contract.md` for the full runbook.
   and single in-flight verification. A health burst must not synchronously
   parse and audit every Guru curve once per caller or starve the delegated
   Ontology check. Cache successes for no more than 30 seconds and failures for
-  no more than one second; after expiry, a failed revalidation must replace the
-  older healthy result rather than serving stale green status. Production
-  release verification must include at least eight concurrent health requests.
+  no more than five seconds; after expiry, a failed revalidation must replace
+  the older healthy result rather than serving stale green status. Start the
+  TTL only after the full audit completes so an upstream outage cannot drive a
+  continuous full-curve audit loop. Production release verification must
+  include at least eight concurrent health requests.
 
 ## 13F Update Contract
 
