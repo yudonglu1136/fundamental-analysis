@@ -27,6 +27,10 @@ const thresholds = {
   minimumProxyPositions: 2
 };
 const guru = { id: "manager-one", name: "Manager One" };
+const expectedManagerCount = gurus.filter((row) =>
+  row.type === "manager13f" && !row.disableSimulation
+).length;
+const expectedCurveRows = expectedManagerCount * 2;
 
 test("CLI accepts explicit source/output paths and rejects unknown flags", () => {
   const parsed = parseCliArgs([
@@ -48,10 +52,10 @@ test("CLI accepts explicit source/output paths and rejects unknown flags", () =>
   assert.throws(() => normalizeWindows("5,nope"), /must contain 5, 10/);
 });
 
-test("acceptance population is exactly 18 enabled managers and excludes both disabled profiles", () => {
+test("acceptance population follows configuration and excludes disabled profiles", () => {
   const enabled = gurus.filter((row) => row.type === "manager13f" && !row.disableSimulation);
   const disabled = gurus.filter((row) => row.type === "manager13f" && row.disableSimulation);
-  assert.equal(enabled.length, 18);
+  assert.equal(enabled.length, expectedManagerCount);
   assert.deepEqual(
     disabled.map((row) => row.id).sort(),
     ["nick-sleep-qais-zakaria", "renaissance-technologies"]
@@ -237,28 +241,28 @@ test("failed calculation preserves concrete failure code and reason", () => {
   assert.equal(row.failureReason, "An active security has a missing adjusted close.");
 });
 
-test("acceptance summary requires all 18 managers in both windows", () => {
+test("acceptance summary requires every configured manager in both windows", () => {
   const results = [];
-  for (let manager = 0; manager < 18; manager += 1) {
+  for (let manager = 0; manager < expectedManagerCount; manager += 1) {
     for (const years of [5, 10]) {
       results.push({ years, outcome: "ready", displayable: true });
     }
   }
-  const passing = summarizeAcceptance(results, 18);
+  const passing = summarizeAcceptance(results, expectedManagerCount);
   assert.equal(passing.pass, true);
-  assert.equal(passing.expectedRows, 36);
-  assert.equal(passing.byWindow["5Y"].displayable, 18);
+  assert.equal(passing.expectedRows, expectedCurveRows);
+  assert.equal(passing.byWindow["5Y"].displayable, expectedManagerCount);
 
-  const incomplete = summarizeAcceptance(results.slice(0, -1), 18);
+  const incomplete = summarizeAcceptance(results.slice(0, -1), expectedManagerCount);
   assert.equal(incomplete.pass, false);
 
   const tenYearOnly = summarizeAcceptance(
     results.filter((row) => row.years === 10),
-    18,
+    expectedManagerCount,
     [10]
   );
   assert.equal(tenYearOnly.pass, true);
-  assert.equal(tenYearOnly.expectedRows, 18);
+  assert.equal(tenYearOnly.expectedRows, expectedManagerCount);
 });
 
 test("Markdown renders one row per manager/window and escapes table separators", () => {

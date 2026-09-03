@@ -38,7 +38,7 @@ export const gurus = [
   {
     id: "gavin-baker",
     name: "Gavin Baker",
-    chineseName: "Gavin Baker",
+    chineseName: "加文·贝克",
     entityName: "Atreides Management, LP",
     cik: "0001777813",
     type: "manager13f",
@@ -72,7 +72,7 @@ export const gurus = [
   {
     id: "chamath-palihapitiya",
     name: "Chamath Palihapitiya",
-    chineseName: "Chamath",
+    chineseName: "查马斯·帕里哈皮蒂亚",
     entityName: "SC US (TTGP), LTD. / Social Capital",
     cik: "0001607841",
     type: "manager13f",
@@ -87,7 +87,7 @@ export const gurus = [
   {
     id: "bill-ackman",
     name: "Bill Ackman",
-    chineseName: "Bill Ackman",
+    chineseName: "比尔·阿克曼",
     entityName: "Pershing Square Capital Management, L.P.",
     cik: "0001336528",
     alternateCiks: ["0002026053"],
@@ -118,7 +118,7 @@ export const gurus = [
   {
     id: "brad-gerstner",
     name: "Brad Gerstner",
-    chineseName: "Brad Gerstner",
+    chineseName: "布拉德·格斯特纳",
     entityName: "Altimeter Capital Management, LP",
     cik: "0001541617",
     type: "manager13f",
@@ -133,7 +133,7 @@ export const gurus = [
   {
     id: "chase-coleman",
     name: "Chase Coleman",
-    chineseName: "Chase Coleman",
+    chineseName: "蔡斯·科尔曼",
     entityName: "TIGER GLOBAL MANAGEMENT LLC",
     cik: "0001167483",
     type: "manager13f",
@@ -148,7 +148,7 @@ export const gurus = [
   {
     id: "philippe-laffont",
     name: "Philippe Laffont",
-    chineseName: "Philippe Laffont",
+    chineseName: "菲利普·拉丰",
     entityName: "COATUE MANAGEMENT LLC",
     cik: "0001135730",
     type: "manager13f",
@@ -177,7 +177,7 @@ export const gurus = [
   {
     id: "chuck-akre",
     name: "Chuck Akre",
-    chineseName: "Chuck Akre",
+    chineseName: "查克·阿克雷",
     entityName: "AKRE CAPITAL MANAGEMENT LLC",
     cik: "0001112520",
     type: "manager13f",
@@ -192,7 +192,7 @@ export const gurus = [
   {
     id: "dev-kantesaria",
     name: "Dev Kantesaria",
-    chineseName: "Dev Kantesaria",
+    chineseName: "德夫·坎特萨里亚",
     entityName: "Valley Forge Capital Management, LP",
     cik: "0001697868",
     type: "manager13f",
@@ -207,7 +207,7 @@ export const gurus = [
   {
     id: "chris-bloomstran",
     name: "Chris Bloomstran",
-    chineseName: "Chris Bloomstran",
+    chineseName: "克里斯·布鲁姆斯特兰",
     entityName: "SEMPER AUGUSTUS INVESTMENTS GROUP LLC",
     cik: "0001115373",
     type: "manager13f",
@@ -222,7 +222,7 @@ export const gurus = [
   {
     id: "samantha-mclemore",
     name: "Samantha McLemore",
-    chineseName: "Samantha McLemore",
+    chineseName: "萨曼莎·麦克勒莫",
     entityName: "Patient Capital Management, LLC",
     cik: "0001854794",
     type: "manager13f",
@@ -237,7 +237,7 @@ export const gurus = [
   {
     id: "dennis-lynch",
     name: "Dennis Lynch",
-    chineseName: "Dennis Lynch",
+    chineseName: "丹尼斯·林奇",
     entityName: "Morgan Stanley Counterpoint Global",
     type: "profile",
     role: "Counterpoint Global head / public fund manager profile",
@@ -256,7 +256,7 @@ export const gurus = [
   {
     id: "terry-smith",
     name: "Terry Smith",
-    chineseName: "Terry Smith",
+    chineseName: "特里·史密斯",
     entityName: "Fundsmith LLP",
     cik: "0001569205",
     type: "manager13f",
@@ -270,7 +270,7 @@ export const gurus = [
   {
     id: "stan-moss",
     name: "Stan Moss",
-    chineseName: "Stan Moss",
+    chineseName: "斯坦·莫斯",
     entityName: "POLEN CAPITAL MANAGEMENT LLC",
     cik: "0001034524",
     type: "manager13f",
@@ -284,7 +284,7 @@ export const gurus = [
   {
     id: "baillie-gifford",
     name: "Baillie Gifford",
-    chineseName: "Baillie Gifford",
+    chineseName: "柏基投资",
     entityName: "BAILLIE GIFFORD & CO",
     cik: "0001088875",
     type: "manager13f",
@@ -298,7 +298,7 @@ export const gurus = [
   {
     id: "peter-thiel",
     name: "Peter Thiel",
-    chineseName: "Peter Thiel",
+    chineseName: "彼得·蒂尔",
     entityName: "THIEL PETER",
     cik: "0001211060",
     type: "insider",
@@ -330,7 +330,7 @@ export const gurus = [
   {
     id: "david-sacks",
     name: "David Sacks",
-    chineseName: "David Sacks",
+    chineseName: "大卫·萨克斯",
     entityName: "Sacks David O",
     cik: "0001891801",
     type: "insider",
@@ -347,7 +347,7 @@ export const gurus = [
   {
     id: "david-friedberg",
     name: "David Friedberg",
-    chineseName: "David Friedberg",
+    chineseName: "大卫·弗里德伯格",
     entityName: "Friedberg David A",
     cik: "0001619941",
     type: "insider",
@@ -364,7 +364,7 @@ export const gurus = [
   {
     id: "reid-hoffman",
     name: "Reid Hoffman",
-    chineseName: "Reid Hoffman",
+    chineseName: "里德·霍夫曼",
     entityName: "Hoffman Reid",
     cik: "0001519339",
     type: "insider",
@@ -381,7 +381,7 @@ export const gurus = [
   {
     id: "alex-karp",
     name: "Alex Karp",
-    chineseName: "Alex Karp",
+    chineseName: "亚历克斯·卡普",
     entityName: "Karp Alexander C.",
     cik: "0001823951",
     type: "insider",
@@ -414,7 +414,7 @@ export const gurus = [
   {
     id: "tom-gayner",
     name: "Tom Gayner",
-    chineseName: "Tom Gayner",
+    chineseName: "汤姆·盖纳",
     entityName: "Markel Group Inc.",
     cik: "0001096343",
     type: "manager13f",
@@ -429,7 +429,7 @@ export const gurus = [
   {
     id: "nick-sleep-qais-zakaria",
     name: "Nick Sleep / Qais Zakaria",
-    chineseName: "Nick Sleep / Qais Zakaria",
+    chineseName: "尼克·斯利普 / 凯斯·扎卡里亚",
     entityName: "Sleep, Zakaria & CO Ltd. / Nomad Investment Partnership",
     cik: "0001384801",
     type: "manager13f",
@@ -447,6 +447,145 @@ export const gurus = [
     ]
   },
   {
+    id: "chris-hohn",
+    name: "Chris Hohn",
+    chineseName: "克里斯·霍恩",
+    entityName: "TCI Fund Management Ltd",
+    cik: "0001647251",
+    alternateCiks: ["0001362598"],
+    type: "manager13f",
+    role: "TCI founder / concentrated activist investor",
+    thesisTag: "Concentrated global compounders and active ownership",
+    notes: [
+      "TCI Fund Management files quarterly Form 13F-HR reports. The app merges the current filer with its audited predecessor CIK so the public U.S. long-equity history remains continuous.",
+      "The 13F is a delayed U.S.-reportable long-equity proxy and does not show TCI's complete global portfolio, shorts, derivatives, cash, or intra-quarter trading.",
+      "Read large position changes alongside TCI's public ownership campaigns and issuer disclosures rather than treating the filing as a complete fund return series."
+    ]
+  },
+  {
+    id: "david-tepper",
+    name: "David Tepper",
+    chineseName: "大卫·泰珀",
+    entityName: "Appaloosa LP",
+    cik: "0001656456",
+    alternateCiks: ["0001006438"],
+    type: "manager13f",
+    role: "Appaloosa founder / opportunistic value investor",
+    thesisTag: "Macro-aware value, cyclicals, and dislocated growth",
+    notes: [
+      "Appaloosa files quarterly Form 13F-HR reports. The app merges the current and predecessor reporting entities to preserve the manager's disclosed U.S. long-equity history.",
+      "Reported puts and calls are separated from the common-long book, while shorts, credit, cash, non-U.S. securities, and intra-quarter trading remain outside the 13F view.",
+      "Use the simulation as a delayed public-equity proxy, not as a reconstruction of Appaloosa's total macro or credit portfolio."
+    ]
+  },
+  {
+    id: "dan-loeb",
+    name: "Dan Loeb",
+    chineseName: "丹·勒布",
+    entityName: "Third Point LLC",
+    cik: "0001040273",
+    type: "manager13f",
+    role: "Third Point founder / CEO",
+    thesisTag: "Event-driven activism and catalyst-oriented equities",
+    notes: [
+      "Third Point files quarterly Form 13F-HR reports. The app tracks its disclosed U.S. common-long portfolio and separates options and other non-common claims from the investable book.",
+      "The 13F does not reveal shorts, credit, private investments, hedges, non-U.S. positions outside the reporting universe, or the timing of intra-quarter trades.",
+      "Third Point letters and issuer-specific catalysts are important context for interpreting concentrated additions and exits."
+    ]
+  },
+  {
+    id: "seth-klarman",
+    name: "Seth Klarman",
+    chineseName: "塞思·卡拉曼",
+    entityName: "Baupost Group LLC/MA",
+    cik: "0001061768",
+    type: "manager13f",
+    role: "Baupost CEO / portfolio manager",
+    thesisTag: "Deep value, downside protection, and special situations",
+    notes: [
+      "Baupost Group files quarterly Form 13F-HR reports. The app uses the firm-level filing as Seth Klarman's public U.S. long-equity proxy.",
+      "Legacy filings can use SEC thousands-scale values; the data pipeline normalizes those units before computing holdings, changes, and backtests.",
+      "The 13F excludes cash, credit, private investments, shorts, many non-U.S. positions, and other assets central to Baupost's capital-preservation mandate."
+    ]
+  },
+  {
+    id: "nelson-peltz",
+    name: "Nelson Peltz",
+    chineseName: "纳尔逊·佩尔茨",
+    entityName: "Trian Fund Management, L.P.",
+    cik: "0001345471",
+    type: "manager13f",
+    role: "Trian founding partner / activist investor",
+    thesisTag: "Concentrated operational activism in durable franchises",
+    notes: [
+      "Trian Fund Management files quarterly Form 13F-HR reports. The app treats the firm-level common-long filing as Nelson Peltz's best public-market proxy.",
+      "Duplicate security lines are aggregated before concentration and change analysis so one economic position is not counted more than once.",
+      "The filing does not show derivatives, shorts, cash, private arrangements, board influence, or the full operational plan behind an activist position."
+    ]
+  },
+  {
+    id: "andreas-halvorsen",
+    name: "Andreas Halvorsen",
+    chineseName: "安德烈亚斯·哈尔沃森",
+    entityName: "Viking Global Investors LP",
+    cik: "0001103804",
+    type: "manager13f",
+    role: "Viking Global founder / CIO",
+    thesisTag: "Fundamental long-short growth and quality equities",
+    notes: [
+      "Viking Global Investors files quarterly Form 13F-HR reports. The app uses the manager-level filing as Andreas Halvorsen's delayed U.S. long-equity proxy.",
+      "The 13F cannot show Viking's short book, net exposure, private investments, cash, non-U.S. securities outside scope, or intra-quarter trading.",
+      "Position changes should be interpreted as public ownership evidence rather than as a complete reconstruction of Viking's long-short fund performance."
+    ]
+  },
+  {
+    id: "david-einhorn",
+    name: "David Einhorn",
+    chineseName: "大卫·艾因霍恩",
+    entityName: "DME Capital Management, LP",
+    cik: "0001489933",
+    alternateCiks: ["0001079114"],
+    type: "manager13f",
+    role: "Greenlight Capital founder / value investor",
+    thesisTag: "Value, short research, and catalyst-driven equities",
+    notes: [
+      "DME Capital Management is the current Form 13F reporting entity for this public-equity proxy. The app merges Greenlight Capital's predecessor CIK to preserve the historical series across the 2024 filer transition.",
+      "The disclosure covers reportable U.S. longs; it omits the short book, credit, swaps, cash, private holdings, and exact intra-quarter execution.",
+      "Greenlight's letters and presentations are essential context because the long-only 13F cannot represent the portfolio's hedges or short theses."
+    ]
+  },
+  {
+    id: "mohnish-pabrai",
+    name: "Mohnish Pabrai",
+    chineseName: "莫尼什·帕伯莱",
+    entityName: "Dalal Street, LLC",
+    cik: "0001549575",
+    alternateCiks: ["0001173334"],
+    type: "manager13f",
+    role: "Pabrai Funds founder / concentrated value investor",
+    thesisTag: "Low-risk, high-uncertainty value and concentrated bets",
+    notes: [
+      "Dalal Street files quarterly Form 13F-HR reports for the current public U.S. long-equity sleeve. The app merges the predecessor personal filer CIK to retain historical continuity.",
+      "The 13F can be highly concentrated and does not show cash, non-U.S. ordinary shares outside scope, private holdings, shorts, or intra-quarter trading.",
+      "Use Pabrai's letters and talks to understand the underlying thesis; the filing alone shows delayed ownership, not position-level expected returns."
+    ]
+  },
+  {
+    id: "pat-dorsey",
+    name: "Pat Dorsey",
+    chineseName: "帕特·多尔西",
+    entityName: "Dorsey Asset Management, LLC",
+    cik: "0001671657",
+    type: "manager13f",
+    role: "Dorsey Asset Management founder / CIO",
+    thesisTag: "Concentrated quality compounders with durable moats",
+    notes: [
+      "Dorsey Asset Management files quarterly Form 13F-HR reports. The app treats the firm-level filing as Pat Dorsey's public U.S. long-equity proxy.",
+      "The concentrated book can make individual additions materially affect reported exposure, but the 13F does not reveal cash, shorts, private holdings, or intra-quarter execution.",
+      "Position changes are most useful when paired with Dorsey's published framework on competitive advantages, capital allocation, and valuation."
+    ]
+  },
+  {
     id: "george-soros",
     name: "George Soros",
     chineseName: "索罗斯",
@@ -460,3 +599,12 @@ export const gurus = [
     ]
   }
 ];
+
+export const requiredGuruCurveWindows = Object.freeze([5, 10]);
+
+export const enabledManager13fGurus = Object.freeze(gurus.filter((guru) =>
+  guru.type === "manager13f" && !guru.disableSimulation
+));
+
+export const expectedGuruCurveRows =
+  enabledManager13fGurus.length * requiredGuruCurveWindows.length;

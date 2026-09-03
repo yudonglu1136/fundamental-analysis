@@ -108,6 +108,7 @@ function runBuilder(directory, output, hashSeed = "1", generatedAt = "2020-01-01
   return spawnSync("python3", [
     "scripts/build-guru-security-master.py",
     "--sec-manifest", path.join(directory, "sec.json"),
+    "--sec-manifest-reference", "server/config/guru-sec-cusip-manifest.json",
     "--openfigi-cache", path.join(directory, "openfigi.json"),
     "--yahoo-cache", path.join(directory, "yahoo.json"),
     "--output", output,
@@ -141,8 +142,28 @@ test("public security-master builder is deterministic across Python hash seeds",
   const payload = JSON.parse(fs.readFileSync(first, "utf8"));
   assert.equal(payload.source.identifierProvider, "OpenFIGI");
   assert.equal(payload.source.holdingProvider, "U.S. Securities and Exchange Commission");
+  assert.equal(
+    payload.source.holdingManifestPath,
+    "server/config/guru-sec-cusip-manifest.json"
+  );
   assert.equal(payload.selection.resolvedCusips, 1);
   assert.equal(payload.securities[0].ticker, "AAPL");
+});
+
+test("public security-master builder rejects an absolute runtime manifest reference", () => {
+  const directory = fixtureDirectory();
+  const result = spawnSync("python3", [
+    "scripts/build-guru-security-master.py",
+    "--sec-manifest", path.join(directory, "sec.json"),
+    "--sec-manifest-reference", path.join(directory, "sec.json"),
+    "--openfigi-cache", path.join(directory, "openfigi.json"),
+    "--yahoo-cache", path.join(directory, "yahoo.json"),
+    "--output", path.join(directory, "output.json"),
+    "--generated-at", "2020-01-01T00:00:00Z",
+    "--offline"
+  ], { cwd: process.cwd(), encoding: "utf8" });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /absolute build-machine paths are not distributable/i);
 });
 
 test("public security-master builder rejects a corrupt SEC source manifest", () => {

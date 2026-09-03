@@ -28,6 +28,11 @@ test("Guru security master is exact, unique, public-source-audited, and versione
     "top_60_common_long_shares_excluding_explicit_non_common_titles_by_reported_value_per_filing"
   );
   assert.match(summary.holdingManifestRecordsSha256, /^[a-f0-9]{64}$/);
+  assert.equal(
+    summary.holdingManifestPath,
+    "server/config/guru-sec-cusip-manifest.json",
+    "the packaged runtime must not depend on a build-machine temporary path"
+  );
   assert.match(summary.openFigiResponseSha256, /^[a-f0-9]{64}$/);
   assert.match(summary.providerValidationResponseSha256, /^[a-f0-9]{64}$/);
   assert.match(summary.recordsSha256, /^[a-f0-9]{64}$/);

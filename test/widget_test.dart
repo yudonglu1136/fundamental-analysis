@@ -109,15 +109,21 @@ class _ControlledGuruApiClient extends ApiClient {
   _ControlledGuruApiClient() : super(() => 'test-token');
 
   final List<_PendingGuruBacktestRequest> backtestRequests = [];
+  final List<_PendingGuruBacktestRequest> exposureRequests = [];
 
   @override
   Future<Map<String, dynamic>> getJson(String path) {
-    if (!path.contains('/backtest?')) {
-      return Future<Map<String, dynamic>>.value(<String, dynamic>{});
+    if (path.contains('/exposure?')) {
+      final request = _PendingGuruBacktestRequest(path);
+      exposureRequests.add(request);
+      return request.completer.future;
     }
-    final request = _PendingGuruBacktestRequest(path);
-    backtestRequests.add(request);
-    return request.completer.future;
+    if (path.contains('/backtest?')) {
+      final request = _PendingGuruBacktestRequest(path);
+      backtestRequests.add(request);
+      return request.completer.future;
+    }
+    return Future<Map<String, dynamic>>.value(<String, dynamic>{});
   }
 }
 
@@ -130,6 +136,7 @@ Map<String, dynamic> _guruBacktestPayload(
   double endingValue = 140,
   String? methodReason,
   Map<String, dynamic>? proxy,
+  Map<String, dynamic>? publicReplicability,
 }) {
   final starts = <String, String>{
     '5': '2021-09-01',
@@ -138,6 +145,7 @@ Map<String, dynamic> _guruBacktestPayload(
   };
   return <String, dynamic>{
     'status': status,
+    'publicReplicability': ?publicReplicability,
     if (status == 'proxy_ready')
       'proxy':
           proxy ??
@@ -202,11 +210,44 @@ Map<String, dynamic> _guruBacktestPayload(
   };
 }
 
+Map<String, dynamic> _privateRolloverReplicability() => <String, dynamic>{
+  'status': 'strict_unavailable',
+  'code': 'reported_holding_private_before_execution',
+  'minimumExecutionCoverage': .9,
+  'syntheticPriceUsed': false,
+  'proxyOnlyWhenSeparatelyLabelled': true,
+  'reasonEn':
+      'The 2026 Q2 filing includes JHG, which was no longer publicly tradable when the filing became actionable. Without a public execution price, that quarter cannot satisfy the 90% strict replication gate. No synthetic price is used; any displayed curve is a separately labeled public-sleeve proxy.',
+  'reasonZh':
+      '2026 年 Q2 申报包含 JHG，但该证券在申报可执行时已不再公开交易。由于不存在公开市场执行价，本季度无法满足 90% 严格复制门槛。系统不会虚构价格；如展示曲线，仅为单独标注的公开持仓代理。',
+  'affectedQuarters': <Map<String, dynamic>>[
+    <String, dynamic>{
+      'reportDate': '2026-06-30',
+      'quarterLabel': '2026 Q2',
+      'executionDate': '2026-08-17',
+      'coveragePct': .556337,
+      'minimumExecutionCoverage': .9,
+      'strictGateSatisfied': false,
+      'holdings': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'ticker': 'JHG',
+          'issuer': 'Janus Henderson Group plc',
+          'cusip': 'G4474Y214',
+          'reportedBookWeight': .443663,
+          'publicTradingStatus': 'private_before_execution',
+          'syntheticPriceUsed': false,
+        },
+      ],
+    },
+  ],
+};
+
 Map<String, dynamic> _guruStateMachineManager({
   String id = 'state-machine-manager',
 }) => <String, dynamic>{
   'id': id,
   'name': 'State Machine Manager',
+  'chineseName': '状态机经理',
   'entityName': 'State Machine Capital',
   'type': 'manager13f',
   'thesisTag': 'Concentrated',
@@ -224,6 +265,90 @@ Map<String, dynamic> _guruStateMachineManager({
   },
   'holdings': <Map<String, dynamic>>[],
   'activity': <Map<String, dynamic>>[],
+};
+
+Map<String, dynamic> _guruExposurePayload() => <String, dynamic>{
+  'status': 'live',
+  'meta': <String, dynamic>{
+    'requestedQuarters': 40,
+    'returnedQuarters': 3,
+    'storedRequestedQuarters': 40,
+  },
+  'cache': <String, dynamic>{'status': 'hit'},
+  'history': <Map<String, dynamic>>[
+    <String, dynamic>{
+      'reportDate': '2025-12-31',
+      'quarterLabel': '2025 Q4',
+      'commonLongValue': 1000000000,
+      'positionCount': 45,
+      'top10Weight': .61,
+      'turnoverProxy': .12,
+      'topHoldings': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'ticker': 'NVDA',
+          'issuer': 'NVIDIA Corp',
+          'cusip': '67066G104',
+          'value': 180000000,
+          'pctPortfolio': .18,
+        },
+        <String, dynamic>{
+          'ticker': 'MSFT',
+          'issuer': 'Microsoft Corp',
+          'cusip': '594918104',
+          'value': 120000000,
+          'pctPortfolio': .12,
+        },
+      ],
+    },
+    <String, dynamic>{
+      'reportDate': '2026-03-31',
+      'quarterLabel': '2026 Q1',
+      'commonLongValue': 1200000000,
+      'positionCount': 47,
+      'top10Weight': .64,
+      'turnoverProxy': .16,
+      'topHoldings': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'ticker': 'NVDA',
+          'issuer': 'NVIDIA Corp',
+          'cusip': '67066G104',
+          'value': 240000000,
+          'pctPortfolio': .20,
+        },
+        <String, dynamic>{
+          'ticker': 'MSFT',
+          'issuer': 'Microsoft Corp',
+          'cusip': '594918104',
+          'value': 132000000,
+          'pctPortfolio': .11,
+        },
+      ],
+    },
+    <String, dynamic>{
+      'reportDate': '2026-06-30',
+      'quarterLabel': '2026 Q2',
+      'commonLongValue': 1500000000,
+      'positionCount': 49,
+      'top10Weight': .68,
+      'turnoverProxy': .19,
+      'topHoldings': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'ticker': 'NVDA',
+          'issuer': 'NVIDIA Corp',
+          'cusip': '67066G104',
+          'value': 330000000,
+          'pctPortfolio': .22,
+        },
+        <String, dynamic>{
+          'ticker': 'MSFT',
+          'issuer': 'Microsoft Corp',
+          'cusip': '594918104',
+          'value': 180000000,
+          'pctPortfolio': .12,
+        },
+      ],
+    },
+  ],
 };
 
 Future<void> _pumpGuruStateMachine(
@@ -342,6 +467,56 @@ List<Map<String, dynamic>> _marketLensTestGurus() => [
         'value': 50,
         'previousValue': 0,
         'changeShares': 25,
+      },
+    ],
+  },
+];
+
+List<Map<String, dynamic>> _privateMarketLensTestGurus() => [
+  {
+    'id': 'nelson-peltz',
+    'name': 'Nelson Peltz',
+    'chineseName': '纳尔逊·佩尔茨',
+    'type': 'manager13f',
+    'summary': {
+      'reportDate': '2026-06-30',
+      'filingDate': '2026-08-14',
+      'commonLongValue': 100,
+      'previousCommonLongValue': 90,
+    },
+    'holdings': [
+      {
+        'ticker': 'JHG',
+        'issuer': 'Janus Henderson Group plc',
+        'value': 44,
+        'publicTradingStatus': 'private_after_reported_quarter',
+        'publicReplicable': false,
+        'publicTrading': {
+          'publicTradingStatus': 'private_after_reported_quarter',
+          'publicReplicable': false,
+          'reasonEn':
+              'This reported holding rolled into a private interest after quarter-end. Public trading ended before the 13F became actionable.',
+          'reasonZh': '该申报持仓在季度末后转为非公开权益。其公开交易在 13F 可执行前已经结束。',
+        },
+      },
+    ],
+    'activity': [
+      {
+        'ticker': 'JHG',
+        'issuer': 'Janus Henderson Group plc',
+        'action': 'increased',
+        'value': 44,
+        'previousValue': 20,
+        'changeShares': 10,
+        'publicTradingStatus': 'private_after_reported_quarter',
+        'publicReplicable': false,
+        'publicTrading': {
+          'publicTradingStatus': 'private_after_reported_quarter',
+          'publicReplicable': false,
+          'reasonEn':
+              'This reported holding rolled into a private interest after quarter-end. Public trading ended before the 13F became actionable.',
+          'reasonZh': '该申报持仓在季度末后转为非公开权益。其公开交易在 13F 可执行前已经结束。',
+        },
       },
     ],
   },
@@ -938,6 +1113,83 @@ void main() {
   );
 
   testWidgets(
+    'private-before-execution quarter shows a truthful strict-unavailable state',
+    (WidgetTester tester) async {
+      final api = _ControlledGuruApiClient();
+      await _pumpGuruStateMachine(tester, api);
+
+      api.backtestRequests.single.completer.complete(
+        _guruBacktestPayload(
+          '5',
+          status: 'insufficient_data',
+          methodReason: 'Execution coverage is incomplete.',
+          publicReplicability: _privateRolloverReplicability(),
+        ),
+      );
+      await _flushGuruState(tester);
+
+      expect(
+        find.byKey(const ValueKey('guru-strict-replication-unavailable')),
+        findsOneWidget,
+      );
+      expect(find.text('Strict replay unavailable'), findsOneWidget);
+      expect(
+        find.text('2026 Q2 · JHG · 44.4% of selected book'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('cannot satisfy the 90% strict replication gate'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('No synthetic price is used'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('guru-simulation-equity-chart')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'private rollover reason is fully localized when only a proxy is displayable',
+    (WidgetTester tester) async {
+      final api = _ControlledGuruApiClient();
+      await _pumpGuruStateMachine(
+        tester,
+        api,
+        language: AppLanguage.zh,
+        viewportSize: const Size(390, 844),
+      );
+
+      api.backtestRequests.single.completer.complete(
+        _guruBacktestPayload(
+          '5',
+          status: 'proxy_ready',
+          publicReplicability: _privateRolloverReplicability(),
+        ),
+      );
+      await _flushGuruState(tester);
+
+      expect(find.text('严格复制不可用 · 2026 Q2 JHG 已转为私有'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('guru-simulation-equity-chart')),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('guru-proxy-disclosure-expander')),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('guru-proxy-disclosure-expander')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('无法满足 90% 严格复制门槛'), findsOneWidget);
+      expect(find.textContaining('系统不会虚构价格'), findsOneWidget);
+      expect(find.textContaining('cannot satisfy the 90%'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'proxy curve fits the real 1280x720 three-column slot and mobile stays overflow-safe',
     (WidgetTester tester) async {
       final desktopApi = _ControlledGuruApiClient();
@@ -1495,6 +1747,218 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'position history is lazy-loaded and supports quarter and stock inspection',
+    (WidgetTester tester) async {
+      final api = _ControlledGuruApiClient();
+      await _pumpGuruStateMachine(tester, api);
+      expect(api.exposureRequests, isEmpty);
+      api.backtestRequests.single.completer.complete(_guruBacktestPayload('5'));
+      await _flushGuruState(tester);
+
+      await tester.tap(find.text('Position History'));
+      await tester.pump();
+      expect(api.exposureRequests, hasLength(1));
+      expect(
+        api.exposureRequests.single.path,
+        '/api/gurus/state-machine-manager/exposure?limit=40',
+      );
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      api.exposureRequests.single.completer.complete(_guruExposurePayload());
+      await _flushGuruState(tester);
+      expect(
+        find.byKey(const ValueKey('guru-position-history-module')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('State Machine Manager Position History'),
+        findsOneWidget,
+      );
+      expect(find.text('3 quarters'), findsOneWidget);
+      expect(find.text('NVDA position trajectory'), findsOneWidget);
+      expect(find.text('2026 Q2 Top holdings'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('guru-position-history-quarter-2025-12-31')),
+      );
+      await tester.pump();
+      expect(find.text('2025 Q4 Top holdings'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('guru-position-history-holding-MSFT')),
+      );
+      await tester.pump();
+      expect(find.text('MSFT position trajectory'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('position history exposes an error retry with a forced refresh', (
+    WidgetTester tester,
+  ) async {
+    final api = _ControlledGuruApiClient();
+    await _pumpGuruStateMachine(tester, api, initialModule: 3);
+    expect(api.backtestRequests, hasLength(1));
+    expect(api.exposureRequests, hasLength(1));
+    api.backtestRequests.single.completer.complete(_guruBacktestPayload('5'));
+    api.exposureRequests.single.completer.completeError(
+      StateError('exposure unavailable'),
+    );
+    await _flushGuruState(tester);
+
+    expect(find.textContaining('exposure unavailable'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('guru-position-history-retry')));
+    await tester.pump();
+    expect(api.exposureRequests, hasLength(2));
+    expect(api.exposureRequests.last.path, contains('limit=40&refresh=1'));
+
+    api.exposureRequests.last.completer.complete(_guruExposurePayload());
+    await _flushGuruState(tester);
+    expect(find.text('NVDA position trajectory'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'latest holdings remain visible when backtest fails and disclose truncation',
+    (WidgetTester tester) async {
+      final holdings = <Map<String, dynamic>>[
+        for (var index = 0; index < 20; index += 1)
+          <String, dynamic>{
+            'ticker': 'T$index',
+            'issuer': 'Test Holding $index',
+            'value': (20 - index) * 1000000,
+          },
+      ];
+      final baseGuru = _guruStateMachineManager();
+      final guru = <String, dynamic>{
+        ...baseGuru,
+        'summary': <String, dynamic>{
+          ...asMap(baseGuru['summary']),
+          'totalPositions': 125,
+          'totalValue': 250000000,
+        },
+        'holdings': holdings,
+      };
+      await tester.pumpWidget(
+        LanguageScope(
+          language: AppLanguage.en,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: GuruSimulationModule(
+                  payload: <String, dynamic>{
+                    'status': 'not_ready',
+                    'method': <String, dynamic>{
+                      'reason': 'Execution coverage is incomplete.',
+                    },
+                  },
+                  loading: false,
+                  error: null,
+                  guru: guru,
+                  palette: Palette(false),
+                  loadedWindow: '5',
+                  requestedWindow: null,
+                  windowError: null,
+                  onWindowRequested: (_) {},
+                  onRetry: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Execution coverage is incomplete.'), findsOneWidget);
+      expect(find.text('Latest holdings'), findsOneWidget);
+      expect(find.text('Top 18 of 125'), findsOneWidget);
+      expect(find.text('All'), findsNothing);
+      expect(
+        find.textContaining('only the top 20 by reported value'),
+        findsOneWidget,
+      );
+      final showTop = find.text('Show top 20');
+      await tester.ensureVisible(showTop);
+      await tester.tap(showTop);
+      await tester.pump();
+      expect(find.text('Top 20 of 125'), findsOneWidget);
+      expect(find.text('Collapse'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'guru names use chineseName throughout Chinese list and detail UI',
+    (WidgetTester tester) async {
+      final guru = _guruStateMachineManager();
+      expect(guruDisplayName(guru, AppLanguage.zh), '状态机经理');
+      expect(guruDisplayName(guru, AppLanguage.en), 'State Machine Manager');
+      expect(
+        guruDisplayName(<String, dynamic>{'name': 'Fallback'}, AppLanguage.zh),
+        'Fallback',
+      );
+
+      await tester.pumpWidget(
+        LanguageScope(
+          language: AppLanguage.zh,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: Scaffold(
+              body: Column(
+                children: [
+                  GuruListTile(
+                    guru: guru,
+                    active: true,
+                    palette: Palette(false),
+                    onTap: () {},
+                  ),
+                  GuruWorkspaceHeader(guru: guru, palette: Palette(false)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('状态机经理'), findsNWidgets(2));
+      expect(find.text('State Machine Manager'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('position history is overflow-safe at desktop and mobile sizes', (
+    WidgetTester tester,
+  ) async {
+    Future<void> verifySize(Size size) async {
+      final api = _ControlledGuruApiClient();
+      await _pumpGuruStateMachine(
+        tester,
+        api,
+        initialModule: 3,
+        viewportSize: size,
+      );
+      api.backtestRequests.single.completer.complete(_guruBacktestPayload('5'));
+      api.exposureRequests.single.completer.complete(_guruExposurePayload());
+      await _flushGuruState(tester);
+      expect(
+        find.byKey(const ValueKey('guru-position-history-module')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    }
+
+    await verifySize(const Size(1280, 720));
+    await verifySize(const Size(390, 844));
+  });
+
+  test('position history route names round-trip', () {
+    expect(guruModuleIndex('positions'), 3);
+    expect(guruModuleIndex('exposure'), 3);
+    expect(guruModuleRouteName(3), 'positions');
+  });
+
   test(
     'quarterly market lens selects widest-covered quarter and breaks ties by recency',
     () {
@@ -1889,6 +2353,93 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(openedTicker, 'AAA');
+    },
+  );
+
+  test('market lens preserves private holdings but blocks public actions', () {
+    final exposures = buildExposures(
+      _privateMarketLensTestGurus(),
+      reportQuarter: '2026/Q2',
+    );
+    final adds = buildActivityRankItems(
+      _privateMarketLensTestGurus(),
+      positive: true,
+      reportQuarter: '2026/Q2',
+    );
+
+    expect(exposures.single.ticker, 'JHG');
+    expect(exposures.single.hasNonPublicPosition, isTrue);
+    expect(exposures.single.positions.single.publicReplicable, isFalse);
+    expect(
+      exposures.single.positions.single.publicTradingStatus,
+      'private_after_reported_quarter',
+    );
+    expect(adds.single.positions.single.isPubliclyTradable, isFalse);
+    expect(
+      adds.single.positions.single.publicTradingReason(AppLanguage.en),
+      contains('Public trading ended'),
+    );
+  });
+
+  testWidgets(
+    'private reported security stays visible with valuation and trade disabled',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      String openedGuru = '';
+      String openedTicker = '';
+
+      await tester.pumpWidget(
+        LanguageScope(
+          language: AppLanguage.en,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: FilledButton(
+                    onPressed: () => showQuarterlyMarketLens(
+                      context: context,
+                      gurus: _privateMarketLensTestGurus(),
+                      palette: Palette(false),
+                      initialView: 0,
+                      initialTicker: 'JHG',
+                      onOpenGuruTrade: (guru, ticker) {
+                        openedGuru = guru;
+                        openedTicker = ticker;
+                      },
+                      onOpenValuation: (ticker) => openedTicker = ticker,
+                    ),
+                    child: const Text('Open lens'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open lens'));
+      await tester.pumpAndSettle();
+      expect(find.text('Private · no public valuation'), findsOneWidget);
+      expect(find.text('Private'), findsOneWidget);
+      expect(find.textContaining('Public trading ended'), findsWidgets);
+
+      final valuationButton = tester.widget<FilledButton>(
+        find.byKey(const ValueKey('quarterly-market-lens-valuation')),
+      );
+      expect(valuationButton.onPressed, isNull);
+      await tester.tap(
+        find.byKey(
+          const ValueKey('quarterly-market-lens-manager-nelson-peltz-JHG'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(openedGuru, isEmpty);
+      expect(openedTicker, isEmpty);
+      expect(tester.takeException(), isNull);
     },
   );
 

@@ -7,6 +7,8 @@ import { DatabaseSync } from "node:sqlite";
 import test, { after } from "node:test";
 import express from "express";
 
+import { expectedGuruCurveRows } from "./gurus.js";
+
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "guru-price-series-import-test-"));
 const databasePath = path.join(tempDir, "series.sqlite");
 fs.closeSync(fs.openSync(databasePath, "w"));
@@ -229,7 +231,7 @@ test("a release batch commits all series and its records-hash ledger atomically"
       rowsSha256: "c".repeat(64)
     })),
     refreshTargets: [{ guruId: "li-lu", years: 10, expectedStatus: "ready" }],
-    expectations: { expectedDisplayableRows: 36 }
+    expectations: { expectedDisplayableRows: expectedGuruCurveRows }
   };
   const failureDb = new DatabaseSync(databasePath);
   failureDb.exec(`

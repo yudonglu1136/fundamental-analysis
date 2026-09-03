@@ -3,12 +3,15 @@ import { pathToFileURL } from "node:url";
 
 import {
   assertGuruBacktestRefreshSucceeded,
-  loadGuruBacktest
+  exactKnownNonPublicProxyRefreshAllowed,
+  loadGuruBacktest,
+  selectManagerBacktestCache
 } from "./backtest.js";
 import { gurus } from "./gurus.js";
 import {
   readDashboardSnapshot,
   readGuruBacktest,
+  readGuruBacktestProxy,
   readGuruExposureSnapshot,
   readGuruSnapshot,
   writeBackgroundJobRun,
@@ -24,6 +27,21 @@ import {
 const jobId = "guru_13f_refresh";
 const managerGurus = gurus.filter((guru) => guru.type === "manager13f");
 let activeRefreshPromise = null;
+
+const defaultRefreshRuntime = Object.freeze({
+  clearGuruDashboardMemoryCache,
+  loadGuruBacktest,
+  readDashboardSnapshot,
+  readGuruBacktest,
+  readGuruBacktestProxy,
+  readGuruExposureSnapshot,
+  readGuruSnapshot,
+  rebuildGuruDashboardSnapshotFromLocal,
+  refreshGuruExposureSnapshot,
+  refreshGuruSnapshot,
+  writeBackgroundJobRun,
+  writeGuru13fRefreshBundle
+});
 
 function argValue(name, fallback = "") {
   const prefix = `--${name}=`;
@@ -58,13 +76,45 @@ function normalizeRequestedIds(value) {
   return [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))];
 }
 
-export async function runThirteenFRefresh({
-  guruIds = [],
-  reason = "manual-13f-update",
-  years = 5,
-  detail = "compact",
-  exposureLimit = 40
-} = {}) {
+export function evaluateAtomicRefreshArtifacts(
+  guru,
+  { strictPayload, proxyPayload } = {},
+  phase = "staged"
+) {
+  try {
+    assertGuruBacktestRefreshSucceeded(guru, strictPayload, phase);
+    return {
+      status: "refreshed",
+      strictPayload,
+      proxyPayload: null,
+      strictStatus: strictPayload?.status || "missing",
+      displayStatus: strictPayload?.status || "missing",
+      degradationCode: null
+    };
+  } catch (strictError) {
+    if (!exactKnownNonPublicProxyRefreshAllowed(guru, strictPayload, proxyPayload)) {
+      throw strictError;
+    }
+    return {
+      status: "degraded",
+      strictPayload,
+      proxyPayload,
+      strictStatus: "insufficient_data",
+      displayStatus: "proxy_ready",
+      degradationCode: "reported_holding_private_before_execution"
+    };
+  }
+}
+
+export async function runThirteenFRefresh(options = {}, runtimeOverrides = {}) {
+  const {
+    guruIds = [],
+    reason = "manual-13f-update",
+    years = 5,
+    detail = "compact",
+    exposureLimit = 40
+  } = options;
+  const runtime = { ...defaultRefreshRuntime, ...runtimeOverrides };
   const requestedIds = normalizeRequestedIds(guruIds);
   const selectedGurus = requestedIds.length
     ? requestedIds.map((id) => managerGurus.find((guru) => guru.id === id))
@@ -91,9 +141,10 @@ export async function runThirteenFRefresh({
   const backtestYears = normalizedBacktestYears(normalizedYears);
   const startedAt = new Date().toISOString();
   const results = [];
+  let bundleCommitted = false;
 
   function recordJob(status, extra = {}) {
-    writeBackgroundJobRun(jobId, {
+    runtime.writeBackgroundJobRun(jobId, {
       startedAt,
       finishedAt: status === "running" ? "" : new Date().toISOString(),
       status,
@@ -101,6 +152,8 @@ export async function runThirteenFRefresh({
         reason: normalizedReason,
         years: normalizedYears,
         detail: normalizedDetail,
+        requestedDetail: normalizedDetail,
+        persistenceDetail: "full",
         exposureLimit: normalizedExposureLimit,
         selectedGuruIds: selectedGurus.map((guru) => guru.id),
         results,
@@ -117,10 +170,12 @@ export async function runThirteenFRefresh({
     const stagedGuruSnapshots = [];
     const stagedExposureSnapshots = [];
     const stagedBacktests = [];
+    const stagedBacktestProxies = [];
+    const stagedBacktestDispositionById = new Map();
 
     for (const guru of selectedGurus) {
       console.log(`[13f-refresh] ${guru.id}: refreshing latest snapshot`);
-      const snapshot = await refreshGuruSnapshot(guru.id, { persist: false });
+      const snapshot = await runtime.refreshGuruSnapshot(guru.id, { persist: false });
       if (!usable13fSnapshot(snapshot)) {
         throw new Error(
           `${guru.id} latest snapshot is not usable (${snapshot.status || "unknown"})`
@@ -130,14 +185,14 @@ export async function runThirteenFRefresh({
       stagedGuruSnapshots.push({ guruId: guru.id, payload: snapshot });
     }
 
-    const existingDashboard = readDashboardSnapshot();
+    const existingDashboard = runtime.readDashboardSnapshot();
     if (existingDashboard?.gurus?.length) {
       dashboard = existingDashboard;
     } else {
       console.log(
         "[13f-refresh] no dashboard snapshot found; rebuilding from local guru snapshots"
       );
-      dashboard = await rebuildGuruDashboardSnapshotFromLocal({ persist: false });
+      dashboard = await runtime.rebuildGuruDashboardSnapshotFromLocal({ persist: false });
     }
 
     if (!dashboard) {
@@ -170,19 +225,34 @@ export async function runThirteenFRefresh({
       console.log(
         `[13f-refresh] ${guru.id}: refreshing ${normalizedExposureLimit} exposure quarters`
       );
-      const exposure = await refreshGuruExposureSnapshot(guru.id, {
+      const exposure = await runtime.refreshGuruExposureSnapshot(guru.id, {
         limit: normalizedExposureLimit,
         reason: normalizedReason,
         persist: false
       });
 
       console.log(`[13f-refresh] ${guru.id}: refreshing ${normalizedYears} backtest`);
-      const backtest = await loadGuruBacktest(guru.id, {
+      let computedArtifacts = null;
+      const publicBacktest = await runtime.loadGuruBacktest(guru.id, {
         refresh: true,
         years: normalizedYears,
-        detail: normalizedDetail,
-        persist: false
+        // The SQLite audit rows must retain rebalance and attribution detail;
+        // the public compact response is derived only after persistence.
+        detail: "full",
+        persist: false,
+        shareComputation: false,
+        onComputedArtifacts: (artifacts) => {
+          computedArtifacts = artifacts;
+        }
       });
+      if (!computedArtifacts?.strictPayload) {
+        throw new Error(`${guru.id} backtest did not expose persistence artifacts`);
+      }
+      const disposition = evaluateAtomicRefreshArtifacts(
+        guru,
+        computedArtifacts,
+        "staged"
+      );
       const snapshot = refreshedById.get(guru.id);
 
       if (!usable13fSnapshot(snapshot)) {
@@ -196,24 +266,35 @@ export async function runThirteenFRefresh({
           `${guru.id} exposure quarter ${exposure.latest?.reportDate || "missing"} does not match latest snapshot ${snapshot.summary?.reportDate || "missing"}`
         );
       }
-      assertGuruBacktestRefreshSucceeded(guru, backtest, "staged");
-
       stagedExposureSnapshots.push({ guruId: guru.id, payload: exposure });
       stagedBacktests.push({
         guruId: guru.id,
         years: backtestYears,
-        payload: backtest
+        payload: disposition.strictPayload
       });
+      if (disposition.proxyPayload) {
+        stagedBacktestProxies.push({
+          guruId: guru.id,
+          years: backtestYears,
+          payload: disposition.proxyPayload
+        });
+      }
+      stagedBacktestDispositionById.set(guru.id, disposition);
 
       const result = {
         guruId: guru.id,
-        status: "refreshed",
+        status: disposition.status,
         durationMs: Date.now() - managerStartedAt,
         reportDate: snapshot.summary?.reportDate || null,
         filingDate: snapshot.summary?.filingDate || null,
         totalPositions: snapshot.summary?.totalPositions || 0,
         exposureQuarters: exposure.history.length,
-        backtestStatus: backtest.status || "unknown"
+        backtestStatus: disposition.strictStatus,
+        displayBacktestStatus: disposition.displayStatus,
+        ...(disposition.degradationCode
+          ? { degradationCode: disposition.degradationCode }
+          : {}),
+        computedPublicStatus: publicBacktest?.status || "unknown"
       };
       results.push(result);
       console.log(`[13f-refresh] ${guru.id}: complete ${JSON.stringify(result)}`);
@@ -225,18 +306,22 @@ export async function runThirteenFRefresh({
       gurus: dashboard.gurus.map(withoutRuntimeDataStatus)
     };
     delete persistedDashboard.cache;
-    const commitResult = writeGuru13fRefreshBundle({
+    const commitResult = runtime.writeGuru13fRefreshBundle({
       dashboard: persistedDashboard,
       guruSnapshots: stagedGuruSnapshots,
       exposureSnapshots: stagedExposureSnapshots,
-      backtests: stagedBacktests
+      backtests: stagedBacktests,
+      backtestProxies: stagedBacktestProxies
     });
-    clearGuruDashboardMemoryCache();
+    bundleCommitted = true;
+    runtime.clearGuruDashboardMemoryCache();
 
     for (const guru of selectedGurus) {
-      const storedSnapshot = readGuruSnapshot(guru.id);
-      const storedExposure = readGuruExposureSnapshot(guru.id);
-      const storedBacktest = readGuruBacktest(guru.id, backtestYears);
+      const storedSnapshot = runtime.readGuruSnapshot(guru.id);
+      const storedExposure = runtime.readGuruExposureSnapshot(guru.id);
+      const storedBacktest = runtime.readGuruBacktest(guru.id, backtestYears);
+      const storedProxy = runtime.readGuruBacktestProxy(guru.id, backtestYears);
+      const stagedDisposition = stagedBacktestDispositionById.get(guru.id);
       if (
         !usable13fSnapshot(storedSnapshot) ||
         !storedExposure?.history?.length ||
@@ -245,21 +330,55 @@ export async function runThirteenFRefresh({
       ) {
         throw new Error(`${guru.id} post-commit 13F bundle verification failed`);
       }
-      assertGuruBacktestRefreshSucceeded(guru, storedBacktest, "post-commit");
+      const storedDisposition = evaluateAtomicRefreshArtifacts(
+        guru,
+        {
+          strictPayload: storedBacktest,
+          proxyPayload: stagedDisposition?.proxyPayload ? storedProxy : null
+        },
+        "post-commit"
+      );
+      if (storedDisposition.status !== stagedDisposition?.status) {
+        throw new Error(`${guru.id} post-commit 13F disposition changed`);
+      }
+      if (storedDisposition.status === "degraded") {
+        const selected = selectManagerBacktestCache(
+          storedBacktest,
+          storedProxy,
+          storedBacktest?.method?.years
+        );
+        if (selected.kind !== "proxy" ||
+            selected.payload?.proxy?.strictFailureGeneratedAt !==
+              storedBacktest.generatedAt) {
+          throw new Error(`${guru.id} post-commit strict/proxy selection failed`);
+        }
+      }
     }
 
-    recordJob("success", {
+    const finalStatus = results.some((result) => result.status === "degraded")
+      ? "degraded"
+      : "success";
+    recordJob(finalStatus, {
       dashboardGeneratedAt: commitResult.dashboardGeneratedAt
     });
     return {
       jobId,
-      status: "success",
+      status: finalStatus,
       startedAt,
       finishedAt: new Date().toISOString(),
       results
     };
   } catch (error) {
-    recordJob("failed", { error: error.message });
+    if (!bundleCommitted) {
+      for (const result of results) {
+        result.stagedStatus = result.status;
+        result.status = "rolled_back";
+      }
+    }
+    recordJob("failed", {
+      error: error.message,
+      bundleCommitted
+    });
     throw error;
   }
 }

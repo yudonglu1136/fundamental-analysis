@@ -12,6 +12,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const priceCacheDir = process.env.PRICE_CACHE_DIR || path.join(__dirname, "cache", "prices");
 const localPriceDir = path.resolve(__dirname, "..", "..", "market-intel-dashboard", "data", "raw", "market_structure", "prices");
 const priceCacheTtlMs = 1000 * 60 * 60 * 6;
+const yahooTransportMaxAttempts = Math.max(
+  1,
+  Math.min(4, Math.round(Number(process.env.YAHOO_TRANSPORT_MAX_ATTEMPTS) || 3))
+);
+const yahooTransportRetryBaseMs = Math.max(
+  0,
+  Math.min(2_000, Math.round(Number(process.env.YAHOO_TRANSPORT_RETRY_BASE_MS) || 250))
+);
+const yahooTransportRetryMaxMs = Math.max(
+  yahooTransportRetryBaseMs,
+  Math.min(5_000, Math.round(Number(process.env.YAHOO_TRANSPORT_RETRY_MAX_MS) || 2_000))
+);
 
 function yahooSymbol(symbol) {
   return yahooChartSymbol(symbol);
@@ -209,7 +221,37 @@ export function normalizeYahooChartPoints(result, symbol) {
     .filter((point) => Number.isFinite(point.close));
 }
 
-async function fetchYahooSeries(symbol, start, end) {
+function yahooRetryAfterMs(response) {
+  const raw = String(response?.headers?.get?.("retry-after") || "").trim();
+  if (!raw) return null;
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1_000;
+  const retryAt = Date.parse(raw);
+  return Number.isFinite(retryAt) ? Math.max(0, retryAt - Date.now()) : null;
+}
+
+function yahooTransportError(message, { status = null, retryAfterMs = null } = {}) {
+  const error = new Error(message);
+  error.status = status != null && Number.isFinite(Number(status)) ? Number(status) : null;
+  error.retryAfterMs = retryAfterMs != null && Number.isFinite(Number(retryAfterMs))
+    ? Number(retryAfterMs)
+    : null;
+  return error;
+}
+
+function yahooTransportErrorIsRetryable(error) {
+  const status = Number(error?.status);
+  if (!Number.isFinite(status) || status <= 0) return true;
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+function wait(milliseconds) {
+  return milliseconds > 0
+    ? new Promise((resolve) => setTimeout(resolve, milliseconds))
+    : Promise.resolve();
+}
+
+async function fetchYahooSeriesOnce(symbol, start, end) {
   const encoded = encodeURIComponent(yahooSymbol(symbol));
   const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encoded}?period1=${unix(start)}&period2=${unix(end) + 86400}&interval=1d`;
   const response = await fetch(url, {
@@ -220,11 +262,39 @@ async function fetchYahooSeries(symbol, start, end) {
   });
 
   if (!response.ok) {
-    throw new Error(`Yahoo chart failed ${response.status} for ${symbol}`);
+    throw yahooTransportError(`Yahoo chart failed ${response.status} for ${symbol}`, {
+      status: response.status,
+      retryAfterMs: yahooRetryAfterMs(response)
+    });
   }
 
   const json = await response.json();
   return normalizeYahooChartPoints(json.chart?.result?.[0], symbol);
+}
+
+async function fetchYahooSeries(symbol, start, end, { onAttempt = null } = {}) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= yahooTransportMaxAttempts; attempt += 1) {
+    if (typeof onAttempt === "function") onAttempt();
+    try {
+      return await fetchYahooSeriesOnce(symbol, start, end);
+    } catch (error) {
+      lastError = error;
+      if (
+        attempt >= yahooTransportMaxAttempts ||
+        !yahooTransportErrorIsRetryable(error)
+      ) {
+        throw error;
+      }
+      const exponentialDelay = yahooTransportRetryBaseMs * (2 ** (attempt - 1));
+      const requestedDelay = error?.retryAfterMs != null &&
+          Number.isFinite(Number(error.retryAfterMs))
+        ? Number(error.retryAfterMs)
+        : exponentialDelay;
+      await wait(Math.min(yahooTransportRetryMaxMs, Math.max(0, requestedDelay)));
+    }
+  }
+  throw lastError || new Error(`Yahoo chart failed for ${symbol}`);
 }
 
 export async function loadPriceSeries(symbol, {
@@ -284,20 +354,25 @@ export async function loadPriceSeries(symbol, {
   let points = [];
   let providerAttempts = 0;
   let expectedInternalSessionRetry = null;
+  let providerFailure = null;
+  const recordProviderAttempt = () => {
+    providerAttempts += 1;
+  };
 
   try {
-    providerAttempts = 1;
-    points = await fetchYahooSeries(normalized, start, end);
+    points = await fetchYahooSeries(normalized, start, end, {
+      onAttempt: recordProviderAttempt
+    });
     const firstMissingDates = requireAdjusted
       ? missingExpectedInternalSessions(points, expectedTradingDates)
       : [];
     if (firstMissingDates.length) {
-      providerAttempts = 2;
       try {
         const retryPoints = await fetchYahooSeries(
           normalized,
           firstMissingDates[0],
-          firstMissingDates.at(-1)
+          firstMissingDates.at(-1),
+          { onAttempt: recordProviderAttempt }
         );
         points = mergeProviderPoints(points, retryPoints);
         expectedInternalSessionRetry = {
@@ -317,7 +392,16 @@ export async function loadPriceSeries(symbol, {
         };
       }
     }
-  } catch {
+  } catch (error) {
+    providerFailure = {
+      code: "yahoo_transport_unavailable",
+      status: error?.status != null && Number.isFinite(Number(error.status))
+        ? Number(error.status)
+        : null,
+      retryable: yahooTransportErrorIsRetryable(error),
+      attempts: providerAttempts,
+      message: String(error?.message || error || "Yahoo transport failed.").slice(0, 240)
+    };
     points = await loadLocalSeries(normalized, start, end);
     source = points.length ? "local-csv" : "unavailable";
   }
@@ -329,6 +413,7 @@ export async function loadPriceSeries(symbol, {
     generatedAt: new Date().toISOString(),
     providerAttempts,
     ...(expectedInternalSessionRetry ? { expectedInternalSessionRetry } : {}),
+    ...(providerFailure ? { providerFailure } : {}),
     points
   };
   let responsePayload = payload;

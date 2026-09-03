@@ -189,6 +189,16 @@ INCLUDE_FRONTEND_DIST=1 bash scripts/package-aws-backend.sh <version>
 
 Do not make the fallback the normal path.
 
+## Atomic Guru 13F refresh
+
+The atomic 13F refresh always persists full-detail audit artifacts. A normal
+manager requires a strict `ready` row. The only structural non-public exception
+is the exact audited Nelson Peltz / 2026 Q2 / JHG rollover: the transaction may
+commit snapshots and exposures only together with a strict
+`insufficient_data` row and its generation-linked, independently audited
+`proxy_ready` row. The job and manager result remain `degraded`, never
+`success` or `refreshed`; all other proxy cases fail and roll back the bundle.
+
 ## One-time Guru price repair
 
 Normal releases leave every `GURU_PRICE_REPAIR_*` variable unset. For an
@@ -209,9 +219,10 @@ validates the running instance's actual root volume, release tags, owners, sourc
 snapshot lineage, encryption and hashes, makes a consistent SQLite backup,
 and sends the artifact only to the loopback release route. It then waits for
 both 5Y and 10Y current-generation refreshes. A release succeeds and writes its
-`.done` marker only when public health re-audits all 36 manager/window rows as
-displayable. Any non-2xx response, old/in-flight generation, identity mismatch,
-or less than 36/36 fails the deployment.
+`.done` marker only when public health re-audits every enabled-manager/window row
+derived from `server/gurus.js` as displayable. Any non-2xx response,
+old/in-flight generation, identity mismatch, or incomplete coverage fails the
+deployment.
 
 The release route writes every missing price group, its child ledgers, and one
 artifact-level ledger keyed by `recordsSha256` in a single `BEGIN IMMEDIATE`
@@ -220,4 +231,5 @@ retry reuses the bound batch ledger before recomputing the required curves.
 
 After production verification, delete the private artifact and revoke its
 temporary read policy. Retain the encrypted rollback snapshot, non-price
-manifest, SQLite audit ledger, install report and 36-row acceptance report.
+manifest, SQLite audit ledger, install report and full-population acceptance
+report.

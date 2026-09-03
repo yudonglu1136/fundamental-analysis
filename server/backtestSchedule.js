@@ -6,6 +6,25 @@ function reportDateOf(candidate) {
   return String(candidate?.snapshot?.reportDate || "");
 }
 
+function selectedPriceRequirementsOf(candidate) {
+  if (Array.isArray(candidate?.selectedPriceRequirements)) {
+    return candidate.selectedPriceRequirements
+      .map((requirement) => ({
+        ticker: String(requirement?.ticker || "").trim().toUpperCase(),
+        startInclusive: String(requirement?.startInclusive || ""),
+        endExclusive: String(requirement?.endExclusive || "")
+      }))
+      .filter((requirement) => requirement.ticker);
+  }
+  return [...new Set(candidate?.selectedTickers || [])]
+    .map((ticker) => ({
+      ticker: String(ticker || "").trim().toUpperCase(),
+      startInclusive: "",
+      endExclusive: ""
+    }))
+    .filter((requirement) => requirement.ticker);
+}
+
 /**
  * If distinct 13F report periods first become tradable on the same session,
  * only the most recent report period is actionable. Older snapshots were
@@ -66,16 +85,29 @@ export function manager13fActivePriceWindows(schedule = [], endDate = "") {
   for (let index = 0; index < schedule.length; index += 1) {
     const candidate = schedule[index];
     const start = executionDateOf(candidate);
-    const end = executionDateOf(schedule[index + 1]) || String(endDate || "");
-    if (!start || !end) continue;
-    for (const ticker of new Set(candidate?.selectedTickers || [])) {
-      const normalized = String(ticker || "").trim().toUpperCase();
-      if (!normalized) continue;
-      const current = windows.get(normalized);
-      windows.set(normalized, {
-        start: current?.start && current.start < start ? current.start : start,
-        end: current?.end && current.end > end ? current.end : end,
-        intervals: [...(current?.intervals || []), { start, end }]
+    const scheduledEnd = executionDateOf(schedule[index + 1]) || String(endDate || "");
+    if (!start || !scheduledEnd) continue;
+    for (const requirement of selectedPriceRequirementsOf(candidate)) {
+      const intervalStart = requirement.startInclusive > start &&
+        requirement.startInclusive < scheduledEnd
+        ? requirement.startInclusive
+        : start;
+      const endExclusive = requirement.endExclusive > intervalStart &&
+        requirement.endExclusive <= scheduledEnd
+        ? requirement.endExclusive
+        : "";
+      const interval = {
+        start: intervalStart,
+        end: endExclusive || scheduledEnd,
+        ...(endExclusive ? { endExclusive } : {})
+      };
+      const current = windows.get(requirement.ticker);
+      windows.set(requirement.ticker, {
+        start: current?.start && current.start < intervalStart
+          ? current.start
+          : intervalStart,
+        end: current?.end && current.end > interval.end ? current.end : interval.end,
+        intervals: [...(current?.intervals || []), interval]
       });
     }
   }
@@ -85,8 +117,12 @@ export function manager13fActivePriceWindows(schedule = [], endDate = "") {
       left.start.localeCompare(right.start) || left.end.localeCompare(right.end)
     )) {
       const previous = merged.at(-1);
-      if (previous && interval.start <= previous.end) {
-        if (interval.end > previous.end) previous.end = interval.end;
+      if (previous && !previous.endExclusive && interval.start <= previous.end) {
+        if (interval.end > previous.end) {
+          previous.end = interval.end;
+          if (interval.endExclusive) previous.endExclusive = interval.endExclusive;
+          else delete previous.endExclusive;
+        }
       } else {
         merged.push({ ...interval });
       }
@@ -105,7 +141,8 @@ export function activeTradingDatesForPriceWindow(tradingDates = [], window = {})
   return [...new Set((tradingDates || [])
     .map((point) => typeof point === "string" ? point : point?.date)
     .filter((date) => date && intervals.some((interval) =>
-      date >= interval.start && date <= interval.end
+      date >= interval.start &&
+      (interval.endExclusive ? date < interval.endExclusive : date <= interval.end)
     )))].sort();
 }
 

@@ -58,6 +58,11 @@ test("Guru dashboard reuses one derived payload and preserves response semantics
   const first = await loadGuruDashboard();
   const hit = await loadGuruDashboard();
   assert.strictEqual(hit, first, "a version-stable hit must reuse the exact payload object");
+  assert.equal(
+    first.gurus.find((guru) => guru.id === gurus[0].id)?.avatarUrl,
+    `/guru-avatars/${gurus[0].id}.png`,
+    "configured gurus must receive the canonical static avatar when guru_assets is empty"
+  );
 
   const serialized = JSON.stringify(first);
   clearGuruDashboardMemoryCache();

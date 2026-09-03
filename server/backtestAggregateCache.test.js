@@ -73,6 +73,9 @@ process.env.BACKTEST_CACHE_TTL_HOURS = "0";
 process.env.BACKTEST_STALE_BACKGROUND_REFRESH = "false";
 
 const { gurus } = await import("./gurus.js");
+const { manager13fCorporateActionCatalogVersion } = await import(
+  "./corporateActions.js"
+);
 const {
   readGuruBacktest,
   readGuruBacktestProxy,
@@ -85,6 +88,7 @@ const {
   clearGuruBacktestAggregateCache,
   compactBacktestPayload,
   disclosureBacktestMethodVersion,
+  exactKnownNonPublicProxyRefreshAllowed,
   expectedGuruBacktestStatus,
   isExtendedBacktestWindow,
   loadGuruBacktest,
@@ -1210,8 +1214,9 @@ test("concurrent aggregate misses share one in-flight build", async () => {
   }
 });
 
-test("backtest refresh status gate rejects a proxy for the strict ready contract", () => {
+test("strict refresh stays failed while the atomic layer recognizes only the exact Peltz/JHG pair", () => {
   const ackman = gurus.find((guru) => guru.id === "bill-ackman");
+  const peltz = gurus.find((guru) => guru.id === "nelson-peltz");
   const renaissance = gurus.find((guru) => guru.id === "renaissance-technologies");
 
   assert.equal(expectedGuruBacktestStatus(ackman), "ready");
@@ -1236,6 +1241,142 @@ test("backtest refresh status gate rejects a proxy for the strict ready contract
   assert.throws(
     () => assertGuruBacktestRefreshSucceeded(renaissance, { status: "ready" }),
     /renaissance-technologies refresh backtest status is ready; expected unsupported/i
+  );
+
+  const exactPeltzProxy = proxyFixture(
+    peltz,
+    "private-rollover-public-sleeve",
+    "2026-09-03T00:00:00.000Z"
+  );
+  exactPeltzProxy.method.years = 5;
+  exactPeltzProxy.method.corporateActionCatalogVersion =
+    manager13fCorporateActionCatalogVersion;
+  exactPeltzProxy.dataQuality = {
+    strictBacktestStatus: "insufficient_data",
+    strictFailureCode: "execution_coverage_below_minimum",
+    strictFailingRebalances: 1,
+    strictMinimumExecutionCoverage: 0.9
+  };
+  exactPeltzProxy.publicReplicability = {
+    status: "strict_unavailable",
+    code: "reported_holding_private_before_execution",
+    guruId: "nelson-peltz",
+    minimumExecutionCoverage: 0.9,
+    syntheticPriceUsed: false,
+    proxyOnlyWhenSeparatelyLabelled: true,
+    affectedQuarters: [{
+      reportDate: "2026-06-30",
+      quarterLabel: "2026 Q2",
+      executionDate: "2026-08-17",
+      coveragePct: 0.55,
+      minimumExecutionCoverage: 0.9,
+      strictGateSatisfied: false,
+      holdings: [{
+        code: "reported_security_private_before_execution",
+        ticker: "JHG",
+        issuer: "Janus Henderson Group plc",
+        cusip: "G4474Y214",
+        reportedBookWeight: 0.45,
+        publicTradingStatus: "private_before_execution",
+        syntheticPriceUsed: false
+      }]
+    }]
+  };
+  exactPeltzProxy.rebalances[0].unpricedPositions = [{
+    ticker: "JHG",
+    issuer: "Janus Henderson Group plc",
+    cusip: "G4474Y214",
+    reportedBookWeight: 0.45,
+    reason: "reported_security_private_before_execution"
+  }];
+  const exactPeltzStrict = {
+    generatedAt: exactPeltzProxy.generatedAt,
+    status: "insufficient_data",
+    guru: exactPeltzProxy.guru,
+    window: exactPeltzProxy.window,
+    method: {
+      version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      corporateActionCatalogVersion: manager13fCorporateActionCatalogVersion,
+      years: 5,
+      minimumExecutionCoverage: 0.9,
+      reason: "Strict execution coverage is below the required threshold."
+    },
+    publicReplicability: structuredClone(exactPeltzProxy.publicReplicability),
+    dataQuality: {
+      failurePolicy: "fail_closed",
+      coverageFailures: [{
+        reportDate: "2026-06-30",
+        executionDate: "2026-08-17",
+        coveragePct: 0.55,
+        unpricedPositions: [{
+          ticker: "JHG",
+          issuer: "Janus Henderson Group plc",
+          cusip: "G4474Y214",
+          reason: "reported_security_private_before_execution",
+          executionLimitation: {
+            code: "reported_security_private_before_execution",
+            reportDate: "2026-06-30",
+            ticker: "JHG",
+            cusip: "G4474Y214",
+            publicTradingStatus: "private_before_execution",
+            syntheticPriceUsed: false
+          }
+        }]
+      }]
+    },
+    summary: {},
+    equity: [],
+    rebalances: [],
+    quarterContributions: []
+  };
+  assert.equal(
+    exactKnownNonPublicProxyRefreshAllowed(
+      peltz,
+      exactPeltzStrict,
+      exactPeltzProxy
+    ),
+    true
+  );
+  assert.equal(
+    exactKnownNonPublicProxyRefreshAllowed(
+      peltz,
+      exactPeltzStrict,
+      compactBacktestPayload(exactPeltzProxy)
+    ),
+    true
+  );
+  assert.throws(() =>
+    assertGuruBacktestRefreshSucceeded(peltz, exactPeltzProxy),
+    /status is proxy_ready; expected ready/i
+  );
+  assert.equal(
+    exactKnownNonPublicProxyRefreshAllowed(
+      ackman,
+      exactPeltzStrict,
+      exactPeltzProxy
+    ),
+    false
+  );
+  assert.equal(
+    exactKnownNonPublicProxyRefreshAllowed(peltz, exactPeltzStrict, {
+      ...exactPeltzProxy,
+      proxy: {
+        ...exactPeltzProxy.proxy,
+        strictFailureGeneratedAt: "2026-09-02T00:00:00.000Z"
+      }
+    }),
+    false
+  );
+  assert.equal(
+    exactKnownNonPublicProxyRefreshAllowed(peltz, exactPeltzStrict, {
+      ...exactPeltzProxy,
+      publicReplicability: {
+        ...exactPeltzProxy.publicReplicability,
+        syntheticPriceUsed: true
+      }
+    }),
+    false
   );
 });
 

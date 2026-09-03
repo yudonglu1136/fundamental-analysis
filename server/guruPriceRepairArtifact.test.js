@@ -7,6 +7,7 @@ import {
   guruPriceRepairRowsSha256,
   validateGuruPriceRepairArtifact
 } from "./guruPriceRepairArtifact.js";
+import { expectedGuruCurveRows } from "./gurus.js";
 
 const rows = [
   { date: "2026-08-28", open: 10, high: 12, low: 9, close: 11, adjustedClose: 10.5, volume: 100 },
@@ -35,7 +36,7 @@ function artifact(seriesRows = rows) {
     strictMethodVersion: "strict-v1",
     proxyMethodVersion: "proxy-v1",
     securityMasterVersion: "security-master-v1",
-    expectedDisplayableRows: 36
+    expectedDisplayableRows: expectedGuruCurveRows
   };
   const release = {
     releaseId: "guru-curves-test-release",
@@ -81,7 +82,7 @@ test("artifact hash binds exact refresh windows, statuses, and release expectati
   missingTarget.refreshTargets = [];
   assert.throws(
     () => validateGuruPriceRepairArtifact(missingTarget, { knownGuruIds: ["test-guru"] }),
-    /1-36 refresh targets/i
+    new RegExp(`1-${expectedGuruCurveRows} refresh targets`, "i")
   );
 
   const reboundRelease = artifact();
@@ -89,6 +90,35 @@ test("artifact hash binds exact refresh windows, statuses, and release expectati
   assert.throws(
     () => validateGuruPriceRepairArtifact(reboundRelease, { knownGuruIds: ["test-guru"] }),
     /records hash does not match/i
+  );
+});
+
+test("artifact release expectations and refresh-target limit follow the configured curve population", () => {
+  const stalePopulation = artifact();
+  stalePopulation.expectations.expectedDisplayableRows = expectedGuruCurveRows - 1;
+  stalePopulation.recordsSha256 = guruPriceRepairRecordsSha256(
+    stalePopulation.series,
+    stalePopulation.refreshTargets,
+    stalePopulation.expectations,
+    stalePopulation.release
+  );
+  assert.throws(
+    () => validateGuruPriceRepairArtifact(stalePopulation, { knownGuruIds: ["test-guru"] }),
+    /invalid release expectations/i
+  );
+
+  const excessiveTargets = artifact();
+  excessiveTargets.refreshTargets = Array.from(
+    { length: expectedGuruCurveRows + 1 },
+    (_, index) => ({
+      guruId: `test-guru-${index}`,
+      years: index % 2 === 0 ? 5 : 10,
+      expectedStatus: "ready"
+    })
+  );
+  assert.throws(
+    () => validateGuruPriceRepairArtifact(excessiveTargets),
+    new RegExp(`1-${expectedGuruCurveRows} refresh targets`, "i")
   );
 });
 

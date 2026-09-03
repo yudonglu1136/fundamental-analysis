@@ -998,6 +998,86 @@ const cusipTickerMap = new Map([
   ["G6564A105", "NOMD"],
   // Priceline renamed to Booking Holdings and changed ticker from PCLN to BKNG.
   ["741503403", "BKNG"],
+  // Exact identifiers observed in 2021-2026 SEC 13F information tables for
+  // the expanded manager catalog. These remain CUSIP-scoped so similarly
+  // named issuers cannot inherit a ticker by fuzzy name matching. Each symbol
+  // retains adjusted-close coverage for the holding's active public window.
+  ["G6964L107", "PSFE"],
+  ["26614N102", "DD"],
+  ["01626W101", "ALIT"],
+  ["G6095L109", "APTV"],
+  ["H84989104", "TEL"],
+  ["527064109", "LESL"],
+  ["L7579L106", "PRM"],
+  ["G3421J106", "FERG"],
+  // Expanded-manager historical securities. The symbols below identify the
+  // same listed security while it was public; delisted series stop on their
+  // actual final trading session and are never extended past a cash deal.
+  ["98936J101", "ZEN"],
+  ["03940F103", "LFG"],
+  ["923454102", "VRTV"],
+  ["046513107", "ATRA"],
+  ["G4474Y214", "JHG"],
+  ["G4474Y904", "JHG"],
+  ["37611X100", "DNA"],
+  // CONSOL Energy renamed to Core Natural Resources after its stock merger
+  // with Arch Resources; CNR carries the continuous successor listing.
+  ["20854L108", "CNR"],
+  ["049164205", "AAWW"],
+  ["15912K100", "CHNG"],
+  ["88337F105", "ODP"],
+  // ARCH must retain its own pre-merger history before CNR begins.
+  ["03940R107", "ARCH"],
+  ["83200N103", "SMAR"],
+  ["81686C104", "SEMR"],
+  ["90184L102", "TWTR"],
+  // Pabrai historical identifiers, adjudicated from the original SEC 13F
+  // information tables rather than issuer-name inference:
+  // - N31738102 is FCA ordinary shares. Sharadar preserves the NYSE FCAU
+  //   history under the surviving issuer's canonical STLA symbol. The last
+  //   selected 13F observation is 2020-03-31, so the modeled holding is sold
+  //   before the January 2021 FCA/PSA combination and needs no merger leg.
+  // - 384313508 is GrafTech common stock (NYSE: EAF).
+  // - 84670702 is the exact eight-character value filed for Berkshire Class B
+  //   in Pabrai's 2016-Q3 table. Adjacent Pabrai filings use 084670702; this
+  //   one-record correction is deliberately not a generic left-pad rule.
+  ["N31738102", "FCAU"],
+  ["384313508", "EAF"],
+]);
+
+// Filing-error repairs are narrower than ordinary CUSIP mappings. The broken
+// identifier is accepted only for the exact manager, report period, accession,
+// issuer, and class observed in the original SEC submission.
+const filingScopedCusipTickerRules = Object.freeze([
+  Object.freeze({
+    cusip: "84670702",
+    guruId: "mohnish-pabrai",
+    reportDate: "2016-09-30",
+    accessionNumber: "0001549575-16-000021",
+    issuer: "BERKSHIRE HATHAWAY INC DEL",
+    title: "CL B",
+    ticker: "BRK.B",
+    canonicalCusip: "084670702",
+    source:
+      "https://www.sec.gov/Archives/edgar/data/1549575/000154957516000021/infotable.xml"
+  })
+]);
+
+// The display identity stays point-in-time accurate while the paid provider's
+// canonical symbol addresses its continuous adjusted-price history.
+const cusipPriceSymbolRules = Object.freeze([
+  Object.freeze({
+    cusip: "N31738102",
+    displayTicker: "FCAU",
+    priceSymbol: "STLA",
+    provider: "Sharadar SEP",
+    rule: "provider_canonical_ticker_contains_pre_rename_history",
+    tickerChangeEffectiveDate: "2021-01-19",
+    sources: Object.freeze([
+      "https://www.sec.gov/Archives/edgar/data/1549575/000154957520000005/infotable.xml",
+      "https://www.stellantis.com/en/news/press-releases/2021/january/the-merger-of-fca-and-groupe-psa-has-been-completed"
+    ])
+  })
 ]);
 
 const effectiveResolutionSha256 = crypto
@@ -1006,6 +1086,8 @@ const effectiveResolutionSha256 = crypto
     guruSecurityMasterVersion: guruSecurityMasterVersion(),
     issuerTickerMap: [...issuerTickerMap.entries()].sort(),
     cusipTickerMap: [...cusipTickerMap.entries()].sort(),
+    filingScopedCusipTickerRules,
+    cusipPriceSymbolRules,
     sp500CusipEntries: sp500CusipEntries().sort()
   }))
   .digest("hex");
@@ -1014,8 +1096,54 @@ export function holdingResolutionVersion() {
   return `holding-resolution-v1-${effectiveResolutionSha256.slice(0, 16)}`;
 }
 
-export function tickerResolutionForHolding({ issuer, cusip }) {
+function normalizedIssuer(value) {
+  return String(value || "")
+    .replace(/[.,]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
+export function tickerResolutionForHolding({
+  issuer,
+  title,
+  cusip,
+  guruId,
+  reportDate,
+  accessionNumber
+}) {
   const normalizedCusip = String(cusip || "").trim().toUpperCase();
+  const normalizedIssuerName = normalizedIssuer(issuer);
+  const scopedRules = filingScopedCusipTickerRules.filter(
+    (rule) => rule.cusip === normalizedCusip
+  );
+  if (scopedRules.length) {
+    const match = scopedRules.find((rule) =>
+      rule.guruId === String(guruId || "").trim() &&
+      rule.reportDate === String(reportDate || "").trim() &&
+      rule.accessionNumber === String(accessionNumber || "").trim() &&
+      rule.issuer === normalizedIssuerName &&
+      rule.title === String(title || "").trim().toUpperCase()
+    );
+    if (!match) {
+      return {
+        status: "unresolved",
+        ticker: "",
+        securityId: null,
+        source: "filing_scope_guard",
+        rule: "malformed_identifier_requires_exact_filing_context",
+        candidates: []
+      };
+    }
+    return {
+      status: "resolved",
+      ticker: match.ticker,
+      securityId: null,
+      source: "curated_filing_correction",
+      rule: "exact_manager_report_accession_issuer_class",
+      candidates: [match.ticker]
+    };
+  }
   const curatedTicker = cusipTickerMap.get(normalizedCusip) || "";
   const manifestTicker = sp500PriceTickerForCusip(normalizedCusip);
   const security = guruSecurityForCusip(normalizedCusip);
@@ -1052,13 +1180,7 @@ export function tickerResolutionForHolding({ issuer, cusip }) {
     };
   }
 
-  const normalized = String(issuer || "")
-    .replace(/[.,]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toUpperCase();
-
-  const ticker = issuerTickerMap.get(normalized) || "";
+  const ticker = issuerTickerMap.get(normalizedIssuerName) || "";
   return ticker
     ? {
         status: "resolved",
@@ -1080,4 +1202,44 @@ export function tickerResolutionForHolding({ issuer, cusip }) {
 
 export function tickerForHolding(holding) {
   return tickerResolutionForHolding(holding).ticker;
+}
+
+export function priceSymbolResolutionForHolding(holding) {
+  const tickerResolution = tickerResolutionForHolding(holding);
+  if (tickerResolution.status !== "resolved") {
+    return {
+      status: "unresolved",
+      symbol: "",
+      displayTicker: "",
+      source: tickerResolution.source,
+      rule: tickerResolution.rule
+    };
+  }
+  const cusip = String(holding?.cusip || "").trim().toUpperCase();
+  const alias = cusipPriceSymbolRules.find((rule) =>
+    rule.cusip === cusip && rule.displayTicker === tickerResolution.ticker
+  );
+  if (!alias) {
+    return {
+      status: "resolved",
+      symbol: tickerResolution.ticker,
+      displayTicker: tickerResolution.ticker,
+      source: "holding_ticker",
+      rule: "same_display_and_price_symbol"
+    };
+  }
+  return {
+    status: "resolved",
+    symbol: alias.priceSymbol,
+    displayTicker: alias.displayTicker,
+    source: "curated_provider_canonical_alias",
+    rule: alias.rule,
+    provider: alias.provider,
+    tickerChangeEffectiveDate: alias.tickerChangeEffectiveDate,
+    sources: [...alias.sources]
+  };
+}
+
+export function priceSymbolForHolding(holding) {
+  return priceSymbolResolutionForHolding(holding).symbol;
 }

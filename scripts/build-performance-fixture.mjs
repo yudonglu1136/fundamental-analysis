@@ -6,7 +6,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { holdingResolutionVersion } from "../server/cusipOverrides.js";
 
-const managerMethodVersion = "manager13f-drifted-total-return-v8";
+const managerMethodVersion = "manager13f-drifted-total-return-v9";
 const managerSecurityMasterVersion = holdingResolutionVersion();
 const congressMethodVersion = "stock-act-disclosure-fail-closed-v1";
 

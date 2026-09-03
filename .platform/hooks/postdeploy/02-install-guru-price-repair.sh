@@ -50,7 +50,7 @@ success_marker="${runtime_dir}/.guru-price-repair-${expected_sha}.done"
 install_report="${runtime_dir}/.guru-price-repair-${expected_sha}.install.json"
 prewarm_report="${runtime_dir}/.guru-price-repair-${expected_sha}.prewarm.json"
 if [ -f "${success_marker}" ]; then
-  echo "Guru price-repair release already passed 36/36; marker=${success_marker}"
+  echo "Guru price-repair release already passed every required manager/window curve; marker=${success_marker}"
   exit 0
 fi
 
@@ -225,4 +225,4 @@ node scripts/prewarm-guru-curves.mjs \
   --output="${prewarm_report}" \
   --success-marker="${success_marker}"
 chmod 600 "${prewarm_report}" "${success_marker}"
-echo "Guru price repair and 5Y/10Y prewarm passed 36/36; artifact=${expected_sha}"
+echo "Guru price repair and 5Y/10Y prewarm passed every required manager/window curve; artifact=${expected_sha}"

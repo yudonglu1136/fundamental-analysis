@@ -54,6 +54,14 @@ VALID_TICKER = re.compile(r"^[A-Z0-9][A-Z0-9./-]{0,19}$")
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sec-manifest", type=Path, required=True)
+    parser.add_argument(
+        "--sec-manifest-reference",
+        default="",
+        help=(
+            "Packaged runtime path recorded in the artifact. Use a repository-relative "
+            "path when the input manifest is built in a temporary directory."
+        ),
+    )
     parser.add_argument("--openfigi-cache", type=Path, required=True)
     parser.add_argument("--yahoo-cache", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -637,9 +645,16 @@ def main() -> None:
         cache_path=args.yahoo_cache,
     )
 
+    manifest_reference = args.sec_manifest_reference.strip() or args.sec_manifest.as_posix()
+    if Path(manifest_reference).is_absolute():
+        raise SystemExit(
+            "--sec-manifest-reference must be a packaged repository-relative path; "
+            "absolute build-machine paths are not distributable"
+        )
+
     payload = build_payload(
         sec_manifest, observations, openfigi_cache, yahoo_cache, generated_at,
-        args.sec_manifest.as_posix(),
+        manifest_reference,
     )
     write_json(args.output, payload)
     print(canonical_json({

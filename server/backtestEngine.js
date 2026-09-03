@@ -69,18 +69,31 @@ function normalizedWeights(rebalance) {
   const byTicker = new Map();
   for (const holding of rebalance?.weights || []) {
     const ticker = String(holding?.ticker || "").trim().toUpperCase();
+    const priceSymbol = String(holding?.priceSymbol || ticker).trim().toUpperCase();
     const weight = Number(holding?.weight);
-    if (!ticker || !Number.isFinite(weight) || weight <= 0) continue;
-    const current = byTicker.get(ticker);
-    byTicker.set(ticker, current
+    if (!ticker || !priceSymbol || !Number.isFinite(weight) || weight <= 0) continue;
+    const key = `${ticker}\u0000${priceSymbol}`;
+    const current = byTicker.get(key);
+    byTicker.set(key, current
       ? {
           ...current,
           value: Number(current.value || 0) + Number(holding.value || 0),
           weight: current.weight + weight
         }
-      : { ...holding, ticker, weight });
+      : {
+          ...holding,
+          ticker,
+          ...(priceSymbol !== ticker ? { priceSymbol } : {}),
+          weight
+        });
   }
   return [...byTicker.values()];
+}
+
+function holdingPriceSymbol(holding) {
+  return String(holding?.priceSymbol || holding?.ticker || "")
+    .trim()
+    .toUpperCase();
 }
 
 function latestMapDateOnOrBefore(priceMap, endDate) {
@@ -110,7 +123,7 @@ export function resolveTrailingCommonPriceEnd({
     )
     .sort((left, right) => String(left.executionDate).localeCompare(String(right.executionDate)));
   const latestRebalance = orderedRebalances.at(-1);
-  const activeTickers = normalizedWeights(latestRebalance).map((holding) => holding.ticker);
+  const activeTickers = normalizedWeights(latestRebalance).map(holdingPriceSymbol);
   const base = {
     requestedEnd: requestedEnd || null,
     requestedMarketEnd,
@@ -204,7 +217,16 @@ export function resolveTrailingCommonPriceEnd({
 function allocateAtClose(rebalance, portfolioValue, priceMaps) {
   const weights = normalizedWeights(rebalance);
   const weightSum = weights.reduce((sum, holding) => sum + holding.weight, 0);
-  if (!weights.length || weightSum > 1 + reconciliationTolerance) {
+  const explicitCashWeight = Number(rebalance?.cashWeight);
+  const auditedCashOnly = !weights.length &&
+    Number.isFinite(explicitCashWeight) &&
+    Math.abs(explicitCashWeight - 1) <= reconciliationTolerance &&
+    Array.isArray(rebalance?.corporateActionResolutions) &&
+    rebalance.corporateActionResolutions.some((resolution) =>
+      resolution?.considerationType === "cash" &&
+      resolution?.timing === "before_modeled_execution"
+    );
+  if ((!weights.length && !auditedCashOnly) || weightSum > 1 + reconciliationTolerance) {
     return {
       ok: false,
       failure: {
@@ -218,19 +240,34 @@ function allocateAtClose(rebalance, portfolioValue, priceMaps) {
   const missing = [];
   const positions = [];
   for (const holding of weights) {
-    const startPrice = finitePositive(priceMaps.get(holding.ticker)?.get(rebalance.executionDate));
+    const priceSymbol = holdingPriceSymbol(holding);
+    const startPrice = finitePositive(priceMaps.get(priceSymbol)?.get(rebalance.executionDate));
     if (startPrice == null) {
-      missing.push({ ticker: holding.ticker, weight: holding.weight });
+      missing.push({
+        ticker: holding.ticker,
+        ...(priceSymbol !== holding.ticker ? { priceSymbol } : {}),
+        weight: holding.weight
+      });
       continue;
     }
     const startValue = portfolioValue * holding.weight;
     positions.push({
       ticker: holding.ticker,
+      ...(priceSymbol !== holding.ticker ? { priceSymbol } : {}),
+      ...(holding.priceSymbolAudit
+        ? { priceSymbolAudit: holding.priceSymbolAudit }
+        : {}),
       issuer: holding.issuer,
       sector: holding.sector || null,
       industry: holding.industry || null,
       disclosedValue: holding.value,
       weight: holding.weight,
+      ...(holding.corporateAction ? {
+        corporateAction: { ...holding.corporateAction }
+      } : {}),
+      ...(holding.corporateActionResolution ? {
+        corporateActionResolution: { ...holding.corporateActionResolution }
+      } : {}),
       ...(holding.reportedBookWeight != null &&
         Number.isFinite(Number(holding.reportedBookWeight))
         ? { reportedBookWeight: Number(holding.reportedBookWeight) }
@@ -256,7 +293,6 @@ function allocateAtClose(rebalance, portfolioValue, priceMaps) {
     };
   }
 
-  const explicitCashWeight = Number(rebalance?.cashWeight);
   const cashWeight = Number.isFinite(explicitCashWeight)
     ? explicitCashWeight
     : Math.max(0, 1 - weightSum);
@@ -286,11 +322,120 @@ function allocateAtClose(rebalance, portfolioValue, priceMaps) {
 
 function markPositions(active, date, priceMaps) {
   const missing = [];
+  const transitionPending = [];
   const values = [];
   for (const position of active.positions) {
-    const price = finitePositive(priceMaps.get(position.ticker)?.get(date));
+    const action = position.corporateAction;
+    const actionEffective = String(action?.effectiveDate || "");
+    const cashConversionDate = String(
+      action?.publicTradingEndExclusive || actionEffective
+    );
+    const privateTransitionDate = String(
+      action?.publicTradingEndExclusive || actionEffective
+    );
+    if (
+      ["private_equity", "private_equity_rollover"].includes(
+        String(action?.considerationType || "")
+      ) &&
+      privateTransitionDate &&
+      date >= privateTransitionDate
+    ) {
+      missing.push({
+        ticker: position.ticker,
+        weight: position.weight,
+        reason: "private_rollover_not_publicly_replicable",
+        publicTradingStatus: "private_after_reported_quarter",
+        publicTradingEndExclusive: privateTransitionDate,
+        actionId: action?.actionId || null,
+        syntheticPriceUsed: false
+      });
+      continue;
+    }
+    if (
+      action?.considerationType === "cash" &&
+      cashConversionDate &&
+      date >= cashConversionDate
+    ) {
+      const terminalCashEntitlementPerShare = finitePositive(
+        action.terminalCashEntitlementPerShare
+      );
+      if (terminalCashEntitlementPerShare == null) {
+        missing.push({
+          ticker: position.ticker,
+          weight: position.weight,
+          reason: "invalid_terminal_cash_entitlement"
+        });
+        continue;
+      }
+      values.push({
+        ...position,
+        endPrice: terminalCashEntitlementPerShare,
+        endValue: position.units * terminalCashEntitlementPerShare,
+        corporateActionResolution: {
+          ...action,
+          timing: "while_position_active",
+          settledOnOrBefore: date
+        }
+      });
+      continue;
+    }
+    if (actionEffective && date >= actionEffective) {
+      if (action?.considerationType === "stock") {
+        const successorTicker = String(action?.successorTicker || "")
+          .trim()
+          .toUpperCase();
+        const successorSharesPerShare = finitePositive(
+          action?.successorSharesPerShare
+        );
+        const successorFirstTradingDate = String(
+          action?.successorFirstTradingDate || actionEffective
+        );
+        if (date < successorFirstTradingDate) {
+          transitionPending.push({
+            ticker: position.ticker,
+            successorTicker,
+            effectiveDate: actionEffective,
+            successorFirstTradingDate,
+            actionId: action.actionId || null
+          });
+          continue;
+        }
+        const successorPrice = finitePositive(
+          priceMaps.get(successorTicker)?.get(date)
+        );
+        if (!successorTicker || successorSharesPerShare == null || successorPrice == null) {
+          missing.push({
+            ticker: position.ticker,
+            successorTicker: successorTicker || null,
+            weight: position.weight,
+            reason: "missing_stock_conversion_successor_price"
+          });
+          continue;
+        }
+        const equivalentSourceSharePrice =
+          successorPrice * successorSharesPerShare;
+        values.push({
+          ...position,
+          endPrice: equivalentSourceSharePrice,
+          endValue: position.units * equivalentSourceSharePrice,
+          corporateActionResolution: {
+            ...action,
+            timing: "while_position_active",
+            successorPrice,
+            settledOnOrBefore: date
+          }
+        });
+        continue;
+      }
+    }
+    const priceSymbol = holdingPriceSymbol(position);
+    const price = finitePositive(priceMaps.get(priceSymbol)?.get(date));
     if (price == null) {
-      missing.push({ ticker: position.ticker, weight: position.weight });
+      missing.push({
+        ticker: position.ticker,
+        ...(priceSymbol !== position.ticker ? { priceSymbol } : {}),
+        weight: position.weight
+      });
       continue;
     }
     values.push({ ...position, endPrice: price, endValue: position.units * price });
@@ -302,8 +447,17 @@ function markPositions(active, date, priceMaps) {
         code: "missing_active_price",
         date,
         tickers: missing.map((row) => row.ticker),
-        missingWeight: missing.reduce((sum, row) => sum + row.weight, 0)
+        missingWeight: missing.reduce((sum, row) => sum + row.weight, 0),
+        details: missing
       }
+    };
+  }
+  if (transitionPending.length) {
+    return {
+      ok: true,
+      transitionPending,
+      portfolioValue: null,
+      values: []
     };
   }
   return {
@@ -318,11 +472,18 @@ function finishInterval(active, marked, endDate, benchmarkPrice, nextExecutionDa
   const endPortfolioValue = marked.portfolioValue;
   const contributions = marked.values.map((position) => ({
     ticker: position.ticker,
+    ...(position.priceSymbol ? { priceSymbol: position.priceSymbol } : {}),
+    ...(position.priceSymbolAudit
+      ? { priceSymbolAudit: position.priceSymbolAudit }
+      : {}),
     issuer: position.issuer,
     sector: position.sector,
     industry: position.industry,
     value: position.disclosedValue,
     weight: position.weight,
+    ...(position.corporateActionResolution ? {
+      corporateActionResolution: position.corporateActionResolution
+    } : {}),
     ...(Number.isFinite(position.reportedBookWeight)
       ? { reportedBookWeight: position.reportedBookWeight }
       : {}),
@@ -474,6 +635,7 @@ export function simulateDriftedPortfolio({
   const benchmarkReturns = [];
   const coverage = [];
   const quarterContributions = [];
+  const corporateActionTransitionSessions = [];
 
   for (const date of dates.slice(1)) {
     const benchmarkPrice = finitePositive(benchmarkMap?.get(date));
@@ -487,6 +649,13 @@ export function simulateDriftedPortfolio({
       return simulationFailure(marked.failure, {
         equity, portfolioReturns, benchmarkReturns, coverage, quarterContributions
       });
+    }
+    if (marked.transitionPending?.length) {
+      corporateActionTransitionSessions.push({
+        date,
+        actions: marked.transitionPending
+      });
+      continue;
     }
 
     const dailyPortfolioReturn = marked.portfolioValue / portfolioValue - 1;
@@ -521,9 +690,20 @@ export function simulateDriftedPortfolio({
   const finalDate = equity.at(-1)?.date || firstDate;
   const finalBenchmarkPrice = finitePositive(benchmarkMap?.get(finalDate));
   const finalMarked = markPositions(active, finalDate, priceMaps);
-  if (!finalMarked.ok || finalBenchmarkPrice == null) {
-    return simulationFailure(finalMarked.failure || { code: "missing_benchmark_price", date: finalDate }, {
-      equity, portfolioReturns, benchmarkReturns, coverage, quarterContributions
+  if (!finalMarked.ok || finalMarked.transitionPending?.length || finalBenchmarkPrice == null) {
+    return simulationFailure(finalMarked.failure || {
+      code: finalMarked.transitionPending?.length
+        ? "corporate_action_transition_unresolved"
+        : "missing_benchmark_price",
+      date: finalDate,
+      actions: finalMarked.transitionPending || []
+    }, {
+      equity,
+      portfolioReturns,
+      benchmarkReturns,
+      coverage,
+      quarterContributions,
+      corporateActionTransitionSessions
     });
   }
   quarterContributions.push(
@@ -550,6 +730,7 @@ export function simulateDriftedPortfolio({
     benchmarkReturns,
     coverage,
     quarterContributions,
+    corporateActionTransitionSessions,
     reconciliation: {
       headlineTotalReturn,
       attributionTotalReturn,

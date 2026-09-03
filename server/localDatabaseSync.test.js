@@ -17,7 +17,7 @@ const fixtureTimestamp = "2026-09-01T00:00:00.000Z";
 
 function strictBacktestPayload({
   marker = "bundled-strict",
-  methodVersion = "manager13f-drifted-total-return-v8",
+  methodVersion = "manager13f-drifted-total-return-v9",
   securityMasterVersion = "openfigi-sec-v2-current"
 } = {}) {
   return {
@@ -30,7 +30,7 @@ function strictBacktestPayload({
 
 function proxyBacktestPayload({
   marker = "bundled-proxy",
-  strictMethodVersion = "manager13f-drifted-total-return-v8",
+  strictMethodVersion = "manager13f-drifted-total-return-v9",
   methodVersion = "manager13f-public-holdings-proxy-v1",
   securityMasterVersion = "openfigi-sec-v2-current"
 } = {}) {

@@ -248,6 +248,7 @@ db.exec(`
   INSERT OR IGNORE INTO cache_revisions (scope, revision) VALUES
     ('dashboard_snapshots', 0),
     ('guru_snapshots', 0),
+    ('guru_exposure_snapshots', 0),
     ('guru_assets', 0),
     ('guru_backtests', 0),
     ('guru_backtest_proxies', 0),
@@ -279,6 +280,19 @@ db.exec(`
   CREATE TRIGGER IF NOT EXISTS guru_snapshots_revision_delete
   AFTER DELETE ON guru_snapshots BEGIN
     UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_snapshots';
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS guru_exposure_snapshots_revision_insert
+  AFTER INSERT ON guru_exposure_snapshots BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_exposure_snapshots';
+  END;
+  CREATE TRIGGER IF NOT EXISTS guru_exposure_snapshots_revision_update
+  AFTER UPDATE ON guru_exposure_snapshots BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_exposure_snapshots';
+  END;
+  CREATE TRIGGER IF NOT EXISTS guru_exposure_snapshots_revision_delete
+  AFTER DELETE ON guru_exposure_snapshots BEGIN
+    UPDATE cache_revisions SET revision = revision + 1 WHERE scope = 'guru_exposure_snapshots';
   END;
 
   CREATE TRIGGER IF NOT EXISTS guru_assets_revision_insert
@@ -420,6 +434,10 @@ export function readGuruDashboardVersion() {
     readCacheRevision("guru_snapshots"),
     readCacheRevision("guru_assets")
   ].join(":");
+}
+
+export function readGuruExposureVersion() {
+  return String(readCacheRevision("guru_exposure_snapshots"));
 }
 
 function syncBundledValuationSnapshots() {
@@ -1639,15 +1657,194 @@ export function writeGuruBacktestProxy(guruId, years, payload) {
   );
 }
 
+function atomicBacktestItemKey(item, label) {
+  const guruId = String(item?.guruId || "").trim();
+  const years = Number(item?.years);
+  if (!guruId || !Number.isInteger(years) || years < 0 || years > 40) {
+    throw new Error(`${label} requires a valid guru id and backtest window key.`);
+  }
+  return `${guruId}:${years}`;
+}
+
+function assertAtomicBacktestWindow(item, label) {
+  const years = Number(item.years);
+  const expectedMethodYears = years === 0 ? "all" : String(years);
+  if (String(item?.payload?.method?.years) !== expectedMethodYears) {
+    throw new Error(
+      `${label} ${item.guruId}:${years} method.years does not match its cache key.`
+    );
+  }
+  if (String(item?.payload?.guru?.id || "").trim() !== item.guruId) {
+    throw new Error(`${label} ${item.guruId}:${years} payload guru id does not match.`);
+  }
+}
+
+function assertAtomicProxyLinkage(strictItem, proxyItem) {
+  if (!strictItem) {
+    throw new Error(
+      `Atomic proxy ${proxyItem.guruId}:${proxyItem.years} requires its strict failure in the same bundle.`
+    );
+  }
+  const strictPayload = strictItem.payload;
+  const proxyPayload = proxyItem.payload;
+  if (strictPayload?.status !== "insufficient_data") {
+    throw new Error("An atomic proxy must link to a strict insufficient_data artifact.");
+  }
+  if (!strictPayload?.generatedAt ||
+      proxyPayload?.generatedAt !== strictPayload.generatedAt ||
+      proxyPayload?.proxy?.strictFailureGeneratedAt !== strictPayload.generatedAt) {
+    throw new Error("Atomic strict/proxy artifacts must share an exact generation link.");
+  }
+  if (proxyPayload?.method?.version !== strictPayload?.method?.version ||
+      proxyPayload?.method?.securityMasterVersion !==
+        strictPayload?.method?.securityMasterVersion ||
+      String(proxyPayload?.method?.years) !== String(strictPayload?.method?.years)) {
+    throw new Error("Atomic strict/proxy method identities must match.");
+  }
+}
+
+function validateAtomicBacktestArtifacts(backtests, backtestProxies) {
+  const strictByKey = new Map();
+  for (const item of backtests) {
+    const key = atomicBacktestItemKey(item, "Atomic strict backtest");
+    if (strictByKey.has(key)) {
+      throw new Error(`Duplicate atomic strict backtest: ${key}.`);
+    }
+    assertAtomicBacktestWindow(item, "Atomic strict backtest");
+    strictByKey.set(key, item);
+  }
+
+  const proxyKeys = new Set();
+  for (const item of backtestProxies) {
+    const key = atomicBacktestItemKey(item, "Atomic proxy backtest");
+    if (proxyKeys.has(key)) {
+      throw new Error(`Duplicate atomic proxy backtest: ${key}.`);
+    }
+    proxyKeys.add(key);
+    assertAtomicBacktestWindow(item, "Atomic proxy backtest");
+    assertAtomicProxyLinkage(strictByKey.get(key), item);
+  }
+}
+
+function exactAtomicGuruIds(value, label, { allowEmpty = false } = {}) {
+  if (!Array.isArray(value) || (!allowEmpty && !value.length)) {
+    throw new Error(`${label} must be a non-empty array.`);
+  }
+  const ids = value.map((id) => String(id || "").trim());
+  if (ids.some((id) => !id) || new Set(ids).size !== ids.length) {
+    throw new Error(`${label} must contain unique non-empty Guru ids.`);
+  }
+  return ids;
+}
+
+function sameOrderedIds(left, right) {
+  return left.length === right.length &&
+    left.every((id, index) => id === right[index]);
+}
+
+function normalizeAtomicExpectedState(value) {
+  if (value === undefined || value === null) return null;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Atomic expectedState must be an object.");
+  }
+  const dashboardVersion = String(value.dashboardVersion || "").trim();
+  const exposureVersion = String(value.exposureVersion || "").trim();
+  const curveVersions = value.curveVersions;
+  if (!dashboardVersion || !exposureVersion || !curveVersions ||
+      typeof curveVersions !== "object" ||
+      Array.isArray(curveVersions) || !Object.keys(curveVersions).length) {
+    throw new Error(
+      "Atomic expectedState requires dashboard, exposure, and curve revision tokens."
+    );
+  }
+  const normalizedCurveVersions = {};
+  for (const [rawYears, rawVersion] of Object.entries(curveVersions)) {
+    const years = Number(rawYears);
+    const version = String(rawVersion || "").trim();
+    if (!Number.isInteger(years) || years < 0 || years > 40 || !version) {
+      throw new Error("Atomic expectedState contains an invalid curve revision token.");
+    }
+    normalizedCurveVersions[years] = version;
+  }
+  return {
+    dashboardVersion,
+    exposureVersion,
+    curveVersions: normalizedCurveVersions,
+    dashboardGuruIds: exactAtomicGuruIds(
+      value.dashboardGuruIds,
+      "Atomic expected dashboard Guru ids",
+      { allowEmpty: true }
+    ),
+    exactCatalogIds: exactAtomicGuruIds(
+      value.exactCatalogIds,
+      "Atomic exact catalog Guru ids"
+    )
+  };
+}
+
+function assertAtomicExpectedState(expectedState, {
+  dashboard,
+  latestDashboard,
+  guruSnapshots
+}) {
+  if (readGuruDashboardVersion() !== expectedState.dashboardVersion) {
+    throw new Error("Atomic dashboard revision precondition changed before commit.");
+  }
+  if (readGuruExposureVersion() !== expectedState.exposureVersion) {
+    throw new Error("Atomic exposure revision precondition changed before commit.");
+  }
+  for (const [years, version] of Object.entries(expectedState.curveVersions)) {
+    if (readGuruBacktestVersion(Number(years)) !== version) {
+      throw new Error(`${years}Y atomic curve revision precondition changed before commit.`);
+    }
+  }
+
+  const currentIds = exactAtomicGuruIds(
+    Array.isArray(latestDashboard?.gurus)
+      ? latestDashboard.gurus.map((guru) => guru?.id)
+      : [],
+    "Current atomic dashboard Guru ids",
+    { allowEmpty: true }
+  );
+  if (!sameOrderedIds(currentIds, expectedState.dashboardGuruIds)) {
+    throw new Error("Atomic dashboard Guru identities changed before commit.");
+  }
+  const templateIds = exactAtomicGuruIds(
+    Array.isArray(dashboard?.gurus) ? dashboard.gurus.map((guru) => guru?.id) : [],
+    "Atomic dashboard template Guru ids"
+  );
+  if (!sameOrderedIds(templateIds, expectedState.exactCatalogIds)) {
+    throw new Error("Atomic dashboard template does not match the exact catalog order.");
+  }
+  const stagedIds = exactAtomicGuruIds(
+    guruSnapshots.map((item) => item?.guruId),
+    "Atomic staged Guru ids",
+    { allowEmpty: true }
+  );
+  const current = new Set(currentIds);
+  if (stagedIds.some((id) => current.has(id))) {
+    throw new Error("Atomic catalog bootstrap targets already exist in the current dashboard.");
+  }
+  const finalIds = new Set([...currentIds, ...stagedIds]);
+  if (finalIds.size !== expectedState.exactCatalogIds.length ||
+      expectedState.exactCatalogIds.some((id) => !finalIds.has(id))) {
+    throw new Error("Atomic dashboard inputs do not cover the exact catalog.");
+  }
+}
+
 export function writeGuru13fRefreshBundle({
   dashboard,
   guruSnapshots = [],
   exposureSnapshots = [],
-  backtests = []
+  backtests = [],
+  backtestProxies = [],
+  expectedState
 } = {}) {
   if (!dashboard || typeof dashboard !== "object") {
     throw new Error("A dashboard payload is required for an atomic 13F refresh commit.");
   }
+  validateAtomicBacktestArtifacts(backtests, backtestProxies);
+  const normalizedExpectedState = normalizeAtomicExpectedState(expectedState);
 
   db.exec("BEGIN IMMEDIATE");
   try {
@@ -1657,6 +1854,13 @@ export function writeGuru13fRefreshBundle({
     // this job was working. Preserve every non-selected manager from the latest
     // committed dashboard and apply only this bundle's manager patches.
     const latestDashboard = readDashboardSnapshot();
+    if (normalizedExpectedState) {
+      assertAtomicExpectedState(normalizedExpectedState, {
+        dashboard,
+        latestDashboard,
+        guruSnapshots
+      });
+    }
     const stagedGuruIds = new Set(guruSnapshots.map((item) => item.guruId));
     const templateGurus = Array.isArray(dashboard.gurus) ? dashboard.gurus : [];
     const latestGurus = Array.isArray(latestDashboard?.gurus)
@@ -1692,12 +1896,28 @@ export function writeGuru13fRefreshBundle({
     for (const item of backtests) {
       writeGuruBacktest(item.guruId, item.years, item.payload);
     }
+    for (const item of backtestProxies) {
+      writeGuruBacktestProxy(item.guruId, item.years, item.payload);
+      assertAtomicProxyLinkage(
+        {
+          guruId: item.guruId,
+          years: item.years,
+          payload: readGuruBacktest(item.guruId, item.years)
+        },
+        {
+          guruId: item.guruId,
+          years: item.years,
+          payload: readGuruBacktestProxy(item.guruId, item.years)
+        }
+      );
+    }
     const committedDashboard = {
-      ...dashboard,
-      ...(latestDashboard || {}),
+      ...(normalizedExpectedState ? (latestDashboard || {}) : dashboard),
+      ...(normalizedExpectedState ? dashboard : (latestDashboard || {})),
       generatedAt: new Date().toISOString(),
-      gurus: orderedIds
+      gurus: (normalizedExpectedState?.exactCatalogIds || orderedIds)
         .map((guruId) => {
+          if (normalizedExpectedState) return templateById.get(guruId);
           if (stagedGuruIds.has(guruId)) return stagedById.get(guruId);
           return latestById.get(guruId) || templateById.get(guruId);
         })
@@ -1709,6 +1929,7 @@ export function writeGuru13fRefreshBundle({
       gurus: guruSnapshots.length,
       exposures: exposureSnapshots.length,
       backtests: backtests.length,
+      backtestProxies: backtestProxies.length,
       dashboardGeneratedAt: committedDashboard.generatedAt
     };
   } catch (error) {

@@ -21,7 +21,7 @@ const nginxPath = path.resolve(
   "00-deny-public-internal.conf"
 );
 
-test("postdeploy repair remains synchronous and marks success only through the 36/36 gate", () => {
+test("postdeploy repair remains synchronous and marks success only through the dynamic full-curve gate", () => {
   const source = fs.readFileSync(hookPath, "utf8");
   assert.match(source, /umask 077/);
   assert.match(source, /GURU_PRICE_REPAIR_ENCRYPTED_SNAPSHOT_ID/);

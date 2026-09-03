@@ -21,6 +21,14 @@ const {
   manager13fProxyMethodVersion,
   manager13fSecurityMasterVersion
 } = await import("./backtest.js");
+const { gurus } = await import("./gurus.js");
+
+const expectedManagerCount = gurus.filter((guru) =>
+  guru.type === "manager13f" && !guru.disableSimulation
+).length;
+const requiredCurveWindows = Object.freeze([5, 10]);
+const expectedCurveRows = expectedManagerCount * requiredCurveWindows.length;
+const finalFixtureManagerId = `manager-${expectedManagerCount}`;
 
 after(() => fs.rmSync(temporaryDirectory, { recursive: true, force: true }));
 
@@ -45,6 +53,8 @@ const now = Date.parse("2026-09-01T12:00:00.000Z");
 
 function healthyFixture() {
   const latestAt = new Date(now - 60 * 60 * 1000).toISOString();
+  const proxyReadyPerWindow = Math.min(3, expectedManagerCount);
+  const strictReadyPerWindow = expectedManagerCount - proxyReadyPerWindow;
   return {
     database: {
       path: "/private/health.sqlite",
@@ -75,16 +85,28 @@ function healthyFixture() {
     },
     guruCurves: {
       ok: true,
-      expectedManagers: 18,
-      managerCount: 18,
-      expectedRows: 36,
-      displayable: 36,
-      strictReady: 30,
-      proxyReady: 6,
+      expectedManagers: expectedManagerCount,
+      managerCount: expectedManagerCount,
+      expectedRows: expectedCurveRows,
+      displayable: expectedCurveRows,
+      strictReady: strictReadyPerWindow * requiredCurveWindows.length,
+      proxyReady: proxyReadyPerWindow * requiredCurveWindows.length,
       failures: [],
       byWindow: {
-        "5Y": { expected: 18, strictReady: 15, proxyReady: 3, failures: 0, displayable: 18 },
-        "10Y": { expected: 18, strictReady: 15, proxyReady: 3, failures: 0, displayable: 18 }
+        "5Y": {
+          expected: expectedManagerCount,
+          strictReady: strictReadyPerWindow,
+          proxyReady: proxyReadyPerWindow,
+          failures: 0,
+          displayable: expectedManagerCount
+        },
+        "10Y": {
+          expected: expectedManagerCount,
+          strictReady: strictReadyPerWindow,
+          proxyReady: proxyReadyPerWindow,
+          failures: 0,
+          displayable: expectedManagerCount
+        }
       }
     },
     now
@@ -123,7 +145,7 @@ test("public health fails when only one manager has a displayable curve", () => 
   const module = health.modules.find((entry) => entry.id === "guru_backtests");
   assert.equal(health.ok, false);
   assert.equal(module.state, "failed");
-  assert.match(module.message, /2\/36/);
+  assert.match(module.message, new RegExp(`2/${expectedCurveRows}`));
   assert.equal(module.details.curveAvailability.failures.length, 1);
 });
 
@@ -264,8 +286,8 @@ test("Guru curve failure diagnostics are bounded and sanitize malformed codes an
   );
 });
 
-test("Guru curve health re-audits all 18 managers across 5Y and 10Y using current identities", () => {
-  const managers = Array.from({ length: 18 }, (_, index) => ({
+test("Guru curve health re-audits every configured manager across 5Y and 10Y using current identities", () => {
+  const managers = Array.from({ length: expectedManagerCount }, (_, index) => ({
     id: `manager-${index + 1}`,
     name: `Manager ${index + 1}`
   }));
@@ -274,7 +296,7 @@ test("Guru curve health re-audits all 18 managers across 5Y and 10Y using curren
     status: "ready",
     window: { start: "2021-09-02", end: "2026-08-31" },
     method: {
-      version: guruId === "manager-18" && years === 10
+      version: guruId === finalFixtureManagerId && years === 10
         ? "obsolete-method"
         : manager13fBacktestMethodVersion,
       securityMasterVersion: manager13fSecurityMasterVersion,
@@ -296,7 +318,7 @@ test("Guru curve health re-audits all 18 managers across 5Y and 10Y using curren
     now
   });
   assert.equal(failed.ok, false);
-  assert.equal(failed.displayable, 35);
+  assert.equal(failed.displayable, expectedCurveRows - 1);
   assert.equal(failed.failures.length, 1);
   assert.equal(failed.failures[0].reason, "strict_method_or_security_master_incompatible");
   assert.equal(failed.methodVersion, manager13fBacktestMethodVersion);
@@ -316,12 +338,12 @@ test("Guru curve health re-audits all 18 managers across 5Y and 10Y using curren
     now
   });
   assert.equal(healthy.ok, true);
-  assert.equal(healthy.displayable, 36);
+  assert.equal(healthy.displayable, expectedCurveRows);
   assert.equal(healthy.failures.length, 0);
 });
 
 test("a current proxy cannot make health green when its linked strict failure has an obsolete identity", () => {
-  const managers = Array.from({ length: 18 }, (_, index) => ({
+  const managers = Array.from({ length: expectedManagerCount }, (_, index) => ({
     id: `manager-${index + 1}`,
     name: `Manager ${index + 1}`
   }));
@@ -331,7 +353,7 @@ test("a current proxy cannot make health green when its linked strict failure ha
     status: "insufficient_data",
     window: { start: "2021-09-02", end: "2026-08-31" },
     method: {
-      version: guruId === "manager-18" && years === 10
+      version: guruId === finalFixtureManagerId && years === 10
         ? "obsolete-method"
         : manager13fBacktestMethodVersion,
       securityMasterVersion: manager13fSecurityMasterVersion,
@@ -369,23 +391,23 @@ test("a current proxy cannot make health green when its linked strict failure ha
     now
   });
   assert.equal(summary.ok, false);
-  assert.equal(summary.displayable, 35);
+  assert.equal(summary.displayable, expectedCurveRows - 1);
   assert.deepEqual(summary.failures.map((row) => [row.guruId, row.years, row.reason]), [[
-    "manager-18",
+    finalFixtureManagerId,
     10,
     "strict_method_or_security_master_incompatible"
   ]]);
 });
 
-test("35 stale curves and one fresh curve cannot pass the production health gate", () => {
-    const managers = Array.from({ length: 18 }, (_, index) => ({
+test("all but one stale curve cannot pass the production health gate", () => {
+    const managers = Array.from({ length: expectedManagerCount }, (_, index) => ({
       id: `manager-${index + 1}`,
       name: `Manager ${index + 1}`
     }));
     const staleGeneratedAt = new Date(now - 49 * 60 * 60 * 1000).toISOString();
     const freshGeneratedAt = new Date(now - 60 * 60 * 1000).toISOString();
     const strict = (guruId, years) => ({
-      generatedAt: guruId === "manager-18" && years === 10
+      generatedAt: guruId === finalFixtureManagerId && years === 10
         ? freshGeneratedAt
         : staleGeneratedAt,
       status: "ready",
@@ -415,14 +437,14 @@ test("35 stale curves and one fresh curve cannot pass the production health gate
     });
     assert.equal(summary.ok, false);
     assert.equal(summary.displayable, 1);
-    assert.equal(summary.failures.length, 35);
+    assert.equal(summary.failures.length, expectedCurveRows - 1);
     assert.equal(summary.failures.every((row) => row.reason === "strict_curve_stale"), true);
     assert.equal(summary.readiness.refreshIntervalHours, 24);
     assert.equal(summary.readiness.maxGeneratedAgeHours, 48);
 });
 
 test("the health readiness window remains green between the 20h serving TTL and 24h scheduler", () => {
-  const managers = Array.from({ length: 18 }, (_, index) => ({
+  const managers = Array.from({ length: expectedManagerCount }, (_, index) => ({
     id: `manager-${index + 1}`,
     name: `Manager ${index + 1}`
   }));
@@ -451,11 +473,11 @@ test("the health readiness window remains green between the 20h serving TTL and 
     now
   });
   assert.equal(summary.ok, true);
-  assert.equal(summary.displayable, 36);
+  assert.equal(summary.displayable, expectedCurveRows);
 });
 
 test("a valid seven-day shared vendor lag remains inside the curve freshness contract", () => {
-  const managers = Array.from({ length: 18 }, (_, index) => ({
+  const managers = Array.from({ length: expectedManagerCount }, (_, index) => ({
     id: `manager-${index + 1}`,
     name: `Manager ${index + 1}`
   }));
@@ -491,7 +513,7 @@ test("a valid seven-day shared vendor lag remains inside the curve freshness con
     now
   });
   assert.equal(withinBound.ok, true);
-  assert.equal(withinBound.displayable, 36);
+  assert.equal(withinBound.displayable, expectedCurveRows);
   assert.equal(withinBound.readiness.maxEndAgeHours, 12 * 24);
 
   const beyondBound = summarizeGuruCurveAvailability({

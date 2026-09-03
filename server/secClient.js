@@ -2,8 +2,13 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { XMLParser } from "fast-xml-parser";
-import { tickerForHolding } from "./cusipOverrides.js";
+import {
+  priceSymbolResolutionForHolding,
+  tickerForHolding
+} from "./cusipOverrides.js";
 import { gurus } from "./gurus.js";
+import { canonicalGuruAvatarUrl } from "./guruAvatarCatalog.js";
+import { manager13fHoldingPublicTradingAnnotation } from "./backtestReplicability.js";
 import { loadPriceSeries, nearestPoint } from "./marketData.js";
 import {
   assessCorporateActionAdjustedShareChange,
@@ -241,6 +246,25 @@ async function getFilingIndex(cik, accessionNumber) {
   return getJson(`${archiveBaseUrl(cik, accessionNumber)}/index.json`);
 }
 
+export function informationTableFileNamesFromSubmission(submissionText) {
+  const documents = String(submissionText || "").match(/<DOCUMENT>[\s\S]*?<\/DOCUMENT>/gi) || [];
+  const names = [];
+  for (const document of documents) {
+    const type = document.match(/^[ \t]*<TYPE>[ \t]*([^\r\n<]+)/im)?.[1]
+      ?.trim()
+      .toUpperCase();
+    if (type !== "INFORMATION TABLE") continue;
+    const name = document.match(/^[ \t]*<FILENAME>[ \t]*([^\r\n<]+)/im)?.[1]?.trim() || "";
+    // SEC attachment names are directory-local. Fail closed on path syntax so
+    // a malformed submission cannot redirect the archive request elsewhere.
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*\.xml$/i.test(name) || name.includes("..")) {
+      throw new Error("13F submission contains an invalid information-table attachment name.");
+    }
+    names.push(name);
+  }
+  return [...new Set(names)];
+}
+
 async function getFilingDocument(cik, filing, preferredName) {
   const baseUrl = archiveBaseUrl(cik, filing.accessionNumber);
   const index = await getFilingIndex(cik, filing.accessionNumber);
@@ -256,10 +280,32 @@ async function getFilingDocument(cik, filing, preferredName) {
   const nonPrimaryXml = xmlCandidates.filter(
     (item) => item !== filing.primaryDocument && item !== primaryBaseName
   );
+  const indexedInformationTable = nonPrimaryXml.find(
+    (item) => /infotable|information.?table|form13f|q[1-4]/i.test(item)
+  );
+
+  let submissionInformationTable = "";
+  if (is13f && !preferredFromIndex && !indexedInformationTable) {
+    // A small number of SEC archive index.json responses omit a real
+    // information-table attachment even though the raw submission and HTML
+    // index expose it (for example Trian 2024 Q1). Read the typed attachment
+    // manifest rather than silently parsing the cover sheet as an empty book.
+    const submissionName = `${filing.accessionNumber}.txt`;
+    const submissionText = await getText(`${baseUrl}/${submissionName}`);
+    const informationTables = informationTableFileNamesFromSubmission(submissionText);
+    if (informationTables.length !== 1) {
+      throw new Error(
+        `Expected one 13F information-table attachment for ${filing.accessionNumber}; ` +
+        `found ${informationTables.length}.`
+      );
+    }
+    submissionInformationTable = informationTables[0];
+  }
 
   const name =
     preferredFromIndex ||
-    (is13f ? nonPrimaryXml.find((item) => /infotable|13f|q[1-4]/i.test(item)) : "") ||
+    (is13f ? indexedInformationTable : "") ||
+    submissionInformationTable ||
     (is13f ? nonPrimaryXml[0] : "") ||
     xmlCandidates.find((item) => /infotable/i.test(item)) ||
     xmlCandidates.find((item) => /form13f/i.test(item)) ||
@@ -285,7 +331,7 @@ function cleanIssuer(value) {
     .trim();
 }
 
-function normalize13fHolding(raw) {
+function normalize13fHolding(raw, context = {}) {
   const issuer = cleanIssuer(raw.nameOfIssuer);
   const title = stringValue(raw.titleOfClass);
   const cusip = stringValue(raw.cusip).toUpperCase();
@@ -295,10 +341,27 @@ function normalize13fHolding(raw) {
   const reportedValue = numberValue(raw.value);
   const putCall = stringValue(raw.putCall).toUpperCase();
 
+  const resolutionInput = { issuer, title, cusip, ...context };
+  const ticker = tickerForHolding(resolutionInput);
+  const priceResolution = priceSymbolResolutionForHolding(resolutionInput);
   return {
     id: `${cusip || issuer}-${putCall || "COMMON"}`,
     issuer,
-    ticker: tickerForHolding({ issuer, cusip }),
+    ticker,
+    ...(priceResolution.status === "resolved" &&
+      priceResolution.symbol !== ticker
+      ? {
+          priceSymbol: priceResolution.symbol,
+          priceSymbolAudit: {
+            displayTicker: ticker,
+            source: priceResolution.source,
+            rule: priceResolution.rule,
+            provider: priceResolution.provider,
+            tickerChangeEffectiveDate: priceResolution.tickerChangeEffectiveDate,
+            sources: priceResolution.sources
+          }
+        }
+      : {}),
     title,
     cusip,
     putCall,
@@ -321,7 +384,7 @@ function median(values) {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-function infer13fValueScale(holdings) {
+export function infer13fValueScale(holdings) {
   const ratios = holdings
     .filter(isCommonValueScaleCandidate)
     .map((holding) => holding.value / holding.shares)
@@ -333,7 +396,7 @@ function infer13fValueScale(holdings) {
   return middleRatio > 0 && middleRatio < 5 ? 1000 : 1;
 }
 
-function normalize13fValueScale(holdings) {
+export function normalize13fValueScale(holdings) {
   const scale = infer13fValueScale(holdings);
   return holdings.map((holding) => ({
     ...holding,
@@ -342,7 +405,7 @@ function normalize13fValueScale(holdings) {
   }));
 }
 
-function aggregate13fHoldings(holdings) {
+export function aggregate13fHoldings(holdings) {
   const byId = new Map();
   for (const holding of holdings) {
     if (!holding.issuer) continue;
@@ -357,6 +420,8 @@ function aggregate13fHoldings(holdings) {
       ...current,
       issuer: current.issuer || holding.issuer,
       ticker: current.ticker || holding.ticker,
+      priceSymbol: current.priceSymbol || holding.priceSymbol,
+      priceSymbolAudit: current.priceSymbolAudit || holding.priceSymbolAudit,
       title: current.title || holding.title,
       cusip: current.cusip || holding.cusip,
       putCall: current.putCall || holding.putCall,
@@ -371,12 +436,14 @@ function aggregate13fHoldings(holdings) {
   return [...byId.values()];
 }
 
-function parse13fInfoTable(xmlText) {
+export function parse13fInfoTable(xmlText, context = {}) {
   const parsed = xmlParser.parse(xmlText);
   const root = parsed.informationTable || parsed.XML?.informationTable || parsed;
   const tables = toArray(root.infoTable);
 
-  return aggregate13fHoldings(normalize13fValueScale(tables.map(normalize13fHolding)))
+  return aggregate13fHoldings(normalize13fValueScale(
+    tables.map((raw) => normalize13fHolding(raw, context))
+  ))
     .map((holding) => ({
       ...holding,
       holdingBucket: is13fOptionHolding(holding)
@@ -453,7 +520,11 @@ async function load13fQuarterSnapshot(guru, group) {
     components.push({
       filing: { ...filing, filerCik },
       doc,
-      holdings: parse13fInfoTable(doc.text)
+      holdings: parse13fInfoTable(doc.text, {
+        guruId: guru.id,
+        reportDate: group.reportDate,
+        accessionNumber: filing.accessionNumber
+      })
     });
   }
   if (!components.length) throw new Error(`No usable 13F components for ${group?.reportDate || "quarter"}`);
@@ -650,8 +721,12 @@ function summarize13fExposureQuarter(guru, filing, filingUrl, holdings, previous
     top10Weight: concentration.top10Weight,
     topHoldingWeight: concentration.topHoldingWeight,
     concentrationHhi: concentration.hhi,
-    topHoldings: concentration.topHoldings,
-    largestChanges: movement.largestChanges,
+    topHoldings: concentration.topHoldings.map((holding) =>
+      withManager13fPublicTradingStatus(guru.id, filing.reportDate, holding)
+    ),
+    largestChanges: movement.largestChanges.map((holding) =>
+      withManager13fPublicTradingStatus(guru.id, filing.reportDate, holding)
+    ),
     filing: decorateFiling(guru, filing, filingUrl)
   };
 }
@@ -1599,17 +1674,69 @@ function isMarketTicker(value) {
   return /^[A-Z][A-Z0-9.-]{0,9}$/.test(ticker);
 }
 
-function resolvedTickerForItem(item) {
+function resolvedTickerForItem(item, context = {}) {
+  const mapped = tickerForHolding({
+    issuer: item?.issuer,
+    title: item?.title,
+    cusip: item?.cusip,
+    ...context
+  });
+  if (mapped && isMarketTicker(mapped)) return mapped;
   const current = stringValue(item?.ticker).toUpperCase();
   if (isMarketTicker(current)) return current;
-  const mapped = tickerForHolding({ issuer: item?.issuer, cusip: item?.cusip });
-  return mapped && isMarketTicker(mapped) ? mapped : "";
+  return "";
 }
 
-function withResolvedTicker(item) {
+function withResolvedTicker(item, context = {}) {
   if (!item || typeof item !== "object") return item;
-  const ticker = resolvedTickerForItem(item);
-  return ticker ? { ...item, ticker } : item;
+  const ticker = resolvedTickerForItem(item, context);
+  if (!ticker) return item;
+  const resolution = priceSymbolResolutionForHolding({
+    issuer: item.issuer,
+    title: item.title,
+    cusip: item.cusip,
+    ...context
+  });
+  const existingPriceSymbol = stringValue(item.priceSymbol).toUpperCase();
+  const priceSymbol = resolution.status === "resolved" &&
+      isMarketTicker(resolution.symbol)
+    ? resolution.symbol
+    : isMarketTicker(existingPriceSymbol)
+      ? existingPriceSymbol
+      : ticker;
+  return {
+    ...item,
+    ticker,
+    ...(priceSymbol !== ticker
+      ? {
+          priceSymbol,
+          priceSymbolAudit: item.priceSymbolAudit || {
+            displayTicker: ticker,
+            source: resolution.source,
+            rule: resolution.rule,
+            provider: resolution.provider,
+            tickerChangeEffectiveDate: resolution.tickerChangeEffectiveDate,
+            sources: resolution.sources
+          }
+        }
+      : {})
+  };
+}
+
+export function withManager13fPublicTradingStatus(guruId, reportDate, item) {
+  const resolved = withResolvedTicker(item, { guruId, reportDate });
+  const publicTrading = manager13fHoldingPublicTradingAnnotation({
+    guruId,
+    reportDate,
+    holding: resolved
+  });
+  if (!publicTrading) return resolved;
+  return {
+    ...resolved,
+    publicTradingStatus: publicTrading.publicTradingStatus,
+    publicReplicable: false,
+    publicTrading
+  };
 }
 
 function guruDisclosureKind(guru) {
@@ -1643,11 +1770,12 @@ function simulationTagForGuru(guru) {
 
 function avatarPayloadForGuru(guruId) {
   const asset = readGuruAsset(guruId, "avatar");
-  if (!asset?.url) return {};
+  const avatarUrl = asset?.url || canonicalGuruAvatarUrl(guruId);
+  if (!avatarUrl) return {};
   return {
-    avatarUrl: asset.url,
-    avatarStyle: asset.style || "",
-    avatarGeneratedAt: asset.generatedAt || ""
+    avatarUrl,
+    ...(asset?.style ? { avatarStyle: asset.style } : {}),
+    ...(asset?.generatedAt ? { avatarGeneratedAt: asset.generatedAt } : {})
   };
 }
 
@@ -1673,10 +1801,15 @@ function withConfiguredGuruMetadata(guruPayload) {
 function withResolvedGuruTickers(guruPayload) {
   const withMetadata = withConfiguredGuruMetadata(guruPayload);
   if (!withMetadata || withMetadata.type !== "manager13f") return withMetadata;
+  const reportDate = String(withMetadata.summary?.reportDate || "");
   return {
     ...withMetadata,
-    holdings: (withMetadata.holdings || []).map(withResolvedTicker),
-    activity: (withMetadata.activity || []).map(withResolvedTicker)
+    holdings: (withMetadata.holdings || []).map((holding) =>
+      withManager13fPublicTradingStatus(withMetadata.id, reportDate, holding)
+    ),
+    activity: (withMetadata.activity || []).map((holding) =>
+      withManager13fPublicTradingStatus(withMetadata.id, reportDate, holding)
+    )
   };
 }
 

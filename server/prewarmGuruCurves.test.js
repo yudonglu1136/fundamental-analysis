@@ -5,6 +5,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { gurus } from "./gurus.js";
 
 const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const prewarmScript = path.join(repoRoot, "scripts", "prewarm-guru-curves.mjs");
@@ -12,6 +13,11 @@ const generation = "a".repeat(64);
 const strictMethodVersion = "strict-v1";
 const proxyMethodVersion = "proxy-v1";
 const securityMasterVersion = "security-v1";
+const expectedManagerIds = gurus.filter((guru) =>
+  guru.type === "manager13f" && !guru.disableSimulation
+).map((guru) => guru.id);
+const expectedManagerCount = expectedManagerIds.length;
+const expectedCurveRows = expectedManagerCount * 2;
 
 function listen(server) {
   return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server)));
@@ -73,10 +79,10 @@ test("prewarm uses the explicit loopback client instead of fetch's hidden header
 });
 
 function managerResults(years, refreshGeneration, generatedAt = new Date().toISOString()) {
-  return Array.from({ length: 18 }, (_, index) => {
+  return Array.from({ length: expectedManagerCount }, (_, index) => {
     const proxy = index >= 8;
     return {
-      guruId: `guru-${index + 1}`,
+      guruId: expectedManagerIds[index],
       guruType: "manager13f",
       disabled: false,
       years,
@@ -96,13 +102,18 @@ function healthPayload() {
     modules: [{
       id: "guru_backtests",
       details: {
-        curveAvailability: { ok: true, expectedRows: 36, displayable: 36, failures: [] }
+        curveAvailability: {
+          ok: true,
+          expectedRows: expectedCurveRows,
+          displayable: expectedCurveRows,
+          failures: []
+        }
       }
     }]
   };
 }
 
-test("prewarm writes its success marker only after both post-repair windows and 36/36", async (context) => {
+test("prewarm writes its success marker only after both windows cover every configured manager", async (context) => {
   const requestedGenerations = [];
   const server = await listen(http.createServer((request, response) => {
     const url = new URL(request.url, "http://127.0.0.1");
@@ -149,7 +160,7 @@ test("prewarm writes its success marker only after both post-repair windows and 
   assert.equal(result.code, 0, result.stderr || result.stdout);
   assert.deepEqual(requestedGenerations, [`${generation}:5`, `${generation}:10`]);
   assert.equal(JSON.parse(fs.readFileSync(output, "utf8")).pass, true);
-  assert.equal(JSON.parse(fs.readFileSync(marker, "utf8")).displayable, 36);
+  assert.equal(JSON.parse(fs.readFileSync(marker, "utf8")).displayable, expectedCurveRows);
 });
 
 test("prewarm retries a transient idle-status response timeout within the refresh deadline", async (context) => {
@@ -203,7 +214,7 @@ test("prewarm retries a transient idle-status response timeout within the refres
   assert.equal(result.code, 0, result.stderr || result.stdout);
   assert.ok(statusRequests >= 4, `expected retry plus window checks, received ${statusRequests}`);
   assert.equal(refreshRequests, 2);
-  assert.equal(JSON.parse(fs.readFileSync(marker, "utf8")).displayable, 36);
+  assert.equal(JSON.parse(fs.readFileSync(marker, "utf8")).displayable, expectedCurveRows);
 });
 
 test("prewarm fails immediately when idle-status returns non-2xx", async (context) => {
@@ -296,7 +307,7 @@ test("old green health cannot hide a missing current-generation manager result",
         startedAt: new Date().toISOString(),
         finishedAt: new Date().toISOString(),
         refreshGeneration,
-        results: managerResults(years, refreshGeneration).slice(0, 17)
+        results: managerResults(years, refreshGeneration).slice(0, expectedManagerCount - 1)
       }));
     } else {
       response.statusCode = 404;
@@ -316,7 +327,10 @@ test("old green health cannot hide a missing current-generation manager result",
 
   assert.notEqual(result.code, 0);
   assert.equal(fs.existsSync(marker), false);
-  assert.match(result.stderr, /17\/18 unique manager results/);
+  assert.match(
+    result.stderr,
+    new RegExp(`${expectedManagerCount - 1}/${expectedManagerCount} unique manager results`)
+  );
 });
 
 test("an already-running response cannot reuse an old green health state", async (context) => {
@@ -350,7 +364,7 @@ test("an already-running response cannot reuse an old green health state", async
   assert.match(result.stderr, /alreadyRunning=true/);
 });
 
-test("HTTP 503 health cannot write a marker even when Guru availability is 36/36", async (context) => {
+test("HTTP 503 health cannot write a marker even when every Guru curve is available", async (context) => {
   const server = await listen(http.createServer((request, response) => {
     const url = new URL(request.url, "http://127.0.0.1");
     response.setHeader("content-type", "application/json");

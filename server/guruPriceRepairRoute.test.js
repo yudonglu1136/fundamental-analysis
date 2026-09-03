@@ -9,6 +9,7 @@ import {
   guruPriceRepairRowsSha256
 } from "./guruPriceRepairArtifact.js";
 import { registerGuruPriceRepairRoute } from "./guruPriceRepairRoute.js";
+import { expectedGuruCurveRows } from "./gurus.js";
 import { requireLoopbackRequest } from "./internalCronAuth.js";
 
 const strictMethodVersion = "strict-v1";
@@ -24,7 +25,7 @@ const rows = [{
   volume: 100
 }];
 
-function fixture() {
+function fixture({ expectedStatus = "proxy_ready" } = {}) {
   const series = [{
     symbol: "TEST",
     startDate: rows[0].date,
@@ -39,13 +40,13 @@ function fixture() {
   const refreshTargets = [{
     guruId: "test-guru",
     years: 10,
-    expectedStatus: "proxy_ready"
+    expectedStatus
   }];
   const expectations = {
     strictMethodVersion,
     proxyMethodVersion,
     securityMasterVersion,
-    expectedDisplayableRows: 36
+    expectedDisplayableRows: expectedGuruCurveRows
   };
   const release = {
     releaseId: "guru-curves-test-release",
@@ -173,4 +174,59 @@ test("release identity mismatch fails before any database write", async (context
   );
   assert.equal(response.status, 409);
   assert.equal(writes, 0);
+});
+
+test("an undeclared proxy result fails the exact post-repair status gate", async (context) => {
+  const app = express();
+  registerGuruPriceRepairRoute(app, {
+    requireInternalCron: (_request, _response, next) => next(),
+    requireLoopbackRequest,
+    gurus: [{ id: "test-guru", type: "manager13f", disableSimulation: false }],
+    readPriceSeriesFromDb: () => rows,
+    writeAuditedPriceSeriesImportBatch: () => ({
+      batchAuditId: "price-series-batch-test",
+      audits: [],
+      groupCount: 0,
+      replayed: false
+    }),
+    loadGuruBacktest: async () => ({
+      status: "proxy_ready",
+      generatedAt: new Date().toISOString(),
+      method: {
+        version: strictMethodVersion,
+        securityMasterVersion,
+        years: 10
+      },
+      proxy: { methodVersion: proxyMethodVersion, securityMasterVersion }
+    }),
+    strictMethodVersion,
+    proxyMethodVersion,
+    securityMasterVersion
+  });
+  const server = await listen(http.createServer(app));
+  context.after(() => server.close());
+  const artifact = fixture({ expectedStatus: "ready" });
+  const response = await fetch(
+    `http://127.0.0.1:${server.address().port}/api/internal/release/guru-price-repair`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        artifact,
+        snapshotId: "snap-12345678",
+        snapshotState: "completed",
+        encryptedSnapshotId: "snap-87654321",
+        sourceVolumeId: "vol-12345678",
+        releaseId: "guru-curves-test-release",
+        operator: "release-test"
+      })
+    }
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 422);
+  assert.equal(body.pass, false);
+  assert.equal(body.refreshes[0].expectedStatus, "ready");
+  assert.equal(body.refreshes[0].actualStatus, "proxy_ready");
+  assert.equal(body.refreshes[0].pass, false);
 });

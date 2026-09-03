@@ -17,7 +17,11 @@ import {
 } from "./backtest.js";
 import { auditPublicHoldingsProxyPayload } from "./backtestProxyAudit.js";
 import { auditManager13fStrictReadyPayload } from "./backtestStrictAudit.js";
-import { gurus } from "./gurus.js";
+import {
+  enabledManager13fGurus,
+  expectedGuruCurveRows,
+  requiredGuruCurveWindows
+} from "./gurus.js";
 import { listAdminPortfolioUsers } from "./userPortfolioStore.js";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -434,7 +438,6 @@ function tableModuleHealth(spec, tables, now) {
   };
 }
 
-const requiredGuruCurveWindows = Object.freeze([5, 10]);
 const guruCurveRefreshIntervalHours = Math.max(
   1,
   Number(process.env.BACKTEST_AUTO_REFRESH_INTERVAL_HOURS || 24)
@@ -486,9 +489,7 @@ function backtestIdentityMatches(payload, years, { proxy = false } = {}) {
 }
 
 export function summarizeGuruCurveAvailability({
-  managers = gurus.filter((guru) =>
-    guru.type === "manager13f" && !guru.disableSimulation
-  ),
+  managers = enabledManager13fGurus,
   windows = requiredGuruCurveWindows,
   readStrict = readGuruBacktest,
   readProxy = readGuruBacktestProxy,
@@ -566,8 +567,10 @@ export function summarizeGuruCurveAvailability({
     }];
   }));
   return {
-    ok: managers.length === 18 && results.length === expectedRows && displayable === expectedRows,
-    expectedManagers: 18,
+    ok: managers.length === enabledManager13fGurus.length &&
+      results.length === expectedRows &&
+      displayable === expectedRows,
+    expectedManagers: enabledManager13fGurus.length,
     managerCount: managers.length,
     windows: [...windows],
     expectedRows,
@@ -596,7 +599,7 @@ function guruBacktestModuleHealth(spec, tables, curveAvailability, now) {
     };
   }
   const displayable = Number(curveAvailability?.displayable || 0);
-  const expected = Number(curveAvailability?.expectedRows || 36);
+  const expected = Number(curveAvailability?.expectedRows || expectedGuruCurveRows);
   return {
     ...module,
     state: "failed",
@@ -718,7 +721,7 @@ export function buildPublicSystemHealth({
   };
   const guruCurves = guruCurvesOverride || safeRead(
     "Guru curve availability",
-    { ok: false, expectedRows: 36, displayable: 0, failures: [] },
+    { ok: false, expectedRows: expectedGuruCurveRows, displayable: 0, failures: [] },
     () => summarizeGuruCurveAvailability({ now })
   );
   const modules = [

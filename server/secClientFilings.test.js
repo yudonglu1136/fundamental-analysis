@@ -15,7 +15,15 @@ process.env.SYNC_BUNDLED_DIVIDEND_CALENDAR = "false";
 process.env.SYNC_BUNDLED_PODCAST_INSIGHTS = "false";
 process.env.PRICE_CACHE_DIR = path.join(tempDir, "prices");
 
-const { filingsFromRecentShape } = await import("./secClient.js");
+const {
+  aggregate13fHoldings,
+  filingsFromRecentShape,
+  informationTableFileNamesFromSubmission,
+  infer13fValueScale,
+  normalize13fValueScale,
+  parse13fInfoTable,
+  withManager13fPublicTradingStatus
+} = await import("./secClient.js");
 const {
   filterLedgerAuditedPriceRepairPoints,
   readPriceSeriesFromDb,
@@ -31,6 +39,263 @@ const {
 
 after(() => {
   fs.rmSync(tempDir, { recursive: true, force: true });
+});
+
+function informationTableXml(rows) {
+  const tags = (row) => `
+    <infoTable>
+      <nameOfIssuer>${row.issuer}</nameOfIssuer>
+      <titleOfClass>${row.title}</titleOfClass>
+      <cusip>${row.cusip}</cusip>
+      <value>${row.value}</value>
+      <shrsOrPrnAmt>
+        <sshPrnamt>${row.shares}</sshPrnamt>
+        <sshPrnamtType>${row.shareType || "SH"}</sshPrnamtType>
+      </shrsOrPrnAmt>
+      ${row.putCall ? `<putCall>${row.putCall}</putCall>` : ""}
+    </infoTable>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+    <informationTable>${rows.map(tags).join("")}</informationTable>`;
+}
+
+test("raw SEC submission recovers a typed 13F information table omitted by index.json", () => {
+  const submission = `
+<DOCUMENT>
+<TYPE>13F-HR
+<FILENAME>primary_doc.xml
+</DOCUMENT>
+<DOCUMENT>
+<TYPE>INFORMATION TABLE
+<FILENAME>Q12024-tfmlp-info-table.xml
+</DOCUMENT>`;
+
+  assert.deepEqual(
+    informationTableFileNamesFromSubmission(submission),
+    ["Q12024-tfmlp-info-table.xml"]
+  );
+  assert.throws(
+    () => informationTableFileNamesFromSubmission(`
+      <DOCUMENT>
+      <TYPE>INFORMATION TABLE
+      <FILENAME>../outside.xml
+      </DOCUMENT>`),
+    /invalid information-table attachment name/i
+  );
+});
+
+test("Baupost-style legacy 13F $000 values are scaled once before aggregation", () => {
+  const legacyRows = [
+    ["ALPHA CORP", "111111111", 12_500, 10_000_000],
+    ["BRAVO CORP", "222222222", 20_000, 8_000_000],
+    ["CHARLIE CORP", "333333333", 9_000, 6_000_000],
+    ["DELTA CORP", "444444444", 15_000, 5_000_000],
+    ["ECHO CORP", "555555555", 8_000, 4_000_000]
+  ].map(([issuer, cusip, value, shares]) => ({
+    id: `${cusip}-COMMON`,
+    issuer,
+    title: "COM",
+    cusip,
+    putCall: "",
+    reportedValue: value,
+    value,
+    shares,
+    shareType: "SH"
+  }));
+
+  assert.equal(infer13fValueScale(legacyRows), 1000);
+  const normalized = normalize13fValueScale(legacyRows);
+  assert.deepEqual(normalized.map((row) => row.valueScale), [1000, 1000, 1000, 1000, 1000]);
+  assert.equal(normalized[0].reportedValue, 12_500);
+  assert.equal(normalized[0].value, 12_500_000);
+
+  const parsed = parse13fInfoTable(informationTableXml(legacyRows));
+  assert.equal(parsed.length, 5);
+  assert.equal(parsed[0].reportedValue, 12_500);
+  assert.equal(parsed[0].value, 12_500_000);
+  assert.equal(parsed[0].valueScale, 1000);
+  assert.equal(parsed[0].holdingBucket, "common_long");
+});
+
+test("Trian's latest JHG row keeps its value but is marked non-public for downstream UI", () => {
+  const holding = withManager13fPublicTradingStatus(
+    "nelson-peltz",
+    "2026-06-30",
+    {
+      issuer: "Janus Henderson Group plc",
+      cusip: "G4474Y214",
+      ticker: "JHG",
+      value: 1_000_000
+    }
+  );
+
+  assert.equal(holding.value, 1_000_000);
+  assert.equal(holding.publicTradingStatus, "private_after_reported_quarter");
+  assert.equal(holding.publicReplicable, false);
+  assert.equal(holding.publicTrading.syntheticPriceUsed, false);
+  assert.match(holding.publicTrading.reasonEn, /Public trading ended/);
+  assert.match(holding.publicTrading.reasonZh, /公开交易/);
+
+  assert.deepEqual(
+    withManager13fPublicTradingStatus("george-soros", "2026-06-30", {
+      cusip: "G4474Y214",
+      ticker: "JHG"
+    }),
+    { cusip: "G4474Y214", ticker: "JHG" }
+  );
+});
+
+test("Appaloosa-style PUT rows remain outside the common-long book", () => {
+  const parsed = parse13fInfoTable(informationTableXml([
+    {
+      issuer: "APPLE INC",
+      title: "COM",
+      cusip: "037833100",
+      value: 125_000_000,
+      shares: 500_000
+    },
+    {
+      issuer: "APPLE INC",
+      title: "COM",
+      cusip: "037833100",
+      value: 80_000_000,
+      shares: 320_000,
+      putCall: "PUT"
+    }
+  ]));
+
+  assert.equal(parsed.length, 2);
+  assert.deepEqual(parsed.map((row) => row.id), ["037833100-COMMON", "037833100-PUT"]);
+  assert.equal(parsed.find((row) => row.putCall === "").holdingBucket, "common_long");
+  assert.equal(parsed.find((row) => row.putCall === "PUT").holdingBucket, "option");
+});
+
+test("Third Point-style non-common claims do not enter common longs", () => {
+  const parsed = parse13fInfoTable(informationTableXml([
+    {
+      issuer: "ORDINARY ISSUER",
+      title: "COM",
+      cusip: "100000001",
+      value: 50_000_000,
+      shares: 1_000_000
+    },
+    {
+      issuer: "DEBT ISSUER",
+      title: "NOTE 3.750% 5/0",
+      cusip: "100000002",
+      value: 40_000_000,
+      shares: 40_000
+    },
+    {
+      issuer: "PREFERRED ISSUER",
+      title: "6.875% CON PFD A",
+      cusip: "100000003",
+      value: 30_000_000,
+      shares: 300_000
+    },
+    {
+      issuer: "WARRANT ISSUER",
+      title: "*W EXP 01/16/2030",
+      cusip: "100000004",
+      value: 20_000_000,
+      shares: 2_000_000
+    },
+    {
+      issuer: "PRINCIPAL ISSUER",
+      title: "NOTE",
+      cusip: "100000005",
+      value: 10_000_000,
+      shares: 10_000,
+      shareType: "PRN"
+    }
+  ]));
+
+  assert.deepEqual(
+    parsed.filter((row) => row.holdingBucket === "common_long").map((row) => row.cusip),
+    ["100000001"]
+  );
+  assert.deepEqual(
+    parsed.filter((row) => row.holdingBucket === "other_reported").map((row) => row.cusip),
+    ["100000002", "100000003", "100000004", "100000005"]
+  );
+});
+
+test("duplicate common-long CUSIP rows aggregate value and shares exactly once", () => {
+  const parsed = parse13fInfoTable(informationTableXml([
+    {
+      issuer: "DUPLICATE CORP",
+      title: "COM",
+      cusip: "200000001",
+      value: 15_000_000,
+      shares: 300_000
+    },
+    {
+      issuer: "DUPLICATE CORP",
+      title: "COM",
+      cusip: "200000001",
+      value: 10_000_000,
+      shares: 200_000
+    }
+  ]));
+
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0].value, 25_000_000);
+  assert.equal(parsed[0].reportedValue, 25_000_000);
+  assert.equal(parsed[0].shares, 500_000);
+  assert.equal(parsed[0].sourceRows, 2);
+  assert.equal(parsed[0].holdingBucket, "common_long");
+
+  const direct = aggregate13fHoldings([
+    { id: "200000001-COMMON", issuer: "DUPLICATE CORP", value: 2, reportedValue: 2, shares: 1 },
+    { id: "200000001-COMMON", issuer: "DUPLICATE CORP", value: 3, reportedValue: 3, shares: 4 }
+  ]);
+  assert.deepEqual(
+    direct.map(({ value, reportedValue, shares, sourceRows }) => ({ value, reportedValue, shares, sourceRows })),
+    [{ value: 5, reportedValue: 5, shares: 5, sourceRows: 2 }]
+  );
+});
+
+test("Pabrai parser preserves FCAU display identity and audited STLA price alias", () => {
+  const [holding] = parse13fInfoTable(informationTableXml([{
+    issuer: "FIAT CHRYSLER AUTOMOBILES N",
+    title: "COM",
+    cusip: "N31738102",
+    value: 100_000_000,
+    shares: 8_000_000
+  }]), {
+    guruId: "mohnish-pabrai",
+    reportDate: "2019-12-31",
+    accessionNumber: "0001549575-20-000002"
+  });
+
+  assert.equal(holding.ticker, "FCAU");
+  assert.equal(holding.priceSymbol, "STLA");
+  assert.equal(holding.priceSymbolAudit.displayTicker, "FCAU");
+  assert.equal(holding.priceSymbolAudit.provider, "Sharadar SEP");
+  assert.equal(holding.priceSymbolAudit.tickerChangeEffectiveDate, "2021-01-19");
+});
+
+test("Pabrai Berkshire malformed CUSIP repair is exact-filing scoped", () => {
+  const xml = informationTableXml([{
+    issuer: "BERKSHIRE HATHAWAY INC DEL",
+    title: "CL B",
+    cusip: "84670702",
+    value: 6_848_000,
+    shares: 47_000
+  }]);
+  const exact = parse13fInfoTable(xml, {
+    guruId: "mohnish-pabrai",
+    reportDate: "2016-09-30",
+    accessionNumber: "0001549575-16-000021"
+  });
+  const wrongAccession = parse13fInfoTable(xml, {
+    guruId: "mohnish-pabrai",
+    reportDate: "2016-09-30",
+    accessionNumber: "0001549575-16-000020"
+  });
+
+  assert.equal(exact[0].ticker, "BRK.B");
+  assert.equal(wrongAccession[0].ticker, "");
+  assert.equal(wrongAccession[0].priceSymbol, undefined);
 });
 
 test("SEC recent filing normalization retains acceptanceDateTime and amendment state", () => {
@@ -526,6 +791,93 @@ test("a fresh provider internal-session gap is retried once with provider rows o
       readPriceSeriesFromDb("RETRYFIXTURE", "2024-01-03", "2024-01-03")[0].source,
       "yahoo"
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a transient Yahoo transport failure is retried without weakening adjusted-price checks", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    if (fetchCalls === 1) {
+      return {
+        ok: false,
+        status: 503,
+        headers: { get: (name) => name.toLowerCase() === "retry-after" ? "0" : null }
+      };
+    }
+    return {
+      ok: true,
+      json: async () => ({
+        chart: {
+          result: [{
+            timestamp: [1704153600, 1704240000, 1704326400],
+            indicators: {
+              quote: [{ close: [101, 102, 103] }],
+              adjclose: [{ adjclose: [101, 102, 103] }]
+            }
+          }]
+        }
+      })
+    };
+  };
+
+  try {
+    const series = await loadPriceSeries("TRANSPORTRETRYFIXTURE", {
+      start: "2024-01-02",
+      end: "2024-01-04",
+      requireAdjusted: true,
+      expectedTradingDates: ["2024-01-02", "2024-01-03", "2024-01-04"]
+    });
+    assert.equal(fetchCalls, 2);
+    assert.equal(series.providerAttempts, 2);
+    assert.equal(series.source, "yahoo+sqlite-merged");
+    assert.equal(series.returnBasis, "total_return_adjusted_close");
+    assert.equal(series.failure, undefined);
+    assert.deepEqual(series.points.map((point) => point.date), [
+      "2024-01-02",
+      "2024-01-03",
+      "2024-01-04"
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("exhausted Yahoo transport retries still fail closed with auditable attempt metadata", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return {
+      ok: false,
+      status: 503,
+      headers: { get: (name) => name.toLowerCase() === "retry-after" ? "0" : null }
+    };
+  };
+
+  try {
+    const series = await loadPriceSeries("TRANSPORTFAILFIXTURE", {
+      start: "2024-01-02",
+      end: "2024-01-04",
+      requireAdjusted: true,
+      expectedTradingDates: ["2024-01-02", "2024-01-03", "2024-01-04"]
+    });
+    assert.equal(fetchCalls, 3);
+    assert.equal(series.providerAttempts, 3);
+    assert.equal(series.source, "unavailable");
+    assert.equal(series.returnBasis, "unavailable");
+    assert.deepEqual(series.points, []);
+    assert.equal(series.failure.code, "adjusted_close_unavailable");
+    assert.deepEqual(series.providerFailure, {
+      code: "yahoo_transport_unavailable",
+      status: 503,
+      retryable: true,
+      attempts: 3,
+      message: "Yahoo chart failed 503 for TRANSPORTFAILFIXTURE"
+    });
   } finally {
     globalThis.fetch = originalFetch;
   }

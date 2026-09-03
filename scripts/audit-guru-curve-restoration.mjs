@@ -17,13 +17,17 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { DatabaseSync } from "node:sqlite";
+import {
+  enabledManager13fGurus,
+  requiredGuruCurveWindows
+} from "../server/gurus.js";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const scriptsDir = path.dirname(scriptPath);
 const repoRoot = path.dirname(scriptsDir);
 const defaultSourceDatabase = path.join(repoRoot, "server", "data", "guru-analysis.sqlite");
-const expectedManagerCount = 18;
-const defaultWindows = Object.freeze([5, 10]);
+const expectedManagerCount = enabledManager13fGurus.length;
+const defaultWindows = requiredGuruCurveWindows;
 const reportBaseName = "guru-curve-restoration-acceptance";
 
 function optionValue(argv, index, name) {
@@ -597,10 +601,7 @@ async function runWorker({ workDb, result, windows: windowOption }) {
   process.env.GURU_BACKTEST_AUTO_REFRESH = "false";
   process.env.BACKTEST_STALE_BACKGROUND_REFRESH = "false";
 
-  const { gurus } = await import("../server/gurus.js");
-  const managers = gurus.filter((guru) =>
-    guru.type === "manager13f" && !guru.disableSimulation
-  );
+  const { enabledManager13fGurus: managers, gurus } = await import("../server/gurus.js");
   const disabledManagers = gurus.filter((guru) =>
     guru.type === "manager13f" && guru.disableSimulation
   );
@@ -710,7 +711,7 @@ Options:
   --keep-work-db        Keep the isolated DB and price cache under the system temp directory
   --help                Show this help
 
-The default run recomputes 5Y and 10Y for all 18 enabled manager13f profiles.
+The default run recomputes 5Y and 10Y for all ${expectedManagerCount} enabled manager13f profiles.
 Reports default to the system temp directory. The source database is never
 passed to application code and is never mutated.`;
 }

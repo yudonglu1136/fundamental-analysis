@@ -90,6 +90,57 @@ test("disjoint holdings require prices only during their active intervals", () =
   );
 });
 
+test("cash acquisition bounds required prices before the effective date", () => {
+  const q2 = candidate("2022-06-30", "2022-08-15", ["CHNG"]);
+  q2.selectedPriceRequirements = [{
+    ticker: "CHNG",
+    endExclusive: "2022-10-03"
+  }];
+  const q3 = candidate("2022-09-30", "2022-11-15", ["AAPL"]);
+  const window = manager13fActivePriceWindows([q2, q3], "2023-02-15").get("CHNG");
+
+  assert.deepEqual(window, {
+    start: "2022-08-15",
+    end: "2022-10-03",
+    intervals: [{
+      start: "2022-08-15",
+      end: "2022-10-03",
+      endExclusive: "2022-10-03"
+    }]
+  });
+  assert.deepEqual(activeTradingDatesForPriceWindow([
+    "2022-08-15",
+    "2022-09-30",
+    "2022-10-03",
+    "2022-10-04"
+  ], window), ["2022-08-15", "2022-09-30"]);
+});
+
+test("stock conversion splits source and successor price requirements", () => {
+  const q3 = candidate("2024-09-30", "2024-11-15", ["ARCH", "CNR"]);
+  q3.selectedPriceRequirements = [
+    { ticker: "ARCH", endExclusive: "2025-01-14" },
+    { ticker: "CNR", startInclusive: "2025-01-15" }
+  ];
+  const q4 = candidate("2024-12-31", "2025-02-14", ["CNR"]);
+  const windows = manager13fActivePriceWindows([q3, q4], "2025-05-15");
+
+  assert.deepEqual(windows.get("ARCH"), {
+    start: "2024-11-15",
+    end: "2025-01-14",
+    intervals: [{
+      start: "2024-11-15",
+      end: "2025-01-14",
+      endExclusive: "2025-01-14"
+    }]
+  });
+  assert.deepEqual(windows.get("CNR"), {
+    start: "2025-01-15",
+    end: "2025-05-15",
+    intervals: [{ start: "2025-01-15", end: "2025-05-15" }]
+  });
+});
+
 test("a benchmark held by the manager cannot replace its full-window price series", () => {
   assert.deepEqual(
     holdingPriceLoadUniverse(["AAPL", "SPY", "spy", "AAPL", "MSFT"], "SPY"),

@@ -11,6 +11,37 @@ function finitePositive(value) {
   return Number.isFinite(parsed) && parsed > 0;
 }
 
+function holdingPriceSymbol(holding) {
+  return String(holding?.priceSymbol || holding?.ticker || "")
+    .trim()
+    .toUpperCase();
+}
+
+function holdingHasAuditedValue(holding, date, priceMaps) {
+  const action = holding?.corporateAction;
+  const effectiveDate = String(action?.effectiveDate || "");
+  const cashConversionDate = String(
+    action?.publicTradingEndExclusive || effectiveDate
+  );
+  if (action?.considerationType === "cash" &&
+      cashConversionDate && date >= cashConversionDate) {
+    return finitePositive(action?.terminalCashEntitlementPerShare);
+  }
+  if (effectiveDate && date >= effectiveDate) {
+    if (action?.considerationType === "stock") {
+      const firstTradingDate = String(
+        action?.successorFirstTradingDate || effectiveDate
+      );
+      if (date < firstTradingDate) return true;
+      const successorTicker = String(action?.successorTicker || "")
+        .trim()
+        .toUpperCase();
+      return finitePositive(priceMaps?.get(successorTicker)?.get(date));
+    }
+  }
+  return finitePositive(priceMaps?.get(holdingPriceSymbol(holding))?.get(date));
+}
+
 function reportedBookWeight(holding) {
   const value = Number(holding?.reportedBookWeight ?? holding?.weight);
   return Number.isFinite(value) && value > 0 ? value : 0;
@@ -92,10 +123,12 @@ function consolidateEligibleHoldings(holdings) {
   const byTicker = new Map();
   for (const holding of holdings) {
     const ticker = String(holding?.ticker || "").trim().toUpperCase();
+    const priceSymbol = holdingPriceSymbol(holding);
     if (!ticker) continue;
-    const current = byTicker.get(ticker);
+    const key = `${ticker}\u0000${priceSymbol}`;
+    const current = byTicker.get(key);
     const bookWeight = reportedBookWeight(holding);
-    byTicker.set(ticker, current
+    byTicker.set(key, current
       ? {
           ...current,
           value: Number(current.value || 0) + Number(holding.value || 0),
@@ -105,6 +138,7 @@ function consolidateEligibleHoldings(holdings) {
       : {
           ...holding,
           ticker,
+          ...(priceSymbol !== ticker ? { priceSymbol } : {}),
           reportedBookWeight: bookWeight,
           weight: bookWeight
         });
@@ -151,9 +185,8 @@ export function buildPublicHoldingsProxy({
     const eligible = [];
     const excluded = [];
     for (const holding of rebalance.weights || []) {
-      const priceMap = priceMaps?.get(holding.ticker);
       const complete = requiredDates.length > 0 && requiredDates.every((date) =>
-        finitePositive(priceMap?.get(date))
+        holdingHasAuditedValue(holding, date, priceMaps)
       );
       (complete ? eligible : excluded).push(holding);
     }

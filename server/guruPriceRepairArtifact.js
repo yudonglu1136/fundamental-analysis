@@ -1,8 +1,14 @@
 import crypto from "node:crypto";
 
+import {
+  expectedGuruCurveRows,
+  requiredGuruCurveWindows
+} from "./gurus.js";
+
 const maximumSeries = 64;
 const maximumRowsPerSeries = 5000;
 const maximumTotalRows = 20_000;
+const requiredGuruCurveWindowSet = new Set(requiredGuruCurveWindows);
 
 function stableJson(value) {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
@@ -215,8 +221,10 @@ export function validateGuruPriceRepairArtifact(payload, { knownGuruIds } = {}) 
     identities.add(identity);
   }
   if (!Array.isArray(payload.refreshTargets) || !payload.refreshTargets.length ||
-      payload.refreshTargets.length > 36) {
-    throw new Error("Guru price-repair artifact must identify 1-36 refresh targets.");
+      payload.refreshTargets.length > expectedGuruCurveRows) {
+    throw new Error(
+      `Guru price-repair artifact must identify 1-${expectedGuruCurveRows} refresh targets.`
+    );
   }
   const refreshTargets = payload.refreshTargets.map(canonicalRefreshTarget);
   const targetIdentities = new Set();
@@ -224,8 +232,11 @@ export function validateGuruPriceRepairArtifact(payload, { knownGuruIds } = {}) 
     if (!target.guruId || (known && !known.has(target.guruId))) {
       throw new Error(`Guru price-repair artifact has an unknown target: ${target.guruId || "<empty>"}.`);
     }
-    if (![5, 10].includes(target.years)) {
-      throw new Error(`Guru price-repair target ${target.guruId} must use a 5Y or 10Y window.`);
+    if (!requiredGuruCurveWindowSet.has(target.years)) {
+      throw new Error(
+        `Guru price-repair target ${target.guruId} must use one of the required windows: ` +
+        `${requiredGuruCurveWindows.map((years) => `${years}Y`).join(" or ")}.`
+      );
     }
     if (!["ready", "proxy_ready"].includes(target.expectedStatus)) {
       throw new Error(`Guru price-repair target ${target.guruId} has an invalid expected status.`);
@@ -244,7 +255,8 @@ export function validateGuruPriceRepairArtifact(payload, { knownGuruIds } = {}) 
   }
   const expectations = canonicalExpectations(payload.expectations);
   if (!expectations.strictMethodVersion || !expectations.proxyMethodVersion ||
-      !expectations.securityMasterVersion || expectations.expectedDisplayableRows !== 36) {
+      !expectations.securityMasterVersion ||
+      expectations.expectedDisplayableRows !== expectedGuruCurveRows) {
     throw new Error("Guru price-repair artifact has invalid release expectations.");
   }
   const release = canonicalRelease(payload.release);

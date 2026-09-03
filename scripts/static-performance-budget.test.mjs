@@ -5,6 +5,8 @@ import test from 'node:test';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
+import { gurus } from '../server/gurus.js';
+
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const indexPath = path.join(rootDir, 'web', 'index.html');
 const vercelPath = path.join(rootDir, 'vercel.json');
@@ -156,7 +158,12 @@ test('UI avatar payload stays within the 144px and 1 MiB performance budgets', (
     .readdirSync(avatarDir)
     .filter((name) => name.endsWith('.png'))
     .sort();
-  assert.equal(avatarFiles.length, 28, 'expected the 28 UI guru avatars');
+  const expectedAvatarFiles = gurus.map((guru) => `${guru.id}.png`).sort();
+  assert.deepEqual(
+    avatarFiles,
+    expectedAvatarFiles,
+    'every configured guru must have exactly one matching UI avatar',
+  );
 
   let totalBytes = 0;
   for (const fileName of avatarFiles) {

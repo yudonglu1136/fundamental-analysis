@@ -19,6 +19,21 @@ import {
   holdingPriceLoadUniverse,
   manager13fActivePriceWindows
 } from "./backtestSchedule.js";
+import {
+  activeCashAcquisition,
+  activeStockConversion,
+  compactCashAcquisitionResolution,
+  compactStockConversionResolution,
+  manager13fCorporateActionCatalogVersion,
+  preExecutionCashAcquisition,
+  preExecutionStockConversion
+} from "./corporateActions.js";
+import {
+  knownNonPublicExecutionLimitation,
+  knownPrivateRolloverTransition,
+  manager13fReplicabilityPolicies,
+  summarizeManager13fReplicability
+} from "./backtestReplicability.js";
 import { holdingResolutionVersion } from "./cusipOverrides.js";
 import {
   is13fCommonLongHolding,
@@ -37,7 +52,7 @@ import {
 const defaultYears = "all";
 const allYearsCacheKey = 0;
 const maxHoldingsPerFiling = Number(process.env.BACKTEST_MAX_HOLDINGS || 60);
-export const manager13fBacktestMethodVersion = "manager13f-drifted-total-return-v8";
+export const manager13fBacktestMethodVersion = "manager13f-drifted-total-return-v9";
 export const manager13fProxyMethodVersion = "manager13f-public-holdings-proxy-v1";
 export const manager13fSecurityMasterVersion = holdingResolutionVersion();
 export const disclosureBacktestMethodVersion = "stock-act-disclosure-fail-closed-v1";
@@ -143,6 +158,183 @@ export function expectedGuruBacktestStatus(guru) {
   return guru?.type === "manager13f" && guru.disableSimulation
     ? "unsupported"
     : "ready";
+}
+
+function exactKnownNonPublicReplicability(guru, payload, policy) {
+  const replicability = payload?.publicReplicability;
+  const replicabilityCoverageFloor = Number(
+    replicability?.minimumExecutionCoverage
+  );
+  const quarters = Array.isArray(replicability?.affectedQuarters)
+    ? replicability.affectedQuarters
+    : [];
+  if (!policy || quarters.length !== 1 ||
+      replicability?.status !== "strict_unavailable" ||
+      replicability?.code !== "reported_holding_private_before_execution" ||
+      replicability?.guruId !== guru.id ||
+      replicability?.syntheticPriceUsed !== false ||
+      replicability?.proxyOnlyWhenSeparatelyLabelled !== true ||
+      !Number.isFinite(replicabilityCoverageFloor) ||
+      replicabilityCoverageFloor < minExecutionCoverage) {
+    return null;
+  }
+  const [quarter] = quarters;
+  const quarterCoverageFloor = Number(quarter?.minimumExecutionCoverage);
+  const affectedHoldings = Array.isArray(quarter?.holdings) ? quarter.holdings : [];
+  if (quarter?.reportDate !== policy.reportDate ||
+      quarter?.quarterLabel !== policy.quarterLabel ||
+      quarter?.strictGateSatisfied !== false ||
+      !Number.isFinite(quarterCoverageFloor) ||
+      quarterCoverageFloor < minExecutionCoverage ||
+      affectedHoldings.length !== 1 ||
+      affectedHoldings.some((holding) =>
+        !policy.cusips.includes(String(holding?.cusip || "")
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g, "")) ||
+        holding?.ticker !== policy.ticker ||
+        holding?.code !== policy.code ||
+        holding?.publicTradingStatus !== "private_before_execution" ||
+        holding?.syntheticPriceUsed !== false
+      )) {
+    return null;
+  }
+  return quarter;
+}
+
+/**
+ * Verify the one audited structural exception that may commit a complete 13F
+ * data bundle as degraded. This never turns the strict refresh into success:
+ * the strict artifact remains `insufficient_data` in `guru_backtests`, while
+ * the independently audited public-sleeve curve remains `proxy_ready` in
+ * `guru_backtest_proxies` and links to the exact strict-failure generation.
+ */
+export function exactKnownNonPublicProxyRefreshAllowed(
+  guru,
+  strictPayload,
+  proxyPayload
+) {
+  if (guru?.type !== "manager13f" || guru?.id !== "nelson-peltz") return false;
+  if (strictPayload?.status !== "insufficient_data" ||
+      proxyPayload?.status !== "proxy_ready") return false;
+  if (strictPayload?.guru?.id !== guru.id ||
+      strictPayload?.guru?.type !== "manager13f" ||
+      proxyPayload?.guru?.id !== guru.id ||
+      proxyPayload?.guru?.type !== "manager13f") return false;
+  if (strictPayload?.method?.version !== manager13fBacktestMethodVersion ||
+      strictPayload?.method?.securityMasterVersion !== manager13fSecurityMasterVersion ||
+      proxyPayload?.method?.version !== manager13fBacktestMethodVersion ||
+      proxyPayload?.method?.securityMasterVersion !== manager13fSecurityMasterVersion ||
+      strictPayload?.method?.corporateActionCatalogVersion !==
+        manager13fCorporateActionCatalogVersion ||
+      proxyPayload?.method?.corporateActionCatalogVersion !==
+        manager13fCorporateActionCatalogVersion ||
+      String(strictPayload?.method?.years) !== String(proxyPayload?.method?.years)) {
+    return false;
+  }
+  const strictCoverageFloor = Number(
+    strictPayload?.method?.minimumExecutionCoverage
+  );
+  if (!Number.isFinite(strictCoverageFloor) ||
+      strictCoverageFloor < minExecutionCoverage ||
+      strictPayload?.dataQuality?.failurePolicy !== "fail_closed" ||
+      !Array.isArray(strictPayload?.equity) ||
+      strictPayload.equity.length !== 0) {
+    return false;
+  }
+  if (proxyPayload?.method?.variant !== manager13fProxyMethodVersion ||
+      proxyPayload?.proxy?.kind !== "public_holdings_proxy" ||
+      proxyPayload?.proxy?.methodVersion !== manager13fProxyMethodVersion ||
+      proxyPayload?.proxy?.securityMasterVersion !== manager13fSecurityMasterVersion) {
+    return false;
+  }
+  if (!strictPayload?.generatedAt ||
+      proxyPayload?.generatedAt !== strictPayload.generatedAt ||
+      proxyPayload?.proxy?.strictFailureGeneratedAt !== strictPayload.generatedAt) {
+    return false;
+  }
+  const proxyStrictCoverageFloor = Number(
+    proxyPayload?.dataQuality?.strictMinimumExecutionCoverage
+  );
+  if (proxyPayload?.dataQuality?.strictBacktestStatus !== "insufficient_data" ||
+      proxyPayload?.dataQuality?.strictFailureCode !== "execution_coverage_below_minimum" ||
+      Number(proxyPayload?.dataQuality?.strictFailingRebalances) !== 1 ||
+      !Number.isFinite(proxyStrictCoverageFloor) ||
+      proxyStrictCoverageFloor < minExecutionCoverage) {
+    return false;
+  }
+
+  const policy = manager13fReplicabilityPolicies().find((row) =>
+    row.guruId === guru.id && row.ticker === "JHG"
+  );
+  const strictQuarter = exactKnownNonPublicReplicability(
+    guru,
+    strictPayload,
+    policy
+  );
+  const proxyQuarter = exactKnownNonPublicReplicability(
+    guru,
+    proxyPayload,
+    policy
+  );
+  if (!strictQuarter || !proxyQuarter) return false;
+
+  const coverageFailures = Array.isArray(strictPayload?.dataQuality?.coverageFailures)
+    ? strictPayload.dataQuality.coverageFailures
+    : [];
+  if (coverageFailures.length !== 1) return false;
+  const [failure] = coverageFailures;
+  const failureCoverage = Number(failure?.coveragePct);
+  const strictQuarterCoverage = Number(strictQuarter.coveragePct);
+  const proxyQuarterCoverage = Number(proxyQuarter.coveragePct);
+  const unpricedPositions = Array.isArray(failure?.unpricedPositions)
+    ? failure.unpricedPositions
+    : [];
+  if (!Number.isFinite(failureCoverage) ||
+      !Number.isFinite(strictQuarterCoverage) ||
+      !Number.isFinite(proxyQuarterCoverage) ||
+      strictQuarter.executionDate !== proxyQuarter.executionDate ||
+      Math.abs(strictQuarterCoverage - proxyQuarterCoverage) > 1e-12 ||
+      failure?.reportDate !== policy.reportDate ||
+      failure?.executionDate !== strictQuarter.executionDate ||
+      Math.abs(failureCoverage - strictQuarterCoverage) > 1e-12 ||
+      unpricedPositions.length !== 1 ||
+      unpricedPositions.some((holding) =>
+        !policy.cusips.includes(String(holding?.cusip || "")
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g, "")) ||
+        holding?.ticker !== policy.ticker ||
+        holding?.reason !== "reported_security_private_before_execution" ||
+        holding?.executionLimitation?.code !== policy.code ||
+        holding?.executionLimitation?.reportDate !== policy.reportDate ||
+        holding?.executionLimitation?.ticker !== policy.ticker ||
+        !policy.cusips.includes(String(
+          holding?.executionLimitation?.cusip || ""
+        ).toUpperCase().replace(/[^A-Z0-9]/g, "")) ||
+        holding?.executionLimitation?.publicTradingStatus !== "private_before_execution" ||
+        holding?.executionLimitation?.syntheticPriceUsed !== false
+      )) {
+    return false;
+  }
+
+  const proxyAffectedRebalance = (proxyPayload.rebalances || []).find(
+    (rebalance) => rebalance?.reportDate === policy.reportDate
+  );
+  const proxyExcludedPositions = Array.isArray(proxyAffectedRebalance?.unpricedPositions)
+    ? proxyAffectedRebalance.unpricedPositions
+    : [];
+  if (!proxyExcludedPositions.some((holding) =>
+    policy.cusips.includes(String(holding?.cusip || "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")) &&
+    holding?.ticker === policy.ticker
+  )) {
+    return false;
+  }
+
+  return auditPublicHoldingsProxyPayload(proxyPayload, {
+    minimumCoverage: minProxyCoverage,
+    minimumPositions: minProxyPositions
+  }).ok && Array.isArray(proxyPayload?.equity) && proxyPayload.equity.length >= 2;
 }
 
 export function assertGuruBacktestRefreshSucceeded(guru, payload, phase = "refresh") {
@@ -530,6 +722,17 @@ function isTicker(value) {
   return /^[A-Z][A-Z0-9.-]{0,9}$/.test(String(value || "").trim().toUpperCase());
 }
 
+// A filing's point-in-time ticker is part of the user-facing holding identity.
+// Licensed vendors may key the same continuous adjusted-price series under a
+// later canonical symbol (for example historical FCAU under Sharadar STLA).
+// Keep those concepts separate throughout the simulation.
+function holdingPriceSymbol(holding) {
+  const symbol = String(holding?.priceSymbol || holding?.ticker || "")
+    .trim()
+    .toUpperCase();
+  return isTicker(symbol) ? symbol : "";
+}
+
 function nextTradingDate(spyPoints, date) {
   return spyPoints.find((point) => point.date >= date)?.date || null;
 }
@@ -652,6 +855,8 @@ function sampleEquity(points, maxPoints = responseMaxEquityPoints) {
 function compactContribution(row) {
   return {
     ticker: row.ticker,
+    ...(row.priceSymbol ? { priceSymbol: row.priceSymbol } : {}),
+    ...(row.priceSymbolAudit ? { priceSymbolAudit: row.priceSymbolAudit } : {}),
     issuer: row.issuer,
     sector: row.sector,
     industry: row.industry,
@@ -738,6 +943,10 @@ export function compactBacktestPayload(
   { maxPoints = responseMaxEquityPoints, includeAttribution = false } = {}
 ) {
   if (!payload || !Array.isArray(payload.equity)) return payload;
+  // A public-sleeve proxy must remain independently auditable after response
+  // compaction. Its compact rebalances omit weights and attribution, but keep
+  // the per-quarter coverage/position fields consumed by the proxy audit.
+  const retainAuditableProxyRebalances = payload.status === "proxy_ready";
   const priorSampling = payload.equitySampling || {};
   const priorSourcePoints = Number(priorSampling.sourcePoints);
   const sourcePoints = priorSampling.sampled &&
@@ -753,7 +962,9 @@ export function compactBacktestPayload(
     detail: {
       attribution: includeAttribution ? "full" : "compact"
     },
-    rebalances: includeAttribution ? (payload.rebalances || []).map(compactRebalance) : [],
+    rebalances: includeAttribution || retainAuditableProxyRebalances
+      ? (payload.rebalances || []).map(compactRebalance)
+      : [],
     quarterContributions: (payload.quarterContributions || []).map((quarter) =>
       compactQuarterContribution(quarter, includeAttribution)
     ),
@@ -820,50 +1031,267 @@ function normalizeBacktestHistory(history) {
   return { history: normalizedHistory, excludedFilings };
 }
 
-function buildWeights(snapshot, priceMaps, executionDate) {
-  const selected = (snapshot.holdings || [])
+function selectedManager13fHoldings(snapshot) {
+  return (snapshot.holdings || [])
     .filter((holding) => is13fCommonLongHolding(holding) && holding.value > 0 && holding.shares > 0)
     .sort((a, b) => b.value - a.value)
     .slice(0, maxHoldingsPerFiling);
-  const selectedValue = selected.reduce((sum, holding) => sum + holding.value, 0);
-  const priced = selected.filter((holding) =>
-    isTicker(holding.ticker) && Number.isFinite(priceMaps.get(holding.ticker)?.get(executionDate))
-  );
-  const pricedValue = priced.reduce((sum, holding) => sum + holding.value, 0);
-  const weights = selectedValue
-    ? priced.map((holding) => ({
-      ticker: holding.ticker,
-      issuer: holding.issuer,
-      sector: holding.sector || null,
-      industry: holding.industry || null,
-      value: holding.value,
-      weight: holding.value / selectedValue
+}
+
+function corporateActionState(
+  holding,
+  snapshot,
+  executionDate,
+  { guruId = "" } = {}
+) {
+  const preExecutionCash = preExecutionCashAcquisition(holding, {
+    reportDate: snapshot?.reportDate,
+    executionDate
+  });
+  const preExecutionStock = preExecutionCash
+    ? null
+    : preExecutionStockConversion(holding, {
+        reportDate: snapshot?.reportDate,
+        executionDate
+      });
+  const activeCash = preExecutionCash || preExecutionStock
+    ? null
+    : activeCashAcquisition(holding, { executionDate });
+  const activeStock = preExecutionCash || preExecutionStock || activeCash
+    ? null
+    : activeStockConversion(holding, { executionDate });
+  const privateRollover = knownPrivateRolloverTransition({ guruId, holding });
+  const activePrivateRollover = privateRollover?.publicTradingEndExclusive > executionDate
+    ? privateRollover
+    : null;
+  const executionLimitation = knownNonPublicExecutionLimitation({
+    guruId,
+    reportDate: snapshot?.reportDate,
+    executionDate,
+    holding
+  });
+  return {
+    preExecutionCash,
+    preExecutionStock,
+    activeCash,
+    activeStock,
+    activePrivateRollover,
+    executionLimitation
+  };
+}
+
+export function manager13fPriceRequirements(
+  snapshot,
+  executionDate,
+  { guruId = "" } = {}
+) {
+  return selectedManager13fHoldings(snapshot)
+    .map((holding) => ({
+      holding,
+      ...corporateActionState(holding, snapshot, executionDate, { guruId })
     }))
+    .flatMap(({
+      holding,
+      preExecutionCash,
+      preExecutionStock,
+      activeCash,
+      activeStock,
+      activePrivateRollover,
+      executionLimitation
+    }) => {
+      if (executionLimitation) return [];
+      if (preExecutionCash) return [];
+      if (preExecutionStock) {
+        return [{
+          ticker: preExecutionStock.consideration.successorTicker
+        }];
+      }
+      const priceSymbol = holdingPriceSymbol(holding);
+      if (!priceSymbol) return [];
+      if (activeCash) {
+        return [{
+          ticker: priceSymbol,
+          endExclusive: activeCash.publicTradingEndExclusive || activeCash.effectiveDate
+        }];
+      }
+      if (activeStock) {
+        return [
+          { ticker: priceSymbol, endExclusive: activeStock.effectiveDate },
+          {
+            ticker: activeStock.consideration.successorTicker,
+            startInclusive: activeStock.successorFirstTradingDate
+          }
+        ];
+      }
+      if (activePrivateRollover) {
+        return [{
+          ticker: priceSymbol,
+          endExclusive: activePrivateRollover.publicTradingEndExclusive
+        }];
+      }
+      return [{ ticker: priceSymbol }];
+    });
+}
+
+export function buildManager13fWeights(
+  snapshot,
+  priceMaps,
+  executionDate,
+  { guruId = "" } = {}
+) {
+  const selected = selectedManager13fHoldings(snapshot);
+  const classified = selected.map((holding) => ({
+    holding,
+    ...corporateActionState(holding, snapshot, executionDate, { guruId })
+  }));
+  const selectedValue = selected.reduce((sum, holding) => sum + holding.value, 0);
+  const cashSettled = classified.filter(({ preExecutionCash }) => preExecutionCash);
+  const executableDisplayTicker = ({ holding, preExecutionStock }) =>
+    preExecutionStock?.consideration?.successorTicker || holding.ticker;
+  const executablePriceSymbol = ({ holding, preExecutionStock }) =>
+    preExecutionStock?.consideration?.successorTicker || holdingPriceSymbol(holding);
+  const priced = classified.filter((row) => {
+    const priceSymbol = executablePriceSymbol(row);
+    return !row.preExecutionCash &&
+      !row.executionLimitation &&
+      isTicker(priceSymbol) &&
+      Number.isFinite(priceMaps.get(priceSymbol)?.get(executionDate));
+  });
+  const pricedValue = priced.reduce((sum, { holding }) => sum + holding.value, 0);
+  const cashSettledValue = cashSettled.reduce(
+    (sum, { holding }) => sum + holding.value,
+    0
+  );
+  const executionResolvedValue = pricedValue + cashSettledValue;
+  const weights = selectedValue
+    ? priced.map(({
+      holding,
+      preExecutionStock,
+      activeCash,
+      activeStock,
+      activePrivateRollover
+    }) => {
+      const ticker = executableDisplayTicker({ holding, preExecutionStock });
+      const priceSymbol = executablePriceSymbol({ holding, preExecutionStock });
+      return {
+        ticker,
+        ...(priceSymbol !== ticker ? {
+          priceSymbol,
+          ...(holding.priceSymbolAudit
+            ? { priceSymbolAudit: holding.priceSymbolAudit }
+            : {})
+        } : {}),
+        issuer: holding.issuer,
+        sector: holding.sector || null,
+        industry: holding.industry || null,
+        value: holding.value,
+        weight: holding.value / selectedValue,
+        ...(preExecutionStock ? {
+          corporateActionResolution: {
+            ...compactStockConversionResolution(preExecutionStock, holding),
+            timing: "before_modeled_execution",
+            modeledPreDisclosureReturn: 0
+          }
+        } : {}),
+        ...(activeCash ? {
+          corporateAction: compactCashAcquisitionResolution(activeCash, holding)
+        } : {}),
+        ...(activeStock ? {
+          corporateAction: compactStockConversionResolution(activeStock, holding)
+        } : {}),
+        ...(activePrivateRollover ? {
+          corporateAction: activePrivateRollover
+        } : {})
+      };
+    })
     : [];
-  const coveragePct = selectedValue ? pricedValue / selectedValue : 0;
+  const coveragePct = selectedValue ? executionResolvedValue / selectedValue : 0;
+  const corporateActionResolutions = [
+    ...cashSettled.map(({ holding, preExecutionCash }) => ({
+      ...compactCashAcquisitionResolution(preExecutionCash, holding),
+      timing: "before_modeled_execution",
+      reportedValueHeldAsCash: holding.value,
+      reportedBookWeight: selectedValue ? holding.value / selectedValue : 0,
+      modeledPreDisclosureReturn: 0
+    })),
+    ...classified
+      .filter(({ preExecutionStock }) => preExecutionStock)
+      .map(({ holding, preExecutionStock }) => ({
+        ...compactStockConversionResolution(preExecutionStock, holding),
+        timing: "before_modeled_execution",
+        reportedValueTransferredToSuccessor: holding.value,
+        reportedBookWeight: selectedValue ? holding.value / selectedValue : 0,
+        modeledPreDisclosureReturn: 0
+      })),
+    ...classified
+      .filter(({ activeCash }) => activeCash)
+      .map(({ holding, activeCash }) => ({
+        ...compactCashAcquisitionResolution(activeCash, holding),
+        timing: "while_position_active",
+        reportedBookWeight: selectedValue ? holding.value / selectedValue : 0
+      })),
+    ...classified
+      .filter(({ activeStock }) => activeStock)
+      .map(({ holding, activeStock }) => ({
+        ...compactStockConversionResolution(activeStock, holding),
+        timing: "while_position_active",
+        reportedBookWeight: selectedValue ? holding.value / selectedValue : 0
+      }))
+  ];
 
   return {
     weights,
     selectedValue,
     pricedValue,
+    cashSettledValue,
+    executionResolvedValue,
     coveragePct,
-    cashWeight: Math.max(0, 1 - coveragePct),
+    cashWeight: Math.max(
+      0,
+      1 - weights.reduce((sum, holding) => sum + holding.weight, 0)
+    ),
+    corporateActionCashWeight: selectedValue
+      ? cashSettledValue / selectedValue
+      : 0,
     selectedPositions: selected.length,
     pricedPositions: weights.length,
-    unpricedPositions: selected
-      .filter((holding) => !isTicker(holding.ticker) || !Number.isFinite(priceMaps.get(holding.ticker)?.get(executionDate)))
-      .map((holding) => ({
-        ticker: holding.ticker || null,
-        issuer: holding.issuer,
-        cusip: holding.cusip,
-        value: holding.value,
-        weight: selectedValue ? holding.value / selectedValue : 0,
-        reason: isTicker(holding.ticker) ? "missing_adjusted_execution_price" : "unmapped_ticker"
-      })),
+    cashSettledPositions: cashSettled.length,
+    executionResolvedPositions: weights.length + cashSettled.length,
+    corporateActionResolutions,
+    unpricedPositions: classified
+      .filter((row) => {
+        const priceSymbol = executablePriceSymbol(row);
+        return !row.preExecutionCash && (
+          Boolean(row.executionLimitation) ||
+          !isTicker(priceSymbol) ||
+          !Number.isFinite(priceMaps.get(priceSymbol)?.get(executionDate))
+        );
+      })
+      .map((row) => {
+        const holding = row.holding;
+        const ticker = executableDisplayTicker(row);
+        const priceSymbol = executablePriceSymbol(row);
+        const executionLimitation = row.executionLimitation;
+        return {
+          ticker: ticker || null,
+          ...(priceSymbol && priceSymbol !== ticker ? { priceSymbol } : {}),
+          issuer: holding.issuer,
+          cusip: holding.cusip,
+          value: holding.value,
+          weight: selectedValue ? holding.value / selectedValue : 0,
+          reason: executionLimitation?.code ||
+            (isTicker(priceSymbol) ? "missing_adjusted_execution_price" : "unmapped_ticker"),
+          ...(executionLimitation ? { executionLimitation } : {})
+        };
+      }),
     topHoldings: weights
       .slice(0, 8)
       .map((holding) => ({
         ticker: holding.ticker,
+        ...(holding.priceSymbol ? { priceSymbol: holding.priceSymbol } : {}),
+        ...(holding.priceSymbolAudit
+          ? { priceSymbolAudit: holding.priceSymbolAudit }
+          : {}),
         issuer: holding.issuer,
         value: holding.value,
         weight: holding.weight
@@ -903,6 +1331,11 @@ export function buildPublicHoldingsProxyPayload({
   strictFailure = null,
   coverageFailures = []
 }) {
+  const publicReplicability = summarizeManager13fReplicability({
+    guruId: guru?.id,
+    rebalances,
+    minimumExecutionCoverage: minExecutionCoverage
+  });
   const proxyModel = buildTrailingAwarePublicHoldingsProxy({
     rebalances,
     tradingDates,
@@ -981,6 +1414,7 @@ export function buildPublicHoldingsProxyPayload({
       label: "Public holdings proxy",
       tone: portfolioMetrics.cagr >= benchmarkMetrics.cagr ? "positive" : "negative"
     },
+    ...(publicReplicability ? { publicReplicability } : {}),
     window: {
       start: equity[0]?.date || proxyModel.rebalances[0]?.executionDate || start,
       end: equity.at(-1)?.date || proxyModel.effectiveEnd,
@@ -990,6 +1424,7 @@ export function buildPublicHoldingsProxyPayload({
     method: {
       version: manager13fBacktestMethodVersion,
       securityMasterVersion: manager13fSecurityMasterVersion,
+      corporateActionCatalogVersion: manager13fCorporateActionCatalogVersion,
       variant: manager13fProxyMethodVersion,
       years: window.methodYears,
       benchmark: "SPY",
@@ -1033,6 +1468,7 @@ export function buildPublicHoldingsProxyPayload({
     },
     dataQuality: {
       returnBasis: "total_return_adjusted_close",
+      corporateActionCatalogVersion: manager13fCorporateActionCatalogVersion,
       strictBacktestStatus: "insufficient_data",
       strictFailureCode,
       strictFailure: compactStrictFailure(strictFailure),
@@ -1077,7 +1513,7 @@ function portfolioReturn(weights, priceMaps, previousDate, date) {
   let value = 0;
   let coveredWeight = 0;
   for (const holding of weights) {
-    const map = priceMaps.get(holding.ticker);
+    const map = priceMaps.get(holdingPriceSymbol(holding));
     const ret = map ? dailyReturn(map, previousDate, date) : null;
     if (Number.isFinite(ret)) {
       value += holding.weight * ret;
@@ -1112,11 +1548,16 @@ function buildQuarterContributions(rebalances, spyPoints, priceMaps, endDate) {
     const benchmark = returnBetween(spyMap, rebalance.executionDate, intervalEnd);
     let coveredWeight = 0;
     const contributions = (rebalance.weights || []).map((holding) => {
-      const pricedReturn = returnBetween(priceMaps.get(holding.ticker), rebalance.executionDate, intervalEnd);
+      const pricedReturn = returnBetween(
+        priceMaps.get(holdingPriceSymbol(holding)),
+        rebalance.executionDate,
+        intervalEnd
+      );
       if (!pricedReturn) return null;
       coveredWeight += holding.weight;
       return {
         ticker: holding.ticker,
+        ...(holding.priceSymbol ? { priceSymbol: holding.priceSymbol } : {}),
         issuer: holding.issuer,
         value: holding.value,
         weight: holding.weight,
@@ -1648,6 +2089,18 @@ function coldBacktestUnavailable(guru, window) {
   };
 }
 
+function reportComputedBacktestArtifacts(
+  onComputedArtifacts,
+  strictPayload,
+  proxyPayload = null
+) {
+  if (typeof onComputedArtifacts !== "function") return;
+  onComputedArtifacts({
+    strictPayload,
+    proxyPayload
+  });
+}
+
 export async function loadGuruBacktest(
   guruId,
   {
@@ -1658,7 +2111,8 @@ export async function loadGuruBacktest(
     allowCold = true,
     shareComputation = true,
     refreshGeneration = "",
-    preserveReadyOnFailure = true
+    preserveReadyOnFailure = true,
+    onComputedArtifacts = null
   } = {}
 ) {
   const window = normalizeBacktestWindow(years);
@@ -1679,7 +2133,9 @@ export async function loadGuruBacktest(
   }
 
   if (guru.type !== "manager13f" || guru.disableSimulation) {
-    return unsupportedBacktest(guru, window);
+    const payload = unsupportedBacktest(guru, window);
+    reportComputedBacktestArtifacts(onComputedArtifacts, payload);
+    return payload;
   }
   const preserveReady = preserveReadyOnFailure && !refreshGeneration;
 
@@ -1705,7 +2161,10 @@ export async function loadGuruBacktest(
   }
   if (!allowCold) return coldBacktestUnavailable(guru, window);
 
-  if (shareComputation) {
+  // Artifact capture is intentionally unshared: an atomic refresh needs the
+  // exact strict/proxy pair produced by this computation, not only the public
+  // winner returned to another in-flight caller.
+  if (shareComputation && typeof onComputedArtifacts !== "function") {
     const inFlightKey = `${guruId}:${window.cacheKey}:${persist ? "persist" : "ephemeral"}`;
     const build = () =>
       loadGuruBacktest(guruId, {
@@ -1788,6 +2247,7 @@ export async function loadGuruBacktest(
       method: {
         version: manager13fBacktestMethodVersion,
         securityMasterVersion: manager13fSecurityMasterVersion,
+        corporateActionCatalogVersion: manager13fCorporateActionCatalogVersion,
         years: window.methodYears,
         benchmark: "SPY",
         maxHoldingsPerFiling,
@@ -1819,21 +2279,12 @@ export async function loadGuruBacktest(
           { preserveReady }
         )
       : payload;
+    reportComputedBacktestArtifacts(onComputedArtifacts, payload);
     return persist
       ? compactBacktestPayload(persistedPayload, { includeAttribution })
       : payload;
   }
 
-  const selectedTickers = (snapshot) => (snapshot.holdings || [])
-    .filter((holding) =>
-      is13fCommonLongHolding(holding) &&
-      holding.value > 0 &&
-      holding.shares > 0
-    )
-    .sort((a, b) => b.value - a.value)
-    .slice(0, maxHoldingsPerFiling)
-    .map((holding) => holding.ticker)
-    .filter(isTicker);
   const executionExclusions = [];
   const executionCandidates = [];
   for (const snapshot of backtestHistory) {
@@ -1850,10 +2301,16 @@ export async function loadGuruBacktest(
       });
       continue;
     }
+    const selectedPriceRequirements = manager13fPriceRequirements(
+      snapshot,
+      decision.executionDate,
+      { guruId: guru.id }
+    );
     executionCandidates.push({
       snapshot,
       decision,
-      selectedTickers: selectedTickers(snapshot)
+      selectedTickers: selectedPriceRequirements.map(({ ticker }) => ticker),
+      selectedPriceRequirements
     });
   }
   const normalizedSchedule = collapseSupersededSameSessionSnapshots(executionCandidates);
@@ -1926,7 +2383,12 @@ export async function loadGuruBacktest(
   const rebalances = [];
   for (const { snapshot, decision } of executionSchedule) {
     const values = summarize13fHoldingValues(snapshot.holdings || []);
-    const weightModel = buildWeights(snapshot, priceMaps, decision.executionDate);
+    const weightModel = buildManager13fWeights(
+      snapshot,
+      priceMaps,
+      decision.executionDate,
+      { guruId: guru.id }
+    );
     rebalances.push({
       reportDate: snapshot.reportDate,
       filingDate: snapshot.filingDate,
@@ -1945,13 +2407,19 @@ export async function loadGuruBacktest(
       totalValueBasis: "common_long_shares",
       selectedValue: weightModel.selectedValue,
       pricedValue: weightModel.pricedValue,
+      cashSettledValue: weightModel.cashSettledValue,
+      executionResolvedValue: weightModel.executionResolvedValue,
       coveragePct: weightModel.coveragePct,
       cashWeight: weightModel.cashWeight,
+      corporateActionCashWeight: weightModel.corporateActionCashWeight,
       positions: values.commonLongPositionCount,
       reportedRows: values.reportedRowCount,
       optionPositions: values.optionPositionCount,
       selectedPositions: weightModel.selectedPositions,
       pricedPositions: weightModel.pricedPositions,
+      cashSettledPositions: weightModel.cashSettledPositions,
+      executionResolvedPositions: weightModel.executionResolvedPositions,
+      corporateActionResolutions: weightModel.corporateActionResolutions,
       unpricedPositions: weightModel.unpricedPositions,
       weights: weightModel.weights,
       topHoldings: weightModel.topHoldings,
@@ -1960,8 +2428,14 @@ export async function loadGuruBacktest(
   }
 
   const coverageFailures = rebalances.filter((rebalance) =>
-    !rebalance.weights.length || rebalance.coveragePct < minExecutionCoverage
+    rebalance.executionResolvedPositions < 1 ||
+    rebalance.coveragePct < minExecutionCoverage
   );
+  const publicReplicability = summarizeManager13fReplicability({
+    guruId: guru.id,
+    rebalances,
+    minimumExecutionCoverage: minExecutionCoverage
+  });
 
   const coverageProxyAttempt = rebalances.length && coverageFailures.length
     ? buildPublicHoldingsProxyPayload({
@@ -1999,10 +2473,12 @@ export async function loadGuruBacktest(
         label: "13F copy 模拟待补价格",
         tone: "muted"
       },
+      ...(publicReplicability ? { publicReplicability } : {}),
       window: { start, end },
       method: {
         version: manager13fBacktestMethodVersion,
         securityMasterVersion: manager13fSecurityMasterVersion,
+        corporateActionCatalogVersion: manager13fCorporateActionCatalogVersion,
         years: window.methodYears,
         benchmark: "SPY",
         maxHoldingsPerFiling,
@@ -2020,6 +2496,7 @@ export async function loadGuruBacktest(
       },
       dataQuality: {
         returnBasis: "total_return_adjusted_close",
+        corporateActionCatalogVersion: manager13fCorporateActionCatalogVersion,
         failurePolicy: "fail_closed",
         proxyFailure: coverageProxyAttempt.failure,
         coverageFailures: coverageFailures.map((rebalance) => ({
@@ -2044,6 +2521,11 @@ export async function loadGuruBacktest(
           { preserveReady }
         )
       : payload;
+    reportComputedBacktestArtifacts(
+      onComputedArtifacts,
+      payload,
+      linkedProxyPayload
+    );
     if (linkedProxyPayload) {
       if (persist) {
         writeGuruBacktestProxy(guruId, window.cacheKey, linkedProxyPayload);
@@ -2108,10 +2590,12 @@ export async function loadGuruBacktest(
         label: "13F copy 模拟覆盖失败",
         tone: "muted"
       },
+      ...(publicReplicability ? { publicReplicability } : {}),
       window: { start, end },
       method: {
         version: manager13fBacktestMethodVersion,
         securityMasterVersion: manager13fSecurityMasterVersion,
+        corporateActionCatalogVersion: manager13fCorporateActionCatalogVersion,
         years: window.methodYears,
         benchmark: "SPY",
         rawFilings: history.length,
@@ -2129,6 +2613,7 @@ export async function loadGuruBacktest(
       },
       dataQuality: {
         returnBasis: "total_return_adjusted_close",
+        corporateActionCatalogVersion: manager13fCorporateActionCatalogVersion,
         failurePolicy: "fail_closed_without_zero_return_or_forward_fill",
         trailingPriceEnd,
         failure: simulation.failure || {
@@ -2152,6 +2637,11 @@ export async function loadGuruBacktest(
           { preserveReady }
         )
       : payload;
+    reportComputedBacktestArtifacts(
+      onComputedArtifacts,
+      payload,
+      linkedProxyPayload
+    );
     if (linkedProxyPayload) {
       if (persist) {
         writeGuruBacktestProxy(guruId, window.cacheKey, linkedProxyPayload);
@@ -2188,6 +2678,7 @@ export async function loadGuruBacktest(
       label: "13F 披露日复制模拟",
       tone: portfolioMetrics.cagr >= benchmarkMetrics.cagr ? "positive" : "negative"
     },
+    ...(publicReplicability ? { publicReplicability } : {}),
     window: {
       start: equity[0]?.date || firstDate || start,
       end: equity.at(-1)?.date || effectiveEnd
@@ -2195,6 +2686,7 @@ export async function loadGuruBacktest(
     method: {
       version: manager13fBacktestMethodVersion,
       securityMasterVersion: manager13fSecurityMasterVersion,
+      corporateActionCatalogVersion: manager13fCorporateActionCatalogVersion,
       years: window.methodYears,
       benchmark: "SPY",
       execution: "Retain the SEC acceptance timestamp and execute at the close of the first SPY trading session strictly after its public calendar date. Legacy snapshots without acceptance time use the same conservative next-session rule after filingDate.",
@@ -2206,7 +2698,7 @@ export async function loadGuruBacktest(
       reportingCiks,
       duplicateAccessions,
       blockedReportDates,
-      corporateActionPolicy: "Adjusted-close returns incorporate price-series splits and dividends. Reported share changes remain unadjusted and are not verified trade classifications.",
+      corporateActionPolicy: "Exact-CUSIP, primary-source cash acquisitions retain genuine public closes through the audited trading boundary, then convert an active position at terminal cash entitlement, or preserve its reported-book weight as cash when conversion occurred before modeled execution. Exact stock conversions use the audited exchange ratio and successor price. Private rollover is never treated as public cash; all other gaps fail closed.",
       maxHoldingsPerFiling,
       minimumExecutionCoverage: minExecutionCoverage,
       rawFilings: history.length,
@@ -2218,6 +2710,9 @@ export async function loadGuruBacktest(
         "Put/call rows, non-SH rows, and SH rows whose titles explicitly identify debt, preferreds, rights, or warrants are excluded from common-long weights and reported separately as options notional or other reported value.",
         "Unmapped or missing execution-price rows remain explicit cash; the entire result fails closed below the minimum coverage threshold.",
         "A missing active adjusted close stops the backtest; it is never converted into a zero return or silently forward-filled.",
+        "A pre-execution cash acquisition earns no modeled pre-disclosure return: its reported-book weight starts as cash. While active, terminal cash includes only primary-source merger consideration and closing-linked distributions; Change Healthcare uses $25.75 plus its single $2.00 closing dividend, and the stored terminal price history contains no later ex-date adjustment to double count it.",
+        "When legal closing and public-trading suspension fall on different dates, the genuine last public close remains required and cash conversion begins on the first non-public session; Twitter therefore keeps its October 27, 2022 close and converts to $54.20 on October 28.",
+        "A stock conversion uses its exact exchange ratio and successor market price. A declared non-trading transition session is omitted from the daily curve rather than forward-filled; the next valued session spans the omitted date for both portfolio and benchmark.",
         `When the SPY series reaches its requested market end and at least two active holdings share the same trailing vendor cutoff, the effective end may move back by at most ${maxTrailingPriceLagDays} calendar days to that common observed date; a single stale holding or mixed cutoff dates remain fail closed, and requested/effective dates remain auditable.`,
         "SPY must cover the full requested window. A delisted or acquired security may end earlier only if every observed row is adjusted and the position was no longer active before observations stop.",
         "Original/amendment ambiguity is resolved per reporting CIK; an orphan amendment blocks the combined quarter, and every exclusion remains in the audit ledger.",
@@ -2245,6 +2740,7 @@ export async function loadGuruBacktest(
     },
     dataQuality: {
       returnBasis: "total_return_adjusted_close",
+      corporateActionCatalogVersion: manager13fCorporateActionCatalogVersion,
       priceSeries: Object.fromEntries(priceSeriesQuality),
       minimumExecutionCoverage: minExecutionCoverage,
       minimumObservedExecutionCoverage: Math.min(...rebalances.map((item) => item.coveragePct)),
@@ -2260,6 +2756,11 @@ export async function loadGuruBacktest(
       blockedReportDates,
       excludedAmendments: excludedFilings.filter((item) => item.code?.includes("amendment")),
       reportedShareChangesCorporateActionAdjusted: false,
+      corporateActionResolutions: rebalances.flatMap((rebalance) =>
+        rebalance.corporateActionResolutions || []
+      ),
+      corporateActionTransitionSessions:
+        simulation.corporateActionTransitionSessions || [],
       attributionReconciliation: simulation.reconciliation
     },
     equity,
@@ -2271,6 +2772,7 @@ export async function loadGuruBacktest(
     }
   };
 
+  reportComputedBacktestArtifacts(onComputedArtifacts, payload);
   if (persist) writeGuruBacktest(guruId, window.cacheKey, payload);
   return persist ? compactBacktestPayload(payload, { includeAttribution }) : payload;
 }

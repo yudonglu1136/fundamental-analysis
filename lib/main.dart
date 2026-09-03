@@ -146,6 +146,15 @@ const _uiChinese = <String, String>{
   'Insurance float and long-term quality/value equities': '保险浮存金与长期高质量价值股',
   'Archived long-term compounder case study': '归档的长期复利股案例研究',
   'Multi-strategy public equities': '多策略公开市场股票',
+  'Concentrated global compounders and active ownership': '集中型全球复利股与积极所有权',
+  'Macro-aware value, cyclicals, and dislocated growth': '宏观驱动的价值、周期与错位成长',
+  'Event-driven activism and catalyst-oriented equities': '事件驱动型维权与催化剂投资',
+  'Deep value, downside protection, and special situations': '深度价值、下行保护与特殊机会',
+  'Concentrated operational activism in durable franchises': '耐久品牌中的集中型经营维权',
+  'Fundamental long-short growth and quality equities': '基本面多空成长与高质量股票',
+  'Value, short research, and catalyst-driven equities': '价值、做空研究与催化剂投资',
+  'Low-risk, high-uncertainty value and concentrated bets': '低风险、高不确定性的价值集中投资',
+  'Concentrated quality compounders with durable moats': '具备持久护城河的集中型质量复利股',
   "Renaissance's manager-level 13F is a delayed, highly diversified public long-equity proxy, not the Medallion Fund portfolio. Copy simulation stays disabled until security mapping and historical execution coverage pass the required threshold.":
       '文艺复兴的管理人级 13F 是滞后且高度分散的公开美股多头代理组合，不是 Medallion Fund 持仓。在证券映射和历史执行覆盖率达标前，复制回测保持关闭。',
   'This disclosure is not a complete quarterly 13F portfolio; copied rebalancing would be misleading.':
@@ -762,6 +771,50 @@ bool _isProxyReadyBacktest(Map<String, dynamic>? payload) =>
 
 bool _isDisplayableBacktest(Map<String, dynamic>? payload) =>
     _isStrictReadyBacktest(payload) || _isProxyReadyBacktest(payload);
+
+Map<String, dynamic> _backtestReplicability(Map<String, dynamic>? payload) =>
+    asMap(payload?['publicReplicability']);
+
+String _replicabilityReason(
+  BuildContext context,
+  Map<String, dynamic> replicability,
+) => context.tr(
+  text(replicability['reasonZh'], '严格复制不可用。'),
+  text(replicability['reasonEn'], 'Strict replication is unavailable.'),
+);
+
+String _replicabilityQuarterLabel(Map<String, dynamic> replicability) {
+  final quarters = asList(replicability['affectedQuarters']);
+  if (quarters.isEmpty) return '';
+  final quarter = asMap(quarters.first);
+  final declared = text(quarter['quarterLabel']);
+  if (declared.isNotEmpty) return declared;
+  final reportDate = DateTime.tryParse(text(quarter['reportDate']));
+  if (reportDate == null) return '';
+  return '${reportDate.year} Q${((reportDate.month - 1) ~/ 3) + 1}';
+}
+
+String _replicabilityTicker(Map<String, dynamic> replicability) {
+  final quarters = asList(replicability['affectedQuarters']);
+  if (quarters.isEmpty) return '';
+  final holdings = asList(asMap(quarters.first)['holdings']);
+  if (holdings.isEmpty) return '';
+  final holding = asMap(holdings.first);
+  return text(holding['ticker'], text(holding['issuer']));
+}
+
+String _replicabilityHoldingWeight(Map<String, dynamic> replicability) {
+  final quarters = asList(replicability['affectedQuarters']);
+  if (quarters.isEmpty) return '';
+  final holdings = asList(asMap(quarters.first)['holdings']);
+  if (holdings.isEmpty) return '';
+  final holding = asMap(holdings.first);
+  final raw = holding['reportedBookWeight'];
+  if (raw == null) return '';
+  final value = number(raw);
+  if (!value.isFinite || value < 0 || value > 1) return '';
+  return '${(value * 100).toStringAsFixed(1)}%';
+}
 
 bool _supabaseReady = false;
 Object? _supabaseInitError;
@@ -1740,8 +1793,8 @@ class _TerminalHomeState extends State<TerminalHome>
       (guru) => text(guru['id']) == _selectedGuruId,
       orElse: () => filtered.isNotEmpty ? filtered.first : <String, dynamic>{},
     );
-    final signals = buildSignals(gurus);
-    final exposures = buildExposures(gurus);
+    final signals = buildSignals(gurus, context.language);
+    final exposures = buildExposures(gurus, language: context.language);
     final stats = buildExecutiveStats(gurus, signals);
 
     return LayoutBuilder(
@@ -2883,7 +2936,7 @@ class _MobileGuruCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        text(guru['name']),
+                        guruDisplayName(guru, context.language),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -3109,7 +3162,7 @@ class GuruListTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      text(guru['name']),
+                      guruDisplayName(guru, context.language),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -3169,7 +3222,7 @@ class GuruAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = versionedGuruAvatarUrl(guru['avatarUrl']);
-    final name = text(guru['name'], '?');
+    final name = guruDisplayName(guru, context.language);
     final fallback = _AvatarInitial(name: name, palette: palette, size: size);
     return Container(
       width: size,
@@ -3262,6 +3315,9 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
   Map<String, dynamic>? _backtestPayload;
   bool _backtestLoading = false;
   String? _backtestError;
+  Map<String, dynamic>? _exposurePayload;
+  bool _exposureLoading = false;
+  String? _exposureError;
   Map<String, dynamic>? _contextPayload;
   bool _contextLoading = false;
   String? _contextError;
@@ -3274,15 +3330,19 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
   String? _backtestRequestedWindow;
   String? _backtestWindowError;
   int _backtestRequestId = 0;
+  int _exposureRequestId = 0;
+
+  int get _maximumModule => text(widget.guru['type']) == 'manager13f' ? 3 : 2;
 
   @override
   void initState() {
     super.initState();
-    _module = widget.initialModule.clamp(0, 2).toInt();
+    _module = widget.initialModule.clamp(0, _maximumModule).toInt();
     _selectedTicker = _initialTicker();
     _selectedQuarterId = widget.initialQuarterId;
     scheduleMicrotask(() {
       _loadBacktest(fullAttribution: _module == 2);
+      if (_module == 3) _loadExposure();
       if (_selectedTicker.isNotEmpty) _loadContext(_selectedTicker);
     });
   }
@@ -3301,6 +3361,7 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
       _backtestWarmupTimer?.cancel();
       _backtestWarmupPolls = 0;
       _backtestRequestId += 1;
+      _exposureRequestId += 1;
     }
     setState(() {
       if (guruChanged) {
@@ -3311,11 +3372,14 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
         _backtestWindow = '5';
         _backtestRequestedWindow = null;
         _backtestWindowError = null;
+        _exposurePayload = null;
+        _exposureError = null;
+        _exposureLoading = false;
         _contextPayload = null;
         _contextError = null;
         _contextLoading = false;
       }
-      _module = widget.initialModule.clamp(0, 2).toInt();
+      _module = widget.initialModule.clamp(0, _maximumModule).toInt();
       _selectedTicker = ticker;
       _selectedQuarterId = widget.initialQuarterId;
     });
@@ -3324,6 +3388,7 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
       if (guruChanged) {
         widget.onTickerChanged(ticker);
         _loadBacktest(fullAttribution: _module == 2);
+        if (_module == 3) _loadExposure();
       }
       if (ticker.isNotEmpty &&
           (guruChanged || ticker != oldWidget.initialTicker)) {
@@ -3331,6 +3396,9 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
       }
       if (!guruChanged && _module == 2 && !_backtestFullAttribution) {
         _loadBacktest(fullAttribution: true);
+      }
+      if (!guruChanged && _module == 3 && _exposurePayload == null) {
+        _loadExposure();
       }
     });
   }
@@ -3593,13 +3661,53 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
   }
 
   void _selectModule(int value) {
-    setState(() => _module = value);
-    widget.onModuleChanged(value);
+    final selected = value.clamp(0, _maximumModule).toInt();
+    setState(() => _module = selected);
+    widget.onModuleChanged(selected);
     if (_usesWorkspaceModules &&
-        value == 2 &&
+        selected == 2 &&
         !_backtestFullAttribution &&
         _backtestRequestedWindow == null) {
       _loadBacktest(fullAttribution: true);
+    }
+    if (selected == 3 && _exposurePayload == null && !_exposureLoading) {
+      _loadExposure();
+    }
+  }
+
+  Future<void> _loadExposure({bool forceRefresh = false}) async {
+    final id = text(widget.guru['id']);
+    if (id.isEmpty || text(widget.guru['type']) != 'manager13f') return;
+    if (_exposureLoading) return;
+    final requestId = ++_exposureRequestId;
+    setState(() {
+      _exposureLoading = true;
+      _exposureError = null;
+    });
+    try {
+      final encodedId = Uri.encodeComponent(id);
+      final payload = await widget.api.getJson(
+        '/api/gurus/$encodedId/exposure?limit=40${forceRefresh ? '&refresh=1' : ''}',
+      );
+      if (!mounted ||
+          id != text(widget.guru['id']) ||
+          requestId != _exposureRequestId) {
+        return;
+      }
+      setState(() => _exposurePayload = payload);
+    } catch (error) {
+      if (!mounted ||
+          id != text(widget.guru['id']) ||
+          requestId != _exposureRequestId) {
+        return;
+      }
+      setState(() => _exposureError = error.toString());
+    } finally {
+      if (mounted &&
+          id == text(widget.guru['id']) &&
+          requestId == _exposureRequestId) {
+        setState(() => _exposureLoading = false);
+      }
     }
   }
 
@@ -3675,6 +3783,7 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
             selected: _module,
             onChanged: _selectModule,
             palette: widget.palette,
+            showPositionHistory: type == 'manager13f',
           ),
           const SizedBox(height: 14),
           AnimatedSwitcher(
@@ -3707,7 +3816,7 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
                   onSelect: _selectTrade,
                   onRetry: () => _loadContext(_selectedTicker),
                 ),
-                _ => GuruQuarterContributionModule(
+                2 => GuruQuarterContributionModule(
                   payload: _backtestPayload,
                   loading: _backtestLoading,
                   error: _backtestError ?? _backtestWindowError,
@@ -3724,6 +3833,16 @@ class _GuruWorkspaceState extends State<GuruWorkspace> {
                           forceRefresh: true,
                           years: _backtestWindow,
                         ),
+                ),
+                _ => GuruPositionHistoryModule(
+                  guru: widget.guru,
+                  payload: _exposurePayload,
+                  loading: _exposureLoading,
+                  error: _exposureError,
+                  palette: widget.palette,
+                  onRetry: _exposureLoading
+                      ? null
+                      : () => _loadExposure(forceRefresh: true),
                 ),
               },
             ),
@@ -3807,7 +3926,7 @@ class GuruWorkspaceHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      text(guru['name']),
+                      guruDisplayName(guru, context.language),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -4065,11 +4184,13 @@ class GuruModuleTabs extends StatelessWidget {
     required this.selected,
     required this.onChanged,
     required this.palette,
+    this.showPositionHistory = false,
   });
 
   final int selected;
   final ValueChanged<int> onChanged;
   final Palette palette;
+  final bool showPositionHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -4077,18 +4198,28 @@ class GuruModuleTabs extends StatelessWidget {
       (
         Icons.stacked_line_chart_rounded,
         context.tr('模拟', 'Simulation'),
+        context.tr('模拟', 'Sim'),
         'Portfolio vs SPY',
       ),
       (
         Icons.swap_vert_rounded,
         context.tr('新买入/卖出', 'New Buys & Sells'),
+        context.tr('交易', 'Trades'),
         'Reported position changes',
       ),
       (
         Icons.calendar_month_rounded,
         context.tr('季度贡献', 'Quarterly Contribution'),
+        context.tr('贡献', 'Contribution'),
         'Quarterly Contribution',
       ),
+      if (showPositionHistory)
+        (
+          Icons.timeline_rounded,
+          context.tr('仓位轨迹', 'Position History'),
+          context.tr('轨迹', 'History'),
+          context.tr('按季度与股票追踪', 'Quarter and stock trajectory'),
+        ),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -4108,8 +4239,8 @@ class GuruModuleTabs extends StatelessWidget {
                 Expanded(
                   child: _ModuleTabButton(
                     icon: items[i].$1,
-                    label: items[i].$2,
-                    sublabel: compact ? '' : items[i].$3,
+                    label: compact ? items[i].$3 : items[i].$2,
+                    sublabel: compact ? '' : items[i].$4,
                     selected: selected == i,
                     palette: palette,
                     compact: compact,
@@ -4259,6 +4390,12 @@ class _PublicHoldingsProxyNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final proxy = asMap(payload?['proxy']);
+    final replicability = _backtestReplicability(payload);
+    final hasPrivateExecutionGap =
+        text(replicability['code']) ==
+        'reported_holding_private_before_execution';
+    final affectedQuarter = _replicabilityQuarterLabel(replicability);
+    final affectedTicker = _replicabilityTicker(replicability);
     final minimumCoverage = _percent(proxy, const [
       'minimumSelectedBookCoverage',
       'minimumReportedCoverage',
@@ -4281,10 +4418,15 @@ class _PublicHoldingsProxyNotice extends StatelessWidget {
         .where((value) => value.isNotEmpty)
         .take(4)
         .join(', ');
-    final summary = context.tr(
-      '公开持仓代理 · Top-60 可定价权重最低 $minimumCoverage · 最少 $includedPositions 只',
-      'Public sleeve proxy · $minimumCoverage min Top-60 priceable weight · $includedPositions+ holdings',
-    );
+    final summary = hasPrivateExecutionGap
+        ? context.tr(
+            '严格复制不可用 · $affectedQuarter $affectedTicker 已转为私有',
+            'Strict replay unavailable · $affectedQuarter $affectedTicker became private',
+          )
+        : context.tr(
+            '公开持仓代理 · Top-60 可定价权重最低 $minimumCoverage · 最少 $includedPositions 只',
+            'Public sleeve proxy · $minimumCoverage min Top-60 priceable weight · $includedPositions+ holdings',
+          );
 
     Widget metric(String label, String value) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -4350,6 +4492,21 @@ class _PublicHoldingsProxyNotice extends StatelessWidget {
             ),
           ),
           children: [
+            if (hasPrivateExecutionGap) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _replicabilityReason(context, replicability),
+                  style: TextStyle(
+                    color: palette.text,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             Align(
               alignment: Alignment.centerLeft,
               child: Wrap(
@@ -4412,6 +4569,94 @@ class _PublicHoldingsProxyNotice extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _StrictReplicationUnavailableNotice extends StatelessWidget {
+  const _StrictReplicationUnavailableNotice({
+    required this.payload,
+    required this.palette,
+  });
+
+  final Map<String, dynamic>? payload;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final replicability = _backtestReplicability(payload);
+    if (replicability.isEmpty) {
+      return EmptyState(
+        text: context.ui(
+          text(asMap(payload?['method'])['reason'], 'Backtest is not ready.'),
+        ),
+        palette: palette,
+      );
+    }
+    final quarter = _replicabilityQuarterLabel(replicability);
+    final ticker = _replicabilityTicker(replicability);
+    final weight = _replicabilityHoldingWeight(replicability);
+    final detail = [
+      if (quarter.isNotEmpty) quarter,
+      if (ticker.isNotEmpty) ticker,
+      if (weight.isNotEmpty)
+        context.tr('申报权重 $weight', '$weight of selected book'),
+    ].join(' · ');
+    return Container(
+      key: const ValueKey('guru-strict-replication-unavailable'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: palette.negative.withValues(alpha: .07),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: palette.negative.withValues(alpha: .32)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.lock_outline_rounded,
+                size: 17,
+                color: palette.negative,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.tr('严格复制不可用', 'Strict replay unavailable'),
+                  style: TextStyle(
+                    color: palette.negative,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (detail.isNotEmpty) ...[
+            const SizedBox(height: 7),
+            Text(
+              detail,
+              style: TextStyle(
+                color: palette.text,
+                fontWeight: FontWeight.w900,
+                fontSize: 12,
+              ),
+            ),
+          ],
+          const SizedBox(height: 7),
+          Text(
+            _replicabilityReason(context, replicability),
+            style: TextStyle(
+              color: palette.muted,
+              fontWeight: FontWeight.w700,
+              fontSize: 11,
+              height: 1.4,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -4735,13 +4980,8 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
           else if (widget.error != null && widget.payload == null)
             EmptyState(text: widget.error!, palette: widget.palette)
           else if (!_isDisplayableBacktest(widget.payload))
-            EmptyState(
-              text: context.ui(
-                text(
-                  asMap(widget.payload?['method'])['reason'],
-                  'Backtest is not ready.',
-                ),
-              ),
+            _StrictReplicationUnavailableNotice(
+              payload: widget.payload,
               palette: widget.palette,
             )
           else ...[
@@ -4825,7 +5065,7 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
                     _PerformanceLegendItem(
                       label: isProxy
                           ? context.tr('公开持仓代理', 'Public sleeve proxy')
-                          : '${compactName(text(widget.guru['name']))} Portfolio',
+                          : '${compactName(guruDisplayName(widget.guru, context.language))} Portfolio',
                       value: formatReturn(summary.totalReturn),
                       color: widget.palette.positive,
                       palette: widget.palette,
@@ -4977,8 +5217,8 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
               ),
               const SizedBox(height: 10),
             ],
-            LatestHoldingsList(guru: widget.guru, palette: widget.palette),
           ],
+          LatestHoldingsList(guru: widget.guru, palette: widget.palette),
         ],
       ),
     );
@@ -5125,13 +5365,26 @@ class _LatestHoldingsListState extends State<LatestHoldingsList> {
     final reportDate = formatDate(text(summary['reportDate']));
     final visibleCount = _expanded ? rows.length : math.min(18, rows.length);
     final visibleRows = rows.take(visibleCount).toList();
+    final totalPositions = math.max(
+      rows.length,
+      number(summary['totalPositions']).round(),
+    );
+    final truncated = totalPositions > rows.length;
     final headerActions = <Widget>[
       if (reportDate != '-')
         InfoChip(
           context.tr('报告期 $reportDate', 'Report $reportDate'),
           palette: widget.palette,
         ),
-      InfoChip('$visibleCount / ${rows.length}', palette: widget.palette),
+      InfoChip(
+        truncated
+            ? context.tr(
+                '前 $visibleCount，共 $totalPositions',
+                'Top $visibleCount of $totalPositions',
+              )
+            : '$visibleCount / ${rows.length}',
+        palette: widget.palette,
+      ),
       if (rows.length > 18)
         TextButton.icon(
           onPressed: () => setState(() => _expanded = !_expanded),
@@ -5142,7 +5395,11 @@ class _LatestHoldingsListState extends State<LatestHoldingsList> {
             size: 18,
           ),
           label: Text(
-            _expanded ? context.tr('收起', 'Collapse') : context.tr('全部', 'All'),
+            _expanded
+                ? context.tr('收起', 'Collapse')
+                : truncated
+                ? context.tr('显示前 ${rows.length}', 'Show top ${rows.length}')
+                : context.tr('全部', 'All'),
           ),
           style: TextButton.styleFrom(
             foregroundColor: widget.palette.accent,
@@ -5185,7 +5442,7 @@ class _LatestHoldingsListState extends State<LatestHoldingsList> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: headerActions,
             );
-            if (constraints.maxWidth < 640) {
+            if (constraints.maxWidth < 900) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [title, const SizedBox(height: 10), actions],
@@ -5195,6 +5452,17 @@ class _LatestHoldingsListState extends State<LatestHoldingsList> {
           },
         ),
         const SizedBox(height: 14),
+        if (truncated) ...[
+          PortfolioDataNotice(
+            icon: Icons.filter_alt_outlined,
+            text: context.tr(
+              '该季度共申报 $totalPositions 个普通股多头仓位；此处仅返回并展示按价值排序的前 ${rows.length} 个，较小仓位未包含。',
+              'The filing reports $totalPositions common-long positions. This view returns only the top ${rows.length} by reported value; smaller positions are not included.',
+            ),
+            palette: widget.palette,
+          ),
+          const SizedBox(height: 14),
+        ],
         LayoutBuilder(
           builder: (context, constraints) {
             if (constraints.maxWidth < 760 || visibleRows.length < 8) {
@@ -5246,6 +5514,717 @@ class _LatestHoldingsListState extends State<LatestHoldingsList> {
     );
   }
 }
+
+class GuruPositionHistoryModule extends StatefulWidget {
+  const GuruPositionHistoryModule({
+    super.key,
+    required this.guru,
+    required this.payload,
+    required this.loading,
+    required this.error,
+    required this.palette,
+    required this.onRetry,
+  });
+
+  final Map<String, dynamic> guru;
+  final Map<String, dynamic>? payload;
+  final bool loading;
+  final String? error;
+  final Palette palette;
+  final VoidCallback? onRetry;
+
+  @override
+  State<GuruPositionHistoryModule> createState() =>
+      _GuruPositionHistoryModuleState();
+}
+
+class _GuruPositionHistoryModuleState extends State<GuruPositionHistoryModule> {
+  String _selectedReportDate = '';
+  String _selectedHoldingId = '';
+
+  @override
+  void didUpdateWidget(covariant GuruPositionHistoryModule oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (text(oldWidget.guru['id']) != text(widget.guru['id'])) {
+      _selectedReportDate = '';
+      _selectedHoldingId = '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final history = [...asList(widget.payload?['history'])]
+      ..sort(
+        (left, right) =>
+            text(right['reportDate']).compareTo(text(left['reportDate'])),
+      );
+    final meta = asMap(widget.payload?['meta']);
+    final cache = asMap(widget.payload?['cache']);
+    final availableDates = {
+      for (final quarter in history) text(quarter['reportDate']),
+    };
+    final selectedReportDate = availableDates.contains(_selectedReportDate)
+        ? _selectedReportDate
+        : history.isEmpty
+        ? ''
+        : text(history.first['reportDate']);
+    final selectedQuarter = history.firstWhere(
+      (quarter) => text(quarter['reportDate']) == selectedReportDate,
+      orElse: () => const <String, dynamic>{},
+    );
+    final selectedHoldings = asList(selectedQuarter['topHoldings']);
+    final holdingIds = <String>{
+      for (final quarter in history)
+        for (final holding in asList(quarter['topHoldings']))
+          _positionHistoryHoldingId(holding),
+    }..remove('');
+    final selectedHoldingId = holdingIds.contains(_selectedHoldingId)
+        ? _selectedHoldingId
+        : selectedHoldings.isNotEmpty
+        ? _positionHistoryHoldingId(selectedHoldings.first)
+        : holdingIds.isEmpty
+        ? ''
+        : holdingIds.first;
+    final observations = <_PositionHistoryObservation>[];
+    if (selectedHoldingId.isNotEmpty) {
+      for (final quarter in history) {
+        final holding = asList(quarter['topHoldings']).firstWhere(
+          (row) => _positionHistoryHoldingId(row) == selectedHoldingId,
+          orElse: () => const <String, dynamic>{},
+        );
+        if (holding.isNotEmpty) {
+          observations.add(
+            _PositionHistoryObservation(quarter: quarter, holding: holding),
+          );
+        }
+      }
+    }
+    final selectedHolding = observations.isEmpty
+        ? const <String, dynamic>{}
+        : observations.first.holding;
+    final cacheStatus = text(cache['status']);
+    final returnedQuarters = number(
+      meta['returnedQuarters'],
+    ).round().clamp(0, 40);
+    final requestedQuarters = number(
+      meta['requestedQuarters'],
+    ).round().clamp(0, 40);
+
+    return Panel(
+      key: const ValueKey('guru-position-history-module'),
+      palette: widget.palette,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PanelTitle(
+            icon: Icons.timeline_rounded,
+            kicker: context.tr('申报仓位历史', 'REPORTED POSITION HISTORY'),
+            title: context.tr(
+              '${guruDisplayName(widget.guru, context.language)} 的仓位轨迹',
+              '${guruDisplayName(widget.guru, context.language)} Position History',
+            ),
+            palette: widget.palette,
+            trailing: _RetryIconButton(
+              onPressed: widget.loading ? null : widget.onRetry,
+              palette: widget.palette,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (widget.loading && widget.payload == null)
+            const SizedBox(
+              height: 260,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (widget.error != null && widget.payload == null)
+            _PositionHistoryFailure(
+              error: widget.error!,
+              palette: widget.palette,
+              onRetry: widget.onRetry,
+            )
+          else if (history.isEmpty)
+            _PositionHistoryFailure(
+              error: context.tr(
+                '暂无可用的季度仓位历史。',
+                'No quarterly position history is available yet.',
+              ),
+              palette: widget.palette,
+              onRetry: widget.onRetry,
+            )
+          else ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                InfoChip(
+                  context.tr(
+                    '$returnedQuarters 个季度',
+                    '$returnedQuarters quarters',
+                  ),
+                  palette: widget.palette,
+                ),
+                if (requestedQuarters > returnedQuarters)
+                  InfoChip(
+                    context.tr(
+                      '请求 $requestedQuarters 个季度',
+                      '$requestedQuarters requested',
+                    ),
+                    palette: widget.palette,
+                  ),
+                if (cacheStatus.isNotEmpty)
+                  InfoChip(
+                    context.tr('缓存 $cacheStatus', 'Cache $cacheStatus'),
+                    palette: widget.palette,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              context.tr('选择季度', 'Select quarter'),
+              style: TextStyle(
+                color: widget.palette.muted,
+                fontWeight: FontWeight.w900,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final quarter in history) ...[
+                    ChoiceChip(
+                      key: ValueKey(
+                        'guru-position-history-quarter-${text(quarter['reportDate'])}',
+                      ),
+                      label: Text(
+                        text(
+                          quarter['quarterLabel'],
+                          reportQuarterLabel(text(quarter['reportDate'])),
+                        ),
+                      ),
+                      selected:
+                          text(quarter['reportDate']) == selectedReportDate,
+                      showCheckmark: false,
+                      onSelected: (_) => setState(() {
+                        _selectedReportDate = text(quarter['reportDate']);
+                      }),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _PositionHistoryMetrics(
+              quarter: selectedQuarter,
+              palette: widget.palette,
+            ),
+            const SizedBox(height: 14),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final quarterPanel = _PositionHistoryQuarterHoldings(
+                  quarter: selectedQuarter,
+                  holdings: selectedHoldings,
+                  selectedHoldingId: selectedHoldingId,
+                  palette: widget.palette,
+                  onSelect: (holding) => setState(
+                    () =>
+                        _selectedHoldingId = _positionHistoryHoldingId(holding),
+                  ),
+                );
+                final stockPanel = _PositionHistoryStockTrajectory(
+                  holding: selectedHolding,
+                  observations: observations,
+                  palette: widget.palette,
+                );
+                if (constraints.maxWidth < 760) {
+                  return Column(
+                    children: [
+                      quarterPanel,
+                      const SizedBox(height: 12),
+                      stockPanel,
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: quarterPanel),
+                    const SizedBox(width: 14),
+                    Expanded(child: stockPanel),
+                  ],
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PositionHistoryFailure extends StatelessWidget {
+  const _PositionHistoryFailure({
+    required this.error,
+    required this.palette,
+    required this.onRetry,
+  });
+
+  final String error;
+  final Palette palette;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        EmptyState(text: error, palette: palette),
+        if (onRetry != null) ...[
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            key: const ValueKey('guru-position-history-retry'),
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: Text(context.tr('重试', 'Retry')),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _PositionHistoryMetrics extends StatelessWidget {
+  const _PositionHistoryMetrics({required this.quarter, required this.palette});
+
+  final Map<String, dynamic> quarter;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = [
+      (
+        context.tr('普通股多头', 'Common-long value'),
+        formatMoney(number(quarter['commonLongValue'])),
+        Icons.account_balance_wallet_outlined,
+      ),
+      (
+        context.tr('申报仓位', 'Positions'),
+        formatNumber(number(quarter['positionCount'])),
+        Icons.view_list_rounded,
+      ),
+      (
+        context.tr('前十大集中度', 'Top-10 weight'),
+        formatReturn(number(quarter['top10Weight'])).replaceFirst('+', ''),
+        Icons.donut_large_rounded,
+      ),
+      (
+        context.tr('仓位变化代理', 'Turnover proxy'),
+        formatReturn(number(quarter['turnoverProxy'])).replaceFirst('+', ''),
+        Icons.swap_horiz_rounded,
+      ),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth < 560 ? 2 : 4;
+        final width = (constraints.maxWidth - (columns - 1) * 8) / columns;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final metric in metrics)
+              SizedBox(
+                width: width,
+                child: MiniMetric(metric.$1, metric.$2, metric.$3, palette),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PositionHistoryQuarterHoldings extends StatelessWidget {
+  const _PositionHistoryQuarterHoldings({
+    required this.quarter,
+    required this.holdings,
+    required this.selectedHoldingId,
+    required this.palette,
+    required this.onSelect,
+  });
+
+  final Map<String, dynamic> quarter;
+  final List<Map<String, dynamic>> holdings;
+  final String selectedHoldingId;
+  final Palette palette;
+  final ValueChanged<Map<String, dynamic>> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final quarterLabel = text(
+      quarter['quarterLabel'],
+      reportQuarterLabel(text(quarter['reportDate'])),
+    );
+    return _PositionHistorySection(
+      title: context.tr('$quarterLabel 前十大仓位', '$quarterLabel Top holdings'),
+      subtitle: context.tr(
+        '按普通股多头申报价值排序；点击股票查看轨迹',
+        'Ranked by reported common-long value; select a stock for its trajectory',
+      ),
+      palette: palette,
+      child: holdings.isEmpty
+          ? EmptyState(
+              text: context.tr(
+                '本季度没有可展示的前十大仓位。',
+                'No Top-10 holdings are available for this quarter.',
+              ),
+              palette: palette,
+            )
+          : Column(
+              children: [
+                for (final holding in holdings)
+                  _PositionHistoryHoldingRow(
+                    holding: holding,
+                    selected:
+                        _positionHistoryHoldingId(holding) == selectedHoldingId,
+                    palette: palette,
+                    onTap: () => onSelect(holding),
+                  ),
+              ],
+            ),
+    );
+  }
+}
+
+class _PositionHistoryHoldingRow extends StatelessWidget {
+  const _PositionHistoryHoldingRow({
+    required this.holding,
+    required this.selected,
+    required this.palette,
+    required this.onTap,
+  });
+
+  final Map<String, dynamic> holding;
+  final bool selected;
+  final Palette palette;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ticker = _positionHistoryHoldingLabel(holding);
+    final weight = number(holding['pctPortfolio']).clamp(0.0, 1.0).toDouble();
+    final publicTrading = marketLensPublicTradingMetadata([holding]);
+    final publiclyTradable = truthy(publicTrading['publicReplicable']);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: InkWell(
+        key: ValueKey('guru-position-history-holding-$ticker'),
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: selected
+                ? palette.accent.withValues(alpha: .12)
+                : palette.card,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected ? palette.accent : palette.border,
+            ),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 76,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ticker,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: selected ? palette.accent : palette.text,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    if (!publiclyTradable)
+                      Text(
+                        context.tr('已私有化', 'Private'),
+                        style: TextStyle(
+                          color: palette.muted,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: weight,
+                    minHeight: 7,
+                    backgroundColor: palette.border,
+                    color: palette.accent,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                width: 64,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      formatMoney(number(holding['value'])),
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: palette.text,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                      ),
+                    ),
+                    Text(
+                      formatReturn(weight).replaceFirst('+', ''),
+                      style: TextStyle(color: palette.muted, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PositionHistoryStockTrajectory extends StatelessWidget {
+  const _PositionHistoryStockTrajectory({
+    required this.holding,
+    required this.observations,
+    required this.palette,
+  });
+
+  final Map<String, dynamic> holding;
+  final List<_PositionHistoryObservation> observations;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _positionHistoryHoldingLabel(holding);
+    final publicTrading = marketLensPublicTradingMetadata([holding]);
+    final publiclyTradable = truthy(publicTrading['publicReplicable']);
+    final publicTradingReason = context.language == AppLanguage.zh
+        ? text(publicTrading['reasonZh'], text(publicTrading['reasonEn']))
+        : text(publicTrading['reasonEn'], text(publicTrading['reasonZh']));
+    final maxWeight = observations.fold<double>(
+      0,
+      (current, observation) =>
+          math.max(current, number(observation.holding['pctPortfolio'])),
+    );
+    return _PositionHistorySection(
+      title: label.isEmpty
+          ? context.tr('股票轨迹', 'Stock trajectory')
+          : context.tr('$label 仓位轨迹', '$label position trajectory'),
+      subtitle: context.tr(
+        '季度末前十大快照中的申报仓位',
+        'Reported quarter-end position when present in the Top 10 snapshot',
+      ),
+      palette: palette,
+      child: observations.isEmpty
+          ? EmptyState(
+              text: context.tr(
+                '选择一个股票查看历史轨迹。',
+                'Select a stock to inspect its history.',
+              ),
+              palette: palette,
+            )
+          : Column(
+              children: [
+                if (!publiclyTradable) ...[
+                  PortfolioDataNotice(
+                    icon: Icons.lock_outline_rounded,
+                    text: text(
+                      publicTradingReason,
+                      context.tr(
+                        '该历史申报证券现已私有化；保留仓位证据，但不提供公开市场估值或复制交易。',
+                        'This historically reported security is now private. The position evidence remains visible, but public valuation and copy execution are unavailable.',
+                      ),
+                    ),
+                    palette: palette,
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                for (final observation in observations)
+                  _PositionHistoryObservationRow(
+                    observation: observation,
+                    maxWeight: maxWeight,
+                    palette: palette,
+                  ),
+                const SizedBox(height: 4),
+                PortfolioDataNotice(
+                  icon: Icons.info_outline_rounded,
+                  text: context.tr(
+                    '轨迹仅覆盖每季度前十大申报仓位；某季度未出现不代表已经清仓。13F 为滞后披露，不是实时交易记录。',
+                    'This trajectory covers only each quarter\'s reported Top 10. Absence does not prove an exit. 13F filings are delayed disclosures, not live trade records.',
+                  ),
+                  palette: palette,
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class _PositionHistoryObservationRow extends StatelessWidget {
+  const _PositionHistoryObservationRow({
+    required this.observation,
+    required this.maxWeight,
+    required this.palette,
+  });
+
+  final _PositionHistoryObservation observation;
+  final double maxWeight;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final quarter = observation.quarter;
+    final holding = observation.holding;
+    final weight = number(holding['pctPortfolio']);
+    final relative = maxWeight <= 0
+        ? 0.0
+        : (weight / maxWeight).clamp(0.0, 1.0).toDouble();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 72,
+            child: Text(
+              text(
+                quarter['quarterLabel'],
+                reportQuarterLabel(text(quarter['reportDate'])),
+              ),
+              style: TextStyle(
+                color: palette.text,
+                fontWeight: FontWeight.w900,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: relative,
+                minHeight: 8,
+                backgroundColor: palette.border,
+                color: palette.secondary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 72,
+            child: Text(
+              formatReturn(weight).replaceFirst('+', ''),
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                color: palette.text,
+                fontWeight: FontWeight.w900,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 72,
+            child: Text(
+              formatMoney(number(holding['value'])),
+              textAlign: TextAlign.end,
+              maxLines: 1,
+              style: TextStyle(color: palette.muted, fontSize: 11),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PositionHistorySection extends StatelessWidget {
+  const _PositionHistorySection({
+    required this.title,
+    required this.subtitle,
+    required this.palette,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final Palette palette;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: palette.card.withValues(alpha: .42),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: palette.text,
+              fontWeight: FontWeight.w900,
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: TextStyle(color: palette.muted, fontSize: 11, height: 1.3),
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _PositionHistoryObservation {
+  const _PositionHistoryObservation({
+    required this.quarter,
+    required this.holding,
+  });
+
+  final Map<String, dynamic> quarter;
+  final Map<String, dynamic> holding;
+}
+
+String _positionHistoryHoldingId(Map<String, dynamic> holding) => text(
+  holding['ticker'],
+  text(holding['cusip'], text(holding['issuer'])),
+).toUpperCase();
+
+String _positionHistoryHoldingLabel(Map<String, dynamic> holding) =>
+    text(holding['ticker'], text(holding['issuer'], text(holding['cusip'])));
 
 class SimulationRangeBar extends StatelessWidget {
   const SimulationRangeBar({
@@ -6617,6 +7596,12 @@ class GuruQuarterContributionModule extends StatelessWidget {
             )
           else if (error != null && !hasFullAttribution)
             EmptyState(text: error!, palette: palette)
+          else if (!_isDisplayableBacktest(payload) &&
+              _backtestReplicability(payload).isNotEmpty)
+            _StrictReplicationUnavailableNotice(
+              payload: payload,
+              palette: palette,
+            )
           else if (quarters.isEmpty)
             EmptyState(
               text: 'No quarterly attribution available.',
@@ -7725,11 +8710,13 @@ class _CompactTickerDeckState extends State<_CompactTickerDeck> {
       widget.gurus,
       positive: true,
       reportQuarter: quarter,
+      language: context.language,
     );
     final trimItems = buildActivityRankItems(
       widget.gurus,
       positive: false,
       reportQuarter: quarter,
+      language: context.language,
     );
     final pages = [
       _DeckPageSpec(
@@ -7749,6 +8736,7 @@ class _CompactTickerDeckState extends State<_CompactTickerDeck> {
         body: _RecentFilingDeckPage(
           filings: buildRecentFilingItems(
             widget.gurus,
+            language: context.language,
           ).take(widget.itemLimit).toList(),
           palette: widget.palette,
         ),
@@ -8489,16 +9477,22 @@ class _QuarterlyMarketLensDialogState extends State<QuarterlyMarketLensDialog> {
   Widget build(BuildContext context) {
     final palette = widget.palette;
     final quarter = defaultGuruDisclosureQuarter(widget.gurus);
-    final exposures = buildExposures(widget.gurus, reportQuarter: quarter);
+    final exposures = buildExposures(
+      widget.gurus,
+      reportQuarter: quarter,
+      language: context.language,
+    );
     final adds = buildActivityRankItems(
       widget.gurus,
       positive: true,
       reportQuarter: quarter,
+      language: context.language,
     );
     final trims = buildActivityRankItems(
       widget.gurus,
       positive: false,
       reportQuarter: quarter,
+      language: context.language,
     );
     final eligible = guruDisclosureEligibleCount(widget.gurus);
     final covered = guruDisclosureQuarterCoverage(widget.gurus, quarter);
@@ -8956,6 +9950,13 @@ class _QuarterlyMarketLensDialogState extends State<QuarterlyMarketLensDialog> {
                 : right.currentValue.compareTo(left.currentValue);
           });
     final issuer = positions.isEmpty ? '' : positions.first.issuer;
+    final nonPublicPositions = positions
+        .where((position) => !position.isPubliclyTradable)
+        .toList();
+    final isPubliclyTradable = nonPublicPositions.isEmpty;
+    final publicTradingReason = nonPublicPositions.isEmpty
+        ? ''
+        : nonPublicPositions.first.publicTradingReason(context.language);
     final breadth = _view == 0 ? exposure.guruCount : activity.guruCount;
     final metricCards = _view == 0
         ? [
@@ -9045,9 +10046,23 @@ class _QuarterlyMarketLensDialogState extends State<QuarterlyMarketLensDialog> {
               );
               final action = FilledButton.icon(
                 key: const ValueKey('quarterly-market-lens-valuation'),
-                onPressed: () => _openValuation(selectedTicker),
-                icon: const Icon(Icons.query_stats_rounded, size: 18),
-                label: Text(context.tr('查看估值', 'Open valuation')),
+                onPressed: isPubliclyTradable
+                    ? () => _openValuation(selectedTicker)
+                    : null,
+                icon: Icon(
+                  isPubliclyTradable
+                      ? Icons.query_stats_rounded
+                      : Icons.lock_outline_rounded,
+                  size: 18,
+                ),
+                label: Text(
+                  isPubliclyTradable
+                      ? context.tr('查看估值', 'Open valuation')
+                      : context.tr(
+                          '已私有化 · 无公开估值',
+                          'Private · no public valuation',
+                        ),
+                ),
               );
               if (stacked) {
                 return Column(
@@ -9066,6 +10081,20 @@ class _QuarterlyMarketLensDialogState extends State<QuarterlyMarketLensDialog> {
             },
           ),
           const SizedBox(height: 14),
+          if (!isPubliclyTradable) ...[
+            PortfolioDataNotice(
+              icon: Icons.lock_outline_rounded,
+              text: text(
+                publicTradingReason,
+                context.tr(
+                  '该申报证券已不再公开交易，因此保留申报证据，但不提供公开市场估值或复制交易入口。',
+                  'The reported security is no longer publicly traded. Filing evidence remains visible, but public-market valuation and copy execution are unavailable.',
+                ),
+              ),
+              palette: palette,
+            ),
+            const SizedBox(height: 14),
+          ],
           GridWrap(minTileWidth: 145, spacing: 9, children: metricCards),
           const SizedBox(height: 14),
           PortfolioDataNotice(
@@ -9095,7 +10124,7 @@ class _QuarterlyMarketLensDialogState extends State<QuarterlyMarketLensDialog> {
             _MarketLensManagerRow(
               position: position,
               palette: palette,
-              onTap: position.hasTradeEvidence
+              onTap: position.hasTradeEvidence && position.isPubliclyTradable
                   ? () => _openGuruTrade(position)
                   : null,
             ),
@@ -9373,6 +10402,11 @@ class _MarketLensManagerRow extends StatelessWidget {
                           : context.tr('申报持有', 'Reported holding'),
                       color: tone,
                     ),
+                    if (!position.isPubliclyTradable)
+                      BadgeLabel(
+                        text: context.tr('已私有化', 'Private'),
+                        color: palette.muted,
+                      ),
                   ],
                 ),
                 const SizedBox(height: 5),
@@ -9396,6 +10430,21 @@ class _MarketLensManagerRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: palette.faint, fontSize: 10),
                 ),
+                if (!position.isPubliclyTradable) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    text(
+                      position.publicTradingReason(context.language),
+                      context.tr(
+                        '不提供公开市场估值或复制交易。',
+                        'Public valuation and copy execution unavailable.',
+                      ),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: palette.muted, fontSize: 10),
+                  ),
+                ],
               ],
             ),
           ),
@@ -9776,7 +10825,7 @@ class GuruInspector extends StatelessWidget {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          text(guru['name']),
+                          guruDisplayName(guru, context.language),
                           style: Theme.of(context).textTheme.headlineSmall
                               ?.copyWith(
                                 color: palette.text,
@@ -10023,13 +11072,8 @@ class _BacktestPreviewState extends State<BacktestPreview> {
           else if (_error != null && _payload == null)
             EmptyState(text: _error!, palette: widget.palette)
           else if (!_isDisplayableBacktest(_payload))
-            EmptyState(
-              text: context.ui(
-                text(
-                  asMap(_payload?['method'])['reason'],
-                  'Backtest is not ready.',
-                ),
-              ),
+            _StrictReplicationUnavailableNotice(
+              payload: _payload,
               palette: widget.palette,
             )
           else ...[
@@ -25236,6 +26280,8 @@ class ExposureItem {
     0,
     (maximum, position) => math.max(maximum, position.currentWeight),
   );
+  bool get hasNonPublicPosition =>
+      positions.any((position) => !position.isPubliclyTradable);
 }
 
 class MarketLensManagerPosition {
@@ -25253,6 +26299,10 @@ class MarketLensManagerPosition {
     required this.previousWeight,
     required this.changeShares,
     this.hasTradeEvidence = false,
+    this.publicTradingStatus = 'public',
+    this.publicReplicable = true,
+    this.publicTradingReasonEn = '',
+    this.publicTradingReasonZh = '',
   });
 
   final String guruId;
@@ -25268,9 +26318,19 @@ class MarketLensManagerPosition {
   final double previousWeight;
   final double changeShares;
   final bool hasTradeEvidence;
+  final String publicTradingStatus;
+  final bool publicReplicable;
+  final String publicTradingReasonEn;
+  final String publicTradingReasonZh;
 
   double get valueChange => currentValue - previousValue;
   double get weightChange => currentWeight - previousWeight;
+  bool get isPubliclyTradable =>
+      publicReplicable && !publicTradingStatus.startsWith('private');
+
+  String publicTradingReason(AppLanguage language) => language == AppLanguage.zh
+      ? text(publicTradingReasonZh, publicTradingReasonEn)
+      : text(publicTradingReasonEn, publicTradingReasonZh);
 }
 
 class GuruFilingItem {
@@ -25585,6 +26645,7 @@ int guruModuleIndex(String? value) {
   return switch (module) {
     '1' || 'trade' || 'trades' || 'new' || 'new-exit' => 1,
     '2' || 'quarter' || 'quarters' || 'contribution' => 2,
+    '3' || 'position' || 'positions' || 'exposure' || 'history' => 3,
     _ => 0,
   };
 }
@@ -25593,6 +26654,7 @@ String guruModuleRouteName(int value) {
   return switch (value) {
     1 => 'trades',
     2 => 'contribution',
+    3 => 'positions',
     _ => 'simulation',
   };
 }
@@ -25612,11 +26674,14 @@ String? defaultGuruId(List<Map<String, dynamic>> gurus) {
   return text(gurus.first['id']);
 }
 
-List<SignalItem> buildSignals(List<Map<String, dynamic>> gurus) {
+List<SignalItem> buildSignals(
+  List<Map<String, dynamic>> gurus, [
+  AppLanguage language = AppLanguage.en,
+]) {
   final signals = <SignalItem>[];
   for (final guru in gurus) {
     final type = text(guru['type']);
-    final guruName = text(guru['name']);
+    final guruName = guruDisplayName(guru, language);
     final guruId = text(guru['id']);
     final summary = asMap(guru['summary']);
     if (type == 'manager13f') {
@@ -25735,6 +26800,36 @@ String normalizedMarketLensTicker(Map<String, dynamic> row) {
   return RegExp(r'^[A-Z][A-Z0-9.-]{0,9}$').hasMatch(ticker) ? ticker : '';
 }
 
+Map<String, dynamic> marketLensPublicTradingMetadata(
+  Iterable<Map<String, dynamic>> rows,
+) {
+  for (final row in rows) {
+    final nested = asMap(row['publicTrading']);
+    final status = text(
+      nested['publicTradingStatus'],
+      text(row['publicTradingStatus'], 'public'),
+    );
+    final explicitlyReplicable = nested.containsKey('publicReplicable')
+        ? truthy(nested['publicReplicable'])
+        : row.containsKey('publicReplicable')
+        ? truthy(row['publicReplicable'])
+        : !status.startsWith('private');
+    if (explicitlyReplicable && !status.startsWith('private')) continue;
+    return <String, dynamic>{
+      'publicTradingStatus': status,
+      'publicReplicable': false,
+      'reasonEn': text(nested['reasonEn'], text(row['reasonEn'])),
+      'reasonZh': text(nested['reasonZh'], text(row['reasonZh'])),
+    };
+  }
+  return const <String, dynamic>{
+    'publicTradingStatus': 'public',
+    'publicReplicable': true,
+    'reasonEn': '',
+    'reasonZh': '',
+  };
+}
+
 String primaryReportedAction(Iterable<String> actions) {
   final counts = <String, int>{};
   for (final raw in actions) {
@@ -25764,6 +26859,7 @@ double medianValue(Iterable<double> values) {
 List<ExposureItem> buildExposures(
   List<Map<String, dynamic>> gurus, {
   String? reportQuarter,
+  AppLanguage language = AppLanguage.en,
 }) {
   final selectedQuarter = text(
     reportQuarter,
@@ -25776,7 +26872,7 @@ List<ExposureItem> buildExposures(
     final reportDate = text(summary['reportDate']);
     if (reportQuarterLabel(reportDate) != selectedQuarter) continue;
     final guruId = text(guru['id']);
-    final guruName = text(guru['name'], guruId);
+    final guruName = guruDisplayName(guru, language);
     final commonLongValue = reported13fCommonLongValue(guru);
     final previousCommonLongValue =
         firstNumber([
@@ -25804,6 +26900,10 @@ List<ExposureItem> buildExposures(
         (sum, holding) => sum + number(holding['value']),
       );
       final activity = activityByTicker[ticker] ?? const [];
+      final publicTrading = marketLensPublicTradingMetadata([
+        ...holdings,
+        ...activity,
+      ]);
       final previousValue = activity.fold<double>(
         0,
         (sum, row) => sum + number(row['previousValue']),
@@ -25849,6 +26949,10 @@ List<ExposureItem> buildExposures(
             'sold_out',
           }.contains(text(row['action'])),
         ),
+        publicTradingStatus: text(publicTrading['publicTradingStatus']),
+        publicReplicable: truthy(publicTrading['publicReplicable']),
+        publicTradingReasonEn: text(publicTrading['reasonEn']),
+        publicTradingReasonZh: text(publicTrading['reasonZh']),
       );
       final current = byTicker.putIfAbsent(
         ticker,
@@ -25899,7 +27003,10 @@ class _ExposureAccumulator {
   final List<MarketLensManagerPosition> positions = [];
 }
 
-List<GuruFilingItem> buildRecentFilingItems(List<Map<String, dynamic>> gurus) {
+List<GuruFilingItem> buildRecentFilingItems(
+  List<Map<String, dynamic>> gurus, {
+  AppLanguage language = AppLanguage.en,
+}) {
   final rows = <GuruFilingItem>[];
   for (final guru in gurus) {
     if (text(guru['type']) != 'manager13f') continue;
@@ -25910,7 +27017,7 @@ List<GuruFilingItem> buildRecentFilingItems(List<Map<String, dynamic>> gurus) {
     rows.add(
       GuruFilingItem(
         guruId: text(guru['id']),
-        guruName: text(guru['name']),
+        guruName: guruDisplayName(guru, language),
         quarter: reportQuarterLabel(reportDate),
         reportDate: reportDate,
         filingDate: filingDate.isEmpty ? reportDate : filingDate,
@@ -25929,6 +27036,7 @@ List<GuruActivityRankItem> buildActivityRankItems(
   List<Map<String, dynamic>> gurus, {
   required bool positive,
   String? reportQuarter,
+  AppLanguage language = AppLanguage.en,
 }) {
   final selectedQuarter = text(
     reportQuarter,
@@ -25944,7 +27052,7 @@ List<GuruActivityRankItem> buildActivityRankItems(
     final reportDate = text(summary['reportDate']);
     if (reportQuarterLabel(reportDate) != selectedQuarter) continue;
     final guruId = text(guru['id']);
-    final guruName = text(guru['name'], guruId);
+    final guruName = guruDisplayName(guru, language);
     final currentCommonLongValue = reported13fCommonLongValue(guru);
     final previousCommonLongValue =
         firstNumber([
@@ -25963,6 +27071,7 @@ List<GuruActivityRankItem> buildActivityRankItems(
     for (final entry in activityByTicker.entries) {
       final ticker = entry.key;
       final activities = entry.value;
+      final publicTrading = marketLensPublicTradingMetadata(activities);
       var amount = 0.0;
       var amountReliable = true;
       for (final activity in activities) {
@@ -26025,6 +27134,10 @@ List<GuruActivityRankItem> buildActivityRankItems(
             (sum, row) => sum + number(row['changeShares']),
           ),
           hasTradeEvidence: true,
+          publicTradingStatus: text(publicTrading['publicTradingStatus']),
+          publicReplicable: truthy(publicTrading['publicReplicable']),
+          publicTradingReasonEn: text(publicTrading['reasonEn']),
+          publicTradingReasonZh: text(publicTrading['reasonZh']),
         ),
       );
       if (reportDate.compareTo(current.reportDate) > 0) {
@@ -26144,6 +27257,16 @@ String text(dynamic value, [String fallback = '']) {
   return string.isEmpty ? fallback : string;
 }
 
+String guruDisplayName(
+  Map<String, dynamic> guru, [
+  AppLanguage language = AppLanguage.en,
+]) {
+  final englishName = text(guru['name'], text(guru['id'], '?'));
+  return language == AppLanguage.zh
+      ? text(guru['chineseName'], englishName)
+      : englishName;
+}
+
 int portfolioRecoveryMinutesRemaining(String undoUntil, {DateTime? now}) {
   final expiresAt = DateTime.tryParse(undoUntil)?.toUtc();
   if (expiresAt == null) return 0;
@@ -26163,7 +27286,7 @@ String publicAssetUrl(dynamic value) {
   return raw.startsWith('/') ? raw : '/$raw';
 }
 
-const _guruAvatarAssetVersion = '144-20260830';
+const _guruAvatarAssetVersion = '144-20260903';
 
 String versionedGuruAvatarUrl(dynamic value) {
   final url = publicAssetUrl(value);

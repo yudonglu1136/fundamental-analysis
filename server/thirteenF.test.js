@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { gurus } from "./gurus.js";
-import { holdingResolutionVersion, tickerForHolding } from "./cusipOverrides.js";
+import {
+  holdingResolutionVersion,
+  priceSymbolForHolding,
+  priceSymbolResolutionForHolding,
+  tickerForHolding,
+  tickerResolutionForHolding
+} from "./cusipOverrides.js";
 
 import {
   assessCorporateActionAdjustedShareChange,
@@ -288,6 +294,100 @@ test("audited historical aliases resolve Chamath and Li Lu disclosure identifier
   assert.equal(tickerForHolding({ cusip: "056752908", issuer: "BAIDU INC" }), "BIDU");
   assert.equal(tickerForHolding({ cusip: "056752908", issuer: "UNKNOWN ISSUER" }), "");
   assert.equal(tickerForHolding({ cusip: "G81477104", issuer: "SINA CORP" }), "SINA");
+});
+
+test("expanded manager catalog exact identifiers resolve without issuer-name guessing", () => {
+  const expected = new Map([
+    ["G6964L107", "PSFE"],
+    ["26614N102", "DD"],
+    ["01626W101", "ALIT"],
+    ["G6095L109", "APTV"],
+    ["H84989104", "TEL"],
+    ["527064109", "LESL"],
+    ["L7579L106", "PRM"],
+    ["G3421J106", "FERG"],
+    ["98936J101", "ZEN"],
+    ["03940F103", "LFG"],
+    ["923454102", "VRTV"],
+    ["046513107", "ATRA"],
+    ["G4474Y214", "JHG"],
+    ["G4474Y904", "JHG"],
+    ["37611X100", "DNA"],
+    ["20854L108", "CNR"],
+    ["049164205", "AAWW"],
+    ["15912K100", "CHNG"],
+    ["88337F105", "ODP"],
+    ["03940R107", "ARCH"],
+    ["83200N103", "SMAR"],
+    ["81686C104", "SEMR"],
+    ["90184L102", "TWTR"]
+  ]);
+
+  for (const [cusip, ticker] of expected) {
+    assert.equal(tickerForHolding({ issuer: "UNRELATED ISSUER", cusip }), ticker);
+  }
+});
+
+test("Pabrai historical identifiers use exact audited continuity without fuzzy padding", () => {
+  const expected = new Map([["N31738102", "FCAU"], ["384313508", "EAF"]]);
+
+  for (const [cusip, ticker] of expected) {
+    assert.deepEqual(tickerResolutionForHolding({
+      issuer: "UNRELATED ISSUER",
+      cusip
+    }), {
+      status: "resolved",
+      ticker,
+      securityId: null,
+      source: "curated_override",
+      rule: "exact_cusip",
+      candidates: [ticker]
+    });
+  }
+
+  assert.equal(priceSymbolForHolding({
+    issuer: "FIAT CHRYSLER AUTOMOBILES N",
+    cusip: "N31738102"
+  }), "STLA");
+  const priceResolution = priceSymbolResolutionForHolding({
+    issuer: "FIAT CHRYSLER AUTOMOBILES N",
+    cusip: "N31738102"
+  });
+  assert.equal(priceResolution.displayTicker, "FCAU");
+  assert.equal(priceResolution.provider, "Sharadar SEP");
+  assert.equal(priceResolution.tickerChangeEffectiveDate, "2021-01-19");
+
+  const exactBerkshireContext = {
+    cusip: "84670702",
+    guruId: "mohnish-pabrai",
+    reportDate: "2016-09-30",
+    accessionNumber: "0001549575-16-000021",
+    issuer: "BERKSHIRE HATHAWAY INC DEL",
+    title: "CL B"
+  };
+  assert.equal(tickerForHolding(exactBerkshireContext), "BRK.B");
+  assert.equal(
+    tickerResolutionForHolding(exactBerkshireContext).source,
+    "curated_filing_correction"
+  );
+
+  // An identical malformed value without the exact SEC row/Pabrai context is
+  // deliberately blocked rather than than globally left-padded.
+  assert.equal(tickerForHolding({
+    issuer: "BERKSHIRE HATHAWAY INC DEL",
+    title: "CL B",
+    cusip: "84670702"
+  }), "");
+  assert.equal(tickerForHolding({
+    ...exactBerkshireContext,
+    accessionNumber: "0001549575-16-000020"
+  }), "");
+
+  // The malformed Berkshire filing is corrected only for the observed exact
+  // identifier. Similar-looking values must remain unresolved.
+  assert.equal(tickerForHolding({ issuer: "UNRELATED ISSUER", cusip: "84670703" }), "");
+  assert.equal(tickerForHolding({ issuer: "UNRELATED ISSUER", cusip: "N31738103" }), "");
+  assert.equal(tickerForHolding({ issuer: "UNRELATED ISSUER", cusip: "384313509" }), "");
 });
 
 test("Bloomstran historical aliases retain the verified tradable series", () => {

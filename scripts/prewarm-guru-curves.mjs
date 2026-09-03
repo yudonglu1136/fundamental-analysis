@@ -2,12 +2,21 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import {
+  enabledManager13fGurus,
+  expectedGuruCurveRows,
+  requiredGuruCurveWindows
+} from "../server/gurus.js";
 import { requestLoopbackJson } from "./loopback-http-json.mjs";
 
 const DEFAULT_REFRESH_TIMEOUT_MS = 25 * 60 * 1000;
 const MAX_REFRESH_TIMEOUT_MS = 30 * 60 * 1000;
 const DEFAULT_STATUS_REQUEST_TIMEOUT_MS = 10_000;
 const DEFAULT_IDLE_POLL_INTERVAL_MS = 5_000;
+const REQUIRED_WINDOWS = requiredGuruCurveWindows;
+const EXPECTED_MANAGER_IDS = Object.freeze(enabledManager13fGurus.map((guru) => guru.id));
+const EXPECTED_MANAGER_COUNT = EXPECTED_MANAGER_IDS.length;
+const EXPECTED_CURVE_ROWS = expectedGuruCurveRows;
 const RETRYABLE_STATUS_ERROR_CODES = new Set([
   "ECONNREFUSED",
   "ECONNRESET",
@@ -150,8 +159,13 @@ function auditWindowResults(body, {
     row?.guruType === "manager13f" && row?.disabled !== true
   );
   const identities = new Set(managers.map((row) => row.guruId));
-  if (managers.length !== 18 || identities.size !== 18) {
-    throw new Error(`Guru ${years}Y prewarm returned ${managers.length}/18 unique manager results.`);
+  const exactPopulation = EXPECTED_MANAGER_IDS.every((guruId) => identities.has(guruId));
+  if (managers.length !== EXPECTED_MANAGER_COUNT ||
+      identities.size !== EXPECTED_MANAGER_COUNT ||
+      !exactPopulation) {
+    throw new Error(
+      `Guru ${years}Y prewarm returned ${managers.length}/${EXPECTED_MANAGER_COUNT} unique manager results.`
+    );
   }
   const failures = managers.filter((row) => {
     const generatedAt = validIsoDate(row.generatedAt);
@@ -168,7 +182,8 @@ function auditWindowResults(body, {
   });
   if (failures.length) {
     throw new Error(
-      `Guru ${years}Y prewarm failed current-generation validation for ${failures.length}/18 managers.`
+      `Guru ${years}Y prewarm failed current-generation validation for ` +
+      `${failures.length}/${EXPECTED_MANAGER_COUNT} managers.`
     );
   }
   return {
@@ -295,8 +310,8 @@ report.curveAvailability = curveAvailability(health);
 report.pass = Boolean(
   healthResponse.ok &&
   report.curveAvailability?.ok &&
-  Number(report.curveAvailability?.expectedRows) === 36 &&
-  Number(report.curveAvailability?.displayable) === 36 &&
+  Number(report.curveAvailability?.expectedRows) === EXPECTED_CURVE_ROWS &&
+  Number(report.curveAvailability?.displayable) === EXPECTED_CURVE_ROWS &&
   Number(report.curveAvailability?.failures?.length || 0) === 0
 );
 report.finishedAt = new Date().toISOString();

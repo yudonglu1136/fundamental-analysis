@@ -101,6 +101,42 @@ test("proxy excludes an active-period gap and reports the top excluded holding",
   }]);
 });
 
+test("proxy recognizes an audited terminal cash action without post-close prices", () => {
+  const actionDates = ["2022-09-30", "2022-10-03", "2022-10-04"];
+  const actionHolding = {
+    ticker: "CHNG",
+    issuer: "Change Healthcare Inc.",
+    value: 40,
+    weight: 0.4,
+    corporateAction: {
+      considerationType: "cash",
+      effectiveDate: "2022-10-03",
+      terminalCashEntitlementPerShare: 27.75
+    }
+  };
+  const result = buildPublicHoldingsProxy({
+    rebalances: [{
+      ...rebalance([
+        actionHolding,
+        { ticker: "A", issuer: "A", value: 60, weight: 0.6 }
+      ], []),
+      executionDate: actionDates[0]
+    }],
+    tradingDates: actionDates,
+    priceMaps: new Map([
+      ["CHNG", new Map([[actionDates[0], 27.49]])],
+      ["A", new Map(actionDates.map((date, index) => [date, 10 + index]))]
+    ]),
+    endDate: actionDates[2],
+    minimumCoverage: 0.3,
+    minimumPositions: 2
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.rebalances[0].includedPositions, 2);
+  assert.equal(result.rebalances[0].weights[0].corporateAction.considerationType, "cash");
+});
+
 test("a later FISV gap does not erase an earlier complete proxy interval", () => {
   const intervalDates = [
     "2025-11-07",
