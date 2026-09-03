@@ -162,7 +162,32 @@ test("prewarm writes its success marker only after both windows cover every conf
   assert.equal(result.code, 0, result.stderr || result.stdout);
   assert.deepEqual(requestedGenerations, [`${generation}:5`, `${generation}:10`]);
   assert.deepEqual(requestedPopulations, ["enabled-manager13f", "enabled-manager13f"]);
-  assert.equal(JSON.parse(fs.readFileSync(output, "utf8")).pass, true);
+  const report = JSON.parse(fs.readFileSync(output, "utf8"));
+  assert.equal(report.pass, true);
+  assert.equal(report.kind, "guru_curve_production_prewarm");
+  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.refreshGeneration, generation);
+  assert.deepEqual(report.expectations, {
+    strictMethodVersion,
+    proxyMethodVersion,
+    securityMasterVersion,
+    expectedDisplayableRows: expectedCurveRows
+  });
+  assert.equal(report.refreshes.length, expectedCurveRows);
+  assert.deepEqual(
+    report.refreshes.map((row) => `${row.guruId}:${row.years}`),
+    [5, 10].flatMap((years) => expectedManagerIds.map((guruId) => `${guruId}:${years}`))
+  );
+  assert.ok(report.refreshes.every((row) =>
+    row.pass === true && row.actualStatus === row.expectedStatus &&
+    row.methodVersion === strictMethodVersion &&
+    row.securityMasterVersion === securityMasterVersion &&
+    row.refreshGeneration === `${generation}:${row.years}` &&
+    (row.expectedStatus === "proxy_ready"
+      ? row.proxyMethodVersion === proxyMethodVersion &&
+        row.proxySecurityMasterVersion === securityMasterVersion
+      : row.proxyMethodVersion === "" && row.proxySecurityMasterVersion === "")
+  ));
   assert.equal(JSON.parse(fs.readFileSync(marker, "utf8")).displayable, expectedCurveRows);
 });
 

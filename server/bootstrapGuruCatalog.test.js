@@ -340,6 +340,55 @@ function expectationsDocument({ installReport = false, includeExtra = false } = 
   };
 }
 
+function prewarmExpectationsDocument() {
+  const refreshGeneration = "b".repeat(64);
+  const refreshes = configuredCatalog().flatMap((guru, managerIndex) =>
+    requiredWindows.map((years) => {
+      const expectedStatus = (managerIndex + years) % 2 === 0 ? "ready" : "proxy_ready";
+      return {
+        guruId: guru.id,
+        guruType: "manager13f",
+        disabled: false,
+        years,
+        expectedStatus,
+        actualStatus: expectedStatus,
+        generatedAt,
+        methodVersion: strictMethodVersion,
+        securityMasterVersion,
+        proxyMethodVersion: expectedStatus === "proxy_ready" ? proxyMethodVersion : "",
+        proxySecurityMasterVersion: expectedStatus === "proxy_ready"
+          ? securityMasterVersion
+          : "",
+        refreshGeneration: `${refreshGeneration}:${years}`,
+        pass: true
+      };
+    })
+  );
+  return {
+    schemaVersion: 1,
+    kind: "guru_curve_production_prewarm",
+    refreshGeneration,
+    startedAt: "2026-09-03T07:59:00.000Z",
+    finishedAt: "2026-09-03T08:01:00.000Z",
+    healthHttpStatus: 200,
+    pass: true,
+    expectations: {
+      strictMethodVersion,
+      proxyMethodVersion,
+      securityMasterVersion,
+      expectedDisplayableRows: 76
+    },
+    windows: requiredWindows.map((years) => ({ years, managerCount: 38 })),
+    refreshes,
+    curveAvailability: {
+      ok: true,
+      expectedRows: 76,
+      displayable: 76,
+      failures: []
+    }
+  };
+}
+
 function runtimeFixture({ document = expectationsDocument(), mutate = null } = {}) {
   const catalog = configuredCatalog();
   const baseline = baselineDashboard(catalog);
@@ -603,6 +652,80 @@ test("install-report expectations retain exact curve-generation evidence", () =>
     }),
     /status=installed and pass=true/i
   );
+});
+
+test("production-prewarm expectations bind the complete enabled-manager matrix", () => {
+  const document = prewarmExpectationsDocument();
+  const runtime = runtimeFixture({ document }).runtime;
+  const result = loadExpectedRefreshTargets(document, {
+    selectedGuruIds: selectedIds,
+    requiredWindows,
+    runtime
+  });
+  assert.equal(result.sourceKind, "prewarm_report");
+  assert.equal(result.allTargets.length, 76);
+  assert.equal(result.targets.length, 18);
+  assert.equal(result.ignoredTargets.length, 58);
+  assert.ok(result.allTargets.every((target) =>
+    target.evidenceGeneratedAt === generatedAt &&
+    target.evidenceSource === "prewarm_report"
+  ));
+
+  const cases = [
+    {
+      name: "overall pass",
+      mutate: (payload) => { payload.pass = false; },
+      pattern: /schemaVersion=1 and pass=true/i
+    },
+    {
+      name: "missing matrix row",
+      mutate: (payload) => { payload.refreshes.pop(); },
+      pattern: /exactly cover the enabled-manager curve matrix/i
+    },
+    {
+      name: "row generation",
+      mutate: (payload) => { payload.refreshes[0].refreshGeneration = "wrong"; },
+      pattern: /exact generation and identity/i
+    },
+    {
+      name: "row method",
+      mutate: (payload) => { payload.refreshes[0].methodVersion = "stale-method"; },
+      pattern: /exact generation and identity/i
+    },
+    {
+      name: "proxy identity",
+      mutate: (payload) => {
+        const proxy = payload.refreshes.find((row) => row.expectedStatus === "proxy_ready");
+        proxy.proxyMethodVersion = "stale-proxy";
+      },
+      pattern: /exact generation and identity/i
+    },
+    {
+      name: "generated timestamp",
+      mutate: (payload) => {
+        payload.refreshes[0].generatedAt = "2026-09-03T07:58:59.000Z";
+      },
+      pattern: /exact generation and identity/i
+    },
+    {
+      name: "health matrix",
+      mutate: (payload) => { payload.curveAvailability.displayable = 75; },
+      pattern: /complete, healthy, current-generation matrix/i
+    }
+  ];
+  for (const item of cases) {
+    const invalid = structuredClone(document);
+    item.mutate(invalid);
+    assert.throws(
+      () => loadExpectedRefreshTargets(invalid, {
+        selectedGuruIds: selectedIds,
+        requiredWindows,
+        runtime
+      }),
+      item.pattern,
+      item.name
+    );
+  }
 });
 
 test("dashboard construction is exact, ordered, metadata-current, and non-mutating", () => {
@@ -895,6 +1018,22 @@ test("successful bootstrap stages all surfaces without persistence and writes ex
   assert.deepEqual(baseline, baselineBefore);
 });
 
+test("successful bootstrap accepts exact full-matrix production-prewarm evidence", async () => {
+  const document = prewarmExpectationsDocument();
+  const { runtime, calls } = runtimeFixture({ document });
+  const result = await bootstrapGuruCatalog(bootstrapOptions(document), runtime);
+
+  assert.equal(result.status, "bootstrapped");
+  assert.equal(result.expectationSource, "prewarm_report");
+  assert.equal(result.backtests, 18);
+  assert.equal(result.ignoredExpectationTargets.length, 58);
+  assert.equal(calls.writes.length, 1);
+  assert.equal(calls.snapshot.length, 9);
+  assert.equal(calls.exposure.length, 9);
+  assert.equal(calls.strictReads.length, 152);
+  assert.equal(calls.proxyReads.length, 152);
+});
+
 test("a failed SEC stage, curve audit, or concurrent version change leaves writer untouched", async (context) => {
   const cases = [
     {
@@ -1023,6 +1162,32 @@ test("successful install report cannot bootstrap stale same-version curves", asy
   await assert.rejects(
     bootstrapGuruCatalog(bootstrapOptions(document), runtime),
     /install-report generation/i
+  );
+  assert.equal(calls.snapshot.length, 0);
+  assert.equal(calls.writes.length, 0);
+});
+
+test("successful production-prewarm report cannot bootstrap a different curve generation", async () => {
+  const document = prewarmExpectationsDocument();
+  const staleAt = "2026-09-03T08:00:30.000Z";
+  const { runtime, calls } = runtimeFixture({
+    document,
+    mutate: {
+      strict: (payload, guruId, years) => guruId === "legacy-profile-1" && years === 5
+        ? { ...payload, generatedAt: staleAt }
+        : payload,
+      proxy: (payload, guruId, years) => guruId === "legacy-profile-1" && years === 5
+        ? {
+            ...payload,
+            generatedAt: staleAt,
+            proxy: { ...payload.proxy, strictFailureGeneratedAt: staleAt }
+          }
+        : payload
+    }
+  });
+  await assert.rejects(
+    bootstrapGuruCatalog(bootstrapOptions(document), runtime),
+    /production-prewarm generation/i
   );
   assert.equal(calls.snapshot.length, 0);
   assert.equal(calls.writes.length, 0);

@@ -148,6 +148,8 @@ function auditWindowResults(body, {
   years,
   refreshGeneration,
   notBefore,
+  startedAt,
+  finishedAt,
   strictMethodVersion,
   proxyMethodVersion,
   securityMasterVersion
@@ -172,13 +174,16 @@ function auditWindowResults(body, {
     const common = Number(row.years) === years &&
       row.refreshGeneration === refreshGeneration &&
       generatedAt && Date.parse(generatedAt) >= Date.parse(notBefore) &&
+      Date.parse(generatedAt) >= Date.parse(startedAt) &&
+      Date.parse(generatedAt) <= Date.parse(finishedAt) + 5_000 &&
       row.methodVersion === strictMethodVersion &&
       row.securityMasterVersion === securityMasterVersion;
     if (!common || !["ready", "proxy_ready"].includes(row.status)) return true;
-    return row.status === "proxy_ready" && (
-      row.proxyMethodVersion !== proxyMethodVersion ||
-      row.proxySecurityMasterVersion !== securityMasterVersion
-    );
+    if (row.status === "proxy_ready") {
+      return row.proxyMethodVersion !== proxyMethodVersion ||
+        row.proxySecurityMasterVersion !== securityMasterVersion;
+    }
+    return Boolean(row.proxyMethodVersion || row.proxySecurityMasterVersion);
   });
   if (failures.length) {
     throw new Error(
@@ -186,10 +191,29 @@ function auditWindowResults(body, {
       `${failures.length}/${EXPECTED_MANAGER_COUNT} managers.`
     );
   }
+  const order = new Map(EXPECTED_MANAGER_IDS.map((guruId, index) => [guruId, index]));
+  const refreshes = managers
+    .map((row) => ({
+      guruId: row.guruId,
+      guruType: row.guruType,
+      disabled: Boolean(row.disabled),
+      years,
+      expectedStatus: row.status,
+      actualStatus: row.status,
+      generatedAt: validIsoDate(row.generatedAt),
+      methodVersion: row.methodVersion,
+      securityMasterVersion: row.securityMasterVersion,
+      proxyMethodVersion: row.proxyMethodVersion || "",
+      proxySecurityMasterVersion: row.proxySecurityMasterVersion || "",
+      refreshGeneration,
+      pass: true
+    }))
+    .sort((left, right) => order.get(left.guruId) - order.get(right.guruId));
   return {
     managerCount: managers.length,
     ready: managers.filter((row) => row.status === "ready").length,
-    proxyReady: managers.filter((row) => row.status === "proxy_ready").length
+    proxyReady: managers.filter((row) => row.status === "proxy_ready").length,
+    refreshes
   };
 }
 
@@ -235,10 +259,18 @@ if (!windows.length || windows.some((years) => ![5, 10].includes(years)) ||
 const report = {
   schemaVersion: 1,
   kind: "guru_curve_production_prewarm",
+  refreshGeneration,
   startedAt: new Date().toISOString(),
   finishedAt: null,
   refreshTimeoutMs: refreshRequestTimeoutMs,
+  expectations: {
+    strictMethodVersion,
+    proxyMethodVersion,
+    securityMasterVersion,
+    expectedDisplayableRows: EXPECTED_CURVE_ROWS
+  },
   windows: [],
+  refreshes: [],
   healthHttpStatus: null,
   curveAvailability: null,
   pass: false
@@ -282,6 +314,8 @@ for (const years of windows) {
     years,
     refreshGeneration: generation,
     notBefore,
+    startedAt,
+    finishedAt,
     strictMethodVersion,
     proxyMethodVersion,
     securityMasterVersion
@@ -296,9 +330,12 @@ for (const years of windows) {
     proxyAvailable: Number(body?.proxyAvailable || 0),
     alreadyRunning: Boolean(body?.alreadyRunning),
     errorCount: Array.isArray(body?.errors) ? body.errors.length : 0,
-    ...resultAudit
+    managerCount: resultAudit.managerCount,
+    ready: resultAudit.ready,
+    proxyReady: resultAudit.proxyReady
   };
   report.windows.push(item);
+  report.refreshes.push(...resultAudit.refreshes);
   console.log(JSON.stringify({ status: "window-finished", ...item }));
 }
 

@@ -18,6 +18,7 @@ import { pathToFileURL } from "node:url";
 const bootstrapExposureQuarters = 40;
 const allowedExpectedStatuses = new Set(["ready", "proxy_ready"]);
 const artifactKind = "guru_price_series_repair_batch";
+const prewarmReportKind = "guru_curve_production_prewarm";
 
 function validatedReason(value) {
   const reason = String(value || "").trim();
@@ -178,7 +179,7 @@ function expectationSource(payload) {
   const hasRefreshes = Object.hasOwn(payload, "refreshes");
   if (hasTargets === hasRefreshes) {
     throw new Error(
-      "Expectations JSON must contain exactly one of refreshTargets or install-report refreshes."
+      "Expectations JSON must contain exactly one of refreshTargets or refreshes."
     );
   }
   if (hasTargets) {
@@ -191,7 +192,15 @@ function expectationSource(payload) {
     return { kind: "artifact", targets: payload.refreshTargets };
   }
   if (!Array.isArray(payload.refreshes)) {
-    throw new Error("Install-report refreshes must be an array.");
+    throw new Error("Install-report or production-prewarm refreshes must be an array.");
+  }
+  if (payload.kind === prewarmReportKind) {
+    if (payload.schemaVersion !== 1 || payload.pass !== true) {
+      throw new Error(
+        "Production-prewarm expectations require schemaVersion=1 and pass=true."
+      );
+    }
+    return { kind: "prewarm_report", targets: payload.refreshes };
   }
   if (payload.status !== "installed" || payload.pass !== true) {
     throw new Error("Install-report expectations require status=installed and pass=true.");
@@ -236,6 +245,29 @@ export function loadExpectedRefreshTargets(
       (!validIsoTimestamp(installedAt) || installedAtMs > Date.now() + 5 * 60 * 1000)) {
     throw new Error("Install-report installedAt is invalid or in the future.");
   }
+  const prewarmStartedAt = source.kind === "prewarm_report"
+    ? String(payload.startedAt || "").trim()
+    : "";
+  const prewarmFinishedAt = source.kind === "prewarm_report"
+    ? String(payload.finishedAt || "").trim()
+    : "";
+  const prewarmStartedAtMs = prewarmStartedAt ? Date.parse(prewarmStartedAt) : Number.NaN;
+  const prewarmFinishedAtMs = prewarmFinishedAt ? Date.parse(prewarmFinishedAt) : Number.NaN;
+  if (source.kind === "prewarm_report") {
+    const availability = payload.curveAvailability;
+    if (!validIsoTimestamp(prewarmStartedAt) || !validIsoTimestamp(prewarmFinishedAt) ||
+        prewarmStartedAtMs > prewarmFinishedAtMs ||
+        prewarmFinishedAtMs > Date.now() + 5 * 60 * 1000 ||
+        Number(payload.healthHttpStatus) !== 200 || availability?.ok !== true ||
+        Number(availability?.expectedRows) !== Number(runtime.expectedCurveRows) ||
+        Number(availability?.displayable) !== Number(runtime.expectedCurveRows) ||
+        Number(availability?.failures?.length || 0) !== 0 ||
+        !/^[a-f0-9]{64}$/.test(String(payload.refreshGeneration || ""))) {
+      throw new Error(
+        "Production-prewarm expectations lack a complete, healthy, current-generation matrix."
+      );
+    }
+  }
   for (const [index, raw] of source.targets.entries()) {
     const guruId = normalizedGuruId(raw?.guruId);
     const years = Number(raw?.years);
@@ -248,7 +280,7 @@ export function loadExpectedRefreshTargets(
     }
     if (seen.has(key)) throw new Error(`Duplicate expectation target: ${key}.`);
     seen.add(key);
-    const evidenceGeneratedAt = source.kind === "install_report"
+    const evidenceGeneratedAt = ["install_report", "prewarm_report"].includes(source.kind)
       ? String(raw.generatedAt || "").trim()
       : "";
     if (source.kind === "install_report") {
@@ -261,12 +293,55 @@ export function loadExpectedRefreshTargets(
         throw new Error(`Install-report target ${key} did not pass its exact expected identity.`);
       }
     }
+    if (source.kind === "prewarm_report") {
+      const expectedRefreshGeneration = `${payload.refreshGeneration}:${years}`;
+      const readyWithoutProxyIdentity = expectedStatus === "ready" &&
+        !String(raw.proxyMethodVersion || "").trim() &&
+        !String(raw.proxySecurityMasterVersion || "").trim();
+      const proxyIdentityMatches = expectedStatus === "proxy_ready" &&
+        raw.proxyMethodVersion === runtime.proxyMethodVersion &&
+        raw.proxySecurityMasterVersion === runtime.securityMasterVersion;
+      if (raw.pass !== true || raw.actualStatus !== expectedStatus ||
+          raw.guruType !== "manager13f" || raw.disabled !== false ||
+          raw.methodVersion !== runtime.strictMethodVersion ||
+          raw.securityMasterVersion !== runtime.securityMasterVersion ||
+          raw.refreshGeneration !== expectedRefreshGeneration ||
+          (!readyWithoutProxyIdentity && !proxyIdentityMatches) ||
+          !validIsoTimestamp(evidenceGeneratedAt) ||
+          Date.parse(evidenceGeneratedAt) < prewarmStartedAtMs ||
+          Date.parse(evidenceGeneratedAt) > prewarmFinishedAtMs + 5 * 1000) {
+        throw new Error(
+          `Production-prewarm target ${key} did not pass its exact generation and identity.`
+        );
+      }
+    }
     targets.push({
       guruId,
       years,
       expectedStatus,
-      ...(evidenceGeneratedAt ? { evidenceGeneratedAt } : {})
+      ...(evidenceGeneratedAt ? {
+        evidenceGeneratedAt
+      } : {}),
+      ...(source.kind === "prewarm_report" ? { evidenceSource: source.kind } : {})
     });
+  }
+
+  if (source.kind === "prewarm_report") {
+    const enabledManagerIds = [...configuredById.values()]
+      .filter((guru) => guru.type === "manager13f" && !guru.disableSimulation)
+      .map((guru) => guru.id);
+    const completeKeys = new Set(
+      enabledManagerIds.flatMap((guruId) => windows.map((years) => `${guruId}:${years}`))
+    );
+    const unexpected = [...seen].filter((key) => !completeKeys.has(key));
+    const absent = [...completeKeys].filter((key) => !seen.has(key));
+    if (targets.length !== Number(runtime.expectedCurveRows) ||
+        seen.size !== completeKeys.size || unexpected.length || absent.length) {
+      throw new Error(
+        `Production-prewarm expectations must exactly cover the enabled-manager curve matrix; ` +
+        `missing=${absent.join(",") || "none"}; unexpected=${unexpected.join(",") || "none"}.`
+      );
+    }
   }
 
   const windowsByGuru = new Map();
@@ -711,7 +786,10 @@ export function validateCurveTarget(target, strictPayload, proxyPayload, runtime
     );
   }
   if (target.evidenceGeneratedAt && strictPayload.generatedAt !== target.evidenceGeneratedAt) {
-    throw new Error(`Curve ${key} does not match the successful install-report generation.`);
+    const evidenceLabel = target.evidenceSource === "prewarm_report"
+      ? "production-prewarm"
+      : "install-report";
+    throw new Error(`Curve ${key} does not match the successful ${evidenceLabel} generation.`);
   }
 
   if (target.expectedStatus === "ready") {
@@ -1073,7 +1151,7 @@ function usage() {
     "Usage:",
     "  SQLITE_DB_PATH=/absolute/candidate.sqlite node scripts/bootstrap-guru-catalog.mjs \\",
     "    --guru=<comma-separated-manager-ids> \\",
-    "    --expectations=/absolute/artifact-or-install-report.json \\",
+    "    --expectations=/absolute/artifact-install-or-prewarm-report.json \\",
     `    --exposure-limit=${bootstrapExposureQuarters} --reason=catalog-bootstrap-candidate`,
     "",
     "The command stages SEC snapshots without persistence, reuses already-audited local curves,",
