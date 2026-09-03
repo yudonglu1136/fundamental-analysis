@@ -590,6 +590,105 @@ function compare13fHoldings(currentHoldings, previousHoldings) {
     .sort((a, b) => Math.abs(b.changeShares) - Math.abs(a.changeShares));
 }
 
+const manager13fActivityActions = Object.freeze([
+  "new",
+  "increased",
+  "reduced",
+  "sold_out"
+]);
+const manager13fActivityResponseLimit = 80;
+const manager13fActivityMinimumPerAction = 8;
+
+function compareText(left, right) {
+  const leftText = String(left || "").toUpperCase();
+  const rightText = String(right || "").toUpperCase();
+  if (leftText < rightText) return -1;
+  if (leftText > rightText) return 1;
+  return 0;
+}
+
+function manager13fActivityEconomicValue(row) {
+  return Math.max(
+    Math.abs(numberValue(row?.value)),
+    Math.abs(numberValue(row?.previousValue))
+  );
+}
+
+function compareManager13fActivityImportance(left, right) {
+  const economicValue =
+    manager13fActivityEconomicValue(right) - manager13fActivityEconomicValue(left);
+  if (economicValue) return economicValue;
+
+  const shareChange =
+    Math.abs(numberValue(right?.changeShares)) - Math.abs(numberValue(left?.changeShares));
+  if (shareChange) return shareChange;
+
+  return compareText(left?.ticker, right?.ticker) ||
+    compareText(left?.cusip, right?.cusip) ||
+    compareText(left?.id, right?.id) ||
+    compareText(left?.issuer, right?.issuer);
+}
+
+/**
+ * Keep the public manager-13F activity response bounded without allowing one
+ * action class to consume the entire response. Each action class that exists
+ * receives a small base quota; remaining capacity is filled by the most
+ * economically significant reported positions across all classes.
+ */
+export function selectManager13fActivityRows(
+  activity,
+  { limit = manager13fActivityResponseLimit } = {}
+) {
+  const requestedLimit = Math.floor(Number(limit));
+  const boundedLimit = Number.isFinite(requestedLimit)
+    ? Math.max(0, Math.min(manager13fActivityResponseLimit, requestedLimit))
+    : manager13fActivityResponseLimit;
+  if (!boundedLimit || !Array.isArray(activity) || !activity.length) return [];
+
+  const actionRank = new Map(manager13fActivityActions.map((action, index) => [action, index]));
+  const groups = manager13fActivityActions
+    .map((action) => ({
+      action,
+      rows: activity
+        .filter((row) => row?.action === action)
+        .sort(compareManager13fActivityImportance)
+    }))
+    .filter((group) => group.rows.length);
+  const knownRows = new Set(groups.flatMap((group) => group.rows));
+  const otherRows = activity
+    .filter((row) => !knownRows.has(row))
+    .sort(compareManager13fActivityImportance);
+
+  if (!groups.length) return otherRows.slice(0, boundedLimit);
+
+  const selected = [];
+  const selectedRows = new Set();
+  const baseQuota = Math.min(
+    manager13fActivityMinimumPerAction,
+    Math.floor(boundedLimit / groups.length)
+  );
+  for (const group of groups) {
+    for (const row of group.rows.slice(0, baseQuota)) {
+      selected.push(row);
+      selectedRows.add(row);
+    }
+  }
+
+  if (selected.length < boundedLimit) {
+    const remainder = [...groups.flatMap((group) => group.rows), ...otherRows]
+      .filter((row) => !selectedRows.has(row))
+      .sort(compareManager13fActivityImportance);
+    selected.push(...remainder.slice(0, boundedLimit - selected.length));
+  }
+
+  return selected.sort((left, right) => {
+    const actionDifference =
+      (actionRank.get(left?.action) ?? manager13fActivityActions.length) -
+      (actionRank.get(right?.action) ?? manager13fActivityActions.length);
+    return actionDifference || compareManager13fActivityImportance(left, right);
+  });
+}
+
 function quarterLabel(reportDate) {
   const date = new Date(reportDate);
   if (!Number.isFinite(date.getTime())) return reportDate || "";
@@ -904,7 +1003,7 @@ async function load13fGuru(guru) {
     holdings: holdings.slice(0, 80),
     optionHoldings: optionHoldings.slice(0, 80),
     otherReportedHoldings: currentBuckets.otherReportedHoldings.slice(0, 80),
-    activity: activity.slice(0, 80),
+    activity: selectManager13fActivityRows(activity),
     dataQuality: {
       amendmentPolicy: "original_only_fail_closed",
       reportingCiks: filingCollection.sourceCiks,

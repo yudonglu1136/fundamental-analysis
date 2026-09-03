@@ -22,6 +22,7 @@ const {
   infer13fValueScale,
   normalize13fValueScale,
   parse13fInfoTable,
+  selectManager13fActivityRows,
   withManager13fPublicTradingStatus
 } = await import("./secClient.js");
 const {
@@ -252,6 +253,94 @@ test("duplicate common-long CUSIP rows aggregate value and shares exactly once",
     direct.map(({ value, reportedValue, shares, sourceRows }) => ({ value, reportedValue, shares, sourceRows })),
     [{ value: 5, reportedValue: 5, shares: 5, sourceRows: 2 }]
   );
+});
+
+test("Renaissance-scale 13F activity represents every action without squeezing out larger positions", () => {
+  const actionRows = (action, count, valueOffset) => Array.from({ length: count }, (_, index) => {
+    const economicValue = valueOffset - index;
+    const currentValue = action === "sold_out"
+      ? 0
+      : action === "reduced"
+        ? economicValue
+        : economicValue * 2;
+    const previousValue = action === "new"
+      ? 0
+      : action === "increased"
+        ? economicValue
+        : economicValue * 2;
+    return {
+      id: `${action}-${String(index).padStart(3, "0")}`,
+      ticker: `${action.slice(0, 2).toUpperCase()}${String(index).padStart(3, "0")}`,
+      action,
+      value: currentValue,
+      previousValue,
+      changeShares: currentValue - previousValue
+    };
+  });
+  const activity = [
+    ...actionRows("new", 100, 10_000),
+    ...actionRows("increased", 100, 9_000),
+    ...actionRows("reduced", 100, 8_000),
+    ...actionRows("sold_out", 100, 7_000)
+  ];
+
+  const selected = selectManager13fActivityRows(activity, { limit: 80 });
+  const selectedFromReverse = selectManager13fActivityRows([...activity].reverse(), { limit: 80 });
+  const counts = Object.fromEntries(
+    ["new", "increased", "reduced", "sold_out"].map((action) => [
+      action,
+      selected.filter((row) => row.action === action).length
+    ])
+  );
+
+  assert.equal(selected.length, 80);
+  assert.equal(selectManager13fActivityRows(activity, { limit: 1_000 }).length, 80);
+  assert.deepEqual(counts, { new: 56, increased: 8, reduced: 8, sold_out: 8 });
+  assert.deepEqual(
+    selected.map((row) => row.id),
+    selectedFromReverse.map((row) => row.id),
+    "selection and ordering do not depend on SEC source-row order"
+  );
+  for (const action of ["increased", "reduced", "sold_out"]) {
+    assert.deepEqual(
+      selected.filter((row) => row.action === action).map((row) => row.id),
+      Array.from({ length: 8 }, (_, index) => `${action}-${String(index).padStart(3, "0")}`),
+      `${action} keeps its most economically important rows`
+    );
+  }
+  assert.deepEqual(
+    selected.filter((row) => row.action === "new").map((row) => row.id),
+    Array.from({ length: 56 }, (_, index) => `new-${String(index).padStart(3, "0")}`),
+    "large positions compete globally for capacity after every action receives eight rows"
+  );
+});
+
+test("manager 13F activity selection reallocates unused category capacity by economic importance", () => {
+  const activity = [
+    ...Array.from({ length: 90 }, (_, index) => ({
+      id: `new-${String(index).padStart(3, "0")}`,
+      ticker: `N${String(index).padStart(3, "0")}`,
+      action: "new",
+      value: 10_000 - index,
+      previousValue: 0
+    })),
+    { id: "exit", ticker: "EXIT", action: "sold_out", value: 0, previousValue: 5_000 },
+    { id: "add", ticker: "ADD", action: "increased", value: 4_000, previousValue: 1_000 },
+    { id: "trim", ticker: "TRIM", action: "reduced", value: 1_000, previousValue: 3_000 }
+  ];
+
+  const selected = selectManager13fActivityRows(activity, { limit: 80 });
+
+  assert.equal(selected.length, 80);
+  assert.deepEqual(
+    Object.fromEntries(["new", "increased", "reduced", "sold_out"].map((action) => [
+      action,
+      selected.filter((row) => row.action === action).length
+    ])),
+    { new: 77, increased: 1, reduced: 1, sold_out: 1 }
+  );
+  assert.ok(selected.some((row) => row.id === "new-076"));
+  assert.ok(!selected.some((row) => row.id === "new-077"));
 });
 
 test("Pabrai parser preserves FCAU display identity and audited STLA price alias", () => {
