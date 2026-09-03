@@ -122,6 +122,29 @@ test("artifact release expectations and refresh-target limit follow the configur
   );
 });
 
+test("artifact validation rejects a Renaissance 5Y proxy release target", () => {
+  const invalid = artifact();
+  invalid.series[0].affectedGuruIds = ["renaissance-technologies"];
+  invalid.refreshTargets = [{
+    guruId: "renaissance-technologies",
+    years: 5,
+    expectedStatus: "proxy_ready"
+  }];
+  invalid.recordsSha256 = guruPriceRepairRecordsSha256(
+    invalid.series,
+    invalid.refreshTargets,
+    invalid.expectations,
+    invalid.release
+  );
+
+  assert.throws(
+    () => validateGuruPriceRepairArtifact(invalid, {
+      knownGuruIds: ["renaissance-technologies"]
+    }),
+    /renaissance-technologies:5 cannot use proxy_ready/i
+  );
+});
+
 test("application records or replays its batch ledger for exact complete rows", () => {
   let batchCalls = 0;
   let childRequests = -1;

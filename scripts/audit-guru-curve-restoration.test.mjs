@@ -58,7 +58,7 @@ test("acceptance population follows configuration and excludes disabled profiles
   assert.equal(enabled.length, expectedManagerCount);
   assert.deepEqual(
     disabled.map((row) => row.id).sort(),
-    ["nick-sleep-qais-zakaria", "renaissance-technologies"]
+    ["nick-sleep-qais-zakaria"]
   );
 });
 
@@ -169,6 +169,62 @@ test("linked proxy records proxy coverage/position floor without becoming strict
   assert.equal(row.strictMinimumCoverage, 0.27);
   assert.equal(row.proxyMinimumPositions, 3);
   assert.equal(row.strictFailureCode, "execution_coverage_below_minimum");
+});
+
+test("acceptance audit rejects a linked Renaissance 5Y proxy by shared public policy", () => {
+  const generatedAt = "2026-09-02T00:00:00Z";
+  const renaissance = {
+    id: "renaissance-technologies",
+    name: "Renaissance Technologies"
+  };
+  const strictPayload = {
+    generatedAt,
+    status: "insufficient_data",
+    method: {
+      version: expected.methodVersion,
+      securityMasterVersion: expected.securityMasterVersion,
+      years: 5,
+      reason: "Strict coverage failed."
+    },
+    dataQuality: { coverageFailures: [{ coveragePct: 0.82 }] },
+    equity: []
+  };
+  const proxyPayload = {
+    generatedAt,
+    status: "proxy_ready",
+    method: {
+      version: expected.methodVersion,
+      securityMasterVersion: expected.securityMasterVersion,
+      variant: expected.proxyMethodVersion,
+      years: 5
+    },
+    proxy: {
+      methodVersion: expected.proxyMethodVersion,
+      securityMasterVersion: expected.securityMasterVersion,
+      strictFailureGeneratedAt: generatedAt,
+      minimumSelectedBookCoverage: 0.82,
+      minimumIncludedPositions: 20
+    },
+    window: { start: "2021-09-02", end: "2026-09-01" },
+    equity: [
+      { date: "2021-09-02", value: 1 },
+      { date: "2026-09-01", value: 1.5 }
+    ]
+  };
+  const row = summarizeBacktestOutcome({
+    guru: renaissance,
+    years: 5,
+    returnedPayload: proxyPayload,
+    strictPayload,
+    proxyPayload,
+    expected,
+    thresholds
+  });
+
+  assert.equal(row.outcome, "failure");
+  assert.equal(row.reportedOutcome, "failure");
+  assert.equal(row.displayable, false);
+  assert.equal(row.failureCode, "public_proxy_not_allowed_for_manager_window");
 });
 
 test("coverage contract violation converts a nominal proxy into a failure", () => {

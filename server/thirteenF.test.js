@@ -254,9 +254,11 @@ test("Renaissance Technologies uses the manager 13F entity and discloses the Med
   assert.equal(renaissance.entityName, "RENAISSANCE TECHNOLOGIES LLC");
   assert.equal(renaissance.type, "manager13f");
   assert.deepEqual(manager13fCiks(renaissance), ["0001037389"]);
-  assert.equal(renaissance.disableSimulation, true);
+  assert.equal(renaissance.disableSimulation, undefined);
   assert.equal(renaissance.excludeFromHeatmap, true);
-  assert.match(renaissance.simulationNote, /security mapping/i);
+  assert.match(renaissance.simulationNote, /strict 5Y curve.*90% execution coverage/i);
+  assert.match(renaissance.simulationNote, /extended 10Y public-sleeve proxy.*Top-60/i);
+  assert.match(renaissance.simulationNote, /not the Medallion Fund portfolio/i);
   assert.match(renaissance.notes.join(" "), /not the Medallion Fund portfolio/i);
   assert.match(renaissance.notes.join(" "), /delayed systematic ownership/i);
 });

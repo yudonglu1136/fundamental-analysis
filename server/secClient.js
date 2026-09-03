@@ -1751,7 +1751,8 @@ function simulationTagForGuru(guru) {
     return {
       label: "13F copy 模拟",
       tone: "simulatable",
-      description: "按披露发布日复制公开13F长仓权重，并用最近五年可审计数据和 SPY 回测。"
+      description: guru.simulationNote ||
+        "按披露发布日复制公开13F长仓权重，并用最近五年可审计数据和 SPY 回测。"
     };
   }
   if (guru.type === "congress" && !guru.disableSimulation) {

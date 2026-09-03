@@ -19,6 +19,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import {
   enabledManager13fGurus,
+  manager13fPublicProxyAllowed,
   requiredGuruCurveWindows
 } from "../server/gurus.js";
 
@@ -348,7 +349,9 @@ export function summarizeBacktestOutcome({
 }) {
   const strictReady = strictPayload?.status === "ready" &&
     versionsMatch(strictPayload, expected, { years });
-  const linkedProxy = proxyPayload?.status === "proxy_ready" &&
+  const proxyAllowed = manager13fPublicProxyAllowed(guru.id, years);
+  const linkedProxy = proxyAllowed &&
+    proxyPayload?.status === "proxy_ready" &&
     versionsMatch(proxyPayload, expected, { proxy: true, years }) &&
     strictPayload?.status === "insufficient_data" &&
     proxyPayload?.proxy?.strictFailureGeneratedAt === strictPayload?.generatedAt;
@@ -404,7 +407,12 @@ export function summarizeBacktestOutcome({
 
   const outcome = violations.length ? "failure" : candidateOutcome;
   const failure = failureDetails(strictPayload, returnedPayload, error);
-  const compatibilityFailure = strictPayload?.status === "ready"
+  const compatibilityFailure = proxyPayload?.status === "proxy_ready" && !proxyAllowed
+    ? {
+        code: "public_proxy_not_allowed_for_manager_window",
+        reason: "A public proxy is not allowed to satisfy this manager/window release contract."
+      }
+    : strictPayload?.status === "ready"
     ? {
         code: "strict_method_incompatible",
         reason: "The persisted strict curve does not match the requested window or current method/security-master versions."

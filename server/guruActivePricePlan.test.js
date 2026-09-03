@@ -73,6 +73,21 @@ test("active-price target manifest fails closed on missing or invalid status dec
   ], [5, 10]), /must explicitly declare a valid/);
 });
 
+test("active-price targets reject Renaissance 5Y proxy but allow its 10Y proxy", () => {
+  assert.throws(() => normalizeExplicitRefreshTargets([
+    { guruId: "renaissance-technologies", years: 5, expectedStatus: "proxy_ready" },
+    { guruId: "renaissance-technologies", years: 10, expectedStatus: "proxy_ready" }
+  ], [5, 10]), /renaissance-technologies:5 cannot use proxy_ready/i);
+
+  assert.deepEqual(normalizeExplicitRefreshTargets([
+    { guruId: "renaissance-technologies", years: 5, expectedStatus: "ready" },
+    { guruId: "renaissance-technologies", years: 10, expectedStatus: "proxy_ready" }
+  ], [5, 10]), [
+    { guruId: "renaissance-technologies", years: 5, expectedStatus: "ready" },
+    { guruId: "renaissance-technologies", years: 10, expectedStatus: "proxy_ready" }
+  ]);
+});
+
 test("active-price planning stops cash acquisitions before their effective date", () => {
   const beforeClose = manager13fPriceRequirements({
     reportDate: "2022-06-30",

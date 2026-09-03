@@ -7,8 +7,8 @@ the recurring 13F refresh job.
 
 The script derives the catalog, enabled-manager population, required curve
 windows, and expected curve-row count from `server/gurus.js`. For the
-2026-09-03 catalog this produces 38 profiles, 29 manager-13F profiles, 27
-enabled backtest managers, and 54 required 5Y/10Y rows. These numbers are
+2026-09-03 catalog this produces 38 profiles, 29 manager-13F profiles, 28
+enabled backtest managers, and 56 required 5Y/10Y rows. These numbers are
 descriptive only and are not frozen in the implementation.
 
 ## Preconditions and transaction boundary

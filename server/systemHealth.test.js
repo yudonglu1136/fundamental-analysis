@@ -399,6 +399,74 @@ test("a current proxy cannot make health green when its linked strict failure ha
   ]]);
 });
 
+test("Guru curve health rejects only Renaissance's 5Y public proxy policy exception", () => {
+  const managers = gurus.filter((guru) =>
+    guru.type === "manager13f" && !guru.disableSimulation
+  );
+  const generatedAt = "2026-09-01T11:00:00.000Z";
+  const strict = (guruId, years) => ({
+    generatedAt,
+    status: "insufficient_data",
+    guru: { id: guruId, type: "manager13f" },
+    window: { start: "2021-09-02", end: "2026-08-31" },
+    method: {
+      version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      years
+    },
+    equity: []
+  });
+  const proxy = (guruId, years) => ({
+    generatedAt,
+    status: "proxy_ready",
+    guru: { id: guruId, type: "manager13f" },
+    window: { start: "2021-09-02", end: "2026-08-31" },
+    method: {
+      version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      variant: manager13fProxyMethodVersion,
+      years
+    },
+    proxy: {
+      methodVersion: manager13fProxyMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      strictFailureGeneratedAt: generatedAt,
+      minimumProxyCoverage: 0.3,
+      minimumProxyPositions: 2,
+      minimumSelectedBookCoverage: 0.4,
+      averageSelectedBookCoverage: 0.4,
+      maximumExcludedBookWeight: 0.6,
+      minimumIncludedPositions: 2
+    },
+    rebalances: [{ selectedBookCoverage: 0.4, includedPositions: 2 }],
+    equity: [{ date: "2021-09-02", value: 1 }, { date: "2026-08-31", value: 1.2 }]
+  });
+
+  const summary = summarizeGuruCurveAvailability({
+    managers,
+    windows: [5, 10],
+    readStrict: strict,
+    readProxy: proxy,
+    now
+  });
+
+  assert.equal(summary.ok, false);
+  assert.equal(summary.expectedRows, expectedCurveRows);
+  assert.equal(summary.displayable, expectedCurveRows - 1);
+  assert.equal(summary.proxyReady, expectedCurveRows - 1);
+  assert.equal(summary.byWindow["5Y"].proxyReady, expectedManagerCount - 1);
+  assert.equal(summary.byWindow["10Y"].proxyReady, expectedManagerCount);
+  assert.deepEqual(summary.failures.map((row) => [
+    row.guruId,
+    row.years,
+    row.reason
+  ]), [[
+    "renaissance-technologies",
+    5,
+    "public_proxy_not_allowed_for_manager_window"
+  ]]);
+});
+
 test("all but one stale curve cannot pass the production health gate", () => {
     const managers = Array.from({ length: expectedManagerCount }, (_, index) => ({
       id: `manager-${index + 1}`,

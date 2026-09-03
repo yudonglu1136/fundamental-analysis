@@ -206,6 +206,18 @@ function chooseInformationTableDocument(items, primaryDocument) {
     "";
 }
 
+export function informationTableFromSubmissionText(submissionText) {
+  const documents = String(submissionText || "").match(/<DOCUMENT>[\s\S]*?<\/DOCUMENT>/gi) || [];
+  for (const document of documents) {
+    const type = document.match(/<TYPE>\s*([^\r\n<]+)/i)?.[1]?.trim() || "";
+    if (!/^INFORMATION\s+TABLE$/i.test(type)) continue;
+    const documentName = document.match(/<FILENAME>\s*([^\r\n<]+)/i)?.[1]?.trim() || "";
+    const xml = document.match(/<XML>\s*([\s\S]*?)\s*<\/XML>/i)?.[1]?.trim() || "";
+    if (xml) return { documentName, xml };
+  }
+  return null;
+}
+
 function managerRows(includeDisabled) {
   return gurus
     .filter((guru) => guru.type === "manager13f")
@@ -234,19 +246,32 @@ async function main() {
         // A cache miss is expected on the first direct-source audit.
       }
     }
-    const remaining = args.requestDelayMs - (Date.now() - lastRequestAt);
-    if (remaining > 0) await sleep(remaining);
-    const response = await fetch(url, {
-      headers: { "User-Agent": userAgent, "Accept": accept }
-    });
-    lastRequestAt = Date.now();
-    if (!response.ok) throw new Error(`SEC request failed ${response.status}: ${url}`);
-    const body = await response.text();
-    if (cachePath) {
-      await fs.mkdir(path.dirname(cachePath), { recursive: true });
-      await fs.writeFile(cachePath, body, "utf8");
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const remaining = args.requestDelayMs - (Date.now() - lastRequestAt);
+      if (remaining > 0) await sleep(remaining);
+      const response = await fetch(url, {
+        headers: { "User-Agent": userAgent, "Accept": accept }
+      });
+      lastRequestAt = Date.now();
+      if (response.ok) {
+        const body = await response.text();
+        if (cachePath) {
+          await fs.mkdir(path.dirname(cachePath), { recursive: true });
+          await fs.writeFile(cachePath, body, "utf8");
+        }
+        return body;
+      }
+      const retryable = response.status === 429 || response.status >= 500;
+      if (!retryable || attempt === 4) {
+        throw new Error(`SEC request failed ${response.status}: ${url}`);
+      }
+      const retryAfterSeconds = Number(response.headers.get("retry-after"));
+      const retryDelayMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+        ? retryAfterSeconds * 1000
+        : Math.min(8_000, 500 * (2 ** attempt));
+      await sleep(retryDelayMs);
     }
-    return body;
+    throw new Error(`SEC request failed after retries: ${url}`);
   };
   const fetchJson = async (url) => {
     return JSON.parse(await cachedFetch(url, "application/json, text/plain, */*"));
@@ -283,14 +308,43 @@ async function main() {
         const baseUrl = `${SEC_ARCHIVES}/${cikPath(cik)}/${accessionPath(row.accessionNumber)}`;
         const indexUrl = `${baseUrl}/index.json`;
         const index = await fetchJson(indexUrl);
-        const documentName = chooseInformationTableDocument(
+        let documentName = chooseInformationTableDocument(
           toArray(index?.directory?.item), row.primaryDocument
         );
-        if (!documentName) {
-          throw new Error(`No information-table XML for ${manager.id} ${row.accessionNumber}`);
+        let documentUrl = "";
+        let documentHashScope = "document_body";
+        let documentContainerSha256 = "";
+        let xml = "";
+        if (documentName) {
+          documentUrl = `${baseUrl}/${documentName}`;
+          xml = await fetchText(documentUrl);
+        } else {
+          const submissionUrl = `${baseUrl}/${row.accessionNumber}.txt`;
+          const submissionText = await fetchText(submissionUrl);
+          const embedded = informationTableFromSubmissionText(submissionText);
+          if (!embedded) {
+            throw new Error(`No information-table XML for ${manager.id} ${row.accessionNumber}`);
+          }
+          documentName = embedded.documentName || `${row.accessionNumber}.txt`;
+          if (embedded.documentName) {
+            const embeddedDocumentUrl = `${baseUrl}/${embedded.documentName}`;
+            try {
+              const directXml = await fetchText(embeddedDocumentUrl);
+              if (holdingsFromInformationTable(directXml).length) {
+                documentUrl = embeddedDocumentUrl;
+                xml = directXml;
+              }
+            } catch {
+              // Some legacy submissions expose the table only inside the full filing text.
+            }
+          }
+          if (!xml) {
+            documentUrl = submissionUrl;
+            documentHashScope = "embedded_information_table_xml";
+            documentContainerSha256 = sha256(submissionText);
+            xml = embedded.xml;
+          }
         }
-        const documentUrl = `${baseUrl}/${documentName}`;
-        const xml = await fetchText(documentUrl);
         const reportedHoldings = holdingsFromInformationTable(xml);
         const holdings = selectTopCommonLongHoldings(reportedHoldings, 60);
         const cusips = [...new Set(holdings.map((holding) => holding.cusip))].sort();
@@ -308,8 +362,11 @@ async function main() {
           form: row.form,
           reportDate: row.reportDate,
           filingDate: row.filingDate,
+          documentName,
           documentUrl,
+          documentHashScope,
           documentSha256: sha256(xml),
+          ...(documentContainerSha256 ? { documentContainerSha256 } : {}),
           reportedCusipCount: new Set(reportedHoldings.map((holding) => holding.cusip)).size,
           selectedCommonLongCusipCount: cusips.length,
           selectedCommonLongReportedValue: selectedCommonLongValue

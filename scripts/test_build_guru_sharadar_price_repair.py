@@ -145,7 +145,7 @@ class SharadarPriceRepairBuilderTest(unittest.TestCase):
                 "strictMethodVersion": "strict-fixture-v1",
                 "proxyMethodVersion": "proxy-fixture-v1",
                 "securityMasterVersion": "master-fixture-v1",
-                "expectedDisplayableRows": 54,
+                "expectedDisplayableRows": 56,
             },
         }), encoding="utf-8")
 

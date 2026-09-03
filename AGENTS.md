@@ -114,9 +114,17 @@ Required update surfaces:
 - The 2026-09-03 catalog release adds Chris Hohn, David Tepper, Dan Loeb,
   Seth Klarman, Nelson Peltz, Andreas Halvorsen, David Einhorn, Mohnish
   Pabrai, and Pat Dorsey. The resulting catalog contains 38 profiles, 29
-  `manager13f` profiles, and 27 enabled backtest managers; runtime health and
+  `manager13f` profiles, and 28 enabled backtest managers; runtime health and
   release tooling must continue to derive these populations from
   `server/gurus.js` instead of freezing those counts in code.
+- Renaissance Technologies is an enabled, explicitly labelled manager-level
+  public-13F proxy, not a Medallion reconstruction. Its 5Y window must satisfy
+  the strict 90% execution-coverage gate; an extended 10Y curve may use only a
+  separately labelled, audited public-sleeve proxy that renormalizes only its
+  fully priceable Top-60 holdings and never uses synthetic prices. The UI must
+  disclose its included count, excluded weight, and that it is not a strict
+  fund return. Keep Renaissance excluded from the concentrated-manager heatmap
+  because its disclosed book is broad and systematic.
 - Every configured profile must have exactly one matching
   `web/guru-avatars/<guru-id>.png` file. Avatar installation is fail-closed on
   a missing, extra, malformed, or non-144x144 PNG, and configured profiles must

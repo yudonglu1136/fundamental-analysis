@@ -5,6 +5,7 @@ import path from "node:path";
 import {
   enabledManager13fGurus,
   expectedGuruCurveRows,
+  manager13fPublicProxyAllowed,
   requiredGuruCurveWindows
 } from "../server/gurus.js";
 import { requestLoopbackJson } from "./loopback-http-json.mjs";
@@ -209,6 +210,19 @@ function auditWindowResults(body, {
       `Guru ${years}Y prewarm returned ${managers.length}/${EXPECTED_MANAGER_COUNT} unique manager results.`
     );
   }
+  const disallowedProxy = managers.find((row) =>
+    row.status === "proxy_ready" &&
+    !manager13fPublicProxyAllowed(row.guruId, years)
+  );
+  if (disallowedProxy) {
+    const managerLabel = disallowedProxy.guruId === "renaissance-technologies"
+      ? "Renaissance"
+      : disallowedProxy.guruId;
+    throw new Error(
+      `${managerLabel} ${years}Y prewarm requires strict status=ready; ` +
+      "proxy_ready is not allowed for this manager/window."
+    );
+  }
   const failures = managers.filter((row) => {
     const generatedAt = validIsoDate(row.generatedAt);
     const common = Number(row.years) === years &&
@@ -278,10 +292,12 @@ const secret = String(process.env.INTERNAL_CRON_SECRET || process.env.CRON_SECRE
 if (!secret) throw new Error("Guru prewarm requires INTERNAL_CRON_SECRET in process memory.");
 const refreshGeneration = String(options["refresh-generation"] || "").trim().toLowerCase();
 if (!/^[a-f0-9]{64}$/.test(refreshGeneration)) {
-  throw new Error("Guru prewarm requires the repair artifact SHA-256 as refresh generation.");
+  throw new Error(
+    "Guru prewarm requires an immutable 64-hex release SHA-256 as refresh generation."
+  );
 }
 const notBefore = validIsoDate(options["not-before"]);
-if (!notBefore) throw new Error("Guru prewarm requires a valid post-repair not-before timestamp.");
+if (!notBefore) throw new Error("Guru prewarm requires a valid release not-before timestamp.");
 const strictMethodVersion = String(options["strict-method-version"] || "").trim();
 const proxyMethodVersion = String(options["proxy-method-version"] || "").trim();
 const securityMasterVersion = String(options["security-master-version"] || "").trim();
@@ -348,7 +364,7 @@ for (const years of windows) {
   const startedAt = validIsoDate(body.startedAt);
   const finishedAt = validIsoDate(body.finishedAt);
   if (!startedAt || !finishedAt || Date.parse(startedAt) < Date.parse(notBefore)) {
-    throw new Error(`Guru ${years}Y prewarm is not bound to the post-repair generation.`);
+    throw new Error(`Guru ${years}Y prewarm is not bound to the requested release generation.`);
   }
   const resultAudit = auditWindowResults(body, {
     years,

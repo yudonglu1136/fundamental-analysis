@@ -80,9 +80,10 @@ test("prewarm uses the explicit loopback client instead of fetch's hidden header
 
 function managerResults(years, refreshGeneration, generatedAt = new Date().toISOString()) {
   return Array.from({ length: expectedManagerCount }, (_, index) => {
-    const proxy = index >= 8;
+    const guruId = expectedManagerIds[index];
+    const proxy = index >= 8 || (guruId === "renaissance-technologies" && years === 10);
     return {
-      guruId: expectedManagerIds[index],
+      guruId,
       guruType: "manager13f",
       disabled: false,
       years,
@@ -184,6 +185,18 @@ test("prewarm writes its success marker only after both windows cover every conf
     report.refreshes.map((row) => `${row.guruId}:${row.years}`),
     [5, 10].flatMap((years) => expectedManagerIds.map((guruId) => `${guruId}:${years}`))
   );
+  assert.equal(
+    report.refreshes.find((row) =>
+      row.guruId === "renaissance-technologies" && row.years === 5
+    )?.actualStatus,
+    "ready"
+  );
+  assert.equal(
+    report.refreshes.find((row) =>
+      row.guruId === "renaissance-technologies" && row.years === 10
+    )?.actualStatus,
+    "proxy_ready"
+  );
   assert.ok(report.refreshes.every((row) =>
     row.pass === true && row.actualStatus === row.expectedStatus &&
     row.methodVersion === strictMethodVersion &&
@@ -195,6 +208,59 @@ test("prewarm writes its success marker only after both windows cover every conf
       : row.proxyMethodVersion === "" && row.proxySecurityMasterVersion === "")
   ));
   assert.equal(JSON.parse(fs.readFileSync(marker, "utf8")).displayable, expectedCurveRows);
+});
+
+test("prewarm rejects a Renaissance 5Y proxy even when aggregate health is green", async (context) => {
+  const server = await listen(http.createServer((request, response) => {
+    const url = new URL(request.url, "http://127.0.0.1");
+    response.setHeader("content-type", "application/json");
+    if (url.pathname === "/api/health") {
+      response.end(JSON.stringify(healthPayload()));
+      return;
+    }
+    if (url.pathname === "/api/internal/backtests/status") {
+      response.end(JSON.stringify({ running: false }));
+      return;
+    }
+    if (url.pathname === "/api/internal/backtests/refresh") {
+      const refreshGeneration = url.searchParams.get("refreshGeneration");
+      const years = Number(url.searchParams.get("years"));
+      const results = managerResults(years, refreshGeneration);
+      if (years === 5) {
+        const renaissance = results.find((row) =>
+          row.guruId === "renaissance-technologies"
+        );
+        renaissance.status = "proxy_ready";
+        renaissance.proxyMethodVersion = proxyMethodVersion;
+        renaissance.proxySecurityMasterVersion = securityMasterVersion;
+      }
+      response.end(JSON.stringify({
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        refreshGeneration,
+        results
+      }));
+      return;
+    }
+    response.statusCode = 404;
+    response.end("{}");
+  }));
+  context.after(() => server.close());
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "guru-prewarm-renaissance-test-"));
+  context.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+  const output = path.join(tempDir, "report.json");
+  const marker = path.join(tempDir, "done.json");
+  const result = await runPrewarm({
+    port: server.address().port,
+    output,
+    marker,
+    notBefore: new Date(Date.now() - 1000).toISOString()
+  });
+
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /Renaissance 5Y prewarm requires strict status=ready/i);
+  assert.equal(fs.existsSync(output), false);
+  assert.equal(fs.existsSync(marker), false);
 });
 
 test("prewarm retries a transient idle-status response timeout within the refresh deadline", async (context) => {

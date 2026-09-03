@@ -1,4 +1,4 @@
-import { gurus } from "./gurus.js";
+import { gurus, manager13fPublicProxyAllowed } from "./gurus.js";
 import { load13fHoldingHistory, loadGuruDashboard } from "./secClient.js";
 import { loadPriceSeries } from "./marketData.js";
 import {
@@ -596,9 +596,18 @@ function proxyManagerCacheCompatible(cached, expectedYears) {
  * A compatible proxy may replace only a strict failure/miss in the public read
  * path; it never changes the strict refresh result or its persistence slot.
  */
-export function selectManagerBacktestCache(strictCached, proxyCached, expectedYears) {
+export function selectManagerBacktestCache(
+  strictCached,
+  proxyCached,
+  expectedYears,
+  guruId = strictCached?.guru?.id || proxyCached?.guru?.id || ""
+) {
   const strictCompatible = strictManagerCacheCompatible(strictCached, expectedYears);
-  const proxyCompatible = proxyManagerCacheCompatible(proxyCached, expectedYears);
+  const proxyPolicyYears = expectedYears ??
+    proxyCached?.method?.years ??
+    strictCached?.method?.years;
+  const proxyCompatible = manager13fPublicProxyAllowed(guruId, proxyPolicyYears) &&
+    proxyManagerCacheCompatible(proxyCached, expectedYears);
   const strictReady = strictCompatible &&
     strictCached?.status === "ready" &&
     auditManager13fStrictReadyPayload(strictCached, {
@@ -1320,6 +1329,17 @@ export function buildPublicHoldingsProxyPayload({
   strictFailure = null,
   coverageFailures = []
 }) {
+  if (!manager13fPublicProxyAllowed(guru?.id, window?.methodYears)) {
+    return {
+      payload: null,
+      failure: {
+        code: "public_proxy_not_allowed_for_manager_window",
+        guruId: guru?.id || "",
+        years: window?.methodYears ?? null
+      },
+      model: null
+    };
+  }
   const publicReplicability = summarizeManager13fReplicability({
     guruId: guru?.id,
     rebalances,
@@ -2133,7 +2153,8 @@ export async function loadGuruBacktest(
   const cachedSelection = selectManagerBacktestCache(
     strictCached,
     proxyCached,
-    window.methodYears
+    window.methodYears,
+    guru.id
   );
   const cached = cachedSelection.payload;
   if (!refresh && cached && cachedBacktestIsFresh(cached)) {
@@ -2501,6 +2522,10 @@ export async function loadGuruBacktest(
       quarterContributions: []
     };
     const linkedProxyPayload = linkProxyToStrictFailure(coverageProxyAttempt, payload);
+    const publicLinkedProxyPayload = manager13fPublicProxyAllowed(
+      guru.id,
+      window.methodYears
+    ) ? linkedProxyPayload : null;
     const persistedPayload = persist
       ? persistBacktestRefreshResult(
           guruId,
@@ -2513,13 +2538,13 @@ export async function loadGuruBacktest(
     reportComputedBacktestArtifacts(
       onComputedArtifacts,
       payload,
-      linkedProxyPayload
+      publicLinkedProxyPayload
     );
-    if (linkedProxyPayload) {
+    if (publicLinkedProxyPayload) {
       if (persist) {
-        writeGuruBacktestProxy(guruId, window.cacheKey, linkedProxyPayload);
+        writeGuruBacktestProxy(guruId, window.cacheKey, publicLinkedProxyPayload);
       }
-      return compactBacktestPayload(linkedProxyPayload, { includeAttribution });
+      return compactBacktestPayload(publicLinkedProxyPayload, { includeAttribution });
     }
     return persist
       ? compactBacktestPayload(persistedPayload, { includeAttribution })
@@ -2617,6 +2642,10 @@ export async function loadGuruBacktest(
       quarterContributions: []
     };
     const linkedProxyPayload = linkProxyToStrictFailure(activePriceProxyAttempt, payload);
+    const publicLinkedProxyPayload = manager13fPublicProxyAllowed(
+      guru.id,
+      window.methodYears
+    ) ? linkedProxyPayload : null;
     const persistedPayload = persist
       ? persistBacktestRefreshResult(
           guruId,
@@ -2629,13 +2658,13 @@ export async function loadGuruBacktest(
     reportComputedBacktestArtifacts(
       onComputedArtifacts,
       payload,
-      linkedProxyPayload
+      publicLinkedProxyPayload
     );
-    if (linkedProxyPayload) {
+    if (publicLinkedProxyPayload) {
       if (persist) {
-        writeGuruBacktestProxy(guruId, window.cacheKey, linkedProxyPayload);
+        writeGuruBacktestProxy(guruId, window.cacheKey, publicLinkedProxyPayload);
       }
-      return compactBacktestPayload(linkedProxyPayload, { includeAttribution });
+      return compactBacktestPayload(publicLinkedProxyPayload, { includeAttribution });
     }
     return persist
       ? compactBacktestPayload(persistedPayload, { includeAttribution })

@@ -20,6 +20,7 @@ import { auditManager13fStrictReadyPayload } from "./backtestStrictAudit.js";
 import {
   enabledManager13fGurus,
   expectedGuruCurveRows,
+  manager13fPublicProxyAllowed,
   requiredGuruCurveWindows
 } from "./gurus.js";
 import { listAdminPortfolioUsers } from "./userPortfolioStore.js";
@@ -512,7 +513,9 @@ export function summarizeGuruCurveAvailability({
         ? auditPublicHoldingsProxyPayload(proxy)
         : { ok: false, reason: `proxy_${proxy?.status || "missing"}` };
       const proxyFreshness = guruCurveFreshness(proxy, now);
+      const proxyAllowed = manager13fPublicProxyAllowed(guru.id, years);
       const proxyReady = !strictReady &&
+        proxyAllowed &&
         strict?.status === "insufficient_data" &&
         backtestIdentityMatches(strict, years) &&
         strictFreshness.ok &&
@@ -535,6 +538,8 @@ export function summarizeGuruCurveAvailability({
               ? "strict_curve_stale"
             : strict?.status === "ready" && !strictAudit.ok
               ? strictAudit.reason
+              : proxy?.status === "proxy_ready" && !proxyAllowed
+                ? "public_proxy_not_allowed_for_manager_window"
               : proxy?.status === "proxy_ready" && !backtestIdentityMatches(proxy, years, { proxy: true })
                 ? "proxy_method_or_security_master_incompatible"
                 : proxy?.status === "proxy_ready" && !proxyFreshness.ok

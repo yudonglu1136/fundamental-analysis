@@ -155,8 +155,8 @@ const _uiChinese = <String, String>{
   'Value, short research, and catalyst-driven equities': '价值、做空研究与催化剂投资',
   'Low-risk, high-uncertainty value and concentrated bets': '低风险、高不确定性的价值集中投资',
   'Concentrated quality compounders with durable moats': '具备持久护城河的集中型质量复利股',
-  "Renaissance's manager-level 13F is a delayed, highly diversified public long-equity proxy, not the Medallion Fund portfolio. Copy simulation stays disabled until security mapping and historical execution coverage pass the required threshold.":
-      '文艺复兴的管理人级 13F 是滞后且高度分散的公开美股多头代理组合，不是 Medallion Fund 持仓。在证券映射和历史执行覆盖率达标前，复制回测保持关闭。',
+  'Audited manager-level public 13F model: the strict 5Y curve keeps uncovered weight in cash and requires 90% execution coverage; the extended 10Y public-sleeve proxy, when needed, renormalizes only fully priceable Top-60 holdings. This is not the Medallion Fund portfolio.':
+      '经审计的管理人级公开 13F 模型：严格 5 年曲线将未覆盖权重保留为现金，并要求 90% 执行覆盖率；扩展 10 年视图在必要时使用公开持仓代理，只对 Top-60 中可完整定价的持仓重新归一化。这不是 Medallion Fund 持仓。',
   'This disclosure is not a complete quarterly 13F portfolio; copied rebalancing would be misleading.':
       '该披露不是完整季度13F组合，复制调仓会失真。',
   'Copy public 13F long-only weights on filing publication dates and backtest the trailing five audited years against SPY.':
@@ -4854,6 +4854,7 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
   Widget build(BuildContext context) {
     final sim = asMap(widget.guru['simulationTag']);
     final isProxy = _isProxyReadyBacktest(widget.payload);
+    final isRenaissance = text(widget.guru['id']) == 'renaissance-technologies';
     if (text(sim['tone']) == 'muted') {
       return Panel(
         palette: widget.palette,
@@ -4957,20 +4958,59 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          PanelTitle(
-            icon: Icons.stacked_line_chart_rounded,
-            kicker: 'COPY SIMULATION',
-            title: isProxy
-                ? context.tr('公开持仓代理 vs SPY', 'Public sleeve proxy vs SPY')
-                : context.tr('模拟：组合与 SPY 对比', 'Simulation: Portfolio vs SPY'),
-            palette: widget.palette,
-            trailing: _RetryIconButton(
-              onPressed: widget.loading || widget.requestedWindow != null
-                  ? null
-                  : widget.onRetry,
-              palette: widget.palette,
-            ),
-          ),
+          isRenaissance
+              ? Tooltip(
+                  message: context.ui(
+                    text(
+                      sim['description'],
+                      'This is a delayed manager-level public 13F model, not the Medallion Fund portfolio.',
+                    ),
+                  ),
+                  child: PanelTitle(
+                    icon: Icons.stacked_line_chart_rounded,
+                    kicker: context.tr(
+                      '管理人级公开 13F · 非 MEDALLION',
+                      'MANAGER-LEVEL PUBLIC 13F · NOT MEDALLION',
+                    ),
+                    title: isProxy
+                        ? context.tr(
+                            '公开持仓代理 vs SPY',
+                            'Public sleeve proxy vs SPY',
+                          )
+                        : context.tr(
+                            '模拟：组合与 SPY 对比',
+                            'Simulation: Portfolio vs SPY',
+                          ),
+                    palette: widget.palette,
+                    trailing: _RetryIconButton(
+                      onPressed:
+                          widget.loading || widget.requestedWindow != null
+                          ? null
+                          : widget.onRetry,
+                      palette: widget.palette,
+                    ),
+                  ),
+                )
+              : PanelTitle(
+                  icon: Icons.stacked_line_chart_rounded,
+                  kicker: 'COPY SIMULATION',
+                  title: isProxy
+                      ? context.tr(
+                          '公开持仓代理 vs SPY',
+                          'Public sleeve proxy vs SPY',
+                        )
+                      : context.tr(
+                          '模拟：组合与 SPY 对比',
+                          'Simulation: Portfolio vs SPY',
+                        ),
+                  palette: widget.palette,
+                  trailing: _RetryIconButton(
+                    onPressed: widget.loading || widget.requestedWindow != null
+                        ? null
+                        : widget.onRetry,
+                    palette: widget.palette,
+                  ),
+                ),
           const SizedBox(height: 14),
           if (widget.loading && widget.payload == null)
             const SizedBox(
@@ -5065,6 +5105,8 @@ class _GuruSimulationModuleState extends State<GuruSimulationModule> {
                     _PerformanceLegendItem(
                       label: isProxy
                           ? context.tr('公开持仓代理', 'Public sleeve proxy')
+                          : isRenaissance
+                          ? context.tr('文艺复兴 13F', 'Renaissance 13F')
                           : '${compactName(guruDisplayName(widget.guru, context.language))} Portfolio',
                       value: formatReturn(summary.totalReturn),
                       color: widget.palette.positive,

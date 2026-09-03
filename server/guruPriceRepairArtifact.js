@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 
 import {
   expectedGuruCurveRows,
+  manager13fPublicProxyAllowed,
   requiredGuruCurveWindows
 } from "./gurus.js";
 
@@ -240,6 +241,12 @@ export function validateGuruPriceRepairArtifact(payload, { knownGuruIds } = {}) 
     }
     if (!["ready", "proxy_ready"].includes(target.expectedStatus)) {
       throw new Error(`Guru price-repair target ${target.guruId} has an invalid expected status.`);
+    }
+    if (target.expectedStatus === "proxy_ready" &&
+        !manager13fPublicProxyAllowed(target.guruId, target.years)) {
+      throw new Error(
+        `Guru price-repair target ${target.guruId}:${target.years} cannot use proxy_ready.`
+      );
     }
     const identity = `${target.guruId}:${target.years}`;
     if (targetIdentities.has(identity)) {

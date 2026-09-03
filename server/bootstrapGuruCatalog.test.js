@@ -53,7 +53,7 @@ function productionTopologyCatalog() {
     if (index < 9) {
       return { ...guru, type: "other", disableSimulation: true };
     }
-    if (index < 11) {
+    if (index < 10) {
       return { ...guru, disableSimulation: true };
     }
     return guru;
@@ -803,7 +803,7 @@ test("production-prewarm expectations bind the complete enabled-manager matrix",
   }
 });
 
-test("production-prewarm expectations accept the real 38/29/27/54 topology", () => {
+test("production-prewarm expectations accept the real 38/29/28/56 topology", () => {
   const catalog = productionTopologyCatalog();
   const enabledManagers = catalog.filter((guru) =>
     guru.type === "manager13f" && !guru.disableSimulation
@@ -811,7 +811,7 @@ test("production-prewarm expectations accept the real 38/29/27/54 topology", () 
   const document = prewarmExpectationsDocument(catalog);
   const runtime = {
     configuredGurus: catalog,
-    expectedCurveRows: 54,
+    expectedCurveRows: 56,
     strictMethodVersion,
     proxyMethodVersion,
     securityMasterVersion
@@ -824,11 +824,57 @@ test("production-prewarm expectations accept the real 38/29/27/54 topology", () 
 
   assert.equal(catalog.length, 38);
   assert.equal(catalog.filter((guru) => guru.type === "manager13f").length, 29);
-  assert.equal(enabledManagers.length, 27);
-  assert.equal(document.refreshes.length, 54);
-  assert.equal(result.allTargets.length, 54);
+  assert.equal(enabledManagers.length, 28);
+  assert.equal(document.refreshes.length, 56);
+  assert.equal(result.allTargets.length, 56);
   assert.equal(result.targets.length, 18);
-  assert.equal(result.ignoredTargets.length, 36);
+  assert.equal(result.ignoredTargets.length, 38);
+});
+
+test("production-prewarm evidence requires strict Renaissance 5Y and permits a 10Y proxy", () => {
+  const catalog = productionTopologyCatalog();
+  const renaissanceIndex = catalog.findIndex((guru, index) =>
+    index >= 10 && guru.type === "manager13f" && !guru.disableSimulation
+  );
+  catalog[renaissanceIndex] = {
+    ...catalog[renaissanceIndex],
+    id: "renaissance-technologies"
+  };
+  const document = prewarmExpectationsDocument(catalog);
+  const runtime = {
+    configuredGurus: catalog,
+    expectedCurveRows: 56,
+    strictMethodVersion,
+    proxyMethodVersion,
+    securityMasterVersion
+  };
+  const load = (payload) => loadExpectedRefreshTargets(payload, {
+    selectedGuruIds: selectedIds,
+    requiredWindows,
+    runtime
+  });
+
+  assert.throws(
+    () => load(document),
+    /Renaissance 5Y release requires strict status=ready/i
+  );
+
+  const fiveYear = document.refreshes.find((row) =>
+    row.guruId === "renaissance-technologies" && row.years === 5
+  );
+  fiveYear.expectedStatus = "ready";
+  fiveYear.actualStatus = "ready";
+  fiveYear.proxyMethodVersion = "";
+  fiveYear.proxySecurityMasterVersion = "";
+  const tenYear = document.refreshes.find((row) =>
+    row.guruId === "renaissance-technologies" && row.years === 10
+  );
+  tenYear.expectedStatus = "proxy_ready";
+  tenYear.actualStatus = "proxy_ready";
+  tenYear.proxyMethodVersion = proxyMethodVersion;
+  tenYear.proxySecurityMasterVersion = securityMasterVersion;
+
+  assert.equal(load(document).allTargets.length, 56);
 });
 
 test("dashboard construction is exact, ordered, metadata-current, and non-mutating", () => {
@@ -964,6 +1010,27 @@ test("exact expected status cannot be upgraded or downgraded between strict and 
   assert.throws(
     () => validateCurveTarget(proxyTarget, synthetic.strict, synthetic.proxy, runtime),
     /synthetic-price usage/i
+  );
+});
+
+test("curve validation rejects a Renaissance 5Y proxy and accepts the audited 10Y proxy", () => {
+  const runtime = runtimeFixture().runtime;
+  const fiveYearTarget = {
+    guruId: "renaissance-technologies",
+    years: 5,
+    expectedStatus: "proxy_ready"
+  };
+  const fiveYear = proxyPairFixture(fiveYearTarget.guruId, fiveYearTarget.years);
+  assert.throws(
+    () => validateCurveTarget(fiveYearTarget, fiveYear.strict, fiveYear.proxy, runtime),
+    /Renaissance 5Y release requires strict status=ready/i
+  );
+
+  const tenYearTarget = { ...fiveYearTarget, years: 10 };
+  const tenYear = proxyPairFixture(tenYearTarget.guruId, tenYearTarget.years);
+  assert.equal(
+    validateCurveTarget(tenYearTarget, tenYear.strict, tenYear.proxy, runtime).displayed,
+    tenYear.proxy
   );
 });
 

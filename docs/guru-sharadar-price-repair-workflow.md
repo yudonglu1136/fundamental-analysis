@@ -80,7 +80,7 @@ Example plan shape (dates and versions are illustrative, not release inputs):
     "strictMethodVersion": "<current strict version>",
     "proxyMethodVersion": "<current proxy version>",
     "securityMasterVersion": "<current security-master version>",
-    "expectedDisplayableRows": 54
+    "expectedDisplayableRows": 56
   }
 }
 ```

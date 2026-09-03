@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   cusipsFromInformationTable,
   holdingsFromInformationTable,
+  informationTableFromSubmissionText,
   selectTopCommonLongHoldings
 } from "../scripts/build-guru-sec-cusip-manifest.mjs";
 
@@ -51,6 +52,29 @@ test("SEC manifest selection aggregates duplicate CUSIPs before top-N ranking", 
   assert.deepEqual([...selected[0].issuerNames].sort(), ["Alpha", "Alpha A"]);
 });
 
+test("SEC manifest parser recovers an information table embedded only in the full submission", () => {
+  const submission = `
+<DOCUMENT>
+<TYPE>13F-HR
+<FILENAME>primary_doc.xml
+<XML><edgarSubmission /></XML>
+</DOCUMENT>
+<DOCUMENT>
+<TYPE>INFORMATION TABLE
+<FILENAME>Q12024-info-table.xml
+<XML>
+<informationTable>
+  <infoTable><nameOfIssuer>Example Inc.</nameOfIssuer><titleOfClass>COM</titleOfClass><cusip>123456789</cusip></infoTable>
+</informationTable>
+</XML>
+</DOCUMENT>`;
+
+  const embedded = informationTableFromSubmissionText(submission);
+  assert.equal(embedded.documentName, "Q12024-info-table.xml");
+  assert.deepEqual(cusipsFromInformationTable(embedded.xml), ["123456789"]);
+  assert.equal(informationTableFromSubmissionText("<DOCUMENT><TYPE>13F-HR</DOCUMENT>"), null);
+});
+
 test("SEC manifest builder has no database or derived-cache input option", () => {
   const source = fs.readFileSync(
     new URL("../scripts/build-guru-sec-cusip-manifest.mjs", import.meta.url),
@@ -59,4 +83,32 @@ test("SEC manifest builder has no database or derived-cache input option", () =>
   assert.doesNotMatch(source, /--(?:guru-)?db|sqlite3|readGuruBacktest|readGuruSnapshot/i);
   assert.match(source, /data\.sec\.gov\/submissions/);
   assert.match(source, /www\.sec\.gov\/Archives\/edgar\/data/);
+});
+
+test("committed SEC filing lineage identifies the hashed document body or embedded XML scope", () => {
+  const manifest = JSON.parse(fs.readFileSync(
+    new URL("./config/guru-sec-cusip-manifest.json", import.meta.url),
+    "utf8"
+  ));
+  for (const filing of manifest.filings) {
+    assert.ok(filing.documentName, `${filing.accessionNumber} lacks documentName`);
+    assert.match(filing.documentSha256, /^[a-f0-9]{64}$/);
+    assert.ok(
+      ["document_body", "embedded_information_table_xml"].includes(filing.documentHashScope),
+      `${filing.accessionNumber} has an unknown document hash scope`
+    );
+    if (filing.documentHashScope === "embedded_information_table_xml") {
+      assert.match(filing.documentUrl, /\.txt$/i);
+      assert.match(filing.documentContainerSha256, /^[a-f0-9]{64}$/);
+    } else {
+      assert.equal(filing.documentContainerSha256, undefined);
+    }
+  }
+
+  const peltz2024Q1 = manifest.filings.find(
+    (filing) => filing.accessionNumber === "0001345471-24-000018"
+  );
+  assert.ok(peltz2024Q1);
+  assert.equal(peltz2024Q1.documentHashScope, "document_body");
+  assert.match(peltz2024Q1.documentUrl, /Q12024-tfmlp-info-table\.xml$/i);
 });

@@ -345,7 +345,8 @@ export async function runThirteenFRefresh(options = {}, runtimeOverrides = {}) {
         const selected = selectManagerBacktestCache(
           storedBacktest,
           storedProxy,
-          storedBacktest?.method?.years
+          storedBacktest?.method?.years,
+          guru.id
         );
         if (selected.kind !== "proxy" ||
             selected.payload?.proxy?.strictFailureGeneratedAt !==

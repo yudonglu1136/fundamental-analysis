@@ -681,6 +681,56 @@ test("a compatible proxy is public only when no compatible strict ready curve ex
   assert.equal(publicPayload.summary.marker, "proxy-public");
 });
 
+test("Renaissance public reads reject a 5Y proxy while retaining its audited 10Y proxy", async () => {
+  const renaissance = gurus.find((guru) => guru.id === "renaissance-technologies");
+  const strictFailure = (years, generatedAt) => ({
+    generatedAt,
+    status: "insufficient_data",
+    guru: {
+      id: renaissance.id,
+      name: renaissance.name,
+      type: renaissance.type
+    },
+    window: { start: "2016-09-01", end: "2026-08-28" },
+    method: {
+      version: manager13fBacktestMethodVersion,
+      securityMasterVersion: manager13fSecurityMasterVersion,
+      years
+    },
+    summary: { marker: `renaissance-strict-failure-${years}y` },
+    equity: [],
+    rebalances: [],
+    quarterContributions: []
+  });
+
+  for (const years of [5, 10]) {
+    const generatedAt = `2026-09-02T0${years === 5 ? 5 : 6}:00:00.000Z`;
+    const strict = strictFailure(years, generatedAt);
+    const proxy = withMethodYears(proxyFixture(
+      renaissance,
+      `renaissance-proxy-${years}y`,
+      generatedAt,
+      { strictFailureGeneratedAt: generatedAt }
+    ), years);
+    writeGuruBacktest(renaissance.id, years, strict);
+    writeGuruBacktestProxy(renaissance.id, years, proxy);
+  }
+
+  const fiveYear = await loadGuruBacktest(renaissance.id, {
+    years: 5,
+    allowCold: false
+  });
+  assert.equal(fiveYear.status, "insufficient_data");
+  assert.equal(fiveYear.summary.marker, "renaissance-strict-failure-5y");
+
+  const tenYear = await loadGuruBacktest(renaissance.id, {
+    years: 10,
+    allowCold: false
+  });
+  assert.equal(tenYear.status, "proxy_ready");
+  assert.equal(tenYear.summary.marker, "renaissance-proxy-10y");
+});
+
 test("an incompatible proxy method is ignored and cannot mask a strict failure", async () => {
   const ackman = gurus.find((guru) => guru.id === "bill-ackman");
   const strictFailure = {
@@ -863,6 +913,22 @@ test("active-price proxy payload exposes compact stable selected-book metadata",
     date: dates[1],
     tickers: ["GAP"],
     missingWeight: 0.1
+  });
+});
+
+test("proxy construction fails before simulation for Renaissance's strict-only 5Y window", () => {
+  const renaissance = gurus.find((guru) => guru.id === "renaissance-technologies");
+  const result = buildPublicHoldingsProxyPayload({
+    guru: renaissance,
+    window: { methodYears: 5 }
+  });
+
+  assert.equal(result.payload, null);
+  assert.equal(result.model, null);
+  assert.deepEqual(result.failure, {
+    code: "public_proxy_not_allowed_for_manager_window",
+    guruId: renaissance.id,
+    years: 5
   });
 });
 
@@ -1220,7 +1286,7 @@ test("strict refresh stays failed while the atomic layer recognizes only the exa
   const renaissance = gurus.find((guru) => guru.id === "renaissance-technologies");
 
   assert.equal(expectedGuruBacktestStatus(ackman), "ready");
-  assert.equal(expectedGuruBacktestStatus(renaissance), "unsupported");
+  assert.equal(expectedGuruBacktestStatus(renaissance), "ready");
   assert.doesNotThrow(() => assertGuruBacktestRefreshSucceeded(ackman, { status: "ready" }));
   assert.throws(() =>
     assertGuruBacktestRefreshSucceeded(ackman, {
@@ -1229,7 +1295,7 @@ test("strict refresh stays failed while the atomic layer recognizes only the exa
     }), /bill-ackman refresh backtest status is proxy_ready; expected ready/i
   );
   assert.doesNotThrow(() =>
-    assertGuruBacktestRefreshSucceeded(renaissance, { status: "unsupported" })
+    assertGuruBacktestRefreshSucceeded(renaissance, { status: "ready" })
   );
   assert.throws(
     () => assertGuruBacktestRefreshSucceeded(ackman, {
@@ -1239,8 +1305,8 @@ test("strict refresh stays failed while the atomic layer recognizes only the exa
     /bill-ackman refresh backtest status is insufficient_data; expected ready.*Adjusted-close coverage/i
   );
   assert.throws(
-    () => assertGuruBacktestRefreshSucceeded(renaissance, { status: "ready" }),
-    /renaissance-technologies refresh backtest status is ready; expected unsupported/i
+    () => assertGuruBacktestRefreshSucceeded(renaissance, { status: "unsupported" }),
+    /renaissance-technologies refresh backtest status is unsupported; expected ready/i
   );
 
   const exactPeltzProxy = proxyFixture(
@@ -1457,7 +1523,7 @@ test("production prewarm population refreshes only enabled manager13f profiles",
   assert.equal(scoped.ok, enabledManagerIds.length);
   assert.equal(scoped.failed, 0);
   assert.equal(scopedCalls.includes("nancy-pelosi"), false);
-  assert.equal(scopedCalls.includes("renaissance-technologies"), false);
+  assert.equal(scopedCalls.includes("renaissance-technologies"), true);
   assert.equal(scopedCalls.includes("nick-sleep-qais-zakaria"), false);
 });
 

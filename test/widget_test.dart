@@ -1061,6 +1061,104 @@ void main() {
   });
 
   testWidgets(
+    'Renaissance strict curve visibly discloses manager-level 13F and Medallion limitation',
+    (WidgetTester tester) async {
+      const contentViewportHeight = 644.0;
+      final api = _ControlledGuruApiClient();
+      final guru = <String, dynamic>{
+        ..._guruStateMachineManager(id: 'renaissance-technologies'),
+        'name': 'Renaissance Technologies',
+        'chineseName': '文艺复兴科技',
+        'simulationTag': <String, dynamic>{
+          'label': '13F copy simulation',
+          'tone': 'simulatable',
+          'description':
+              'Audited manager-level public 13F model: the strict 5Y curve keeps uncovered weight in cash and requires 90% execution coverage; the extended 10Y public-sleeve proxy, when needed, renormalizes only fully priceable Top-60 holdings. This is not the Medallion Fund portfolio.',
+        },
+      };
+      await _pumpGuruStateMachine(
+        tester,
+        api,
+        guru: guru,
+        viewportSize: const Size(690, contentViewportHeight),
+      );
+      api.backtestRequests.single.completer.complete(_guruBacktestPayload('5'));
+      await _flushGuruState(tester);
+
+      expect(
+        find.text('MANAGER-LEVEL PUBLIC 13F · NOT MEDALLION'),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Tooltip &&
+              (widget.message ?? '').contains(
+                'This is not the Medallion Fund portfolio.',
+              ),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Renaissance 13F'), findsOneWidget);
+      final chart = find.byKey(const ValueKey('guru-simulation-equity-chart'));
+      expect(chart, findsOneWidget);
+      expect(
+        tester.getBottomLeft(chart).dy,
+        lessThanOrEqualTo(contentViewportHeight),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Renaissance proxy curve keeps the manager-level limitation visible in Chinese',
+    (WidgetTester tester) async {
+      final api = _ControlledGuruApiClient();
+      final guru = <String, dynamic>{
+        ..._guruStateMachineManager(id: 'renaissance-technologies'),
+        'name': 'Renaissance Technologies',
+        'chineseName': '文艺复兴科技',
+        'simulationTag': <String, dynamic>{
+          'label': '13F copy simulation',
+          'tone': 'simulatable',
+          'description':
+              'Audited manager-level public 13F model: the strict 5Y curve keeps uncovered weight in cash and requires 90% execution coverage; the extended 10Y public-sleeve proxy, when needed, renormalizes only fully priceable Top-60 holdings. This is not the Medallion Fund portfolio.',
+        },
+      };
+      await _pumpGuruStateMachine(
+        tester,
+        api,
+        guru: guru,
+        language: AppLanguage.zh,
+        viewportSize: const Size(390, 844),
+      );
+      api.backtestRequests.single.completer.complete(
+        _guruBacktestPayload('5', status: 'proxy_ready'),
+      );
+      await _flushGuruState(tester);
+
+      expect(find.text('管理人级公开 13F · 非 MEDALLION'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Tooltip &&
+              (widget.message ?? '').contains('这不是 Medallion Fund 持仓。'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('guru-simulation-proxy-notice')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('guru-simulation-equity-chart')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'proxy-ready history shows the curve, range, coverage and disclosure',
     (WidgetTester tester) async {
       final api = _ControlledGuruApiClient();

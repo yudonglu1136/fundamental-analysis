@@ -103,10 +103,10 @@ test("guru catalog has the audited manager population", () => {
 
   assert.equal(gurus.length, 38);
   assert.equal(managers.length, 29);
-  assert.equal(enabledManagers.length, 27);
+  assert.equal(enabledManagers.length, 28);
   assert.deepEqual(
     managers.filter((guru) => guru.disableSimulation).map((guru) => guru.id).sort(),
-    ["nick-sleep-qais-zakaria", "renaissance-technologies"]
+    ["nick-sleep-qais-zakaria"]
   );
 });
 

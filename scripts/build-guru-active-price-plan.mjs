@@ -12,6 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
+import { manager13fPublicProxyAllowed } from "../server/gurus.js";
 
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const allowedExpectedStatuses = ["ready", "proxy_ready"];
@@ -133,6 +134,12 @@ export function normalizeExplicitRefreshTargets(rawTargets, requiredWindows) {
       throw new Error(
         `Active-price refresh target ${index} must explicitly declare a valid ` +
         "guruId, required window, and expectedStatus (ready or proxy_ready)."
+      );
+    }
+    if (expectedStatus === "proxy_ready" &&
+        !manager13fPublicProxyAllowed(guruId, years)) {
+      throw new Error(
+        `Active-price refresh target ${guruId}:${years} cannot use proxy_ready.`
       );
     }
     const identity = `${guruId}:${years}`;

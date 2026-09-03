@@ -57,16 +57,15 @@ export const gurus = [
     type: "manager13f",
     role: "Quantitative investment manager / public 13F proxy",
     thesisTag: "Systematic multi-factor U.S. long-equity disclosure",
-    disableSimulation: true,
     simulationNote:
-      "Renaissance's manager-level 13F is a delayed, highly diversified public long-equity proxy, not the Medallion Fund portfolio. Copy simulation stays disabled until security mapping and historical execution coverage pass the required threshold.",
+      "Audited manager-level public 13F model: the strict 5Y curve keeps uncovered weight in cash and requires 90% execution coverage; the extended 10Y public-sleeve proxy, when needed, renormalizes only fully priceable Top-60 holdings. This is not the Medallion Fund portfolio.",
     excludeFromHeatmap: true,
     heatmapExclusionReason:
       "Excluded from concentrated-manager consensus because the manager-level filing is a broad systematic book rather than a concentrated conviction portfolio.",
     notes: [
       "Renaissance Technologies files quarterly Form 13F-HR reports. The app tracks the manager-level U.S.-reportable long-equity disclosure.",
       "This is not the Medallion Fund portfolio or a reconstruction of Renaissance's complete quantitative strategy. The 13F omits shorts, futures, swaps, many non-U.S. securities, cash, and intra-quarter trading.",
-      "Because the disclosed book is highly diversified and can turn over quickly, use it as delayed systematic ownership and factor evidence rather than as a literal copy-trade instruction."
+      "Because the disclosed book is highly diversified and can turn over quickly, use the audited top-60 public-13F simulation as delayed systematic ownership and factor evidence rather than as a literal copy-trade instruction."
     ]
   },
   {
@@ -601,6 +600,23 @@ export const gurus = [
 ];
 
 export const requiredGuruCurveWindows = Object.freeze([5, 10]);
+
+const publicProxyDeniedManagerWindows = new Set([
+  "renaissance-technologies:5"
+]);
+
+/**
+ * Return whether a separately audited public-holdings proxy may satisfy the
+ * requested manager/window on public reads and release-health gates. Strict
+ * curves are unaffected and always remain preferred.
+ */
+export function manager13fPublicProxyAllowed(guruOrId, years) {
+  const guruId = String(
+    typeof guruOrId === "object" ? guruOrId?.id || "" : guruOrId || ""
+  ).trim();
+  const normalizedYears = Number(years);
+  return !publicProxyDeniedManagerWindows.has(`${guruId}:${normalizedYears}`);
+}
 
 export const enabledManager13fGurus = Object.freeze(gurus.filter((guru) =>
   guru.type === "manager13f" && !guru.disableSimulation

@@ -15,11 +15,30 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { compactStrictFailure } from "../server/backtestFailure.js";
+import { manager13fPublicProxyAllowed } from "../server/gurus.js";
 
 const bootstrapExposureQuarters = 40;
 const allowedExpectedStatuses = new Set(["ready", "proxy_ready"]);
 const artifactKind = "guru_price_series_repair_batch";
 const prewarmReportKind = "guru_curve_production_prewarm";
+
+function assertCurveReleaseStatus(guruId, years, expectedStatus) {
+  if (!allowedExpectedStatuses.has(expectedStatus)) {
+    throw new Error(
+      `Curve ${guruId}:${years} has unsupported expected status ${expectedStatus || "<empty>"}.`
+    );
+  }
+  if (expectedStatus === "proxy_ready" &&
+      !manager13fPublicProxyAllowed(guruId, years)) {
+    const managerLabel = guruId === "renaissance-technologies"
+      ? "Renaissance"
+      : guruId;
+    throw new Error(
+      `${managerLabel} ${years}Y release requires strict status=ready; ` +
+      "proxy_ready is not allowed for this manager/window."
+    );
+  }
+}
 
 function validatedReason(value) {
   const reason = String(value || "").trim();
@@ -291,6 +310,7 @@ export function loadExpectedRefreshTargets(
         !windows.includes(years) || !allowedExpectedStatuses.has(expectedStatus)) {
       throw new Error(`Expectation target ${index} has an invalid manager/window/status contract.`);
     }
+    assertCurveReleaseStatus(guruId, years, expectedStatus);
     if (seen.has(key)) throw new Error(`Duplicate expectation target: ${key}.`);
     seen.add(key);
     const evidenceGeneratedAt = ["install_report", "prewarm_report"].includes(source.kind)
@@ -802,6 +822,7 @@ function assertDisplayableCurve(payload, target, label) {
 
 export function validateCurveTarget(target, strictPayload, proxyPayload, runtime) {
   const key = `${target.guruId}:${target.years}`;
+  assertCurveReleaseStatus(target.guruId, target.years, target.expectedStatus);
   assertCurveCommon(strictPayload, target, runtime, `Strict curve ${key}`);
   if (usesSyntheticPrice(strictPayload) || usesSyntheticPrice(proxyPayload) ||
       usesForbiddenPriceFallback(strictPayload) ||
@@ -824,7 +845,12 @@ export function validateCurveTarget(target, strictPayload, proxyPayload, runtime
     const audit = runtime.auditStrict(strictPayload);
     if (!audit?.ok) throw new Error(`Strict curve ${key} failed audit: ${audit?.reason || "unknown"}.`);
     assertDisplayableCurve(strictPayload, target, `Strict curve ${key}`);
-    const selected = runtime.selectManagerBacktestCache(strictPayload, proxyPayload, target.years);
+    const selected = runtime.selectManagerBacktestCache(
+      strictPayload,
+      proxyPayload,
+      target.years,
+      target.guruId
+    );
     if (selected?.kind !== "strict" || selected.payload !== strictPayload) {
       throw new Error(`Strict curve ${key} is not the current public cache selection.`);
     }
@@ -900,7 +926,12 @@ export function validateCurveTarget(target, strictPayload, proxyPayload, runtime
   const audit = runtime.auditProxy(proxyPayload);
   if (!audit?.ok) throw new Error(`Proxy curve ${key} failed audit: ${audit?.reason || "unknown"}.`);
   assertDisplayableCurve(proxyPayload, target, `Proxy curve ${key}`);
-  const selected = runtime.selectManagerBacktestCache(strictPayload, proxyPayload, target.years);
+  const selected = runtime.selectManagerBacktestCache(
+    strictPayload,
+    proxyPayload,
+    target.years,
+    target.guruId
+  );
   if (selected?.kind !== "proxy" || selected.payload !== proxyPayload) {
     throw new Error(`Proxy curve ${key} is not the current public cache selection.`);
   }
