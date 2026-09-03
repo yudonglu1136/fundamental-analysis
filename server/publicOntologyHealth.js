@@ -1,6 +1,6 @@
 import { publicOntologySnapshotInfo } from "./ontologyClient.js";
 
-const DEFAULT_TIMEOUT_MS = 2500;
+const DEFAULT_TIMEOUT_MS = 5000;
 const EXPECTED_SERVICE = "ontology-api";
 const EXPECTED_SCHEMA_VERSION = 2;
 

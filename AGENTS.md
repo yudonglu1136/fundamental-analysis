@@ -104,6 +104,13 @@ See `docs/deployment-contract.md` for the full runbook.
   limitations under `docs/performance/YYYY-MM-DD/`. Do not claim production
   latency from a local benchmark, and do not deploy as part of an optimization
   audit unless the user explicitly requests deployment.
+- Keep the public `/api/health` aggregate behind its bounded in-process cache
+  and single in-flight verification. A health burst must not synchronously
+  parse and audit every Guru curve once per caller or starve the delegated
+  Ontology check. Cache successes for no more than 30 seconds and failures for
+  no more than one second; after expiry, a failed revalidation must replace the
+  older healthy result rather than serving stale green status. Production
+  release verification must include at least eight concurrent health requests.
 
 ## 13F Update Contract
 

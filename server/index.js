@@ -46,6 +46,7 @@ import {
 } from "./dividendClient.js";
 import { buildAdminSystemHealth, buildPublicSystemHealth } from "./systemHealth.js";
 import { resolvePublicOntologyHealth } from "./publicOntologyHealth.js";
+import { createPublicHealthService } from "./publicHealthService.js";
 import { installJsonTransport } from "./jsonTransport.js";
 import {
   addPortfolioAccount,
@@ -62,6 +63,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 const app = express();
 const port = Number(process.env.PORT || 8787);
+const publicHealthService = createPublicHealthService({
+  resolveOntology: resolvePublicOntologyHealth,
+  buildHealth: buildPublicSystemHealth
+});
 
 const defaultAllowedOrigins = [
   "http://localhost:5173",
@@ -122,8 +127,7 @@ if (fs.existsSync(avatarAssetDir)) {
 }
 
 app.get("/api/health", async (_request, response) => {
-  const ontology = await resolvePublicOntologyHealth();
-  const health = buildPublicSystemHealth({ ontology });
+  const health = await publicHealthService.read();
   response.setHeader("Cache-Control", "no-store");
   response.status(health.ok ? 200 : 503).json(health);
 });

@@ -21,7 +21,7 @@
     "test:ontology": "python3 scripts/export_ontology_snapshot_test.py && node --test server/ontologyClient.test.js server/guruConsensusStrategy.test.js scripts/ontology-snapshot-state.test.mjs scripts/verify-ontology-module.test.mjs",
     "test:proxy": "node --test server/apiProxy.test.js",
     "test:server": "node --test server/*.test.js",
-    "test:performance": "node --test server/apiProxy.test.js server/jsonTransport.test.js server/valuationClient.summary.test.js scripts/static-performance-budget.test.mjs scripts/performance-tools.test.mjs",
+    "test:performance": "node --test server/apiProxy.test.js server/jsonTransport.test.js server/publicHealthService.test.js server/valuationClient.summary.test.js scripts/static-performance-budget.test.mjs scripts/performance-tools.test.mjs",
     "bench:api": "node scripts/benchmark-api.mjs",
     "bench:bundle": "node scripts/benchmark-bundle.mjs",
     "summarize:performance": "node scripts/summarize-performance-runs.mjs",
