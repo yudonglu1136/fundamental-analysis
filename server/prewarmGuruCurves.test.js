@@ -49,6 +49,13 @@ function runPrewarm({ port, output, marker, notBefore }) {
   });
 }
 
+test("prewarm uses the explicit loopback client instead of fetch's hidden header timeout", () => {
+  const source = fs.readFileSync(prewarmScript, "utf8");
+  assert.match(source, /requestLoopbackJson/);
+  assert.doesNotMatch(source, /\bfetch\s*\(/);
+  assert.match(source, /DEFAULT_REFRESH_TIMEOUT_MS = 25 \* 60 \* 1000/);
+});
+
 function managerResults(years, refreshGeneration, generatedAt = new Date().toISOString()) {
   return Array.from({ length: 18 }, (_, index) => {
     const proxy = index >= 8;

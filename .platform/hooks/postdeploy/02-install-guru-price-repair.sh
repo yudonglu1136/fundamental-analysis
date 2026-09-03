@@ -221,6 +221,7 @@ node scripts/prewarm-guru-curves.mjs \
   --strict-method-version="${strict_method}" \
   --proxy-method-version="${proxy_method}" \
   --security-master-version="${security_master}" \
+  --refresh-timeout-ms="${GURU_PREWARM_REFRESH_TIMEOUT_MS:-1500000}" \
   --output="${prewarm_report}" \
   --success-marker="${success_marker}"
 chmod 600 "${prewarm_report}" "${success_marker}"

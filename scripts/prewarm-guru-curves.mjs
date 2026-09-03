@@ -2,6 +2,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { requestLoopbackJson } from "./loopback-http-json.mjs";
+
+const DEFAULT_REFRESH_TIMEOUT_MS = 25 * 60 * 1000;
+const MAX_REFRESH_TIMEOUT_MS = 30 * 60 * 1000;
 
 function parseArgs(argv) {
   const options = {};
@@ -27,6 +31,16 @@ function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+function refreshTimeoutMs(value) {
+  const parsed = Number(value || DEFAULT_REFRESH_TIMEOUT_MS);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0 || parsed > MAX_REFRESH_TIMEOUT_MS) {
+    throw new Error(
+      `Guru prewarm refresh timeout must be an integer from 1 to ${MAX_REFRESH_TIMEOUT_MS}ms.`
+    );
+  }
+  return parsed;
+}
+
 function atomicWriteJson(filePath, payload) {
   if (!filePath) return;
   fs.mkdirSync(path.dirname(path.resolve(filePath)), { recursive: true });
@@ -38,10 +52,9 @@ function atomicWriteJson(filePath, payload) {
 async function waitForApi(baseUrl, secret, attempts = 90) {
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      const response = await fetch(new URL("api/internal/backtests/status", baseUrl), {
+      const response = await requestLoopbackJson(new URL("api/internal/backtests/status", baseUrl), {
         headers: { authorization: `Bearer ${secret}` },
-        redirect: "error",
-        signal: AbortSignal.timeout(10_000)
+        timeoutMs: 10_000
       });
       if (response.status >= 200 && response.status < 600) return;
     } catch {
@@ -54,15 +67,14 @@ async function waitForApi(baseUrl, secret, attempts = 90) {
 
 async function waitForBulkRefreshIdle(baseUrl, secret, attempts = 720) {
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    const response = await fetch(new URL("api/internal/backtests/status", baseUrl), {
+    const response = await requestLoopbackJson(new URL("api/internal/backtests/status", baseUrl), {
       headers: { authorization: `Bearer ${secret}` },
-      redirect: "error",
-      signal: AbortSignal.timeout(10_000)
+      timeoutMs: 10_000
     });
     if (!response.ok) {
       throw new Error(`Guru refresh status returned HTTP ${response.status}.`);
     }
-    const body = await response.json();
+    const body = response.body;
     if (!body.running) return;
     await delay(5000);
   }
@@ -124,6 +136,9 @@ function auditWindowResults(body, {
 
 const options = parseArgs(process.argv.slice(2));
 const baseUrl = loopbackBaseUrl(options["base-url"]);
+const refreshRequestTimeoutMs = refreshTimeoutMs(
+  options["refresh-timeout-ms"] || process.env.GURU_PREWARM_REFRESH_TIMEOUT_MS
+);
 const secret = String(process.env.INTERNAL_CRON_SECRET || process.env.CRON_SECRET || "");
 if (!secret) throw new Error("Guru prewarm requires INTERNAL_CRON_SECRET in process memory.");
 const refreshGeneration = String(options["refresh-generation"] || "").trim().toLowerCase();
@@ -151,6 +166,7 @@ const report = {
   kind: "guru_curve_production_prewarm",
   startedAt: new Date().toISOString(),
   finishedAt: null,
+  refreshTimeoutMs: refreshRequestTimeoutMs,
   windows: [],
   healthHttpStatus: null,
   curveAvailability: null,
@@ -162,14 +178,20 @@ for (const years of windows) {
   const url = new URL("api/internal/backtests/refresh", baseUrl);
   url.searchParams.set("years", String(years));
   url.searchParams.set("detail", "compact");
-  url.searchParams.set("refreshGeneration", `${refreshGeneration}:${years}`);
-  const response = await fetch(url, {
+  const generation = `${refreshGeneration}:${years}`;
+  url.searchParams.set("refreshGeneration", generation);
+  console.log(JSON.stringify({
+    status: "window-started",
+    years,
+    refreshGeneration: generation,
+    timeoutMs: refreshRequestTimeoutMs
+  }));
+  const response = await requestLoopbackJson(url, {
     method: "POST",
     headers: { authorization: `Bearer ${secret}` },
-    redirect: "error",
-    signal: AbortSignal.timeout(30 * 60 * 1000)
+    timeoutMs: refreshRequestTimeoutMs
   });
-  const body = await response.json().catch(() => ({}));
+  const body = response.body;
   if (!response.ok || body.alreadyRunning) {
     throw new Error(
       `Guru ${years}Y prewarm did not execute (HTTP ${response.status}, alreadyRunning=${Boolean(body.alreadyRunning)}).`
@@ -180,7 +202,6 @@ for (const years of windows) {
   if (!startedAt || !finishedAt || Date.parse(startedAt) < Date.parse(notBefore)) {
     throw new Error(`Guru ${years}Y prewarm is not bound to the post-repair generation.`);
   }
-  const generation = `${refreshGeneration}:${years}`;
   const resultAudit = auditWindowResults(body, {
     years,
     refreshGeneration: generation,
@@ -205,11 +226,10 @@ for (const years of windows) {
   console.log(JSON.stringify({ status: "window-finished", ...item }));
 }
 
-const healthResponse = await fetch(new URL("api/health", baseUrl), {
-  redirect: "error",
-  signal: AbortSignal.timeout(30_000)
+const healthResponse = await requestLoopbackJson(new URL("api/health", baseUrl), {
+  timeoutMs: 30_000
 });
-const health = await healthResponse.json().catch(() => ({}));
+const health = healthResponse.body;
 report.healthHttpStatus = healthResponse.status;
 report.curveAvailability = curveAvailability(health);
 report.pass = Boolean(
