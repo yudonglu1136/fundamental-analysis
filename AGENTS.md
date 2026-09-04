@@ -118,7 +118,107 @@ See `docs/deployment-contract.md` for the full runbook.
 
 When the user asks to update 13F, guru holdings, Q2/Q3 data, new buys/sells, quarterly contribution, or position history, treat it as one atomic data-refresh job. Do not update only one cache.
 
-Required update surfaces:
+### Definitions and completion vocabulary
+
+- The **13F target set** is the explicit list of `manager13f` IDs selected for
+  the filing refresh. An omitted target means the complete dynamic population,
+  not a remembered count; expand the exact IDs in the audit report.
+- **13F refresh success** means every enabled target has a current strict
+  `ready` result and every disabled-simulation target is `unsupported`.
+  **13F refresh degraded** is reserved for the one exact Peltz/JHG exception
+  documented below. An older curve retained for UI continuity does not prove
+  that the current filing refresh succeeded.
+- The **required curve matrix** is
+  `enabledManager13fGurus × requiredGuruCurveWindows`, currently the persisted
+  5Y and 10Y windows derived from `server/gurus.js`. A **curve release pass** may
+  contain only current strict `ready` rows or policy-permitted, exactly linked,
+  audited `proxy_ready` rows. The strict 13F result and the displayable curve
+  release result are separate assertions; never use a proxy to claim strict
+  13F refresh success.
+- 1Y and 3Y are derived trailing slices of the loaded 5Y curve, and the free
+  date range is another client-side slice with rebased metrics. They are not
+  separately persisted curves. `All` is an opt-in, fail-closed forensic
+  calculation, not a required release row and not a substitute for 5Y or 10Y.
+
+### Mandatory end-to-end 13F procedure
+
+Use this sequence for every attempted 13F refresh. An "accepted 13F update"
+means that a new or amended filing has passed source, parsing, identity, and
+quality checks and is eligible to replace the current canonical quarter.
+
+1. **Freeze scope and the before-state.** Derive the manager population from
+   `server/gurus.js`; never use a copied manager count. Record the target
+   quarter, UTC SEC cutoff, reason, job start, database path, affected manager
+   IDs, current accession/report/filing dates, holdings count and reported
+   value, dashboard/database generation, current 5Y/10Y curve identities,
+   strict/proxy method versions, security-master hash, and public health result
+   before changing data. Confirm no 13F, curve, or price writer is active.
+2. **Verify the official filing.** Resolve every configured primary and
+   `alternateCiks` filer, then verify form type, accession, report date,
+   acceptance timestamp, source URL, source hash, amendment relationship, and
+   the usable information table from the official SEC submission. A `13F-NT`,
+   missing table, ambiguous amendment, mismatched CIK, or unsafe attachment is
+   not an update: retain the prior usable quarter and record the failure.
+3. **Build one canonical common-long book.** Convert reported 13F `$000` value
+   units exactly once, aggregate duplicate CUSIPs before ranking, exclude
+   explicit non-common claims, and reconcile the resulting holding count and
+   total value back to the source table. Compute `new`, `increased`, `reduced`,
+   and `sold_out` only against the prior comparable canonical filing. Summary
+   counts must use the complete activity set even when the UI response is a
+   balanced bounded sample.
+4. **Resolve identities without guessing.** Update the SEC manifest and
+   security master for every new identifier, issuer continuity, share class,
+   reporting-entity transition, and corporate action. Exact CUSIP/effective-
+   date evidence is required; fuzzy issuer matching, recycled ticker symbols,
+   and unreviewed successor substitutions are release blockers. Quantify every
+   unresolved selected-book weight.
+5. **Refresh market-data dependencies.** Validate adjusted-close observations
+   against the benchmark's expected sessions for every active holding interval,
+   including truncated starts/ends and internal holes. Use only real,
+   independently auditable observations. Never interpolate, forward-fill,
+   manufacture a delisting price, or weaken a coverage gate to make a curve
+   appear.
+6. **Stage the complete dependent bundle.** Before a production write, create
+   a recoverable, integrity-checked SQLite backup and a completed production
+   EBS rollback snapshot; price repairs additionally require the controls
+   below. Compute the guru snapshot, full dashboard merge, 40-quarter exposure
+   history, full-detail 5Y strict/proxy artifacts, activity, and quarterly
+   attribution without persistence. The snapshot and exposure must resolve to
+   the same latest report date.
+7. **Commit atomically or retain the last known good state.** Persist
+   `guru_snapshots`, `dashboard_snapshots`, `guru_exposure_snapshots`, the
+   strict backtest, and any permitted linked proxy through one
+   `writeGuru13fRefreshBundle` transaction. Re-read and re-audit every stored
+   surface after commit. A staging or transaction failure must leave the prior
+   database unchanged. If post-commit read-back or integrity verification
+   fails, restore the verified backup before reporting the job complete. Never
+   leave a new header with an old curve or an old exposure with a new activity
+   feed.
+8. **Recompute the complete required curve matrix.** After any accepted 13F
+   commit, sequentially refresh 5Y and 10Y for every enabled `manager13f`, not
+   only the changed manager. Bind every row to one immutable root refresh
+   generation, `not-before` time, strict/proxy method version, requested
+   `method.years`, and exact security-master hash. The two windows are separate
+   computations but one logical release: do not publish the aggregate status
+   or success marker until both exact window result sets pass. The 1Y and 3Y
+   controls are trailing selections of the current 5Y curve; `All` is a
+   separate forensic request and is never required to manufacture a
+   production-green result.
+9. **Verify data, API, and UI together.** Check the detail header, filing lag,
+   holdings, all four activity categories, 40-quarter position history, 5Y and
+   10Y simulation, quarterly contribution, method/proxy disclosure, and the
+   free date-range control in both languages. Test 1280x720 and 390x844. A JSON
+   success without the corresponding visible product feature is incomplete.
+10. **Run release gates and write an audit record.** Execute the required
+    server, Flutter, build, i18n, performance, and targeted data-contract tests;
+    deploy only from committed `trunk`; verify AWS, both Vercel aliases, public
+    health, private-route denial, rollback material, and temporary-access
+    cleanup. Write both machine-readable JSON and human-readable Markdown under
+    `docs/audits/`, recording target IDs, affected filings, source hashes,
+    before/after data, curve outcomes, failures, tests, versions, backup/rollback
+    identity, and limitations without publishing licensed rows or secrets.
+
+### Required update surfaces and invariants
 
 - The 2026-09-03 catalog release adds Chris Hohn, David Tepper, Dan Loeb,
   Seth Klarman, Nelson Peltz, Andreas Halvorsen, David Einhorn, Mohnish
@@ -140,7 +240,10 @@ Required update surfaces:
   retain the canonical static URL fallback when the `guru_assets` table has not
   yet been populated. A frontend avatar change requires a cache-version bump.
 
-- `guru_snapshots`: selected guru header, latest quarter, filing date, filing lag, AUM, holdings count, latest holdings, and new buy/sell activity.
+- `guru_snapshots`: selected guru header, latest quarter, filing date, filing
+  lag, reported 13F information-table value (not total fund AUM), canonical
+  common-long value, options attribution, holdings count, latest holdings, and
+  new buy/sell activity.
 - `dashboard_snapshots`: guru list, overview cards, signal board, ticker heatmap, and cross-guru aggregates.
 - `guru_exposure_snapshots`: 13F book history / position trajectory tab.
 - `guru_backtests`: copy simulation and quarterly contribution.
@@ -165,21 +268,136 @@ Required update surfaces:
 - Treat a shared trailing market-data cutoff as a bounded operational heuristic that reduces, but cannot eliminate, the risk of excusing a halt, delisting, or corporate action. It may move the effective backtest end only when the SPY series covers the requested market end and at least two active holdings share the exact same trailing cutoff, consistent with a common vendor lag, and only within seven calendar days. Persist the requested end, requested market end, effective end, lag, stale tickers, and every active ticker's latest date. A single stale security, mixed cutoff dates, internal price gap, or lag beyond the bound remains fail closed; investigate repeated or issuer-specific gaps rather than widening the heuristic.
 - Keep serving and health freshness compatible with the accepted trailing-data policy: the curve end grace must be at least the seven-day trailing bound plus the five-day market-calendar buffer (12 calendar days by default). A fresh accepted curve must not become immediately stale because health uses a shorter window.
 
-Use the unified command or endpoint:
+### Execution commands and trust boundary
 
 - Local/CLI: `npm run refresh:13f -- --reason=manual-13f-update --years=5 --detail=compact --exposure-limit=40`
+- Always pass `--years` explicitly to a CLI or protected refresh route. Never
+  rely on a default window: a default may differ between the CLI and internal
+  API, and an accidental `All` calculation cannot satisfy the release matrix.
+- Limit a local refresh with `--guru=<comma-separated-guru-ids>` only when
+  diagnosing or staging affected managers. Omit `--guru` for the complete
+  manager population. The atomic updater persists full-detail audit artifacts
+  even when the requested public detail is `compact`.
+- After an accepted 13F commit, use `scripts/prewarm-guru-curves.mjs` over the
+  loopback API with `--windows=5,10`, a unique immutable 64-hex
+  `--refresh-generation`, an ISO `--not-before`, and the exact strict, proxy,
+  and security-master versions. Write its report and success marker only to a
+  private release path. This is the canonical production publication entry
+  point; it runs 5Y then 10Y sequentially and enforces the full dynamic matrix.
+  Do not hand-create a success marker.
+- Before production publication, recompute the full matrix on an isolated
+  database snapshot with
+  `node scripts/audit-guru-curve-restoration.mjs --db <candidate.sqlite> --windows=5,10 --output <audit-path>`.
+  The source database must remain byte-for-byte unchanged, and the generated
+  JSON and Markdown reports must both pass.
 - Production internal API calls must run inside the EB host over `http://127.0.0.1:${PORT}` with `Authorization: Bearer $INTERNAL_CRON_SECRET`. Both the Vercel proxy and EB nginx intentionally return 404 for every case-insensitive `/api/internal/*` path because the current EB origin hop is HTTP-only; never send internal bearer credentials through the public domains or the EB CNAME.
 - Status checks follow the same loopback-only rule. Use the public `/api/health` endpoint for non-secret readiness verification.
 
-Verification after every 13F update:
+### Verification after every 13F update
 
-1. Check `/api/health` and confirm the database timestamp moved.
-2. Check `/api/gurus?refresh=1` or the relevant guru detail endpoint and confirm latest quarter, filing date, holdings count, and activity changed together.
-3. Check `/api/gurus/{id}/backtest?years=5&detail=compact` for the product simulation and quarterly contribution. Check `years=all` separately only as a forensic coverage audit.
+1. Check `/api/health` and confirm the expected database generation, curve
+   generation, method versions, security-master hash, and dynamic population;
+   an unrelated timestamp change is not proof of success.
+2. Check `/api/gurus?refresh=1` or the relevant guru detail endpoint and
+   confirm the expected accession, latest quarter, filing date, holdings count,
+   reported value, and full activity summary were resolved together. A valid
+   quarter with zero holdings changes is a valid result; do not require values
+   to change merely to pass verification.
+3. Check `/api/gurus/{id}/backtest?years=5&detail=compact` and
+   `/api/gurus/{id}/backtest?years=10&detail=compact` for the product simulation
+   and quarterly contribution. Check `years=all` separately only as a forensic
+   coverage audit.
 4. Check `/api/gurus/{id}/exposure?limit=40` for position history.
 5. Verify the Vercel frontend at `https://www.thesisforge.tech` still talks to AWS through `/api/*` and does not hit the AWS frontend fallback.
 
 If a manager has filed only `13F-NT` or a 13F without a usable information table, do not fabricate holdings. Keep the prior usable `13F-HR` quarter for holdings/backtest and surface the missing-information-table state in the refresh job errors.
+
+### 13F data quality gate
+
+An accepted 13F refresh is complete only when all of the following are true:
+
+- The source accession, report date, acceptance timestamp, filer CIK(s), form,
+  information-table attachment, URL, and content hash are present and mutually
+  consistent. Amendment selection is deterministic and documented.
+- Source row value, canonical common-long value, holding counts, duplicate
+  aggregation, excluded non-common claims, and any unresolved identifiers are
+  reconciled and recorded. The parser has not multiplied or divided the 13F
+  `$000` unit more than once.
+- `summary.reportDate`, exposure `latest.reportDate`, activity comparison
+  quarter, backtest filing input, and dashboard latest quarter agree. Filing
+  date and lag are visible rather than inferred from the report date.
+- The dashboard still contains every configured profile; the affected manager
+  has a non-empty canonical book or an explicit source failure; activity
+  summary counts are computed from the full change set; and exposure contains
+  up to the required 40 real quarters without fabricated empty quarters.
+- SQLite `quick_check` and `integrity_check` return `ok`; the committed target
+  set is exact; non-target table counts and semantic hashes are unchanged; and
+  no transport-only cache field, fallback payload, or stale `dataStatus` is
+  persisted as canonical data.
+- The atomic job finishes as `success`, except the one exact documented
+  Peltz/JHG structural case which must remain `degraded`. Any other
+  `insufficient_data`, partial write, stale generation, or post-commit mismatch
+  is a failed refresh and must preserve or restore the last known good bundle.
+- A new manager is not complete until its catalog metadata, CIK evidence,
+  snapshot, activity, exposure, 5Y/10Y outcomes, bilingual copy, and exact one
+  valid 144x144 PNG avatar all pass their contracts.
+
+### Guru curve refresh quality gate
+
+In this section, "all curves" means the required 5Y/10Y simulation matrix for
+every enabled `manager13f`. It is complete only when all of these gates pass:
+
+- **Exact population:** the attested key set equals
+  `enabledManager13fGurus × requiredGuruCurveWindows`; there are no missing,
+  duplicate, disabled, or surprise manager/window rows. Health must derive the
+  expected count dynamically and report `displayable == expectedRows` with an
+  empty failures array.
+- **Current identity:** each curve was generated after the release's
+  `not-before`, carries the exact refresh generation, requested `method.years`,
+  strict method version, and current security-master hash. A proxy also carries
+  the exact proxy method/security-master versions and links to the current
+  strict failure generation.
+- **Strict quality:** status is `ready`; every rebalance meets at least 90%
+  adjusted-close execution coverage; uncovered weight remains cash; weights
+  reconcile to one; dates are sorted and unique; equity and benchmark values
+  are finite and positive; active intervals have no unaudited price gaps; and
+  headline return, security contribution, sector contribution, and industry
+  contribution reconcile within the engine tolerance (`1e-10`).
+- **Temporal integrity:** every filing becomes executable only on the first
+  market session strictly after its public SEC acceptance time. Benchmark and
+  holdings use the same total-return/adjusted-close basis and compatible market
+  calendar. There is no look-ahead, pre-filing execution, future data, or
+  silently stale end date. The bounded shared vendor-lag rule may move the end
+  only under its exact documented conditions.
+- **Proxy honesty:** a proxy is stored separately and may display only when the
+  compatible strict result is unavailable, the manager/window policy permits
+  it, every quarter retains at least 30% of the selected Top-60 book and at
+  least two fully priceable positions, and the UI discloses included count,
+  excluded weight, largest exclusions, and that this is not an audited full-
+  fund return. Renaissance 5Y must be strict; a 5Y Renaissance proxy fails the
+  release. No proxy may be described as Medallion or as the manager's complete
+  performance.
+- **Product completeness:** each displayable result supplies a usable equity
+  curve, SPY comparison, quarterly contributions, method/data-quality detail,
+  1Y/3Y/5Y/10Y/All controls, and the two-handle date-range bar. The initial
+  desktop viewport keeps the curve and bar visible; mobile has no page-level
+  horizontal overflow.
+- **Production attestation:** the private prewarm report covers the exact full
+  matrix and the public `/api/health` response reports the same identities and
+  zero failures. The EB origin, `thesisforge.tech`, and
+  `www.thesisforge.tech` must all agree. Burst-test at least eight concurrent
+  health calls after the cache expires; all must return the same healthy curve
+  matrix without Ontology timeout or request failure.
+
+### Release stop conditions
+
+Do not report a 13F or curve update as complete, do not create a success marker,
+and do not promote a release if any required surface or quality gate above is
+missing. Investigate the source, mapping, price, timing, or model error; keep the
+last known good data visible; and report the exact failed manager/window and
+reason. Never resolve a release blocker by lowering coverage, reusing an older
+window under a new key, relabeling a proxy as strict, deleting the failed
+manager from the expected population, or editing only the UI.
 
 ## Valuation PIT Data Contract
 
