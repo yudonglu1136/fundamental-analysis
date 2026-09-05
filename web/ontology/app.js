@@ -1,3 +1,25 @@
+// Shared with the Flutter terminal. Decorative issuer marks never replace the
+// ticker, and failed assets collapse cleanly instead of showing a wrong logo.
+function stockLogoUrl(ticker) {
+  const symbol = String(ticker || '').trim().toUpperCase();
+  return /^[A-Z][A-Z0-9.-]{0,14}$/.test(symbol)
+    ? `/stock-logos/${encodeURIComponent(symbol)}.png?v=20260905a` : '';
+}
+function stockLogoHtml(ticker) {
+  const url = stockLogoUrl(ticker);
+  return url ? `<img class="stock-logo" src="${url}" alt="" loading="lazy" decoding="async">` : '';
+}
+document.addEventListener('error', event => {
+  if (event.target?.matches?.('img.stock-logo')) event.target.hidden = true;
+}, true);
+function addStockLogo(group, ticker, x, y) {
+  const url = stockLogoUrl(ticker);
+  if (!url) return;
+  const image = svgElement('image', { href: url, x, y, width: 15, height: 15, preserveAspectRatio: 'xMidYMid meet' });
+  image.addEventListener('error', () => image.remove());
+  group.appendChild(image);
+}
+
 const state = {
   health: null,
   overview: null,
@@ -313,7 +335,7 @@ function renderMarketHome() {
   $("#market-sector-grid").innerHTML = data.sectors.map((group) => groupCard(group, "sector")).join("");
   $("#market-leaders-body").innerHTML = data.market_leaders.map((company) => `
     <tr data-market-ticker="${escapeHtml(company.ticker)}">
-      <td class="ticker-cell"><strong>${escapeHtml(company.ticker)}</strong><span>${escapeHtml(company.name)}</span></td>
+      <td class="ticker-cell"><strong>${stockLogoHtml(company.ticker)}${escapeHtml(company.ticker)}</strong><span>${escapeHtml(company.name)}</span></td>
       <td>${escapeHtml(company.industry || company.sector || "--")}</td>
       <td>${fmtMoney(company.marketcap_usd)}</td>
       <td class="${metricClass(company.revenue_yoy)}">${fmtPct(company.revenue_yoy)}</td>
@@ -639,7 +661,8 @@ function renderValueChainOntology() {
       const strength = Math.min(1, Math.max(0.05, (safeNumber(company.ontology_score) || 0) / 2.5));
       group.appendChild(svgElement("rect", { x, y, width: nodeWidth * strength, height: 3, fill: palette.stroke }));
       group.appendChild(svgElement("circle", { cx: x + 12, cy: y + 16, r: 4, fill: palette.stroke }));
-      addText(group, company.ticker, x + 21, y + 19, { fill: palette.text, "font-size": 11.5, "font-weight": 750 });
+      addStockLogo(group, company.ticker, x + 7, y + 8);
+      addText(group, company.ticker, x + 27, y + 19, { fill: palette.text, "font-size": 11.5, "font-weight": 750 });
       const metric = company[state.marketNodeMetric];
       addText(group, metricFormatter(state.marketNodeMetric, metric), x + nodeWidth - 9, y + 19, {
         fill: safeNumber(metric) !== null && metric < 0 ? "#ff9c9c" : "#f7fafc", "font-size": 9.5, "font-weight": 650, "text-anchor": "end",
@@ -791,7 +814,7 @@ function companyNode(company) {
   const stateClass = decisionStateClasses[company.signal_state] || "watch";
   return `
     <button class="market-company-node ${stateClass}" data-market-ticker="${escapeHtml(company.ticker)}" title="${escapeHtml(company.name)} · ${escapeHtml(company.signal_label || "暂无事件")}">
-      <strong>${escapeHtml(company.ticker)}</strong>
+      <strong>${stockLogoHtml(company.ticker)}${escapeHtml(company.ticker)}</strong>
       <span>${fmtScore(company.ontology_score)}</span>
       <small>${escapeHtml(company.signal_label || "暂无事件")} · ${fmtDate(company.information_date)}</small>
     </button>
@@ -819,7 +842,7 @@ function renderCompanyOntology(companies) {
 function renderMarketCompanyTable(companies, append = false) {
   const html = companies.map((company) => `
     <tr data-market-ticker="${escapeHtml(company.ticker)}">
-      <td class="ticker-cell"><strong>${escapeHtml(company.ticker)}</strong><span>${escapeHtml(company.name)}</span></td>
+      <td class="ticker-cell"><strong>${stockLogoHtml(company.ticker)}${escapeHtml(company.ticker)}</strong><span>${escapeHtml(company.name)}</span></td>
       <td>${escapeHtml(company.stage_name || company.industry || "--")}</td>
       <td><span class="decision-state ${decisionStateClasses[company.signal_state] || "watch"}">${escapeHtml(company.signal_label || "暂无事件")}</span></td>
       <td>${fmtScore(company.ontology_score)}</td>
@@ -1054,7 +1077,7 @@ async function showMarketCompany(ticker, signalContext = null) {
     const company = payload.company;
     $("#market-company-dialog-content").innerHTML = `
       <header class="market-dialog-header">
-        <div><span class="section-kicker">${escapeHtml(company.sector || "UNCLASSIFIED")}</span><h2>${escapeHtml(company.ticker)}</h2><p>${escapeHtml(company.name)}</p></div>
+        <div><span class="section-kicker">${escapeHtml(company.sector || "UNCLASSIFIED")}</span><h2>${stockLogoHtml(company.ticker)}${escapeHtml(company.ticker)}</h2><p>${escapeHtml(company.name)}</p></div>
         <button id="market-dialog-close" class="dialog-close" aria-label="关闭" title="关闭">×</button>
       </header>
       <div class="dialog-meta"><span>${escapeHtml(company.exchange || "--")}</span><span>${escapeHtml(company.industry || "--")}</span><span>报告期 ${fmtDate(company.reportperiod)}</span><span>公开日 ${fmtDate(company.datekey)}</span></div>
@@ -1118,7 +1141,7 @@ function renderDecisionTape() {
   $("#decision-signal-tape").innerHTML = signals.slice(0, 7).map((signal) => `
     <button data-decision-ticker="${escapeHtml(signal.ticker)}">
       <i class="signal-marker ${decisionSignalClass(signal)}"></i>
-      <span><strong>${escapeHtml(signal.ticker)}</strong><small>${escapeHtml(signal.stage_name || signal.industry || signal.sector || "--")}</small></span>
+      <span><strong>${stockLogoHtml(signal.ticker)}${escapeHtml(signal.ticker)}</strong><small>${escapeHtml(signal.stage_name || signal.industry || signal.sector || "--")}</small></span>
       <span><b>${escapeHtml(decisionStateLabels[signal.signal_state] || signal.signal_state)}</b><small>${fmtDate(signal.information_date)}</small></span>
     </button>
   `).join("");
@@ -1129,7 +1152,7 @@ function renderDecisionHoldings() {
   const maxWeight = Math.max(...holdings.map((item) => Number(item.weight || 0)), 0.01);
   $("#decision-holdings").innerHTML = holdings.slice(0, 8).map((holding) => `
     <button data-decision-ticker="${escapeHtml(holding.ticker)}">
-      <span><strong>${escapeHtml(holding.ticker)}</strong><small>${escapeHtml(holding.stage_name || holding.sector || "--")}</small></span>
+      <span><strong>${stockLogoHtml(holding.ticker)}${escapeHtml(holding.ticker)}</strong><small>${escapeHtml(holding.stage_name || holding.sector || "--")}</small></span>
       <span class="holding-exposure"><i style="width:${(Number(holding.weight || 0) / maxWeight * 100).toFixed(1)}%"></i></span>
       <b>${fmtUnsignedPct(holding.weight)}</b>
     </button>
@@ -1177,7 +1200,7 @@ function renderDecisionTable() {
   $("#decision-table-body").innerHTML = signals.length ? signals.map((signal) => `
     <tr data-decision-ticker="${escapeHtml(signal.ticker)}" class="${state.decisionSelectedTicker === signal.ticker ? "selected" : ""}">
       <td class="decision-company-cell">
-        <strong>${escapeHtml(signal.ticker)}</strong>
+        <strong>${stockLogoHtml(signal.ticker)}${escapeHtml(signal.ticker)}</strong>
         <span>${escapeHtml(signal.name || signal.industry || "--")}</span>
         <small>${fmtDate(signal.information_date)} · ${escapeHtml(signal.stage_name || signal.sector || "--")}</small>
       </td>
@@ -1340,7 +1363,7 @@ async function runGlobalMarketSearch(query) {
   }
   const payload = await getJson(`/api/market/search?q=${encodeURIComponent(query.trim())}&limit=12`);
   panel.innerHTML = payload.companies.length ? payload.companies.map((company) => `
-    <button data-search-ticker="${escapeHtml(company.ticker)}"><strong>${escapeHtml(company.ticker)}</strong><span>${escapeHtml(company.name)}</span><small>${escapeHtml(company.industry || company.sector || "--")}</small></button>
+    <button data-search-ticker="${escapeHtml(company.ticker)}"><strong>${stockLogoHtml(company.ticker)}${escapeHtml(company.ticker)}</strong><span>${escapeHtml(company.name)}</span><small>${escapeHtml(company.industry || company.sector || "--")}</small></button>
   `).join("") : '<p>没有匹配公司</p>';
   panel.hidden = false;
   $$('[data-search-ticker]').forEach((button) => button.addEventListener("click", () => {
@@ -1661,7 +1684,7 @@ function renderStrategyYearly() {
     </tr>`;
   }).join("");
   $("#strategy-trades-body").innerHTML = trades.map((row) => `<tr>
-    <td>${fmtDate(row.exit_date)}</td><td><strong>${escapeHtml(row.ticker)}</strong><small>${escapeHtml(row.name || "")}</small></td>
+    <td>${fmtDate(row.exit_date)}</td><td><strong>${stockLogoHtml(row.ticker)}${escapeHtml(row.ticker)}</strong><small>${escapeHtml(row.name || "")}</small></td>
     <td>${escapeHtml(row.selection_source)}</td><td>${Math.round(safeNumber(row.holding_days) || 0)}</td><td>${fmtMoney(row.cost)}</td><td>${fmtMoney(row.proceeds)}</td>
     <td class="${metricClass(row.pnl)}">${fmtSignedMoney(row.pnl)}</td><td class="${metricClass(row.pnl_pct)}">${fmtPct(row.pnl_pct)}</td><td>${escapeHtml(row.exit_reason)}</td>
   </tr>`).join("");
@@ -1739,7 +1762,7 @@ function renderStrategySnapshot(snapshot) {
       : `Ontology ${fmtScore(row.ontology_score)}`);
     return `<tr>
       <td><span class="strategy-action ${String(row.action || "hold").toLowerCase()}">${actionLabels[row.action] || row.action}</span></td>
-      <td><strong>${escapeHtml(row.ticker)}</strong><small>${escapeHtml(row.name || "")}</small></td>
+      <td><strong>${stockLogoHtml(row.ticker)}${escapeHtml(row.ticker)}</strong><small>${escapeHtml(row.name || "")}</small></td>
       <td>${fmtUnsignedPct(row.weight)}</td><td>${Math.round(safeNumber(row.shares) || 0).toLocaleString()}</td><td>${fmtDate(row.entry_date)}</td>
       <td>${fmtMoney(row.average_cost)}</td><td>${fmtMoney(row.current_price)}</td><td class="${metricClass(row.unrealized_pnl)}"><b>${fmtSignedMoney(row.unrealized_pnl)}</b><small>${fmtPct(row.unrealized_pnl_pct)}</small></td>
       <td><b>${escapeHtml(row.selection_source)}</b><small>${escapeHtml(row.selection_reason)}</small></td><td>${escapeHtml(rank)}</td>
@@ -2001,7 +2024,8 @@ function renderGraph() {
         fill: palette.stroke,
       }));
       group.appendChild(svgElement("circle", { cx: x + 12, cy: y + 15, r: 4, fill: palette.stroke }));
-      addText(group, company.ticker, x + 21, y + 18, { fill: palette.text, "font-size": 12, "font-weight": 750 });
+      addStockLogo(group, company.ticker, x + 7, y + 7);
+      addText(group, company.ticker, x + 27, y + 18, { fill: palette.text, "font-size": 12, "font-weight": 750 });
       const metric = company[state.nodeMetric];
       addText(group, metricFormatter(state.nodeMetric, metric), x + nodeWidth - 9, y + 18, {
         fill: safeNumber(metric) !== null && metric < 0 ? "#ff9c9c" : "#f7fafc",
@@ -2138,7 +2162,7 @@ async function selectCompany(ticker) {
     <div class="detail-header">
       <button id="detail-close" class="detail-close" title="关闭详情" aria-label="关闭详情">×</button>
       <div class="detail-kicker"><span class="layer-swatch" style="background:${company.layer_color}"></span>${company.layer_name}</div>
-      <h2>${company.ticker}</h2>
+      <h2>${stockLogoHtml(company.ticker)}${escapeHtml(company.ticker)}</h2>
       <div class="detail-company-name">${company.name || ""}</div>
       <p class="detail-role">${company.role}</p>
       <div class="detail-data-dates">

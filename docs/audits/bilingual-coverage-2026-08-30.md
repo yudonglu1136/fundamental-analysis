@@ -24,6 +24,20 @@ viewport-override capability did not change its top-level window dimensions.
 
 ## Coverage Ledger
 
+### 2026-09-05: Guru stock valuation and shared issuer branding
+
+- Added bilingual stock-research drawer/full-screen detail, footer actions,
+  model/price dates, independent validation labels, missing-coverage retry,
+  private-security tooltip and company-logo fallback. Market Lens keeps its
+  language while opening and returning from inline research.
+- `lib/stock_research.dart` is included in the same literal-guard audit as
+  `lib/main.dart`. Regression tests cover EN/ZH at 1280×720 and 390×844.
+- Ontology branding is decorative and preserves adjacent ticker/company text;
+  app/style/i18n asset version is `20260905-2`.
+- Local verification only; authenticated production integration and the full
+  AWS universe are not certified by this addendum. See
+  `guru-stock-research-2026-09-05.md` for evidence and limitations.
+
 | Surface | Desktop ZH | Desktop EN | Mobile ZH | Mobile EN | Dynamic / hidden states | Result |
 | --- | --- | --- | --- | --- | --- | --- |
 | Authentication and login | PASS | PASS | PASS | PASS | Provider, bypass, validation, error copy | PASS |

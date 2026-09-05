@@ -136,10 +136,11 @@ app.get("/api/logo/:ticker", async (request, response) => {
   try {
     const asset = await loadTickerLogo(request.params.ticker);
     response.setHeader("Content-Type", asset.contentType);
-    response.setHeader("Cache-Control", "public, max-age=604800, immutable");
+    response.setHeader("Cache-Control", "public, max-age=86400");
     response.setHeader("X-Logo-Source", asset.source || "unknown");
     response.send(asset.body);
   } catch {
+    response.setHeader("Cache-Control", "public, max-age=300");
     response.status(404).json({ error: "logo_not_found" });
   }
 });

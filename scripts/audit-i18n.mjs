@@ -12,7 +12,8 @@ function lineNumber(source, offset) {
 }
 
 function checkFlutterLiteralGuards() {
-  const file = path.join(root, 'lib/main.dart');
+  for (const relative of ['lib/main.dart', 'lib/stock_research.dart']) {
+  const file = path.join(root, relative);
   const source = fs.readFileSync(file, 'utf8');
   const guards = [
     ['tooltip literal', /tooltip:\s*(['"])/g],
@@ -22,7 +23,7 @@ function checkFlutterLiteralGuards() {
   ];
   for (const [name, pattern] of guards) {
     for (const match of source.matchAll(pattern)) {
-      failures.push(`lib/main.dart:${lineNumber(source, match.index)} ${name}`);
+      failures.push(`${relative}:${lineNumber(source, match.index)} ${name}`);
     }
   }
 
@@ -58,8 +59,9 @@ function checkFlutterLiteralGuards() {
     const snippet = source.slice(match.index, match.index + 700);
     if (permittedDirectText.some((pattern) => pattern.test(snippet))) continue;
     failures.push(
-      `lib/main.dart:${lineNumber(source, match.index)} direct Text literal`,
+      `${relative}:${lineNumber(source, match.index)} direct Text literal`,
     );
+  }
   }
 }
 

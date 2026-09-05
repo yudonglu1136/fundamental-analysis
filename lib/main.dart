@@ -8,6 +8,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'browser_location.dart';
 
+part 'stock_research.dart';
+
 const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 const _apiBaseUrl = String.fromEnvironment('API_BASE_URL');
@@ -1808,148 +1810,153 @@ class _TerminalHomeState extends State<TerminalHome>
     final exposures = buildExposures(gurus, language: context.language);
     final stats = buildExecutiveStats(gurus, signals);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 1280;
-        final medium = constraints.maxWidth >= 980;
-        final mobile = constraints.maxWidth < 760;
-        final universe = GuruUniversePanel(
-          gurus: filtered,
-          selectedGuruId: text(selectedGuru['id']),
-          searchController: _guruSearchController,
-          filter: _filter,
-          palette: palette,
-          onSearch: _updateGuruSearch,
-          onFilter: _updateGuruFilter,
-          onSelect: _selectGuru,
-        );
-        final mobileUniverse = MobileGuruPicker(
-          gurus: filtered,
-          selectedGuruId: text(selectedGuru['id']),
-          searchController: _guruSearchController,
-          filter: _filter,
-          palette: palette,
-          onSearch: _updateGuruSearch,
-          onFilter: _updateGuruFilter,
-          onSelect: _selectGuru,
-        );
-        final Widget workspace = filtered.isEmpty
-            ? Panel(
-                palette: palette,
-                child: EmptyState(
-                  text: context.tr(
-                    '没有可显示的 Guru 研究卡；请调整搜索或筛选。',
-                    'No Guru research card is visible; adjust the search or filter.',
-                  ),
+    return StockResearchScope(
+      api: _api,
+      palette: palette,
+      sourceLabel: guruDisplayName(selectedGuru, context.language),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 1280;
+          final medium = constraints.maxWidth >= 980;
+          final mobile = constraints.maxWidth < 760;
+          final universe = GuruUniversePanel(
+            gurus: filtered,
+            selectedGuruId: text(selectedGuru['id']),
+            searchController: _guruSearchController,
+            filter: _filter,
+            palette: palette,
+            onSearch: _updateGuruSearch,
+            onFilter: _updateGuruFilter,
+            onSelect: _selectGuru,
+          );
+          final mobileUniverse = MobileGuruPicker(
+            gurus: filtered,
+            selectedGuruId: text(selectedGuru['id']),
+            searchController: _guruSearchController,
+            filter: _filter,
+            palette: palette,
+            onSearch: _updateGuruSearch,
+            onFilter: _updateGuruFilter,
+            onSelect: _selectGuru,
+          );
+          final Widget workspace = filtered.isEmpty
+              ? Panel(
                   palette: palette,
-                ),
-              )
-            : GuruWorkspace(
-                guru: selectedGuru,
-                api: _api,
-                palette: palette,
-                initialModule: _guruModule,
-                initialTicker: _guruTradeTicker,
-                initialQuarterId: _guruQuarterId,
-                onModuleChanged: (value) {
-                  _guruModule = value;
-                  _persistRouteState();
-                },
-                onTickerChanged: (value) {
-                  _guruTradeTicker = value.toUpperCase();
-                  _persistRouteState();
-                },
-                onQuarterChanged: (value) {
-                  _guruQuarterId = value;
-                  _persistRouteState();
-                },
-              );
-        final rightRail = GuruRightRail(
-          gurus: gurus,
-          signals: signals.take(3).toList(),
-          exposures: exposures,
-          activeGuruId: text(selectedGuru['id']),
-          palette: palette,
-          onSelectGuru: _selectGuru,
-          onOpenGuruTrade: _openGuruTrade,
-          onOpenValuation: _openValuationTicker,
-          deckHeight: mobile ? 720 : 860,
-          deckLimit: mobile ? 12 : 16,
-        );
-        final content = wide
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(width: 270, child: universe),
-                  const SizedBox(width: 10),
-                  Expanded(child: workspace),
-                  const SizedBox(width: 10),
-                  SizedBox(width: 280, child: rightRail),
-                ],
-              )
-            : medium
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(width: 276, child: universe),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        workspace,
-                        const SizedBox(height: 10),
-                        rightRail,
-                      ],
+                  child: EmptyState(
+                    text: context.tr(
+                      '没有可显示的 Guru 研究卡；请调整搜索或筛选。',
+                      'No Guru research card is visible; adjust the search or filter.',
                     ),
+                    palette: palette,
                   ),
-                ],
-              )
-            : mobile
-            ? Column(
-                children: [
-                  mobileUniverse,
-                  const SizedBox(height: 10),
-                  MobileOverviewBar(stats: stats, palette: palette),
-                  const SizedBox(height: 10),
-                  workspace,
-                  const SizedBox(height: 10),
-                  rightRail,
-                ],
-              )
-            : Column(
-                children: [
-                  universe,
-                  const SizedBox(height: 10),
-                  workspace,
-                  const SizedBox(height: 10),
-                  rightRail,
-                ],
-              );
-
-        return SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(
-            mobile ? 8 : 10,
-            10,
-            mobile ? 8 : 10,
-            22,
-          ),
-          child: Column(
-            children: [
-              if ((_loadingGurus && _guruPayload != null) ||
-                  _error != null) ...[
-                InlineDataBanner(
-                  loading: _loadingGurus,
-                  error: _error,
+                )
+              : GuruWorkspace(
+                  guru: selectedGuru,
+                  api: _api,
                   palette: palette,
-                  onRetry: () => _loadGurus(refresh: true),
-                ),
-                const SizedBox(height: 10),
+                  initialModule: _guruModule,
+                  initialTicker: _guruTradeTicker,
+                  initialQuarterId: _guruQuarterId,
+                  onModuleChanged: (value) {
+                    _guruModule = value;
+                    _persistRouteState();
+                  },
+                  onTickerChanged: (value) {
+                    _guruTradeTicker = value.toUpperCase();
+                    _persistRouteState();
+                  },
+                  onQuarterChanged: (value) {
+                    _guruQuarterId = value;
+                    _persistRouteState();
+                  },
+                );
+          final rightRail = GuruRightRail(
+            gurus: gurus,
+            signals: signals.take(3).toList(),
+            exposures: exposures,
+            activeGuruId: text(selectedGuru['id']),
+            palette: palette,
+            onSelectGuru: _selectGuru,
+            onOpenGuruTrade: _openGuruTrade,
+            onOpenValuation: _openValuationTicker,
+            deckHeight: mobile ? 720 : 860,
+            deckLimit: mobile ? 12 : 16,
+          );
+          final content = wide
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(width: 270, child: universe),
+                    const SizedBox(width: 10),
+                    Expanded(child: workspace),
+                    const SizedBox(width: 10),
+                    SizedBox(width: 280, child: rightRail),
+                  ],
+                )
+              : medium
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(width: 276, child: universe),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          workspace,
+                          const SizedBox(height: 10),
+                          rightRail,
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              : mobile
+              ? Column(
+                  children: [
+                    mobileUniverse,
+                    const SizedBox(height: 10),
+                    MobileOverviewBar(stats: stats, palette: palette),
+                    const SizedBox(height: 10),
+                    workspace,
+                    const SizedBox(height: 10),
+                    rightRail,
+                  ],
+                )
+              : Column(
+                  children: [
+                    universe,
+                    const SizedBox(height: 10),
+                    workspace,
+                    const SizedBox(height: 10),
+                    rightRail,
+                  ],
+                );
+
+          return SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              mobile ? 8 : 10,
+              10,
+              mobile ? 8 : 10,
+              22,
+            ),
+            child: Column(
+              children: [
+                if ((_loadingGurus && _guruPayload != null) ||
+                    _error != null) ...[
+                  InlineDataBanner(
+                    loading: _loadingGurus,
+                    error: _error,
+                    palette: palette,
+                    onRetry: () => _loadGurus(refresh: true),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                content,
               ],
-              content,
-            ],
-          ),
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -5990,18 +5997,15 @@ class _PositionHistoryHoldingRow extends StatelessWidget {
           child: Row(
             children: [
               SizedBox(
-                width: 76,
+                width: 115,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      ticker,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: selected ? palette.accent : palette.text,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    StockResearchButton(
+                      ticker: text(holding['ticker'], ticker),
+                      palette: palette,
+                      available: publiclyTradable,
+                      sourceDate: text(holding['reportDate']),
                     ),
                     if (!publiclyTradable)
                       Text(
@@ -7165,11 +7169,17 @@ class GuruTradeRowButton extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      text(row['ticker'], compactName(text(row['issuer']))),
-                      style: TextStyle(
-                        color: palette.text,
-                        fontWeight: FontWeight.w900,
+                    StockResearchButton(
+                      ticker: text(
+                        row['ticker'],
+                        compactName(text(row['issuer'])),
+                      ),
+                      palette: palette,
+                      sourceDate: text(row['reportDate']),
+                      available: truthy(
+                        marketLensPublicTradingMetadata([
+                          row,
+                        ])['publicReplicable'],
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -7894,11 +7904,12 @@ class QuarterContributionRow extends StatelessWidget {
           final title = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                text(row['ticker']),
-                style: TextStyle(
-                  color: palette.text,
-                  fontWeight: FontWeight.w900,
+              StockResearchButton(
+                ticker: text(row['ticker']),
+                palette: palette,
+                sourceDate: text(row['reportDate']),
+                available: truthy(
+                  marketLensPublicTradingMetadata([row])['publicReplicable'],
                 ),
               ),
               const SizedBox(height: 3),
@@ -8585,6 +8596,8 @@ class CompactSignalRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 9),
+              StockLogo(ticker: signal.ticker, palette: palette, size: 24),
+              const SizedBox(width: 7),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -9109,7 +9122,7 @@ class _CrowdedHoldingDeckRow extends StatelessWidget {
                 Row(
                   children: [
                     SizedBox(
-                      width: 74,
+                      width: 99,
                       child: Row(
                         children: [
                           SizedBox(
@@ -9125,6 +9138,12 @@ class _CrowdedHoldingDeckRow extends StatelessWidget {
                               ),
                             ),
                           ),
+                          StockLogo(
+                            ticker: item.ticker,
+                            palette: palette,
+                            size: 21,
+                          ),
+                          const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               item.ticker,
@@ -9274,6 +9293,7 @@ class _ActivityRankingDeckPage extends StatelessWidget {
             : context.tr('减仓汇总', 'Trim Summary');
         return _DeckListRow(
           title: '${item.ticker} · $titleLabel',
+          ticker: item.ticker,
           subtitle: activityRankSubtitle(item, context.language),
           meta: activityRankActionSummary(item, context.language),
           value: item.amountReliable
@@ -9312,8 +9332,10 @@ class _DeckListRow extends StatelessWidget {
     this.progress,
     this.onTap,
     this.semanticLabel,
+    this.ticker = '',
   });
 
+  final String ticker;
   final String title;
   final String subtitle;
   final String value;
@@ -9337,6 +9359,10 @@ class _DeckListRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 9),
+        if (ticker.isNotEmpty) ...[
+          StockLogo(ticker: ticker, palette: palette, size: 24),
+          const SizedBox(width: 7),
+        ],
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -9452,13 +9478,17 @@ Future<void> showQuarterlyMarketLens({
 }) => showDialog<void>(
   context: context,
   barrierColor: Colors.black.withValues(alpha: .72),
-  builder: (dialogContext) => QuarterlyMarketLensDialog(
-    gurus: gurus,
-    palette: palette,
-    initialView: initialView,
-    initialTicker: initialTicker,
-    onOpenGuruTrade: onOpenGuruTrade,
-    onOpenValuation: onOpenValuation,
+  builder: (dialogContext) => LanguageScope(
+    language: context.language,
+    child: QuarterlyMarketLensDialog(
+      gurus: gurus,
+      palette: palette,
+      initialView: initialView,
+      initialTicker: initialTicker,
+      onOpenGuruTrade: onOpenGuruTrade,
+      onOpenValuation: onOpenValuation,
+      researchApi: StockResearchScope.maybeOf(context)?.api,
+    ),
   ),
 );
 
@@ -9471,6 +9501,7 @@ class QuarterlyMarketLensDialog extends StatefulWidget {
     required this.initialTicker,
     required this.onOpenGuruTrade,
     required this.onOpenValuation,
+    this.researchApi,
   });
 
   final List<Map<String, dynamic>> gurus;
@@ -9479,6 +9510,7 @@ class QuarterlyMarketLensDialog extends StatefulWidget {
   final String initialTicker;
   final void Function(String guruId, String ticker) onOpenGuruTrade;
   final ValueChanged<String> onOpenValuation;
+  final ApiClient? researchApi;
 
   @override
   State<QuarterlyMarketLensDialog> createState() =>
@@ -9490,6 +9522,7 @@ class _QuarterlyMarketLensDialogState extends State<QuarterlyMarketLensDialog> {
   late String _ticker;
   late bool _mobileDetail;
   String _query = '';
+  String _researchTicker = '';
 
   @override
   void initState() {
@@ -9506,17 +9539,23 @@ class _QuarterlyMarketLensDialogState extends State<QuarterlyMarketLensDialog> {
       _ticker = '';
       _query = '';
       _mobileDetail = false;
+      _researchTicker = '';
     });
   }
 
   void _selectTicker(String ticker, {required bool compact}) {
     setState(() {
       _ticker = ticker;
+      _researchTicker = '';
       if (compact) _mobileDetail = true;
     });
   }
 
   void _openValuation(String ticker) {
+    if (widget.researchApi != null) {
+      setState(() => _researchTicker = ticker);
+      return;
+    }
     Navigator.of(context).pop();
     widget.onOpenValuation(ticker);
   }
@@ -10002,6 +10041,19 @@ class _QuarterlyMarketLensDialogState extends State<QuarterlyMarketLensDialog> {
                 ? weightCompare
                 : right.currentValue.compareTo(left.currentValue);
           });
+    if (_researchTicker == selectedTicker && widget.researchApi != null) {
+      return StockValuationPanel(
+        key: ValueKey('market-lens-research-$selectedTicker'),
+        ticker: selectedTicker,
+        api: widget.researchApi!,
+        palette: palette,
+        sourceLabel: context.tr(
+          '季度大佬共识 · ${defaultGuruDisclosureQuarter(widget.gurus)}',
+          'Quarterly Guru consensus · ${defaultGuruDisclosureQuarter(widget.gurus)}',
+        ),
+        onClose: () => setState(() => _researchTicker = ''),
+      );
+    }
     final issuer = positions.isEmpty ? '' : positions.first.issuer;
     final nonPublicPositions = positions
         .where((position) => !position.isPubliclyTradable)
@@ -10078,6 +10130,8 @@ class _QuarterlyMarketLensDialogState extends State<QuarterlyMarketLensDialog> {
               final heading = Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  StockLogo(ticker: selectedTicker, palette: palette, size: 34),
+                  const SizedBox(height: 7),
                   Text(
                     selectedTicker,
                     style: TextStyle(
@@ -10317,6 +10371,8 @@ class _MarketLensRankRow extends StatelessWidget {
                     ),
                   ),
                 ),
+                StockLogo(ticker: ticker, palette: palette, size: 26),
+                const SizedBox(width: 7),
                 SizedBox(
                   width: 58,
                   child: Text(
@@ -11656,11 +11712,17 @@ class HoldingRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  text(holding['ticker'], compactName(text(holding['issuer']))),
-                  style: TextStyle(
-                    color: palette.text,
-                    fontWeight: FontWeight.w900,
+                StockResearchButton(
+                  ticker: text(
+                    holding['ticker'],
+                    compactName(text(holding['issuer'])),
+                  ),
+                  palette: palette,
+                  sourceDate: text(holding['reportDate']),
+                  available: truthy(
+                    marketLensPublicTradingMetadata([
+                      holding,
+                    ])['publicReplicable'],
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -14725,42 +14787,11 @@ class PortfolioHoldingLogo extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) {
-    final ticker = text(row['ticker'], 'N/A');
-    final logoUrl = text(row['logoUrl']);
-    final fallback = Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: palette.accent.withValues(alpha: .16),
-        shape: BoxShape.circle,
-        border: Border.all(color: palette.accent.withValues(alpha: .28)),
-      ),
-      child: Text(
-        ticker.isEmpty ? '?' : ticker.characters.first,
-        style: TextStyle(
-          color: palette.accent,
-          fontWeight: FontWeight.w900,
-          fontSize: math.max(11, size * .44),
-        ),
-      ),
-    );
-
-    if (logoUrl.isEmpty) return fallback;
-    return ClipOval(
-      child: Container(
-        width: size,
-        height: size,
-        color: palette.text,
-        child: Image.network(
-          logoUrl,
-          fit: BoxFit.cover,
-          errorBuilder: (imageContext, error, stackTrace) => fallback,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => StockLogo(
+    ticker: text(row['underlyingTicker'], text(row['ticker'])),
+    palette: palette,
+    size: size,
+  );
 }
 
 class PortfolioAllocationPieCard extends StatelessWidget {
@@ -20766,9 +20797,9 @@ class _ValuationCompactDashboardState extends State<ValuationCompactDashboard> {
     widget.onTickerChanged(normalizedTicker);
     if (cachedPayload != null) return;
     try {
-      final payload = await widget.api.getJson(
-        valuationTickerDetailPath(normalizedTicker, fullResearch: fullResearch),
-      );
+      final payload = await StockResearchCache.of(
+        widget.api,
+      ).load(normalizedTicker, full: fullResearch, refresh: refresh);
       if (!mounted ||
           requestId != _detailRequestSerial ||
           normalizedTicker != _selectedTicker) {
@@ -22152,6 +22183,8 @@ class _ValuationTickerCell extends StatelessWidget {
           children: [
             Row(
               children: [
+                StockLogo(ticker: row.ticker, palette: palette, size: 22),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     row.ticker,
@@ -22387,6 +22420,8 @@ class ValuationSelectedOverview extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              StockLogo(ticker: ticker, palette: palette, size: 38),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

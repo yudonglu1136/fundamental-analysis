@@ -3623,3 +3623,6 @@ select,
 #decision-timeline-range {
   min-height: 44px;
 }
+/* Issuer branding is shared with Guru, Valuation and Portfolio. */
+.stock-logo { width: 22px; height: 22px; padding: 3px; margin-right: 6px; object-fit: contain; vertical-align: middle; border-radius: 5px; background: #f4f6f8; }
+.stock-logo[hidden] { display: none; }
