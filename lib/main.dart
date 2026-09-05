@@ -10417,14 +10417,15 @@ class _MarketLensManagerRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: tone.withValues(alpha: .13),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.account_balance_outlined, color: tone, size: 18),
+          GuruAvatar(
+            key: ValueKey('market-lens-avatar-${position.guruId}'),
+            guru: {
+              'id': position.guruId,
+              'name': position.guruName,
+              'avatarUrl': position.guruAvatarUrl,
+            },
+            palette: palette,
+            size: 34,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -26343,6 +26344,7 @@ class MarketLensManagerPosition {
     required this.guruName,
     required this.ticker,
     required this.issuer,
+    this.guruAvatarUrl = '',
     required this.action,
     required this.reportDate,
     required this.filingDate,
@@ -26362,6 +26364,7 @@ class MarketLensManagerPosition {
   final String guruName;
   final String ticker;
   final String issuer;
+  final String guruAvatarUrl;
   final String action;
   final String reportDate;
   final String filingDate;
@@ -26968,6 +26971,7 @@ List<ExposureItem> buildExposures(
       final position = MarketLensManagerPosition(
         guruId: guruId,
         guruName: guruName,
+        guruAvatarUrl: text(guru['avatarUrl'], '/guru-avatars/$guruId.png'),
         ticker: ticker,
         issuer: text(
           holdings.first['issuer'],
@@ -27160,6 +27164,7 @@ List<GuruActivityRankItem> buildActivityRankItems(
         MarketLensManagerPosition(
           guruId: guruId,
           guruName: guruName,
+          guruAvatarUrl: text(guru['avatarUrl'], '/guru-avatars/$guruId.png'),
           ticker: ticker,
           issuer: text(activities.first['issuer'], ticker),
           action: action,
@@ -27339,7 +27344,7 @@ String publicAssetUrl(dynamic value) {
   return raw.startsWith('/') ? raw : '/$raw';
 }
 
-const _guruAvatarAssetVersion = '144-20260903';
+const _guruAvatarAssetVersion = '144-20260905';
 
 String versionedGuruAvatarUrl(dynamic value) {
   final url = publicAssetUrl(value);

@@ -2387,6 +2387,85 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final language in AppLanguage.values) {
+    for (final view in [0, 1, 2]) {
+      testWidgets(
+        'quarterly market lens synchronizes manager avatars in view $view (${language.name})',
+        (tester) async {
+          tester.view.physicalSize = language == AppLanguage.en
+              ? const Size(1280, 720)
+              : const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          final gurus = _marketLensTestGurus();
+          gurus.first['avatarUrl'] =
+              '/guru-avatars/manager-a.png?source=catalog';
+          if (view == 2) {
+            for (final guru in gurus) {
+              (guru['activity'] as List).first['action'] = 'reduced';
+            }
+          }
+          await tester.pumpWidget(
+            LanguageScope(
+              language: language,
+              child: MaterialApp(
+                home: Scaffold(
+                  body: QuarterlyMarketLensDialog(
+                    gurus: gurus,
+                    palette: Palette(false),
+                    initialView: view,
+                    initialTicker: 'AAA',
+                    onOpenGuruTrade: (_, _) {},
+                    onOpenValuation: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          for (final guru in gurus) {
+            final avatarFinder = find.byKey(
+              ValueKey('market-lens-avatar-${guru['id']}'),
+            );
+            await tester.scrollUntilVisible(
+              avatarFinder,
+              160,
+              scrollable: find.descendant(
+                of: find.byKey(
+                  const ValueKey('quarterly-market-lens-detail-scroll'),
+                ),
+                matching: find.byType(Scrollable),
+              ),
+            );
+            final avatar = tester.widget<GuruAvatar>(avatarFinder);
+            expect(avatar.guru['id'], guru['id']);
+            expect(avatar.guru['name'], guruDisplayName(guru, language));
+            expect(avatar.size, 34);
+            final expectedUrl =
+                guru['avatarUrl'] ?? '/guru-avatars/${guru['id']}.png';
+            expect(avatar.guru['avatarUrl'], expectedUrl);
+            final image = tester.widget<Image>(
+              find.descendant(of: avatarFinder, matching: find.byType(Image)),
+            );
+            expect(
+              (image.image as NetworkImage).url,
+              versionedGuruAvatarUrl(expectedUrl),
+            );
+            expect(
+              find.descendant(
+                of: avatarFinder,
+                matching: find.byIcon(Icons.account_balance_outlined),
+              ),
+              findsNothing,
+            );
+          }
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   testWidgets(
     'quarterly market lens opens manager evidence and valuation action on desktop',
     (WidgetTester tester) async {
