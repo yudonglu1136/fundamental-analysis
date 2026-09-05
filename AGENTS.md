@@ -505,6 +505,28 @@ Chinese and English are release-critical product modes, not best-effort labels.
 - Before publishing a UI change, run `npm run audit:i18n`, `flutter analyze`, `flutter test`, `npm run verify:ontology-module`, `npm run test:ontology`, and `npm run build`. Verify both languages on desktop and a 390x844 mobile viewport, including dynamically opened Ontology panels and dialogs.
 - Keep the current release ledger in `docs/audits/bilingual-coverage-2026-08-30.md` and update it whenever a new user-facing surface is added.
 
+### Public research entry (2026-09-05)
+
+- First-time terminal visitors default to English; preserve an explicit
+  `lang=zh` across Flutter/Ontology routes and legacy redirects. Do not encode
+  Chinese by deleting `lang` now that omission means English.
+- `/research/isrg/` is an intentionally English-only, unauthenticated public
+  case requested by the user. It is not a replacement for the bilingual
+  authenticated terminal and must never require private API credentials.
+- Keep this page a dated, reviewed snapshot. Distinguish model availability,
+  fiscal period, market-price observation, and publication dates. No “live” or
+  “today” labels without a newly audited update.
+- Preserve the blended valuation/standalone DCF distinction, three assumptions,
+  numerical change explanation, countercase and retrospective-PIT caveat.
+  Charts must use real model nodes and dated prices; do not smooth or invent
+  observations. Publish only the allowlisted curated snapshot, never raw
+  provider statements, credentials, user or portfolio data.
+- Regenerate with `npm run build:research`; run `npm run test:research` and the
+  normal language/build gates. Re-capture the social preview when visible data
+  or copy changes. The build fails if generated HTML drifts from the snapshot.
+- The terminal CTA must retain `view=valuation`, `valuation=ISRG`, `lang=en`.
+  Do not advertise saving to an account before a real persistence flow exists.
+
 ## Social Creative Data Contract
 
 - Keep the current ThesisForge social brand pack under

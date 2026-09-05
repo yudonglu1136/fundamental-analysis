@@ -26,9 +26,12 @@ bool isAdminEmail(String value) => value.trim().toLowerCase() == _adminEmail;
 enum AppLanguage { zh, en }
 
 AppLanguage parseAppLanguage(String? value) =>
-    text(value).toLowerCase().startsWith('en')
-    ? AppLanguage.en
-    : AppLanguage.zh;
+    text(value).trim().toLowerCase().startsWith('zh')
+    ? AppLanguage.zh
+    : AppLanguage.en;
+
+String appLanguageCode(AppLanguage language) =>
+    language == AppLanguage.zh ? 'zh' : 'en';
 
 String trFor(AppLanguage language, String zh, String en) =>
     language == AppLanguage.en ? en : zh;
@@ -39,11 +42,7 @@ String ontologyPathForLanguage(
 ]) {
   final uri = Uri.tryParse(value) ?? Uri(path: '/ontology/');
   final params = Map<String, String>.from(uri.queryParameters);
-  if (language == AppLanguage.en) {
-    params['lang'] = 'en';
-  } else {
-    params.remove('lang');
-  }
+  params['lang'] = appLanguageCode(language);
   return uri
       .replace(queryParameters: params.isEmpty ? null : params)
       .toString();
@@ -79,7 +78,7 @@ class LanguageScope extends InheritedWidget {
 
   static AppLanguage of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<LanguageScope>()?.language ??
-      AppLanguage.zh;
+      AppLanguage.en;
 
   @override
   bool updateShouldNotify(covariant LanguageScope oldWidget) =>
@@ -887,7 +886,7 @@ class _GuruTerminalAppState extends State<GuruTerminalApp>
   void _setLanguage(AppLanguage language) {
     if (_language == language) return;
     setState(() => _language = language);
-    replaceBrowserQuery({'lang': language == AppLanguage.en ? 'en' : null});
+    replaceBrowserQuery({'lang': appLanguageCode(language)});
   }
 
   @override
@@ -1244,6 +1243,18 @@ class LoginScreen extends StatelessWidget {
                           icon: const Icon(Icons.login_rounded),
                           label: Text(
                             context.tr('使用 Google 继续', 'Continue with Google'),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          key: const ValueKey('explore-public-isrg-case'),
+                          onPressed: () => openBrowserPath('/research/isrg/'),
+                          icon: const Icon(Icons.insights_rounded),
+                          label: Text(
+                            context.tr(
+                              '查看 ISRG 英文案例 · 免登录',
+                              'Explore the ISRG case — no sign-in',
+                            ),
                           ),
                         ),
                         if (localBypassEnabled) ...[
@@ -1607,7 +1618,7 @@ class _TerminalHomeState extends State<TerminalHome>
       'valuation': _mode == 'valuation' && _valuationTicker.isNotEmpty
           ? _valuationTicker
           : null,
-      'lang': widget.language == AppLanguage.en ? 'en' : null,
+      'lang': appLanguageCode(widget.language),
     }, replaceCurrent: replaceCurrent);
   }
 
@@ -1629,7 +1640,7 @@ class _TerminalHomeState extends State<TerminalHome>
     if (_mode == 'valuation' && _valuationTicker.isNotEmpty) {
       params['valuation'] = _valuationTicker;
     }
-    if (widget.language == AppLanguage.en) params['lang'] = 'en';
+    params['lang'] = appLanguageCode(widget.language);
     return Uri(
       path: '/',
       queryParameters: params.isEmpty ? null : params,

@@ -135,6 +135,11 @@ test('auth callbacks load Flutter without cleanup and legacy Ontology routes red
   assert.equal(ontology.counters.cacheDeletes, 0);
   assert.equal(ontology.counters.flutterLoads, 0);
   assert.deepEqual(ontology.counters.redirects, ['/ontology/']);
+
+  const chineseOntology = createBrowserHarness('https://www.thesisforge.tech/?view=ontology&lang=zh');
+  await runBoot(chineseOntology);
+  assert.deepEqual(chineseOntology.counters.redirects, ['/ontology/?lang=zh']);
+  assert.equal(chineseOntology.counters.flutterLoads, 0);
 });
 
 test('entry resources revalidate and versioned assets use immutable caching', () => {

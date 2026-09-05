@@ -5,6 +5,17 @@ Scope: Flutter application, standalone Ontology explorer, dynamic API labels, de
 
 ## Acceptance Contract
 
+2026-09-05 addendum: first-time visitors now default to English. Explicit
+Chinese is represented as `lang=zh`, including legacy Ontology redirects.
+The user requested `/research/isrg/` as a deliberately English-only public
+case; it is outside the terminal's bilingual-content requirement. Its login
+entry CTA is translated in both languages and identifies the case as English
+in Chinese mode. The existing authenticated terminal remains bilingual.
+New regression coverage: 75 Flutter tests; five standalone Ontology language
+tests; public-case English-only, routing and data tests. Public case mobile
+verification uses a real 390×844 embedded browser viewport because the browser
+viewport-override capability did not change its top-level window dimensions.
+
 - English mode contains no CJK UI copy. Company names, tickers, brand names, and standard financial acronyms are allowed.
 - Chinese mode contains no untranslated interface copy. Company legal names, tickers, brand names, source titles, and standard financial acronyms may remain in their official form.
 - Language choice survives navigation between the Flutter shell and `/ontology/` and is represented in the URL where required.

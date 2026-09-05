@@ -5,6 +5,20 @@
   "outputDirectory": "dist",
   "routes": [
     {
+      "src": "^/research/isrg$",
+      "status": 308,
+      "headers": { "Location": "/research/isrg/" }
+    },
+    {
+      "src": "^/research/isrg/.*$",
+      "headers": { "Cache-Control": "public, max-age=0, must-revalidate", "X-Content-Type-Options": "nosniff" },
+      "continue": true
+    },
+    {
+      "src": "^/research/isrg/$",
+      "dest": "/research/isrg/index.html"
+    },
+    {
       "src": "^/$",
       "headers": {
         "Cache-Control": "public, max-age=0, must-revalidate"

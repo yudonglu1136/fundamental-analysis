@@ -1,0 +1,597 @@
+{
+  "schemaVersion": 1,
+  "ticker": "ISRG",
+  "company": "Intuitive Surgical",
+  "currency": "USD",
+  "modelVersion": "pit-valuation-v55-actual-value-and-owner-audit-2026-08-30",
+  "asOfDate": "2026-07-21",
+  "fiscalPeriodEnd": "2026-06-30",
+  "fiscalPeriod": "FY2026 Q2",
+  "snapshotDate": "2026-08-30",
+  "priceDate": "2026-08-27",
+  "price": 367.07000732421875,
+  "fairValue": 442.8260912091792,
+  "upsideToPrice": 0.2063804788552175,
+  "standaloneDcf": 187.9527745181568,
+  "method": "66% normalized earnings power + 34% five-year FCFE DCF",
+  "previous": {
+    "asOfDate": "2026-04-22",
+    "fiscalPeriod": "FY2026 Q1",
+    "fairValue": 415.94507700734613,
+    "forwardRevenueM": 12729.671047150048,
+    "forwardFcfM": 3464.838880478004,
+    "normalizedNetIncomeM": 3942.3695080510565,
+    "effectiveNetMarginPct": 30.969924465830438,
+    "targetPE": 48.970078851504084,
+    "sharesM": 354.162842
+  },
+  "assumptions": {
+    "forwardRevenueM": 13273.762504859384,
+    "forwardFcfM": 3931.9419382461556,
+    "normalizedNetIncomeM": 4129.342607012198,
+    "effectiveNetMarginPct": 31.10905898384493,
+    "targetPE": 49.11812469602167,
+    "sharesM": 353.278038,
+    "normalizedGrowthPct": 20.294374908099968,
+    "growthLookbackQuarters": 8,
+    "forwardRevenueSource": "Formula estimate; not management revenue guidance",
+    "forwardFcfSource": "Reported trailing cash flow after capex, scaled by the model growth assumption; not management guidance",
+    "costOfEquity": 0.1,
+    "terminalGrowth": 0.02608831247242999,
+    "discountConvention": "Five year-end periods; terminal value at the end of year 5",
+    "terminalValueShareOfDcf": 0.7239516949882108,
+    "reportedTrailingRevenueM": 11034.4,
+    "reportedTrailingFcfM": 3268.6
+  },
+  "components": [
+    {
+      "key": "normalized-earnings-power",
+      "label": "Normalized earnings",
+      "weight": 0.66,
+      "value": 574.1244664742514,
+      "contribution": 378.922147873006,
+      "formula": "Forward revenue × effective normalized net margin ÷ period-end shares × target P/E"
+    },
+    {
+      "key": "fcfe-dcf",
+      "label": "Five-year FCFE DCF",
+      "weight": 0.34,
+      "value": 187.9527745181568,
+      "contribution": 63.90394333617331,
+      "formula": "(Sum of year-end discounted FCFE + discounted Gordon-growth terminal value) ÷ period-end shares"
+    }
+  ],
+  "dcf": {
+    "initialGrowth": 0.20294374908099969,
+    "growthFadeFormula": "FCFE1 = forward FCFE; for years t = 2…5, growth(t) = initialGrowth + (terminalGrowth − initialGrowth) × (t − 1) / 4; FCFE(t) = FCFE(t−1) × (1 + growth(t)). Year labels are model periods, not calendar-year forecasts.",
+    "annualCashFlows": [
+      {
+        "year": 1,
+        "growth": 0,
+        "fcfM": 3931.9419382461556,
+        "presentValueM": 3574.4926711328685
+      },
+      {
+        "year": 2,
+        "growth": 0.15872988992885725,
+        "fcfM": 4556.058649310625,
+        "presentValueM": 3765.337726702995
+      },
+      {
+        "year": 3,
+        "growth": 0.11451603077671484,
+        "fcfM": 5077.800401815598,
+        "presentValueM": 3815.0265979080364
+      },
+      {
+        "year": 4,
+        "growth": 0.07030217162457242,
+        "fcfM": 5434.780797139361,
+        "presentValueM": 3712.0284114058873
+      },
+      {
+        "year": 5,
+        "growth": 0.026088312472429986,
+        "fcfM": 5576.565056794296,
+        "presentValueM": 3462.608153190166
+      }
+    ],
+    "explicitPresentValueM": 18329.493560339954,
+    "terminalPresentValueM": 48070.09385809087,
+    "terminalValueM": 77417.36685939395,
+    "equityPresentValueM": 66399.58741843082,
+    "additionalNetDebtDeductionM": 0
+  },
+  "change": {
+    "fairValue": 26.881014201833068,
+    "fairValuePct": 6.4626354987147305,
+    "revenuePct": 4.274198883019431,
+    "fcfPct": 13.481234593618696,
+    "normalizedEarningsPct": 4.742657901023928,
+    "earningsContribution": 19.14873001999216,
+    "dcfContribution": 7.73228418184095,
+    "explanation": "The formula-forward revenue estimate rose with reported trailing revenue, and forward FCFE rose with trailing cash flow after capex. The normalized growth input stayed at 20.2944%, Ke stayed at 10%, and method weights stayed at 66%/34%. Model-normalized margin, period-end shares and target P/E also changed; the entire increase is not caused by FCF alone."
+  },
+  "chart": {
+    "startDate": "2021-08-27",
+    "endDate": "2026-08-27",
+    "openingCarry": {"sourceDate":"2021-07-21","displayedFrom":"2021-08-27","fairValue":192.50247043914783},
+    "priceSampling": "Exact last stored close per calendar month from the released sampled price history, plus chart endpoints and audited model-event price observations. A sampled observation is not necessarily the final trading day of its month. No synthetic prices.",
+    "fairValueSampling": "All actual model nodes in the window, plus the immediately preceding node for the opening step. Carry the last known model value until the next node; do not invent intermediate estimates.",
+    "historicalMethod": "Retrospective constant-method PIT replay using the current v55 methodology, not a record of forecasts published on each historical date."
+  },
+  "history": [
+    {
+      "date": "2021-07-21",
+      "fairValue": 192.50247043914783,
+      "price": 314.9800109863281
+    },
+    {
+      "date": "2021-10-20",
+      "fairValue": 206.4079083984961,
+      "price": 339.79998779296875
+    },
+    {
+      "date": "2022-02-03",
+      "fairValue": 204.79960244264964,
+      "price": 285.6000061035156
+    },
+    {
+      "date": "2022-04-22",
+      "fairValue": 203.39576543093438,
+      "price": 252.33999633789062
+    },
+    {
+      "date": "2022-07-22",
+      "fairValue": 204.41723100098372,
+      "price": 211.85000610351562
+    },
+    {
+      "date": "2022-10-21",
+      "fairValue": 203.91630245585696,
+      "price": 218.49000549316406
+    },
+    {
+      "date": "2023-02-10",
+      "fairValue": 202.95578974715778,
+      "price": 245.27000427246094
+    },
+    {
+      "date": "2023-04-20",
+      "fairValue": 198.72797931538372,
+      "price": 297.4100036621094
+    },
+    {
+      "date": "2023-07-24",
+      "fairValue": 205.5337296506096,
+      "price": 323.55999755859375
+    },
+    {
+      "date": "2023-10-20",
+      "fairValue": 202.07693205166882,
+      "price": 266.9100036621094
+    },
+    {
+      "date": "2024-01-31",
+      "fairValue": 194.77730289421143,
+      "price": 378.2200012207031
+    },
+    {
+      "date": "2024-04-19",
+      "fairValue": 191.16069758382366,
+      "price": 366.3399963378906
+    },
+    {
+      "date": "2024-07-19",
+      "fairValue": 199.7527951666818,
+      "price": 455.010009765625
+    },
+    {
+      "date": "2024-10-18",
+      "fairValue": 217.26217478706764,
+      "price": 521.1500244140625
+    },
+    {
+      "date": "2025-01-31",
+      "fairValue": 251.34545799171423,
+      "price": 571.8800048828125
+    },
+    {
+      "date": "2025-04-23",
+      "fairValue": 292.6284277854396,
+      "price": 487.92999267578125
+    },
+    {
+      "date": "2025-07-23",
+      "fairValue": 338.23725520547947,
+      "price": 501.95001220703125
+    },
+    {
+      "date": "2025-10-22",
+      "fairValue": 354.95282220437747,
+      "price": 527.030029296875
+    },
+    {
+      "date": "2026-02-03",
+      "fairValue": 403.3938926754506,
+      "price": 478.8800048828125
+    },
+    {
+      "date": "2026-04-22",
+      "fairValue": 415.94507700734613,
+      "price": 483.6199951171875
+    },
+    {
+      "date": "2026-07-21",
+      "fairValue": 442.8260912091792,
+      "price": 350.05999755859375
+    }
+  ],
+  "prices": [
+    {
+      "date": "2021-08-30",
+      "price": 352.9700012207031
+    },
+    {
+      "date": "2021-09-28",
+      "price": 330.8299865722656
+    },
+    {
+      "date": "2021-10-20",
+      "price": 339.79998779296875
+    },
+    {
+      "date": "2021-10-26",
+      "price": 348.70001220703125
+    },
+    {
+      "date": "2021-11-30",
+      "price": 324.3399963378906
+    },
+    {
+      "date": "2021-12-29",
+      "price": 365.2699890136719
+    },
+    {
+      "date": "2022-01-27",
+      "price": 262.7699890136719
+    },
+    {
+      "date": "2022-02-03",
+      "price": 285.6000061035156
+    },
+    {
+      "date": "2022-02-25",
+      "price": 293.510009765625
+    },
+    {
+      "date": "2022-03-31",
+      "price": 301.67999267578125
+    },
+    {
+      "date": "2022-04-22",
+      "price": 252.33999633789062
+    },
+    {
+      "date": "2022-04-29",
+      "price": 239.3000030517578
+    },
+    {
+      "date": "2022-05-27",
+      "price": 229.16000366210938
+    },
+    {
+      "date": "2022-06-28",
+      "price": 201.99000549316406
+    },
+    {
+      "date": "2022-07-22",
+      "price": 211.85000610351562
+    },
+    {
+      "date": "2022-07-27",
+      "price": 225.33999633789062
+    },
+    {
+      "date": "2022-08-30",
+      "price": 206.5
+    },
+    {
+      "date": "2022-09-28",
+      "price": 192.39999389648438
+    },
+    {
+      "date": "2022-10-21",
+      "price": 218.49000549316406
+    },
+    {
+      "date": "2022-10-26",
+      "price": 241.66000366210938
+    },
+    {
+      "date": "2022-11-30",
+      "price": 270.3900146484375
+    },
+    {
+      "date": "2022-12-29",
+      "price": 267.7900085449219
+    },
+    {
+      "date": "2023-01-30",
+      "price": 242.22999572753906
+    },
+    {
+      "date": "2023-02-10",
+      "price": 245.27000427246094
+    },
+    {
+      "date": "2023-02-28",
+      "price": 229.38999938964844
+    },
+    {
+      "date": "2023-03-28",
+      "price": 249.49000549316406
+    },
+    {
+      "date": "2023-04-20",
+      "price": 297.4100036621094
+    },
+    {
+      "date": "2023-04-26",
+      "price": 294.9599914550781
+    },
+    {
+      "date": "2023-05-31",
+      "price": 307.8399963378906
+    },
+    {
+      "date": "2023-06-29",
+      "price": 338.489990234375
+    },
+    {
+      "date": "2023-07-24",
+      "price": 323.55999755859375
+    },
+    {
+      "date": "2023-07-28",
+      "price": 326.5299987792969
+    },
+    {
+      "date": "2023-08-31",
+      "price": 312.67999267578125
+    },
+    {
+      "date": "2023-09-29",
+      "price": 292.2900085449219
+    },
+    {
+      "date": "2023-10-20",
+      "price": 266.9100036621094
+    },
+    {
+      "date": "2023-10-27",
+      "price": 258.9800109863281
+    },
+    {
+      "date": "2023-11-27",
+      "price": 314.9800109863281
+    },
+    {
+      "date": "2023-12-26",
+      "price": 337.3900146484375
+    },
+    {
+      "date": "2024-01-31",
+      "price": 378.2200012207031
+    },
+    {
+      "date": "2024-02-29",
+      "price": 385.6000061035156
+    },
+    {
+      "date": "2024-03-28",
+      "price": 399.0899963378906
+    },
+    {
+      "date": "2024-04-19",
+      "price": 366.3399963378906
+    },
+    {
+      "date": "2024-04-26",
+      "price": 375.3299865722656
+    },
+    {
+      "date": "2024-05-31",
+      "price": 402.1199951171875
+    },
+    {
+      "date": "2024-06-25",
+      "price": 442.30999755859375
+    },
+    {
+      "date": "2024-07-19",
+      "price": 455.010009765625
+    },
+    {
+      "date": "2024-07-30",
+      "price": 432.69000244140625
+    },
+    {
+      "date": "2024-08-27",
+      "price": 482.3500061035156
+    },
+    {
+      "date": "2024-09-25",
+      "price": 484.3900146484375
+    },
+    {
+      "date": "2024-10-18",
+      "price": 521.1500244140625
+    },
+    {
+      "date": "2024-10-29",
+      "price": 516.3099975585938
+    },
+    {
+      "date": "2024-11-26",
+      "price": 542.0999755859375
+    },
+    {
+      "date": "2024-12-26",
+      "price": 538.8300170898438
+    },
+    {
+      "date": "2025-01-28",
+      "price": 574.1400146484375
+    },
+    {
+      "date": "2025-01-31",
+      "price": 571.8800048828125
+    },
+    {
+      "date": "2025-02-26",
+      "price": 580.9299926757812
+    },
+    {
+      "date": "2025-03-26",
+      "price": 509.0299987792969
+    },
+    {
+      "date": "2025-04-23",
+      "price": 487.92999267578125
+    },
+    {
+      "date": "2025-04-30",
+      "price": 515.7999877929688
+    },
+    {
+      "date": "2025-05-29",
+      "price": 555.75
+    },
+    {
+      "date": "2025-06-27",
+      "price": 533.7100219726562
+    },
+    {
+      "date": "2025-07-23",
+      "price": 501.95001220703125
+    },
+    {
+      "date": "2025-07-28",
+      "price": 493.95001220703125
+    },
+    {
+      "date": "2025-08-29",
+      "price": 473.29998779296875
+    },
+    {
+      "date": "2025-09-30",
+      "price": 447.2300109863281
+    },
+    {
+      "date": "2025-10-22",
+      "price": 527.030029296875
+    },
+    {
+      "date": "2025-10-31",
+      "price": 534.280029296875
+    },
+    {
+      "date": "2025-11-28",
+      "price": 573.47998046875
+    },
+    {
+      "date": "2025-12-31",
+      "price": 566.3599853515625
+    },
+    {
+      "date": "2026-01-30",
+      "price": 504.2200012207031
+    },
+    {
+      "date": "2026-02-03",
+      "price": 478.8800048828125
+    },
+    {
+      "date": "2026-02-27",
+      "price": 503.510009765625
+    },
+    {
+      "date": "2026-03-31",
+      "price": 460.989990234375
+    },
+    {
+      "date": "2026-04-22",
+      "price": 483.6199951171875
+    },
+    {
+      "date": "2026-04-30",
+      "price": 457.6099853515625
+    },
+    {
+      "date": "2026-05-29",
+      "price": 424.6400146484375
+    },
+    {
+      "date": "2026-06-30",
+      "price": 397.67999267578125
+    },
+    {
+      "date": "2026-07-21",
+      "price": 350.05999755859375
+    },
+    {
+      "date": "2026-07-31",
+      "price": 353.3299865722656
+    },
+    {
+      "date": "2026-08-27",
+      "price": 367.07000732421875
+    }
+  ],
+  "scenario": {
+    "title": "What if the premium does not hold?",
+    "kind": "Illustrative sensitivity, not a forecast or probability-weighted bear case",
+    "explanation": "Cut normalized earnings and every projected FCFE by 15%, and reduce target P/E from 49.1× to 35×. Keep shares, growth fade, Ke, terminal growth and 66%/34% method weights unchanged.",
+    "earningsFactor": 0.85,
+    "fcfFactor": 0.85,
+    "targetPE": 35,
+    "earningsValue": 347.7372758694184,
+    "dcfValue": 159.75985834043325,
+    "fairValue": 283.8249539095634,
+    "upsideToPrice": -0.22678249857970056,
+    "formula": "0.66 × base earnings value × 0.85 × (35 / base P/E) + 0.34 × base DCF value × 0.85",
+    "risk": "A lower share price is not sufficient evidence of a bargain: the model depends materially on a premium earnings multiple and sustained cash generation."
+  },
+  "sources": [
+    {
+      "title": "Intuitive Q2 2026 earnings release (issuer / SEC, July 16)",
+      "url": "https://www.sec.gov/Archives/edgar/data/1035267/000103526726000047/q226ex-991earningsrelease.htm",
+      "purpose": "Primary-source company context; model estimates are not company guidance."
+    },
+    {
+      "title": "Intuitive Q2 2026 Form 10-Q filing details (July 21)",
+      "url": "https://www.sec.gov/Archives/edgar/data/1035267/000103526726000058/0001035267-26-000058-index.htm",
+      "purpose": "Quarterly filing date and period of report; accepted after the market close."
+    },
+    {
+      "title": "Download this case’s model inputs and sampled chart observations",
+      "url": "./snapshot.json",
+      "purpose": "The exact reviewed inputs used by this public case."
+    }
+  ],
+  "provenance": {
+    "publishedOn": "2026-09-05",
+    "generatedAt": "2026-08-30T10:30:00.000Z",
+    "sourceRelease": "Audited v55 valuation release dated 2026-08-30",
+    "sourcePayloadSha256": "a564d816bb8aa1414e8e23ce76d1c1cc734d022be9d0203d129c3af71c25cf3e",
+    "auditStatus": "pass",
+    "financialSource": "Jansen Sharadar as-reported PIT financials",
+    "recordedPriceSource": "yahoo",
+    "pricePolicy": "Comparison only; never an input to fair value. No live quote is requested by this public page.",
+    "exportPolicy": "Allowlisted model outputs, assumptions and limited dated chart observations only. Excludes raw provider rows, transcripts, credentials, portfolio/user data and local filesystem paths.",
+    "modelLimitations": "This reproduces the existing platform model; it is not an independent fair-value certification. Historical replay uses current model rules and was not necessarily available to investors at the displayed historical dates.",
+    "datePolicy": "July 21 is the stored model availability date, not the July 16 earnings-release date. August 27 is the last observed market close; August 30 is the release snapshot date. This is a dated case, not today’s valuation."
+  },
+  "disclaimer": "Independent research illustration, not investment advice or a recommendation to buy. Values depend on assumptions and can be wrong. ThesisForge is not affiliated with Intuitive Surgical."
+}

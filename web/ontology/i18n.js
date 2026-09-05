@@ -992,9 +992,10 @@
   const orderedChineseTranslations = Object.entries(chineseTranslations).sort(
     (left, right) => right[0].length - left[0].length,
   );
-  let language = new URLSearchParams(root.location?.search || "").get("lang") === "en"
-    ? "en"
-    : "zh";
+  function languageCode(value) {
+    return String(value || "").trim().toLowerCase().startsWith("zh") ? "zh" : "en";
+  }
+  let language = languageCode(new URLSearchParams(root.location?.search || "").get("lang"));
   let applying = false;
   const textSources = new WeakMap();
   const attributeSources = new WeakMap();
@@ -1114,14 +1115,13 @@
       const sameOrigin = !root.location?.origin || parsed.origin === root.location.origin;
       if (!sameOrigin || parsed.pathname !== "/") candidate = "/";
       else {
-        if (language === "en") parsed.searchParams.set("lang", "en");
-        else parsed.searchParams.delete("lang");
+        parsed.searchParams.set("lang", language);
         candidate = `${parsed.pathname}${parsed.search}${parsed.hash}`;
       }
     } catch (_) {
       candidate = "/";
     }
-    if (candidate === "/" && language === "en") return "/?lang=en";
+    if (candidate === "/") return `/?lang=${language}`;
     return candidate;
   }
 
@@ -1140,7 +1140,7 @@
   }
 
   function setLanguage(nextLanguage, { updateUrl = true } = {}) {
-    const next = nextLanguage === "en" ? "en" : "zh";
+    const next = languageCode(nextLanguage);
     if (language === next && !updateUrl) return;
     language = next;
     try {
@@ -1148,8 +1148,7 @@
     } catch (_) {}
     if (updateUrl && root.location && root.history) {
       const url = new URL(root.location.href);
-      if (language === "en") url.searchParams.set("lang", "en");
-      else url.searchParams.delete("lang");
+      url.searchParams.set("lang", language);
       root.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
     }
     renderLanguageControl();
@@ -1163,9 +1162,7 @@
     try {
       const queryLanguage = new URLSearchParams(root.location?.search || "").get("lang");
       const savedLanguage = root.localStorage?.getItem("guru-language");
-      language = queryLanguage === "en" || (!queryLanguage && savedLanguage === "en")
-        ? "en"
-        : "zh";
+      language = languageCode(queryLanguage || savedLanguage);
     } catch (_) {}
     root.document.querySelectorAll("[data-language]").forEach((button) => {
       button.addEventListener("click", () => setLanguage(button.dataset.language));

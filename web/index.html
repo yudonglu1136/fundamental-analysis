@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <!--
     If you are serving your web app in a path other than the root, change the
@@ -53,7 +53,10 @@
         window.location.hash.includes('access_token=');
 
       if (isLegacyOntologyRoute && !isAuthCallback) {
-        window.location.replace('/ontology/');
+        const ontologyUrl = new URL('/ontology/', currentUrl);
+        const language = currentUrl.searchParams.get('lang');
+        if (language) ontologyUrl.searchParams.set('lang', language);
+        window.location.replace(ontologyUrl.pathname + ontologyUrl.search);
         return;
       }
 

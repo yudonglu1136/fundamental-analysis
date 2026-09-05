@@ -2800,12 +2800,30 @@ void main() {
     expect(visible.pricePoints.first['close'], 21);
   });
 
+  test('defaults first visits to English and respects explicit Chinese', () {
+    for (final input in <String?>[null, '', 'en', 'en-US', 'fr']) {
+      expect(parseAppLanguage(input), AppLanguage.en);
+    }
+    for (final input in ['zh', 'zh-CN', ' ZH ']) {
+      expect(parseAppLanguage(input), AppLanguage.zh);
+    }
+    expect(appLanguageCode(AppLanguage.en), 'en');
+    expect(appLanguageCode(AppLanguage.zh), 'zh');
+  });
+
   test('keeps language while entering the Ontology explorer', () {
-    expect(ontologyPathForLanguage(AppLanguage.zh), '/ontology/');
+    expect(ontologyPathForLanguage(AppLanguage.zh), '/ontology/?lang=zh');
     expect(ontologyPathForLanguage(AppLanguage.en), '/ontology/?lang=en');
     expect(
       ontologyPathForLanguage(AppLanguage.en, '/ontology/?view=market#latest'),
       '/ontology/?view=market&lang=en#latest',
+    );
+    expect(
+      ontologyPathForLanguage(
+        AppLanguage.zh,
+        '/ontology/?view=market&lang=en&returnTo=%2F%3Fvaluation%3DISRG#latest',
+      ),
+      '/ontology/?view=market&lang=zh&returnTo=%2F%3Fvaluation%3DISRG#latest',
     );
   });
 
@@ -2891,17 +2909,30 @@ void main() {
     );
   });
 
-  testWidgets('renders the auth shell', (WidgetTester tester) async {
-    await tester.pumpWidget(const GuruTerminalApp());
+  testWidgets(
+    'renders first-visit auth shell in English with public case access',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(const GuruTerminalApp());
 
-    await tester.pump();
+      await tester.pump();
 
-    expect(find.text('研究终端'), findsOneWidget);
-    expect(find.text('GURU INTELLIGENCE'), findsOneWidget);
-    expect(find.text('使用 Google 继续'), findsOneWidget);
-    expect(find.text('中文'), findsOneWidget);
-    expect(find.text('EN'), findsOneWidget);
-  });
+      expect(find.text('Research Terminal'), findsOneWidget);
+      expect(find.text('GURU INTELLIGENCE'), findsOneWidget);
+      expect(find.text('Continue with Google'), findsOneWidget);
+      expect(find.text('Chinese'), findsOneWidget);
+      expect(find.text('English'), findsOneWidget);
+      expect(find.text('Explore the ISRG case — no sign-in'), findsOneWidget);
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.byKey(const ValueKey('explore-public-isrg-case')),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      expect(find.text('研究终端'), findsNothing);
+    },
+  );
 
   testWidgets('switches the auth shell completely to English', (
     WidgetTester tester,
@@ -2926,6 +2957,7 @@ void main() {
       ),
     );
 
+    expect(find.text('查看 ISRG 英文案例 · 免登录'), findsOneWidget);
     await tester.tap(find.text('EN'));
     await tester.pump();
 
@@ -2934,6 +2966,7 @@ void main() {
     expect(find.text('Enter Local Workspace'), findsOneWidget);
     expect(find.text('Chinese'), findsOneWidget);
     expect(find.text('English'), findsOneWidget);
+    expect(find.text('Explore the ISRG case — no sign-in'), findsOneWidget);
     expect(find.text('研究终端'), findsNothing);
   });
 

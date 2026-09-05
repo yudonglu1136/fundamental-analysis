@@ -59,6 +59,7 @@ if [ "${resolved_auth_bypass}" != "true" ]; then
   fi
 fi
 
+node scripts/build-public-research.mjs --check
 rm -rf dist
 flutter build web --release --base-href / --output dist --no-wasm-dry-run "${defines[@]}"
 
