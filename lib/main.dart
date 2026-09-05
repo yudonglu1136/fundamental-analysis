@@ -1273,8 +1273,8 @@ class LoginScreen extends StatelessWidget {
                               ? authMessage!
                               : (authConfigured
                                     ? context.tr(
-                                        '生产环境使用 Supabase Google 身份验证。',
-                                        'Production mode uses Supabase Google auth.',
+                                        '案例无需登录；登录后可进入完整研究终端。',
+                                        'Explore the case freely. Sign in for the full research terminal.',
                                       )
                                     : context.tr(
                                         'Supabase 密钥未配置或身份验证暂不可用；开发环境可进入本地工作区。',
