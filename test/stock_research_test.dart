@@ -40,6 +40,105 @@ Map<String, dynamic> fixture(String ticker) => {
 };
 
 void main() {
+  for (final language in AppLanguage.values) {
+    for (final size in [const Size(1280, 720), const Size(390, 844)]) {
+      for (final missing in [true, false]) {
+        testWidgets(
+          'coverage and service errors differ: $language $size missing=$missing',
+          (tester) async {
+            tester.view.physicalSize = size;
+            tester.view.devicePixelRatio = 1;
+            addTearDown(tester.view.resetPhysicalSize);
+            addTearDown(tester.view.resetDevicePixelRatio);
+            final api = ResearchApi();
+            await tester.pumpWidget(
+              MaterialApp(
+                home: LanguageScope(
+                  language: language,
+                  child: Scaffold(
+                    body: StockValuationPanel(
+                      ticker: 'CRDO',
+                      api: api,
+                      palette: Palette(false),
+                      sourceLabel: 'Gavin Baker',
+                      onClose: () {},
+                    ),
+                  ),
+                ),
+              ),
+            );
+            api.requests.single.completeError(
+              ApiRequestException(
+                statusCode: missing ? 404 : 503,
+                code: missing
+                    ? 'valuation_not_covered'
+                    : 'valuation_request_failed',
+                message: 'server prose must not be rendered',
+              ),
+            );
+            await tester.pumpAndSettle();
+            expect(find.byType(ValuationTrendChart), findsNothing);
+            expect(find.textContaining('server prose'), findsNothing);
+            expect(
+              find.textContaining(
+                language == AppLanguage.en
+                    ? (missing
+                          ? 'No valuation model has been published for CRDO'
+                          : 'the request failed')
+                    : (missing ? 'CRDO 尚无已发布' : '估值暂时加载失败'),
+              ),
+              findsOneWidget,
+            );
+            final retry = find.text(
+              language == AppLanguage.en ? 'Retry' : '重试',
+            );
+            expect(retry, missing ? findsNothing : findsOneWidget);
+            expect(find.text('Gavin Baker'), findsOneWidget);
+            expect(tester.takeException(), isNull);
+            if (!missing) {
+              await tester.tap(retry);
+              await tester.pump();
+              api.requests.last.complete(fixture('CRDO'));
+              await tester.pumpAndSettle();
+              expect(find.byType(ValuationTrendChart), findsOneWidget);
+            }
+          },
+        );
+      }
+    }
+  }
+  testWidgets('authorization loss clears previously displayed valuation', (
+    tester,
+  ) async {
+    final api = ResearchApi();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StockValuationPanel(
+            ticker: 'CRDO',
+            api: api,
+            palette: Palette(false),
+            onClose: () {},
+          ),
+        ),
+      ),
+    );
+    api.requests.single.complete(fixture('CRDO'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ValuationTrendChart), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.refresh));
+    await tester.pump();
+    api.requests.last.completeError(
+      const ApiRequestException(
+        statusCode: 401,
+        code: 'unauthorized',
+        message: 'not displayed',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(ValuationTrendChart), findsNothing);
+    expect(find.textContaining('Sign in again'), findsOneWidget);
+  });
   testWidgets(
     'quarterly lens opens inline valuation and returns without closing the ranking',
     (tester) async {

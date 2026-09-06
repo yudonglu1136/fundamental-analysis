@@ -99,6 +99,36 @@ test("valuation detail level is opt-in summary and defaults to compatible full",
   assert.equal(valuationDetailLevel("unexpected"), "full");
 });
 
+test("current-only summary retains dated scenarios, null downside and bilingual caveats without research payload", () => {
+  const ticker = syntheticTicker();
+  ticker.dataQuality = { currentOnly: true, historicalCurveAuthorized: false, valuationCoverageKind: "current_only", releaseReady: false };
+  ticker.history = ticker.history.slice(-1);
+  ticker.currentScenarioDetails = { currentOnly: true, historicalCurveAuthorized: false, financialDate: "2026-06-30",
+    analystAssumptions: { keMxn: .13, terminalPerCurrentClaimGrowth: .025, hugeSourceDetail: "NOT_FOR_SUMMARY" },
+    fx: { mxnPerUsd: 18, originalXml: "NOT_FOR_SUMMARY" }, fullSourceText: "NOT_FOR_SUMMARY" };
+  ticker.scenarios = [
+    { scenarioId: "base", fairValue: 12, status: "conditional_scenario", details: { forecast: ["NOT_FOR_SUMMARY"] } },
+    { scenarioId: "downside", fairValue: null, fundingDeficitMxnM: 2000, statisticalConfidenceInterval: false },
+    { scenarioId: "upside", fairValue: 15 }
+  ];
+  ticker.warningTranslations = [{ en: "One current scenario, not historical valuations.", zh: "仅为当期情景，不是历史估值。" }];
+  const before = structuredClone(ticker);
+  const summary = compactTickerDetail(ticker, { detail: "summary", pricePoints: 300 });
+  assert.equal(summary.dataQuality.currentOnly, true);
+  assert.equal(summary.dataQuality.historicalCurveAuthorized, false);
+  assert.equal(summary.dataQuality.releaseReady, false);
+  assert.equal(summary.history.length, 1);
+  assert.deepEqual(summary.currentScenarioDetails.analystAssumptions, { keMxn: .13, terminalPerCurrentClaimGrowth: .025 });
+  assert.equal(summary.currentScenarioDetails.fx.mxnPerUsd, 18);
+  assert.equal(summary.scenarios[1].fairValue, null);
+  assert.equal(summary.scenarios[1].fundingDeficitMxnM, 2000);
+  assert.equal(summary.scenarios[1].statisticalConfidenceInterval, false);
+  assert.deepEqual(summary.warningTranslations, ticker.warningTranslations);
+  assert.doesNotMatch(JSON.stringify(summary), /NOT_FOR_SUMMARY/);
+  assert.deepEqual(ticker, before);
+  assert.deepEqual(compactTickerDetail(ticker, { detail: "full" }), ticker);
+});
+
 test("valuation audit layers never promote lineage evidence into model validation", () => {
   const layers = valuationAuditLayers({
     modelInputAudit: {

@@ -24,6 +24,29 @@ viewport-override capability did not change its top-level window dimensions.
 
 ## Coverage Ledger
 
+### 2026-09-06: Admin last-sign-in portfolio cohorts (local only)
+
+- Main Admin directory now shows registered/unregistered portfolio cohorts,
+  independent latest-sign-in ordering, verified login versus activity time,
+  unknown-login and unknown-registration states, timezone, search and refresh
+  in English and Chinese. Desktop uses two columns; mobile stacks them.
+- Nine new Dart/widget regressions cover both languages at 1280px and 390×844,
+  ordering, cohort definitions, actions, empty states and bounded scrolling.
+  Full Flutter suite: 131 passed; analyze and bilingual audit passed.
+- These checks use synthetic local accounts, not a production browser session.
+  See `admin-user-directory-2026-09-06.md`; not deployed.
+
+### 2026-09-06: Missing valuation versus request failure (local only)
+
+- The stock drawer distinguishes confirmed unpublished coverage, unavailable
+  service and lost authorization in English and Chinese. Missing publication
+  has no misleading Retry action; transient errors retain retry/recovery.
+- Eight new language/viewport tests cover both states at 1280×720 and 390×844;
+  another test checks that authorization loss clears displayed valuation data.
+- 110 Flutter tests, analyze, i18n and production build passed locally. This
+  does not attest to CRDO model coverage or a production deployment; see
+  `crdo-valuation-gap-2026-09-06.md`.
+
 ### 2026-09-05: Guru stock valuation and shared issuer branding
 
 - Added bilingual stock-research drawer/full-screen detail, footer actions,
@@ -59,6 +82,16 @@ viewport-override capability did not change its top-level window dimensions.
 | Portfolio dividends and analytics | PASS | PASS | PASS | PASS | Month labels, currencies, valuation status, notices | PASS |
 | Admin health and user index | PASS | PASS | PASS | PASS | Job status, user status, search, empty/error states | PASS |
 | Admin read-only portfolio detail | PASS | PASS | PASS | PASS | Selected-user detail and nested Portfolio surfaces | PASS |
+
+## Admin recent sign-ins addition — 2026-09-06 (local verification)
+
+- Added `AdminLoginActivityPanel` with bilingual loading, failure/retry, empty,
+  search, pagination, unknown-login and device-timezone copy.
+- Eight dedicated widget tests cover English and Chinese at 1280px and
+  390x844, distinct sign-in/activity timestamps, missing values, search,
+  response races, pagination and retry. No render overflow was observed.
+- `npm run audit:i18n` passes. These are local widget/source checks, not a new
+  production-browser attestation; this addition has not been deployed.
 
 ## Fixed Findings
 

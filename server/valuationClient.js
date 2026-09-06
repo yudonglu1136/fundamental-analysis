@@ -11,6 +11,7 @@ import {
 import { applyAznValuationOverlay } from "./aznValuationOverlay.js";
 import { applyLsegValuationOverlay } from "./lsegValuationOverlay.js";
 import { normalizeTicker, valuationLookupKeysForSnapshot, valuationTickerCandidates } from "./tickerAliases.js";
+import { ValuationNotCoveredError } from "./valuationHttp.js";
 
 const dashboardCache = {
   version: null,
@@ -251,6 +252,9 @@ function compactDataQuality(dataQuality = {}) {
   const consensusCheck = unifiedAudit.externalConsensusCheck || {};
   return {
     valuationCoverageKind: dataQuality.valuationCoverageKind,
+    currentOnly: dataQuality.currentOnly,
+    historicalCurveAuthorized: dataQuality.historicalCurveAuthorized,
+    releaseReady: dataQuality.releaseReady,
     coverageKind: dataQuality.coverageKind,
     pricePoints: dataQuality.pricePoints,
     hasLivePriceSeries: dataQuality.hasLivePriceSeries,
@@ -364,12 +368,37 @@ function compactTickerSummary(ticker = {}) {
     latest: ticker.latest,
     priceHistory: ticker.priceHistory || [],
     history: (ticker.history || []).map(compactSummaryHistoryRow),
+    ...compactCurrentScenario(ticker),
     dataQuality: {
       ...compactDataQuality(dataQuality),
       pricePointsAvailable: dataQuality.pricePointsAvailable,
       pricePointsReturned: dataQuality.pricePointsReturned,
       priceHistorySampling: dataQuality.priceHistorySampling
     }
+  };
+}
+
+function compactCurrentScenario(ticker) {
+  if (ticker.dataQuality?.currentOnly !== true && ticker.dataQuality?.valuationCoverageKind !== "current_only") return {};
+  const details = ticker.currentScenarioDetails || {};
+  const assumptions = details.analystAssumptions || {};
+  return {
+    // These are essential truth-state disclosures, not full research detail.
+    // The summary route must not turn a current-only model into a blank card
+    // or strip the warning that no historical valuation curve is approved.
+    scenarios: (ticker.scenarios || []).slice(0, 3).map((row) => ({
+      scenarioId: row.scenarioId, scenario: row.scenario, fairValue: row.fairValue,
+      currentPrice: row.currentPrice, upsideDownside: row.upsideDownside,
+      status: row.status, statisticalConfidenceInterval: row.statisticalConfidenceInterval,
+      fundingDeficitMxnM: row.fundingDeficitMxnM
+    })),
+    currentScenarioDetails: {
+      currentOnly: true, historicalCurveAuthorized: details.historicalCurveAuthorized,
+      financialDate: details.financialDate,
+      analystAssumptions: { keMxn: assumptions.keMxn, terminalPerCurrentClaimGrowth: assumptions.terminalPerCurrentClaimGrowth },
+      fx: { mxnPerUsd: details.fx?.mxnPerUsd }
+    },
+    warningTranslations: (ticker.warningTranslations || []).map(({ en, zh }) => ({ en, zh }))
   };
 }
 
@@ -518,7 +547,7 @@ export async function loadValuationTicker(ticker, options = {}) {
     return candidates.some((candidate) => itemKeys.includes(candidate));
   });
   if (!fromDashboard) {
-    throw new Error(`Valuation ticker not found: ${ticker}`);
+    throw new ValuationNotCoveredError(normalized);
   }
   const payload = {
     generatedAt: dashboard.generatedAt,

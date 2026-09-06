@@ -12,7 +12,10 @@ import { loadOperationCommentary } from "./commentarySearch.js";
 import { gurus } from "./gurus.js";
 import { registerOntologyRoutes } from "./ontologyClient.js";
 import { clearPortfolioCache, loadPortfolioDashboard, startPortfolioNavRecorder } from "./portfolioClient.js";
+import { registerAdminPortfolioUsersRoute } from "./adminPortfolioUsersRoute.js";
 import { requireAuth } from "./auth/requireAuth.js";
+import { requireAdmin } from "./auth/requireAdmin.js";
+import { recordLoginActivity, registerLoginActivityRoutes } from "./loginActivityRoutes.js";
 import {
   guruBacktestRefreshStatus,
   loadGuruBacktest,
@@ -25,6 +28,7 @@ import {
   startGuruBacktestRefresher
 } from "./backtest.js";
 import { loadValuationDashboard, loadValuationTicker } from "./valuationClient.js";
+import { createValuationTickerHandler } from "./valuationHttp.js";
 import { importValuationTicker } from "./valuationImporter.js";
 import { translateTextsToChinese } from "./translationClient.js";
 import {
@@ -51,7 +55,6 @@ import { installJsonTransport } from "./jsonTransport.js";
 import {
   addPortfolioAccount,
   deletePortfolioConnection,
-  listAdminPortfolioUsers,
   portfolioUserForAdminHash,
   readPortfolioConnectionStatus,
   recordPortfolioUser,
@@ -395,6 +398,7 @@ app.post("/api/internal/gurus/refresh", requireLoopbackRequest, requireInternalC
 });
 
 app.use("/api", requireAuth);
+app.use("/api", recordLoginActivity);
 
 const adminEmails = new Set(
   String(process.env.ADMIN_EMAILS || "luyudong1136@gmail.com")
@@ -402,18 +406,6 @@ const adminEmails = new Set(
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean)
 );
-
-function isAdminRequest(request) {
-  return adminEmails.has(String(request.user?.email || "").trim().toLowerCase());
-}
-
-function requireAdmin(request, response, next) {
-  if (!isAdminRequest(request)) {
-    response.status(403).json({ error: "admin_forbidden", message: "Admin access is restricted." });
-    return;
-  }
-  next();
-}
 
 function recordPortfolioRequestUser(request) {
   try {
@@ -427,6 +419,7 @@ app.use("/api", (request, _response, next) => {
   recordPortfolioRequestUser(request);
   next();
 });
+registerLoginActivityRoutes(app);
 
 registerOntologyRoutes(app);
 
@@ -607,15 +600,7 @@ app.post("/api/portfolio/dividends/refresh", async (_request, response) => {
   }
 });
 
-app.get("/api/admin/portfolio-users", requireAdmin, async (request, response) => {
-  try {
-    recordPortfolioRequestUser(request);
-    response.setHeader("Cache-Control", "private, max-age=30");
-    response.json(listAdminPortfolioUsers());
-  } catch (error) {
-    response.status(500).json({ error: "admin_portfolio_list_failed", message: error.message });
-  }
-});
+registerAdminPortfolioUsersRoute(app);
 
 app.get("/api/admin/system-health", requireAdmin, async (_request, response) => {
   try {
@@ -697,18 +682,7 @@ app.post("/api/valuation/:ticker/import", async (request, response) => {
   }
 });
 
-app.get("/api/valuation/:ticker", async (request, response) => {
-  try {
-    const payload = await loadValuationTicker(request.params.ticker, {
-      pricePoints: request.query.pricePoints,
-      detail: request.query.detail
-    });
-    response.setHeader("Cache-Control", "private, max-age=120");
-    response.json(payload);
-  } catch (error) {
-    response.status(404).json({ error: error.message });
-  }
-});
+app.get("/api/valuation/:ticker", createValuationTickerHandler(loadValuationTicker));
 
 app.post("/api/translate/zh", async (request, response) => {
   try {

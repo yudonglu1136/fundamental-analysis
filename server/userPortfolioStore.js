@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
+import { verifiedLoginTime } from "./auth/loginTime.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const bundledDbPath = path.join(__dirname, "data", "guru-analysis.sqlite");
@@ -108,6 +109,12 @@ function openAdminRegistryDb() {
     CREATE INDEX IF NOT EXISTS idx_portfolio_user_registry_email
       ON portfolio_user_registry (email);
   `);
+  // Additive migration: an API visit/database mtime is not historical login evidence.
+  if (!db.prepare("PRAGMA table_info(portfolio_user_registry)").all()
+    .some((column) => column.name === "last_sign_in_at")) {
+    db.exec("ALTER TABLE portfolio_user_registry ADD COLUMN last_sign_in_at TEXT");
+  }
+  fs.chmodSync(adminRegistryDbPath, 0o600);
   adminRegistryDb = db;
   return db;
 }
@@ -673,13 +680,14 @@ export function readUserPortfolioNavPoints(user, accountId = "portfolio", limit 
 
 export function recordPortfolioUser(user) {
   const userId = userIdFromUser(user);
-  if (!userId) return null;
+  if (!userId || user.provider === "local-dev" || user.isAnonymous === true) return null;
   const email = cleanString(user?.email).toLowerCase();
   const name = cleanString(user?.name || user?.fullName || user?.user_metadata?.full_name);
   const avatar = cleanString(user?.avatar || user?.picture);
   const provider = cleanString(user?.provider);
-  const signature = JSON.stringify([userId, email, name, avatar, provider]);
   const nowMs = Date.now();
+  const lastSignInAt = verifiedLoginTime({ lastSignInAt: user.lastSignInAt }, nowMs);
+  const signature = JSON.stringify([userId, email, name, avatar, provider, lastSignInAt]);
   const cached = portfolioUserRecordCache.get(userId);
   if (
     cached?.signature === signature &&
@@ -703,17 +711,22 @@ export function recordPortfolioUser(user) {
       avatar,
       provider,
       first_seen_at,
-      last_seen_at
+      last_seen_at,
+      last_sign_in_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(user_hash) DO UPDATE SET
       user_id = excluded.user_id,
       email = excluded.email,
       name = excluded.name,
       avatar = excluded.avatar,
       provider = excluded.provider,
-      last_seen_at = excluded.last_seen_at
-  `).run(hash, userId, email, name, avatar, provider, now, now);
+      last_seen_at = MAX(portfolio_user_registry.last_seen_at, excluded.last_seen_at),
+      last_sign_in_at = CASE WHEN excluded.last_sign_in_at IS NOT NULL AND
+        (portfolio_user_registry.last_sign_in_at IS NULL OR
+          excluded.last_sign_in_at > portfolio_user_registry.last_sign_in_at)
+        THEN excluded.last_sign_in_at ELSE portfolio_user_registry.last_sign_in_at END
+  `).run(hash, userId, email, name, avatar, provider, now, now, lastSignInAt);
   const result = { userHash: hash, userId, email, name, avatar, provider };
   portfolioUserRecordWrites += 1;
   portfolioUserRecordCache.delete(userId);
@@ -747,7 +760,7 @@ export function resetPortfolioUserRecordCacheForTests() {
 function readRegistryRows() {
   const db = openAdminRegistryDb();
   return db.prepare(`
-    SELECT user_hash, user_id, email, name, avatar, provider, first_seen_at, last_seen_at
+    SELECT user_hash, user_id, email, name, avatar, provider, first_seen_at, last_seen_at, last_sign_in_at
     FROM portfolio_user_registry
     ORDER BY last_seen_at DESC
   `).all();
@@ -774,6 +787,7 @@ function readPortfolioSummaryForHash(hash, registryRow = null) {
     provider: cleanString(registryRow?.provider),
     firstSeenAt: cleanString(registryRow?.first_seen_at),
     lastSeenAt: cleanString(registryRow?.last_seen_at),
+    lastSignInAt: verifiedLoginTime({ lastSignInAt: registryRow?.last_sign_in_at }),
     databaseExists: exists,
     databaseUpdatedAt: "",
     connection: {
@@ -860,14 +874,8 @@ export function listAdminPortfolioUsers() {
   const users = [...hashes]
     .map((hash) => readPortfolioSummaryForHash(hash, rowsByHash.get(hash)))
     .filter(Boolean)
-    .sort((left, right) => {
-      const rankDiff = portfolioUserSortRank(right) - portfolioUserSortRank(left);
-      if (rankDiff !== 0) return rankDiff;
-      const timeDiff = portfolioUserSortTime(right) - portfolioUserSortTime(left);
-      if (timeDiff !== 0) return timeDiff;
-      return cleanString(left.email || left.name || left.userHash)
-        .localeCompare(cleanString(right.email || right.name || right.userHash));
-    });
+    .map((user) => ({ ...user, portfolioRegistration: portfolioRegistration(user) }))
+    .sort(compareAdminLastSignIn);
   const summary = users.reduce((acc, user) => {
     const accountCount = Number(user.connection?.accountCount || 0);
     const nav = Number(user.nav?.latestValue || 0);
@@ -876,40 +884,37 @@ export function listAdminPortfolioUsers() {
     acc.linked += user.connection?.status === "linked" ? 1 : 0;
     acc.errors += String(user.connection?.status || "").includes("error") ? 1 : 0;
     acc.latestNav += Number.isFinite(nav) ? nav : 0;
+    if (user.portfolioRegistration === "registered") acc.registered += 1;
+    else if (user.portfolioRegistration === "not_registered") acc.notRegistered += 1;
+    else acc.registrationUnknown += 1;
     return acc;
-  }, { users: 0, accounts: 0, linked: 0, errors: 0, latestNav: 0 });
+  }, { users: 0, accounts: 0, linked: 0, errors: 0, latestNav: 0,
+    registered: 0, notRegistered: 0, registrationUnknown: 0 });
   return {
     generatedAt: new Date().toISOString(),
+    sort: "last_sign_in_desc_nulls_last",
+    coverage: "observed_authenticated_api_users_and_saved_portfolios",
     summary,
     users
   };
 }
 
-function portfolioUserSortRank(user) {
+export function portfolioRegistration(user) {
   const connection = user?.connection || {};
-  const status = cleanString(connection.status);
-  const accountCount = Number(connection.accountCount || 0);
-  if (status === "linked" && accountCount > 0) return 4;
-  if (accountCount > 0) return 3;
-  if (connection.configured || connection.registered) return 2;
-  if (status.includes("error")) return 1;
-  return 0;
+  // A saved but broken connection is still registered. A DB or an old NAV alone is not.
+  if (connection.registered === true || connection.configured === true || Number(connection.accountCount) > 0) return "registered";
+  if (connection.status === "read_error") return "unknown";
+  return "not_registered";
 }
 
-function portfolioUserSortTime(user) {
-  const candidates = [
-    user?.nav?.updatedAt,
-    user?.nav?.latestDate,
-    user?.connection?.lastConnectedAt,
-    user?.connection?.updatedAt,
-    user?.databaseUpdatedAt,
-    user?.lastSeenAt
-  ];
-  for (const value of candidates) {
-    const timestamp = Date.parse(cleanString(value));
-    if (Number.isFinite(timestamp)) return timestamp;
-  }
-  return 0;
+export function compareAdminLastSignIn(left, right) {
+  const time = (user) => Date.parse(verifiedLoginTime({ lastSignInAt: user?.lastSignInAt }) || "") || 0;
+  const diff = time(right) - time(left);
+  if (diff !== 0) return diff;
+  // Stable tie-break, not NAV updates/background visits masquerading as a login.
+  return cleanString(left.email || left.name || left.userHash)
+    .localeCompare(cleanString(right.email || right.name || right.userHash)) ||
+    cleanString(left.userHash).localeCompare(cleanString(right.userHash));
 }
 
 export function portfolioUserForAdminHash(hash) {

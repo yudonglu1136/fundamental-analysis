@@ -3463,7 +3463,7 @@ void main() {
     expect(RegExp(r'[\u3400-\u9fff]').hasMatch(visibleText), isFalse);
     expect(find.text('Portfolio admin console'), findsOneWidget);
     expect(find.text('System Health'), findsOneWidget);
-    expect(find.text('All Portfolios'), findsOneWidget);
+    expect(find.text('Users & last sign-in'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

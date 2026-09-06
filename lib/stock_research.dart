@@ -295,6 +295,7 @@ class StockValuationPanel extends StatefulWidget {
 class _StockValuationPanelState extends State<StockValuationPanel> {
   Map<String, dynamic>? _payload;
   bool _loading = true, _failed = false, _full = false;
+  bool _notCovered = false, _sessionFailed = false;
   int _serial = 0;
   String _quarterKey = '';
   @override
@@ -319,6 +320,8 @@ class _StockValuationPanelState extends State<StockValuationPanel> {
     setState(() {
       _loading = true;
       _failed = false;
+      _notCovered = false;
+      _sessionFailed = false;
     });
     try {
       final payload = await StockResearchCache.of(
@@ -335,8 +338,22 @@ class _StockValuationPanelState extends State<StockValuationPanel> {
           _full = full;
         });
       }
-    } catch (_) {
-      if (mounted && serial == _serial) setState(() => _failed = true);
+    } catch (error) {
+      if (mounted && serial == _serial) {
+        setState(() {
+          _failed = true;
+          _notCovered =
+              error is ApiRequestException &&
+              error.statusCode == 404 &&
+              error.code == 'valuation_not_covered';
+          _sessionFailed =
+              error is ApiRequestException &&
+              (error.statusCode == 401 || error.statusCode == 403);
+          // A previously cached quote must not contradict a confirmed removal
+          // or remain visible after authorization is lost.
+          if (_notCovered || _sessionFailed) _payload = null;
+        });
+      }
     } finally {
       if (mounted && serial == _serial) setState(() => _loading = false);
     }
@@ -347,6 +364,7 @@ class _StockValuationPanelState extends State<StockValuationPanel> {
     final p = widget.palette;
     final detail = asMap(_payload?['ticker']);
     final latest = asMap(detail['latest']);
+    final currentOnly = isCurrentOnlyValuation(detail);
     final auditLayers = asMap(asMap(detail['dataQuality'])['auditLayers']);
     final history = asList(detail['history']).toList()
       ..sort((a, b) => text(a['asOfDate']).compareTo(text(b['asOfDate'])));
@@ -399,7 +417,7 @@ class _StockValuationPanelState extends State<StockValuationPanel> {
               ),
               IconButton(
                 tooltip: context.tr('刷新估值', 'Refresh valuation'),
-                onPressed: _loading
+                onPressed: _loading || _notCovered
                     ? null
                     : () => _load(full: _full, refresh: true),
                 icon: Icon(Icons.refresh, color: p.muted),
@@ -475,16 +493,27 @@ class _StockValuationPanelState extends State<StockValuationPanel> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        context.tr(
-                          '此标的估值暂不可用。可能尚未覆盖或请求失败；不会替换成其他股票。',
-                          'Valuation unavailable for this ticker. Coverage may be missing or the request failed; no substitute stock is shown.',
-                        ),
+                        _notCovered
+                            ? context.tr(
+                                '${widget.ticker} 尚无已发布的估值模型。刷新不会生成估值；你可以返回继续研究原持仓。',
+                                'No valuation model has been published for ${widget.ticker}. Refreshing will not create one; you can return to the original holding.',
+                              )
+                            : _sessionFailed
+                            ? context.tr(
+                                '无法验证当前访问权限，请重新登录后再查看估值。',
+                                'Your access could not be verified. Sign in again to view this valuation.',
+                              )
+                            : context.tr(
+                                '估值暂时加载失败，尚不能判断是否已覆盖。请重试；不会显示其他股票的估值。',
+                                'Valuation unavailable: the request failed, so coverage could not be checked. Please retry; no substitute stock is shown.',
+                              ),
                         style: TextStyle(color: p.muted),
                       ),
-                      TextButton(
-                        onPressed: () => _load(full: _full, refresh: true),
-                        child: Text(context.tr('重试', 'Retry')),
-                      ),
+                      if (!_notCovered)
+                        TextButton(
+                          onPressed: () => _load(full: _full, refresh: true),
+                          child: Text(context.tr('重试', 'Retry')),
+                        ),
                     ],
                   ),
                 ),
@@ -517,7 +546,9 @@ class _StockValuationPanelState extends State<StockValuationPanel> {
                       p.text,
                     ),
                     _metric(
-                      context.tr('模型公允价值', 'Model fair value'),
+                      currentOnly
+                          ? context.tr('基准情景估值', 'Base scenario value')
+                          : context.tr('模型公允价值', 'Model fair value'),
                       money(fairValue),
                       p.accent,
                     ),
@@ -539,7 +570,9 @@ class _StockValuationPanelState extends State<StockValuationPanel> {
                 ),
                 const SizedBox(height: 22),
                 Text(
-                  context.tr('价格与公允价值', 'Price vs. fair value'),
+                  currentOnly
+                      ? context.tr('当期情景 / 股价', 'Current scenario / price')
+                      : context.tr('价格与公允价值', 'Price vs. fair value'),
                   style: TextStyle(
                     color: p.text,
                     fontSize: 16,
@@ -564,10 +597,15 @@ class _StockValuationPanelState extends State<StockValuationPanel> {
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      context.tr(
-                        '历史数据不足，暂不绘制曲线。',
-                        'Insufficient history to draw a chart.',
-                      ),
+                      currentOnly
+                          ? context.tr(
+                              '仅有当期估值，不绘制未经审核的历史曲线。',
+                              'Current valuation only. No unreviewed historical curve is drawn.',
+                            )
+                          : context.tr(
+                              '历史数据不足，暂不绘制曲线。',
+                              'Insufficient history to draw a chart.',
+                            ),
                       style: TextStyle(color: p.muted),
                     ),
                   ),
@@ -593,42 +631,45 @@ class _StockValuationPanelState extends State<StockValuationPanel> {
                   ],
                 ),
                 const SizedBox(height: 22),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: p.card,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: p.border),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.tr('估值为什么变化', 'Why the valuation changed'),
-                        style: TextStyle(
-                          color: p.text,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        context.tr(
-                          '比较最近两个可见模型节点',
-                          'Comparing the latest two visible model nodes',
-                        ),
-                        style: TextStyle(color: p.faint, fontSize: 11),
-                      ),
-                      for (final driver in drivers)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 16),
-                          child: _ValuationDriverRow(
-                            driver: driver,
-                            palette: p,
+                if (currentOnly)
+                  CurrentValuationScenarioCard(detail: detail, palette: p)
+                else
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: p.card,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: p.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.tr('估值为什么变化', 'Why the valuation changed'),
+                          style: TextStyle(
+                            color: p.text,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          context.tr(
+                            '比较最近两个可见模型节点',
+                            'Comparing the latest two visible model nodes',
+                          ),
+                          style: TextStyle(color: p.faint, fontSize: 11),
+                        ),
+                        for (final driver in drivers)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: _ValuationDriverRow(
+                              driver: driver,
+                              palette: p,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
                 const SizedBox(height: 16),
                 Text(
                   context.tr(

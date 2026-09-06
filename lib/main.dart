@@ -9,6 +9,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'browser_location.dart';
 
 part 'stock_research.dart';
+part 'admin_login_activity.dart';
+part 'current_valuation_scenario.dart';
 
 const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
@@ -96,6 +98,27 @@ extension LanguageContext on BuildContext {
 }
 
 const _uiChinese = <String, String>{
+  'Other outstanding equity claims': '其他未结算股权索偿',
+  'Option and warrant claims': '期权及认股权证索偿',
+  'Economic cash-flow bridge': '经济现金流调整',
+  'Dated acquisition/other common-equity claims deducted once after the valuation blend. Net debt and recurring SBC are not deducted again here.':
+      '按对应日期的收购及其他股权索偿，在综合估值之后扣除一次；此处不再重复扣除净债务或经常性股票薪酬。',
+  'Intrinsic/if-converted claims at model value, with exercise proceeds and reviewed unrecognized-service-cost credits. Credits are assumed proceeds, not cash. Customer-warrant contra-revenue is normalized first; option time value is excluded.':
+      '按模型价值计算内在价值及行权所得，并抵减已审核的未确认服务成本。抵减为模型假设所得，不是真实现金；客户认股权证的非现金收入抵减先行归一化，不含期权时间价值。',
+  'Reported CFO less cash capex, financing-classified operating license payments and recurring SBC. Reported GAAP inputs are preserved separately from any customer-warrant operating normalization.':
+      '报告经营现金流减去现金资本开支、归入融资活动的经营性许可付款及经常性股票薪酬。报告 GAAP 数据与客户认股权证的经营归一化调整分别保留。',
+  'Revenue (warrant-normalized)': '收入（认股权证调整后）',
+  'Reported FCF (TTM)': '报告自由现金流（TTM）',
+  'Economic FCFE (TTM)': '经济股权现金流（TTM）',
+  'SBC deducted (TTM)': '扣除股票薪酬（TTM）',
+  'License cash deducted (TTM)': '扣除许可付款（TTM）',
+  'Cash & unrestricted investments': '现金及非受限投资',
+  'Funded debt': '融资债务',
+  'Operating lease liabilities': '经营租赁负债',
+  'Lease cash costs remain in operating cash flow; operating leases are not deducted again as funded debt.':
+      '租赁现金成本已包含在经营现金流中；经营租赁负债不再作为融资债务重复扣除。',
+  'Economic cash flow is an analyst adjustment, not reported FCF. Amounts are in the selected security currency.':
+      '经济现金流为分析师调整口径，并非公司报告自由现金流；金额使用该证券对应币种。',
   'Guru Intelligence Executive Summary': 'Guru Intelligence 研究终端',
   'GURU INTELLIGENCE': 'GURU INTELLIGENCE',
   '13F copy simulation': '13F 复制模拟',
@@ -968,6 +991,14 @@ class _AuthGateState extends State<AuthGate> {
         (event) {
           if (!mounted) return;
           setState(() => _session = event.session);
+          if (event.event == AuthChangeEvent.signedIn &&
+              event.session != null) {
+            unawaited(
+              recordAuthenticatedVisit(
+                ApiClient(() => event.session!.accessToken),
+              ),
+            );
+          }
         },
         onError: (Object error, StackTrace stackTrace) {
           if (!mounted) return;
@@ -995,9 +1026,17 @@ class _AuthGateState extends State<AuthGate> {
           }
         }
         if (_session != null) {
+          final session = _session!;
+          await recordAuthenticatedVisit(ApiClient(() => session.accessToken));
           openBrowserPath(_returnTo);
           return;
         }
+      }
+      final session = _session;
+      if (session != null) {
+        unawaited(
+          recordAuthenticatedVisit(ApiClient(() => session.accessToken)),
+        );
       }
     } else if (_authConfigured) {
       _setAuthMessage(
@@ -12112,7 +12151,8 @@ class _AdminPortfolioDashboardState extends State<AdminPortfolioDashboard> {
   Map<String, dynamic>? _detail;
   Map<String, dynamic>? _health;
 
-  List<Map<String, dynamic>> get _users => asList(widget.data['users']);
+  List<Map<String, dynamic>> get _users =>
+      [...asList(widget.data['users'])]..sort(compareAdminUserLastSignIn);
 
   @override
   void initState() {
@@ -12265,52 +12305,35 @@ class _AdminPortfolioDashboardState extends State<AdminPortfolioDashboard> {
           palette: palette,
         ),
         const SizedBox(height: 10),
+        AdminUserDirectoryPanel(
+          users: filtered,
+          selectedHash: _selectedHash,
+          search: _search,
+          palette: palette,
+          onSearch: (value) => setState(() => _search = value),
+          onSelect: _selectUser,
+          onRefresh: () async {
+            await Future.wait([widget.onRefresh(), _loadHealth()]);
+            _syncSelection(force: _selectedHash.isEmpty);
+          },
+        ),
+        const SizedBox(height: 10),
+        _AdminPortfolioDetailPanel(
+          detail: _detail,
+          loading: _loadingDetail,
+          error: _detailError,
+          selectedHash: _selectedHash,
+          api: widget.api,
+          palette: palette,
+          onRefresh: () => _loadDetail(_selectedHash, true),
+        ),
+        const SizedBox(height: 10),
         _AdminSystemHealthPanel(
           data: _health,
           loading: _loadingHealth,
           error: _healthError,
           palette: palette,
           onRefresh: _loadHealth,
-        ),
-        const SizedBox(height: 10),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 1180;
-            final listPanel = _AdminUserListPanel(
-              users: filtered,
-              selectedHash: _selectedHash,
-              search: _search,
-              palette: palette,
-              onSearch: (value) => setState(() => _search = value),
-              onSelect: _selectUser,
-              onRefresh: () async {
-                await Future.wait([widget.onRefresh(), _loadHealth()]);
-                _syncSelection(force: _selectedHash.isEmpty);
-              },
-            );
-            final detailPanel = _AdminPortfolioDetailPanel(
-              detail: _detail,
-              loading: _loadingDetail,
-              error: _detailError,
-              selectedHash: _selectedHash,
-              api: widget.api,
-              palette: palette,
-              onRefresh: () => _loadDetail(_selectedHash, true),
-            );
-            if (!wide) {
-              return Column(
-                children: [listPanel, const SizedBox(height: 10), detailPanel],
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(width: 360, child: listPanel),
-                const SizedBox(width: 10),
-                Expanded(child: detailPanel),
-              ],
-            );
-          },
         ),
       ],
     );
@@ -12680,8 +12703,38 @@ String _formatAdminDateTime(String value) {
       '${local.minute.toString().padLeft(2, '0')}';
 }
 
-class _AdminUserListPanel extends StatelessWidget {
-  const _AdminUserListPanel({
+String adminUserPortfolioRegistration(Map<String, dynamic> user) {
+  final explicit = text(user['portfolioRegistration']);
+  if (const {'registered', 'not_registered', 'unknown'}.contains(explicit)) {
+    return explicit;
+  }
+  final connection = asMap(user['connection']);
+  if (connection['registered'] == true ||
+      connection['configured'] == true ||
+      number(connection['accountCount']) > 0) {
+    return 'registered';
+  }
+  return connection['status'] == 'read_error' ? 'unknown' : 'not_registered';
+}
+
+int compareAdminUserLastSignIn(
+  Map<String, dynamic> left,
+  Map<String, dynamic> right,
+) {
+  int time(Map<String, dynamic> user) =>
+      DateTime.tryParse(text(user['lastSignInAt']))?.millisecondsSinceEpoch ??
+      0;
+  final delta = time(right).compareTo(time(left));
+  if (delta != 0) return delta;
+  return text(
+    left['email'],
+    text(left['userHash']),
+  ).compareTo(text(right['email'], text(right['userHash'])));
+}
+
+class AdminUserDirectoryPanel extends StatelessWidget {
+  const AdminUserDirectoryPanel({
+    super.key,
     required this.users,
     required this.selectedHash,
     required this.search,
@@ -12701,6 +12754,61 @@ class _AdminUserListPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ordered = [...users]..sort(compareAdminUserLastSignIn);
+    final registered = ordered
+        .where((user) => adminUserPortfolioRegistration(user) == 'registered')
+        .toList();
+    final unregistered = ordered
+        .where(
+          (user) => adminUserPortfolioRegistration(user) == 'not_registered',
+        )
+        .toList();
+    final unknown = ordered
+        .where((user) => adminUserPortfolioRegistration(user) == 'unknown')
+        .toList();
+
+    Widget group(String id, String title, List<Map<String, dynamic>> rows) {
+      return Column(
+        key: ValueKey('admin-users-$id'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$title (${rows.length})',
+            style: TextStyle(color: palette.text, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
+          if (rows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              child: Text(
+                context.tr('暂无匹配用户', 'No matching users'),
+                style: TextStyle(color: palette.muted),
+              ),
+            )
+          else
+            SizedBox(
+              height: math.min(460.0, rows.length * 220.0),
+              child: ListView.separated(
+                key: ValueKey('admin-user-list-$id-$search'),
+                primary: false,
+                itemCount: rows.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
+                itemBuilder: (_, index) {
+                  final user = rows[index];
+                  return _AdminUserTile(
+                    key: ValueKey('admin-user-${text(user['userHash'])}'),
+                    user: user,
+                    selected: text(user['userHash']) == selectedHash,
+                    palette: palette,
+                    onTap: () => onSelect(text(user['userHash'])),
+                  );
+                },
+              ),
+            ),
+        ],
+      );
+    }
+
     return Panel(
       palette: palette,
       child: Column(
@@ -12708,17 +12816,27 @@ class _AdminUserListPanel extends StatelessWidget {
         children: [
           PanelTitle(
             icon: Icons.people_alt_rounded,
-            kicker: 'USER DATABASES',
-            title: context.tr('所有账户组合', 'All Portfolios'),
+            kicker: context.tr('仅管理员可见', 'ADMIN ONLY'),
+            title: context.tr('用户与上次登录', 'Users & last sign-in'),
             palette: palette,
             trailing: IconButton(
+              key: const ValueKey('admin-users-refresh'),
               tooltip: context.ui('Refresh admin index'),
               onPressed: () => unawaited(onRefresh()),
               icon: Icon(Icons.refresh_rounded, color: palette.accent),
             ),
           ),
+          const SizedBox(height: 8),
+          Text(
+            context.tr(
+              '上次登录 ↓ 最新在前 · 未记录的排在最后 · ${adminLoginTimezone()}',
+              'Last sign-in ↓ Newest first · Unknown times last · ${adminLoginTimezone()}',
+            ),
+            style: TextStyle(color: palette.accent, fontSize: 12),
+          ),
           const SizedBox(height: 14),
           TextFormField(
+            key: const ValueKey('admin-users-search'),
             initialValue: search,
             onChanged: onSearch,
             style: TextStyle(color: palette.text, fontWeight: FontWeight.w800),
@@ -12743,19 +12861,50 @@ class _AdminUserListPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          if (users.isEmpty)
-            EmptyState(text: 'No portfolio users found yet.', palette: palette)
-          else ...[
-            for (final user in users) ...[
-              _AdminUserTile(
-                user: user,
-                selected: text(user['userHash']) == selectedHash,
-                palette: palette,
-                onTap: () => onSelect(text(user['userHash'])),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final yes = group(
+                'registered',
+                context.tr('已注册组合', 'Portfolio registered'),
+                registered,
+              );
+              final no = group(
+                'not_registered',
+                context.tr('未注册组合', 'No portfolio registered'),
+                unregistered,
+              );
+              if (constraints.maxWidth < 760) {
+                return Column(children: [yes, const SizedBox(height: 18), no]);
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: yes),
+                  const SizedBox(width: 16),
+                  Expanded(child: no),
+                ],
+              );
+            },
+          ),
+          if (unknown.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            group(
+              'unknown',
+              context.tr(
+                '组合状态读取失败，待核查',
+                'Portfolio status unavailable — needs review',
               ),
-              const SizedBox(height: 8),
-            ],
+              unknown,
+            ),
           ],
+          const SizedBox(height: 10),
+          Text(
+            context.tr(
+              '按是否保存组合连接分组，连接失败仍算已注册。仅显示平台已识别的账号和已存组合，并非全部认证平台注册用户。上次登录来自已验证认证记录；访问、同步和令牌续期不会补造登录时间。',
+              'Grouped by saved portfolio connection; failed connections still count as registered. Includes accounts observed by the platform and saved portfolios, not all Auth registrations. Sign-in times come from verified auth records, never visits, syncs or token refreshes.',
+            ),
+            style: TextStyle(color: palette.faint, fontSize: 11),
+          ),
         ],
       ),
     );
@@ -12764,6 +12913,7 @@ class _AdminUserListPanel extends StatelessWidget {
 
 class _AdminUserTile extends StatelessWidget {
   const _AdminUserTile({
+    super.key,
     required this.user,
     required this.selected,
     required this.palette,
@@ -12808,6 +12958,7 @@ class _AdminUserTile extends StatelessWidget {
           ),
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: 42,
@@ -12851,6 +13002,24 @@ class _AdminUserTile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
+                  Text(
+                    context.tr('上次登录：', 'Last sign-in: ') +
+                        (DateTime.tryParse(text(user['lastSignInAt'])) == null
+                            ? context.tr('未记录', 'Not recorded')
+                            : adminLoginDateTime(text(user['lastSignInAt']))),
+                    style: TextStyle(
+                      color: palette.accent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    context.tr('最近访问：', 'Last activity: ') +
+                        adminLoginDateTime(text(user['lastSeenAt'])),
+                    style: TextStyle(color: palette.muted, fontSize: 11),
+                  ),
+                  const SizedBox(height: 6),
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
@@ -12870,18 +13039,16 @@ class _AdminUserTile extends StatelessWidget {
                           palette.muted,
                           palette,
                         ),
+                      if (number(nav['pointCount']) > 0 ||
+                          text(nav['latestDate']).isNotEmpty)
+                        _AdminTinyChip(
+                          formatMoney(number(nav['latestValue'])),
+                          palette.text,
+                          palette,
+                        ),
                     ],
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              formatMoney(number(nav['latestValue'])),
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: palette.text,
-                fontWeight: FontWeight.w900,
               ),
             ),
           ],
@@ -22265,6 +22432,7 @@ class ValuationSelectedOverview extends StatelessWidget {
       );
     }
     final tickerPayload = asMap(payload?['ticker']);
+    final currentOnly = isCurrentOnlyValuation(tickerPayload);
     final ticker = text(tickerPayload['ticker'], selectedRow.ticker);
     final name = text(tickerPayload['name'], selectedRow.name);
     final sector = localizedValuationSector(
@@ -22312,6 +22480,21 @@ class ValuationSelectedOverview extends StatelessWidget {
         ? ''
         : valuationQuarterKey(history.last);
     final compactLayout = MediaQuery.sizeOf(context).width < 900;
+    final priceText =
+        currentOnly && nullableNumber(latest['latestPrice']) == null
+        ? '—'
+        : formatCurrencyValue(latestPrice, currency);
+    final gapText =
+        currentOnly && nullableNumber(latest['upsideToBase']) == null
+        ? '—'
+        : formatReturn(upside);
+    final targetText =
+        currentOnly && nullableNumber(latest['targetPrice3Y']) == null
+        ? '—'
+        : formatCurrencyValue(target, currency);
+    final valueLabel = currentOnly
+        ? context.tr('基准情景估值', 'Base scenario value')
+        : context.tr('公允价值', 'Fair value');
 
     Widget metricGrid() => GridWrap(
       minTileWidth: 132,
@@ -22319,25 +22502,25 @@ class ValuationSelectedOverview extends StatelessWidget {
       children: [
         MiniMetric(
           context.tr('价格', 'Price'),
-          formatCurrencyValue(latestPrice, currency),
+          priceText,
           Icons.show_chart_rounded,
           palette,
         ),
         MiniMetric(
-          context.tr('公允价值', 'Fair value'),
+          valueLabel,
           formatCurrencyValue(fairValue, currency),
           Icons.balance_rounded,
           palette,
         ),
         MiniMetric(
           context.tr('估值差距', 'Valuation gap'),
-          formatReturn(upside),
+          gapText,
           Icons.trending_up_rounded,
           palette,
         ),
         MiniMetric(
           context.tr('三年情景值', '3Y scenario'),
-          formatCurrencyValue(target, currency),
+          targetText,
           Icons.flag_outlined,
           palette,
         ),
@@ -22385,25 +22568,25 @@ class ValuationSelectedOverview extends StatelessWidget {
           children: [
             metricRailItem(
               context.tr('当前价格', 'Current price'),
-              formatCurrencyValue(latestPrice, currency),
+              priceText,
               palette.text,
             ),
             Divider(height: 1, color: palette.border),
             metricRailItem(
-              context.tr('公允价值', 'Fair value'),
+              valueLabel,
               formatCurrencyValue(fairValue, currency),
               palette.accent,
             ),
             Divider(height: 1, color: palette.border),
             metricRailItem(
               context.tr('估值差距', 'Valuation gap'),
-              formatReturn(upside),
+              gapText,
               valuationTone(upside, palette),
             ),
             Divider(height: 1, color: palette.border),
             metricRailItem(
               context.tr('三年情景值', '3Y scenario'),
-              formatCurrencyValue(target, currency),
+              targetText,
               palette.secondary,
             ),
           ],
@@ -22459,7 +22642,9 @@ class ValuationSelectedOverview extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               BadgeLabel(
-                text: selectedRow.valuationVerdict(context),
+                text: currentOnly
+                    ? context.tr('当期情景', 'Current scenario')
+                    : selectedRow.valuationVerdict(context),
                 color: valuationTone(selectedRow.upside, palette),
               ),
               const SizedBox(width: 4),
@@ -22514,15 +22699,17 @@ class ValuationSelectedOverview extends StatelessWidget {
               children: [
                 Icon(Icons.fingerprint_rounded, size: 15, color: palette.muted),
                 const SizedBox(width: 6),
-                Text(
-                  context.tr(
-                    '发布可重现性：${context.ui(selectedRow.releaseStatus)}',
-                    'Release reproducibility: ${context.ui(selectedRow.releaseStatus)}',
-                  ),
-                  style: TextStyle(
-                    color: palette.muted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
+                Flexible(
+                  child: Text(
+                    context.tr(
+                      '发布可重现性：${context.ui(selectedRow.releaseStatus)}',
+                      'Release reproducibility: ${context.ui(selectedRow.releaseStatus)}',
+                    ),
+                    style: TextStyle(
+                      color: palette.muted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ],
@@ -22547,7 +22734,12 @@ class ValuationSelectedOverview extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      context.tr('历史估值 / 股价', 'Fair value / price history'),
+                      currentOnly
+                          ? context.tr('当期情景 / 股价', 'Current scenario / price')
+                          : context.tr(
+                              '历史估值 / 股价',
+                              'Fair value / price history',
+                            ),
                       style: TextStyle(
                         color: palette.text,
                         fontSize: 14,
@@ -22556,9 +22748,14 @@ class ValuationSelectedOverview extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      context.ui(
-                        'Historical nodes use point-in-time data; model-version reproducibility is shown separately.',
-                      ),
+                      currentOnly
+                          ? context.tr(
+                              '仅有一个经过独立核算的当期估值点，预测年份不是历史曲线。',
+                              'One independently checked current value. Forecast years are not historical chart points.',
+                            )
+                          : context.ui(
+                              'Historical nodes use point-in-time data; model-version reproducibility is shown separately.',
+                            ),
                       style: TextStyle(
                         color: palette.faint,
                         fontSize: 11,
@@ -22608,51 +22805,62 @@ class ValuationSelectedOverview extends StatelessWidget {
                     ),
                   ],
                 );
-                final why = Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: palette.card.withValues(alpha: .72),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: palette.border),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.rule_rounded,
-                            color: palette.accent,
-                            size: 19,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            context.tr('为什么变化', 'Why it changed'),
-                            style: TextStyle(
-                              color: palette.text,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        context.tr(
-                          '只比较相邻两个 PIT 财报节点。',
-                          'Compares the two latest PIT reporting nodes.',
+                final Widget why = currentOnly
+                    ? CurrentValuationScenarioCard(
+                        detail: tickerPayload,
+                        palette: palette,
+                      )
+                    : Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: palette.card.withValues(alpha: .72),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: palette.border),
                         ),
-                        style: TextStyle(color: palette.faint, fontSize: 11),
-                      ),
-                      const SizedBox(height: 10),
-                      for (final driver in drivers) ...[
-                        _ValuationDriverRow(driver: driver, palette: palette),
-                        if (driver != drivers.last)
-                          Divider(height: 16, color: palette.border),
-                      ],
-                    ],
-                  ),
-                );
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.rule_rounded,
+                                  color: palette.accent,
+                                  size: 19,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  context.tr('为什么变化', 'Why it changed'),
+                                  style: TextStyle(
+                                    color: palette.text,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              context.tr(
+                                '只比较相邻两个 PIT 财报节点。',
+                                'Compares the two latest PIT reporting nodes.',
+                              ),
+                              style: TextStyle(
+                                color: palette.faint,
+                                fontSize: 11,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            for (final driver in drivers) ...[
+                              _ValuationDriverRow(
+                                driver: driver,
+                                palette: palette,
+                              ),
+                              if (driver != drivers.last)
+                                Divider(height: 16, color: palette.border),
+                            ],
+                          ],
+                        ),
+                      );
                 if (compact) {
                   return Column(
                     children: [chart, const SizedBox(height: 14), why],
@@ -24423,6 +24631,9 @@ class ValuationInputResearchCard extends StatelessWidget {
     final semantics = asMap(snapshot['valuationSemantics']);
     final scoreInputs = asMap(semantics['scoreInputs']);
     final youtube = asMap(snapshot['youtubeEarnings']);
+    final economicInput = asMap(scoreInputs['reviewedEconomicInput']);
+    final economicTtm = asMap(economicInput['ttm']);
+    final economicBalance = asMap(economicInput['balanceNormalization']);
     final evidence = asList(youtube['evidence']);
     final revenue = firstNumber([
       fiscal['revenue_m'],
@@ -24493,7 +24704,9 @@ class ValuationInputResearchCard extends StatelessWidget {
             spacing: 8,
             children: [
               ValuationResearchMetric(
-                label: 'Revenue',
+                label: economicInput['warrantNormalization'] != null
+                    ? 'Revenue (warrant-normalized)'
+                    : 'Revenue',
                 value: formatMillions(revenue),
                 palette: palette,
               ),
@@ -24513,10 +24726,68 @@ class ValuationInputResearchCard extends StatelessWidget {
                 palette: palette,
               ),
               ValuationResearchMetric(
-                label: 'FCF after capex',
-                value: formatMillions(fcf),
+                label: economicInput.isNotEmpty
+                    ? 'Economic FCFE (TTM)'
+                    : 'FCF after capex',
+                value: formatMillions(
+                  economicInput.isNotEmpty
+                      ? firstNumber([economicTtm['economicFcfeM']])
+                      : fcf,
+                ),
                 palette: palette,
               ),
+              if (economicInput.isNotEmpty) ...[
+                ValuationResearchMetric(
+                  label: 'Reported FCF (TTM)',
+                  value: formatMillions(
+                    firstNumber([economicTtm['reportedFcfM']]),
+                  ),
+                  palette: palette,
+                ),
+                ValuationResearchMetric(
+                  label: 'SBC deducted (TTM)',
+                  value: formatMillions(firstNumber([economicTtm['sbcM']])),
+                  palette: palette,
+                ),
+                ValuationResearchMetric(
+                  label: 'License cash deducted (TTM)',
+                  value: formatMillions(
+                    firstNumber([economicTtm['licensePaymentsM']]),
+                  ),
+                  palette: palette,
+                ),
+              ],
+              if (economicBalance.isNotEmpty) ...[
+                ValuationResearchMetric(
+                  label: 'Cash & unrestricted investments',
+                  value: formatMillions(firstNumber([fiscal['cash_m']])),
+                  palette: palette,
+                ),
+                ValuationResearchMetric(
+                  label: 'Funded debt',
+                  value: formatMillions(
+                    firstNumber([economicBalance['fundedDebtM']]),
+                  ),
+                  palette: palette,
+                ),
+                ValuationResearchMetric(
+                  label: 'Operating lease liabilities',
+                  value: formatMillions(
+                    firstNumber([economicBalance['operatingLeaseCurrentM']]) !=
+                                null &&
+                            firstNumber([
+                                  economicBalance['operatingLeaseNoncurrentM'],
+                                ]) !=
+                                null
+                        ? number(economicBalance['operatingLeaseCurrentM']) +
+                              number(
+                                economicBalance['operatingLeaseNoncurrentM'],
+                              )
+                        : null,
+                  ),
+                  palette: palette,
+                ),
+              ],
               ValuationResearchMetric(
                 label: 'Shares',
                 value: formatSharesMillions(
@@ -24527,6 +24798,24 @@ class ValuationInputResearchCard extends StatelessWidget {
               ),
             ],
           ),
+          if (economicInput.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              context.ui(
+                'Economic cash flow is an analyst adjustment, not reported FCF. Amounts are in the selected security currency.',
+              ),
+              style: TextStyle(color: palette.muted, fontSize: 12),
+            ),
+          ],
+          if (economicBalance.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              context.ui(
+                'Lease cash costs remain in operating cash flow; operating leases are not deducted again as funded debt.',
+              ),
+              style: TextStyle(color: palette.muted, fontSize: 12),
+            ),
+          ],
           if (guidanceRevenue != null || guidanceMargin != null) ...[
             const SizedBox(height: 12),
             Text(
@@ -24602,10 +24891,21 @@ class ValuationOutputResearchCard extends StatelessWidget {
     final methods = asList(row['methodOutputs']).isNotEmpty
         ? asList(row['methodOutputs'])
         : fallbackMethodCards;
-    final visibleMethods = methods
-        .where((item) => !text(item['key']).toLowerCase().contains('weight'))
-        .take(5)
-        .toList();
+    const economicKeys = {
+      'other-equity-claims',
+      'vested-option-claims',
+      'economic-fcfe-bridge',
+    };
+    final visibleMethods = [
+      ...methods
+          .where(
+            (item) =>
+                !text(item['key']).toLowerCase().contains('weight') &&
+                !economicKeys.contains(text(item['key'])),
+          )
+          .take(5),
+      ...methods.where((item) => economicKeys.contains(text(item['key']))),
+    ];
     final weightNotes = methods
         .where((item) => text(item['key']).toLowerCase().contains('weight'))
         .toList();
@@ -24842,6 +25142,11 @@ class ValuationMethodWeightRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isEconomicBridge = const {
+      'other-equity-claims',
+      'vested-option-claims',
+      'economic-fcfe-bridge',
+    }.contains(text(method['key']));
     final normalizedWeight = weight == null
         ? null
         : weight!.abs() > 1
@@ -24856,7 +25161,9 @@ class ValuationMethodWeightRow extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  text(method['label'], text(method['key'], 'Method')),
+                  context.ui(
+                    text(method['label'], text(method['key'], 'Method')),
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -24889,17 +25196,25 @@ class ValuationMethodWeightRow extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 5),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: normalizedWeight == null
-                  ? .08
-                  : normalizedWeight.clamp(0, 1).toDouble(),
-              minHeight: 5,
-              backgroundColor: palette.border,
-              color: normalizedWeight == null ? palette.faint : palette.accent,
+          if (isEconomicBridge)
+            Text(
+              context.ui(text(method['description'])),
+              style: TextStyle(color: palette.secondary, fontSize: 11),
+            )
+          else
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: normalizedWeight == null
+                    ? .08
+                    : normalizedWeight.clamp(0, 1).toDouble(),
+                minHeight: 5,
+                backgroundColor: palette.border,
+                color: normalizedWeight == null
+                    ? palette.faint
+                    : palette.accent,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -25828,6 +26143,37 @@ class ValuationSourceNote extends StatelessWidget {
   }
 }
 
+class ApiRequestException implements Exception {
+  const ApiRequestException({
+    required this.statusCode,
+    required this.message,
+    this.code = '',
+  });
+  final int statusCode;
+  final String code;
+  final String message;
+
+  factory ApiRequestException.fromResponse(http.Response response) {
+    var message = response.body;
+    var code = '';
+    try {
+      final payload = jsonDecode(response.body);
+      if (payload is Map) {
+        code = text(payload['error']);
+        message = text(payload['message'], code);
+      }
+    } catch (_) {}
+    return ApiRequestException(
+      statusCode: response.statusCode,
+      code: code,
+      message: message.isEmpty ? 'API ${response.statusCode}' : message,
+    );
+  }
+
+  @override
+  String toString() => 'Exception: $message';
+}
+
 class ApiClient {
   ApiClient(this._accessTokenProvider);
 
@@ -25926,14 +26272,7 @@ class ApiClient {
 
   Map<String, dynamic> _decodeObject(http.Response response) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      String message = response.body;
-      try {
-        final payload = jsonDecode(response.body);
-        if (payload is Map) {
-          message = text(payload['message'], text(payload['error']));
-        }
-      } catch (_) {}
-      throw Exception(message.isEmpty ? 'API ${response.statusCode}' : message);
+      throw ApiRequestException.fromResponse(response);
     }
     Object? decoded;
     try {
@@ -27681,6 +28020,9 @@ String formatValuationMethodValue(Map<String, dynamic> card, String currency) {
   final rawValue = firstNumber([card['value'], card['amount'], card['score']]);
   if (rawValue == null) return '-';
   final format = text(card['format']).toLowerCase();
+  if (format == 'millions') {
+    return '${currencySymbol(currency)}${formatMillions(rawValue)}';
+  }
   if (format.contains('currency') || format.contains('price')) {
     return formatCurrencyValue(rawValue, text(card['currency'], currency));
   }

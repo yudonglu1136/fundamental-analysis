@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
+import { ValuationNotCoveredError } from "./valuationHttp.js";
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "valuation-client-cache-test-"));
 const databasePath = path.join(tempDir, "cache.sqlite");
@@ -27,6 +28,11 @@ const {
 
 after(() => {
   fs.rmSync(tempDir, { recursive: true, force: true });
+});
+
+test("unpublished ticker remains missing without substituting a dashboard company", async () => {
+  await assert.rejects(loadValuationTicker("CRDO"), (error) =>
+    error instanceof ValuationNotCoveredError && error.ticker === "CRDO");
 });
 
 function tickerFixture(name, generatedAt) {

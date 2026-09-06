@@ -70,6 +70,14 @@ test("remote verification does not cache rejected tokens", async () => {
   assert.equal(calls, 2);
 });
 
+test("remote login time is taken from Auth response, not unverified token or editable metadata", async () => {
+  const at = new Date(Date.now() - 60_000).toISOString();
+  globalThis.fetch = async () => new Response(JSON.stringify({ id: "user-1", last_sign_in_at: at,
+    user_metadata: { last_sign_in_at: "2099-01-01T00:00:00Z" } }), { status: 200 });
+  const result = await verifySupabaseAccessToken(token({ exp: Date.now() / 1000 + 300, last_sign_in_at: "2001-01-01T00:00:00Z" }));
+  assert.equal(result.user.lastSignInAt, at);
+});
+
 test("remote verification times out as an upstream availability error", async () => {
   globalThis.fetch = (_url, options) => new Promise((_resolve, reject) => {
     options.signal.addEventListener("abort", () => {

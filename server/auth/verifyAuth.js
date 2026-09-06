@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { verifiedLoginTime } from "./loginTime.js";
 
 const remoteAuthCache = new Map();
 const remoteAuthInFlight = new Map();
@@ -51,7 +52,9 @@ function mapUser(payload) {
     email: payload.email || null,
     name: metadata.full_name || metadata.name || null,
     avatar: metadata.avatar_url || metadata.picture || null,
-    provider: appMetadata.provider || providers[0] || "google"
+    provider: appMetadata.provider || providers[0] || "google",
+    isAnonymous: payload.is_anonymous === true,
+    lastSignInAt: verifiedLoginTime({ lastSignInAt: payload.last_sign_in_at, amr: payload.amr })
   };
 }
 
