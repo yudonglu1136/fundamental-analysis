@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -11,6 +13,63 @@ import 'browser_location.dart';
 part 'stock_research.dart';
 part 'admin_login_activity.dart';
 part 'current_valuation_scenario.dart';
+part 'investment_workflow.dart';
+part 'investment_graphite.dart';
+part 'investment_discovery.dart';
+part 'investment_guru_study.dart';
+part 'investment_guru_holdings.dart';
+part 'investment_guru_scatter.dart';
+part 'investment_workspace_pages.dart';
+part 'investment_home.dart';
+part 'investment_desk.dart';
+part 'investment_opportunities.dart';
+part 'investment_explorer.dart';
+part 'investment_discover_lenses.dart';
+part 'investment_value_trend.dart';
+part 'investment_growth_quality.dart';
+part 'investment_research.dart';
+part 'investment_company_search.dart';
+part 'investment_valuation.dart';
+part 'investment_valuation_memory.dart';
+part 'investment_holders.dart';
+part 'investment_earnings.dart';
+part 'investment_earnings_book.dart';
+part 'investment_portfolio.dart';
+part 'investment_portfolio_tools.dart';
+part 'investment_portfolio_home.dart';
+part 'investment_portfolio_privacy.dart';
+part 'investment_portfolio_gurus.dart';
+part 'investment_portfolio_visuals.dart';
+part 'investment_strategy_lab.dart';
+part 'investment_strategy_mix.dart';
+part 'investment_strategy_cta.dart';
+part 'investment_strategy_snapshot.dart';
+part 'investment_strategy_chart.dart';
+part 'investment_value_flow.dart';
+part 'investment_fundamentals.dart';
+part 'investment_fundamental_rules.dart';
+part 'investment_fundamental_desk.dart';
+part 'investment_hedge.dart';
+part 'investment_strategy_hedge.dart';
+
+const investmentWorkflowEnabled = bool.fromEnvironment(
+  'INVESTMENT_WORKFLOW_ENABLED',
+);
+// A nonvisual identity marker lets the release wrapper verify the compiled
+// branch, rather than trusting the environment that was meant to reach Flutter.
+const investmentWorkflowBuildMarker = investmentWorkflowEnabled
+    ? 'thesisforge-workflow-enabled-v1'
+    : 'thesisforge-workflow-disabled-v1';
+bool isInvestmentMode(String mode) =>
+    investmentWorkflowEnabled &&
+    const {
+      'home',
+      'research',
+      'discover',
+      'book',
+      'strategies',
+      'hedge',
+    }.contains(mode);
 
 const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
@@ -186,6 +245,12 @@ const _uiChinese = <String, String>{
   'Value, short research, and catalyst-driven equities': '价值、做空研究与催化剂投资',
   'Low-risk, high-uncertainty value and concentrated bets': '低风险、高不确定性的价值集中投资',
   'Concentrated quality compounders with durable moats': '具备持久护城河的集中型质量复利股',
+  'Heard Capital public long-equity portfolio': 'Heard Capital 公开多头股票组合',
+  'Concentrated profitable businesses with competitive advantages':
+      '集中持有具备竞争优势的盈利企业',
+  'Pacific Heights reportable long-equity sleeve':
+      'Pacific Heights 申报范围内的多头股票部分',
+  'Defender Capital public long-equity portfolio': 'Defender Capital 公开多头股票组合',
   'Audited manager-level public 13F model: the strict 5Y curve keeps uncovered weight in cash and requires 90% execution coverage; the extended 10Y public-sleeve proxy, when needed, renormalizes only fully priceable Top-60 holdings. This is not the Medallion Fund portfolio.':
       '经审计的管理人级公开 13F 模型：严格 5 年曲线将未覆盖权重保留为现金，并要求 90% 执行覆盖率；扩展 10 年视图在必要时使用公开持仓代理，只对 Top-60 中可完整定价的持仓重新归一化。这不是 Medallion Fund 持仓。',
   'This disclosure is not a complete quarterly 13F portfolio; copied rebalancing would be misleading.':
@@ -895,6 +960,7 @@ class _GuruTerminalAppState extends State<GuruTerminalApp>
     with WidgetsBindingObserver {
   AppLanguage _language = parseAppLanguage(readBrowserQuery()['lang']);
   Uri _routeUri = Uri.base;
+  int _routeRevision = 0;
 
   @override
   void initState() {
@@ -915,6 +981,7 @@ class _GuruTerminalAppState extends State<GuruTerminalApp>
     );
     setState(() {
       _routeUri = routeInformation.uri;
+      _routeRevision++;
       _language = nextLanguage;
     });
     return Future<bool>.value(true);
@@ -949,8 +1016,10 @@ class _GuruTerminalAppState extends State<GuruTerminalApp>
           ),
         ),
         home: AuthGate(
+          key: const ValueKey(investmentWorkflowBuildMarker),
           language: _language,
           routeUri: _routeUri,
+          routeRevision: _routeRevision,
           onLanguage: _setLanguage,
         ),
       ),
@@ -963,11 +1032,13 @@ class AuthGate extends StatefulWidget {
     super.key,
     required this.language,
     required this.routeUri,
+    this.routeRevision = 0,
     required this.onLanguage,
   });
 
   final AppLanguage language;
   final Uri routeUri;
+  final int routeRevision;
   final ValueChanged<AppLanguage> onLanguage;
 
   @override
@@ -1159,6 +1230,7 @@ class _AuthGateState extends State<AuthGate> {
         userEmail: userEmail,
         language: widget.language,
         routeUri: widget.routeUri,
+        routeRevision: widget.routeRevision,
         onLanguage: widget.onLanguage,
         onLogout: _logout,
       );
@@ -1373,6 +1445,7 @@ class TerminalHome extends StatefulWidget {
     required this.userEmail,
     required this.language,
     required this.routeUri,
+    this.routeRevision = 0,
     required this.onLanguage,
     required this.onLogout,
   });
@@ -1384,6 +1457,7 @@ class TerminalHome extends StatefulWidget {
   final String userEmail;
   final AppLanguage language;
   final Uri routeUri;
+  final int routeRevision;
   final ValueChanged<AppLanguage> onLanguage;
   final VoidCallback onLogout;
 
@@ -1395,6 +1469,8 @@ class _TerminalHomeState extends State<TerminalHome>
     with WidgetsBindingObserver {
   late ApiClient _api = _createApi();
   int _identityEpoch = 0;
+  int _browserNavigationSerial = 0;
+  GlobalKey<_InvestmentWorkspaceState> _workspaceKey = GlobalKey();
 
   ApiClient _createApi() {
     final epoch = _identityEpoch;
@@ -1503,9 +1579,33 @@ class _TerminalHomeState extends State<TerminalHome>
     if (oldWidget.accessToken != widget.accessToken) {
       _recoverSecondaryIfNeeded(forceWhenEmpty: true);
     }
-    if (oldWidget.routeUri != widget.routeUri) {
-      _restoreBrowserRoute(widget.routeUri);
+    if (oldWidget.routeUri != widget.routeUri ||
+        oldWidget.routeRevision != widget.routeRevision) {
+      unawaited(_requestBrowserRoute(widget.routeUri));
     }
+  }
+
+  Future<void> _requestBrowserRoute(Uri uri) async {
+    final request = ++_browserNavigationSerial;
+    final identity = _identityEpoch;
+    final workspace = _workspaceKey.currentState;
+    // Browser Back must honor the same account-backed autosave and explicit
+    // discard confirmation as clicking a workspace navigation item.
+    if (workspace?.page == 'research' && !await workspace!.allowLeaveDraft()) {
+      if (mounted &&
+          request == _browserNavigationSerial &&
+          identity == _identityEpoch &&
+          workspace.mounted) {
+        workspace.navigate(workspace.page);
+      }
+      return;
+    }
+    if (!mounted ||
+        request != _browserNavigationSerial ||
+        identity != _identityEpoch) {
+      return;
+    }
+    _restoreBrowserRoute(uri);
   }
 
   void _restoreBrowserRoute(Uri uri) {
@@ -1529,6 +1629,7 @@ class _TerminalHomeState extends State<TerminalHome>
         nextMode == 'guru' && nextGuru != null && nextGuru != _selectedGuruId;
     if (resetGuruUniverse) _guruSearchController.clear();
     setState(() {
+      _workspaceKey = GlobalKey();
       _mode = nextMode;
       if (resetGuruUniverse) {
         _search = '';
@@ -1639,6 +1740,7 @@ class _TerminalHomeState extends State<TerminalHome>
 
   Future<void> _loadSecondary(String mode, {bool refresh = false}) async {
     if (!_hasSession) return;
+    if (isInvestmentMode(mode)) return;
     if (!refresh && mode == 'ontology' && _ontologyPayload != null) return;
     if (!refresh && mode == 'portfolio' && _portfolioPayload != null) return;
     if (!refresh && mode == 'valuation' && _valuationPayload != null) return;
@@ -1705,7 +1807,7 @@ class _TerminalHomeState extends State<TerminalHome>
 
   void _persistRouteState({bool replaceCurrent = false}) {
     replaceBrowserQuery({
-      'view': _mode == 'guru' ? null : _mode,
+      'view': _mode == 'guru' && !investmentWorkflowEnabled ? null : _mode,
       'guru': _mode == 'guru' ? _selectedGuruId : null,
       'module': _mode == 'guru' && _guruModule > 0
           ? guruModuleRouteName(_guruModule)
@@ -1726,7 +1828,7 @@ class _TerminalHomeState extends State<TerminalHome>
 
   String _terminalRoutePath() {
     final params = <String, String>{};
-    if (_mode != 'guru') params['view'] = _mode;
+    if (_mode != 'guru' || investmentWorkflowEnabled) params['view'] = _mode;
     if (_mode == 'guru' && (_selectedGuruId?.isNotEmpty ?? false)) {
       params['guru'] = _selectedGuruId!;
     }
@@ -1824,6 +1926,26 @@ class _TerminalHomeState extends State<TerminalHome>
   Widget build(BuildContext context) {
     if (!_hasSession) return const SizedBox.shrink();
     _scheduleSecondaryRecoveryIfStale();
+    if (isInvestmentMode(_mode)) {
+      return LanguageScope(
+        language: widget.language,
+        child: InvestmentWorkspace(
+          key: _workspaceKey,
+          api: _api,
+          palette: palette,
+          initialPage: _mode,
+          initialTicker: _valuationTicker,
+          initialAsOf: widget.routeUri.queryParameters['asOf'],
+          initialQuery: widget.routeUri.queryParameters,
+          onLanguage: widget.onLanguage,
+          onLegacy: () => _changeMode('guru'),
+          onLegacyView: _changeMode,
+          showAdmin: _adminEnabled,
+          onLogout: widget.onLogout,
+          localPreview: widget.accessToken == _localDevToken,
+        ),
+      );
+    }
     final headerPayload = _mode == 'guru'
         ? _guruPayload
         : _secondaryPayloadFor(_mode);
@@ -2549,6 +2671,7 @@ class ModeSegment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final modes = [
+      if (investmentWorkflowEnabled) ('home', context.tr('工作区', 'Workspace')),
       ('guru', 'Guru'),
       ('ontology', 'Ontology'),
       ('valuation', context.tr('估值', 'Valuation')),
@@ -3347,7 +3470,7 @@ class GuruAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = versionedGuruAvatarUrl(guru['avatarUrl']);
+    final url = resolvedGuruAvatarUrl(guru);
     final name = guruDisplayName(guru, context.language);
     final fallback = _AvatarInitial(name: name, palette: palette, size: size);
     return Container(
@@ -5973,8 +6096,10 @@ class _PositionHistoryMetrics extends StatelessWidget {
   Widget build(BuildContext context) {
     final metrics = [
       (
-        context.tr('普通股多头', 'Common-long value'),
-        formatMoney(number(quarter['commonLongValue'])),
+        context.tr('申报的 13F 信息表价值', 'Reported 13F value'),
+        nullableNumber(quarter['reported13fValue']) == null
+            ? '—'
+            : formatMoney(number(quarter['reported13fValue'])),
         Icons.account_balance_wallet_outlined,
       ),
       (
@@ -13309,6 +13434,7 @@ String savedPortfolioReportNotice(
         ? trFor(language, '日期未记录', 'date not recorded')
         : parsed.toIso8601String().substring(0, 10);
   }
+
   final report = date(freshness['reportAsOf'] ?? source['asOf']);
   final retrieved = date(freshness['retrievedAt'] ?? source['retrievedAt']);
   return trFor(
@@ -13875,7 +14001,9 @@ class _PortfolioConnectionStatusPanelState
       await widget.onRefresh();
     } catch (error) {
       if (mounted) {
-        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+        setState(
+          () => _error = error.toString().replaceFirst('Exception: ', ''),
+        );
       }
     } finally {
       if (mounted) setState(() => _updating = false);
@@ -24014,6 +24142,7 @@ class ValuationTrendChart extends StatelessWidget {
     required this.currency,
     required this.palette,
     required this.selectedQuarterKey,
+    this.labelFontSize = 10,
   });
 
   final List<Map<String, dynamic>> history;
@@ -24021,6 +24150,7 @@ class ValuationTrendChart extends StatelessWidget {
   final String currency;
   final Palette palette;
   final String selectedQuarterKey;
+  final double labelFontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -24037,6 +24167,7 @@ class ValuationTrendChart extends StatelessWidget {
           currency: currency,
           palette: palette,
           selectedQuarterKey: selectedQuarterKey,
+          labelFontSize: labelFontSize,
         ),
         size: Size.infinite,
       ),
@@ -24051,6 +24182,7 @@ class ValuationTrendPainter extends CustomPainter {
     required this.currency,
     required this.palette,
     required this.selectedQuarterKey,
+    this.labelFontSize = 10,
   });
 
   final List<Map<String, dynamic>> history;
@@ -24058,6 +24190,7 @@ class ValuationTrendPainter extends CustomPainter {
   final String currency;
   final Palette palette;
   final String selectedQuarterKey;
+  final double labelFontSize;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -24105,7 +24238,7 @@ class ValuationTrendPainter extends CustomPainter {
       ..strokeWidth = 1;
     final labelStyle = TextStyle(
       color: palette.faint,
-      fontSize: 10,
+      fontSize: labelFontSize,
       fontWeight: FontWeight.w700,
     );
     for (var i = 0; i < 4; i += 1) {
@@ -24237,7 +24370,7 @@ class ValuationTrendPainter extends CustomPainter {
     _drawText(
       canvas,
       formatDate(endDate),
-      Offset(right - 70, bottom + 9),
+      Offset(right - (labelFontSize > 10 ? 94 : 70), bottom + 9),
       labelStyle,
     );
   }
@@ -24246,12 +24379,13 @@ class ValuationTrendPainter extends CustomPainter {
     final painter = TextPainter(
       text: TextSpan(text: text, style: style),
       textDirection: TextDirection.ltr,
-    )..layout(maxWidth: 72);
+    )..layout(maxWidth: labelFontSize > 10 ? 96 : 72);
     painter.paint(canvas, offset);
   }
 
   @override
   bool shouldRepaint(covariant ValuationTrendPainter oldDelegate) =>
+      oldDelegate.labelFontSize != labelFontSize ||
       oldDelegate.history != history ||
       oldDelegate.priceHistory != priceHistory ||
       oldDelegate.selectedQuarterKey != selectedQuarterKey ||
@@ -27212,6 +27346,7 @@ String shortText(String value, [int length = 10]) {
 
 String normalizeRouteMode(String? value, {String? path}) {
   final mode = value?.trim().toLowerCase() ?? '';
+  if (isInvestmentMode(mode)) return mode;
   // Preserve old bookmarks without retaining the retired DBMF screen.
   final normalizedPath = path?.trim().toLowerCase() ?? '';
   if (mode == 'dbmf' ||
@@ -27227,6 +27362,8 @@ String normalizeRouteMode(String? value, {String? path}) {
         'admin',
       }.contains(mode)
       ? mode
+      : investmentWorkflowEnabled
+      ? 'home'
       : 'guru';
 }
 
@@ -27889,7 +28026,17 @@ String publicAssetUrl(dynamic value) {
   return raw.startsWith('/') ? raw : '/$raw';
 }
 
-const _guruAvatarAssetVersion = '144-20260905';
+const _guruAvatarAssetVersion = '144-20260912r2';
+
+String resolvedGuruAvatarUrl(Map<String, dynamic> guru) {
+  for (final value in [guru['avatarUrl'], guru['avatar']]) {
+    if (text(value).trim().isNotEmpty) return versionedGuruAvatarUrl(value);
+  }
+  final id = text(guru['id'] ?? guru['guruId']);
+  // Only canonical slugs may form a static asset URL; never use display names.
+  if (!RegExp(r'^[a-z0-9]+(?:-[a-z0-9]+)*$').hasMatch(id)) return '';
+  return versionedGuruAvatarUrl('/guru-avatars/$id.png');
+}
 
 String versionedGuruAvatarUrl(dynamic value) {
   final url = publicAssetUrl(value);

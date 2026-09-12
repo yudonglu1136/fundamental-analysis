@@ -1,0 +1,80 @@
+[
+  {
+    "ticker": "TSLA",
+    "sourceId": "e014ec20c2e590055f051a0f",
+    "observedAt": "2011-02-15",
+    "proof": {
+      "cik": "0001318605",
+      "accession": "0001193125-10-259068",
+      "availableAt": "2010-11-12",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1318605/000119312510259068/d10q.htm",
+      "documentSha256": "a97ac86a15fbca60cc41d70d3a402c0e55420c21e287641caf24da58a696fbea",
+      "form": "10-Q",
+      "currency": "USD",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "quotes": [
+        "For each of our foreign subsidiaries, the functional currency is the U.S. Dollar. For these foreign subsidiaries, monetary assets and liabilities denominated in non U.S. currencies are re-measured to U.S. Dollars using current exchange rates in effect at the balance sheet date. Non-monetary assets and liabilities denominated in non-U.S. currencies are maintained at historical U.S. Dollar exchange rates. Revenues and expenses are re-measured at average U.S. Dollar monthly rates. Foreign currency transaction gains and losses are a result of the effect of exchange rate changes on transactions denominated in currencies other than the functional currency. Transaction gains and losses are recognized in other income (expense), net in the condensed consolidated statements of operations and have not been significant for any periods presented.",
+        "The condensed consolidated financial statements include the accounts of Tesla and its wholly owned subsidiaries. All significant inter-company transactions and balances have been eliminated in consolidation.",
+        "Comprehensive loss includes all changes in equity (net assets) during a period from non-owner sources. Through September 30, 2010, there are no components of comprehensive loss which are not included in net loss; therefore, a separate statement of comprehensive loss has not been presented. We do not have any foreign currency translation adjustments as a component of other comprehensive loss through September 30, 2010, as the functional currency of all our foreign subsidiaries is the U.S. Dollar."
+      ],
+      "inference": true,
+      "reasoning": "Group presentation-currency inference from the complete parent-plus-subsidiary consolidation scope, USD remeasurement of monetary and nonmonetary assets/liabilities and revenue/expenses, gains and losses in parent consolidated operations, and explicit absence of parent OCI translation because all foreign subsidiaries have USD functional currency. Not inferred from the subsidiary functional-currency sentence alone.",
+      "issuerConsolidatedStatementsTitle": "Tesla Motors, Inc.",
+      "limitations": "Dated currency-only analyst inference; no guidance numeric, owner, period, comparability or model approval. Not a literal USD reporting declaration. No source economics are modified.",
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1318605/000119312510259068/0001193125-10-259068-index.html",
+        "documentSha256": "6606b23c14aab6073b7898264ce2820dca5b1ec55d6a608db8f82a6f808ce45d",
+        "headerText": "EDGAR Filing Documents for 0001193125-10-259068 This page uses Javascript. Your browser either doesn't support Javascript or you have it turned off. To see this page as it is meant to appear please use a Javascript enabled browser. SEC.gov EDGAR Latest Filings Filings search tools Filing Detail SEC Home » Company Search » Current Page Form 10-Q - Quarterly report [Sections 13 or 15(d)]: SEC Accession No. 0001193125-10-259068 Filing Date 2010-11-12 Accepted 2010-11-12 17:21:21 Documents 14 Period of Report 2010-09-30 Document Format Files Seq Description Document Type Size 1 FORM 10-Q d10q.htm 10-Q 1098182 2 SALE AND PURCHASE AGREEMENT - NEW UNITED MOTOR MANUFACTURING, INC. dex101.htm EX-10.1 102650 3 ADDENDUM NO. 1 TO THE SALE AND PURCHASE AGREEMENT dex102.htm EX-10.2 14762 4 AMENDMENT NO. 1 TO THE LETTER AGREEMENT - NEW UNITED MOTOR MANUFACTURING, INC. dex103.htm EX-10.3 10392 5 AMENDMENT NO. 2 TO THE LETTER AGREEMENT - NEW UNITED MOTOR MANUFACTURING, INC. dex104.htm EX-10.4 6757 6 AMENDMENT NO. 3 TO THE LETTER AGREEMENT - NEW UNITED MOTOR MANUFACTURING, INC. dex105.htm EX-10.5 8593 7 AMENDMENT NO. 4 TO THE LETTER AGREEMENT - NEW UNITED MOTOR MANUFACTURING, INC. dex106.htm EX-10.6 9681 8 AMENDMENT NO. 5 TO THE LETTER AGREEMENT - NEW UNITED MOTOR MANUFACTURING, INC. dex107.htm EX-10.7 9765 9 AMENDMENT NO. 6 TO THE LETTER AGREEMENT - NEW UNITED MOTOR MANUFACTURING, INC. dex108.htm EX-10.8 102903 10 CERTIFICATION OF PEO PURSUANT TO RULE 13A-14(A) / 15(D)-14(A) dex311.htm EX-31.1 10378 11 CERTIFICATION OF PFO PURSUANT TO RULE 13A-14(A) / 15(D)-14(A) dex312.htm EX-31.2 10387 12 CERTIFICATIONS OF PEO AND PFO PURSUANT TO SECTION 1350 dex321.htm EX-32.1 5730 13 GRAPHIC g108111g55i14.jpg GRAPHIC 433645 14 GRAPHIC g108111g64g15.jpg GRAPHIC 203968 Complete submission text file 0001193125-10-259068.txt 2270335 Mailing Address 3500 DEER CREEK RD PALO ALTO CA 94070 Business Address 3500 DEER CREEK RD PALO ALTO CA 94070 650-681-5000 TESLA MOTORS INC (Filer) CIK : 0001318605 (see all company filings) EIN. : 912197729 | State of Incorp.: DE Type: 10-Q | Act: 34 | File No.: 001-34756 | Film No.: 101187955 SIC : 3711 Motor Vehicles & Passenger Car Bodies",
+        "headerTextSha256": "94079754c5c78044e56b714c29609d5b733f9eefdc206bc4dd2be81d4f217c59"
+      }
+    },
+    "reviewed": {
+      "reviewClassification": "analyst_inference",
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1318605/000119312510259068/0001193125-10-259068-index.html",
+        "documentSha256": "6606b23c14aab6073b7898264ce2820dca5b1ec55d6a608db8f82a6f808ce45d",
+        "headerText": "EDGAR Filing Documents for 0001193125-10-259068 This page uses Javascript. Your browser either doesn't support Javascript or you have it turned off. To see this page as it is meant to appear please use a Javascript enabled browser. SEC.gov EDGAR Latest Filings Filings search tools Filing Detail SEC Home » Company Search » Current Page Form 10-Q - Quarterly report [Sections 13 or 15(d)]: SEC Accession No. 0001193125-10-259068 Filing Date 2010-11-12 Accepted 2010-11-12 17:21:21 Documents 14 Period of Report 2010-09-30 Document Format Files Seq Description Document Type Size 1 FORM 10-Q d10q.htm 10-Q 1098182 2 SALE AND PURCHASE AGREEMENT - NEW UNITED MOTOR MANUFACTURING, INC. dex101.htm EX-10.1 102650 3 ADDENDUM NO. 1 TO THE SALE AND PURCHASE AGREEMENT dex102.htm EX-10.2 14762 4 AMENDMENT NO. 1 TO THE LETTER AGREEMENT - NEW UNITED MOTOR MANUFACTURING, INC. dex103.htm EX-10.3 10392 5 AMENDMENT NO. 2 TO THE LETTER AGREEMENT - NEW UNITED MOTOR MANUFACTURING, INC. dex104.htm EX-10.4 6757 6 AMENDMENT NO. 3 TO THE LETTER AGREEMENT - NEW UNITED MOTOR MANUFACTURING, INC. dex105.htm EX-10.5 8593 7 AMENDMENT NO. 4 TO THE LETTER AGREEMENT - NEW UNITED MOTOR MANUFACTURING, INC. dex106.htm EX-10.6 9681 8 AMENDMENT NO. 5 TO THE LETTER AGREEMENT - NEW UNITED MOTOR MANUFACTURING, INC. dex107.htm EX-10.7 9765 9 AMENDMENT NO. 6 TO THE LETTER AGREEMENT - NEW UNITED MOTOR MANUFACTURING, INC. dex108.htm EX-10.8 102903 10 CERTIFICATION OF PEO PURSUANT TO RULE 13A-14(A) / 15(D)-14(A) dex311.htm EX-31.1 10378 11 CERTIFICATION OF PFO PURSUANT TO RULE 13A-14(A) / 15(D)-14(A) dex312.htm EX-31.2 10387 12 CERTIFICATIONS OF PEO AND PFO PURSUANT TO SECTION 1350 dex321.htm EX-32.1 5730 13 GRAPHIC g108111g55i14.jpg GRAPHIC 433645 14 GRAPHIC g108111g64g15.jpg GRAPHIC 203968 Complete submission text file 0001193125-10-259068.txt 2270335 Mailing Address 3500 DEER CREEK RD PALO ALTO CA 94070 Business Address 3500 DEER CREEK RD PALO ALTO CA 94070 650-681-5000 TESLA MOTORS INC (Filer) CIK : 0001318605 (see all company filings) EIN. : 912197729 | State of Incorp.: DE Type: 10-Q | Act: 34 | File No.: 001-34756 | Film No.: 101187955 SIC : 3711 Motor Vehicles & Passenger Car Bodies",
+        "headerTextSha256": "94079754c5c78044e56b714c29609d5b733f9eefdc206bc4dd2be81d4f217c59"
+      }
+    }
+  },
+  {
+    "ticker": "ABBV",
+    "sourceId": "09d7e89471d35a5530129417",
+    "observedAt": "2013-04-26",
+    "proof": {
+      "cik": "0001551152",
+      "accession": "0001047469-13-002827",
+      "availableAt": "2013-03-15",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1551152/000104746913002827/a2213529z10-k.htm",
+      "documentSha256": "383cd668dfabad9715a4f6b81479382cad4eb783e8ed5257b44b03e185fbdab8",
+      "form": "10-K",
+      "currency": "USD",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "quotes": [
+        "Foreign subsidiary earnings are translated into U.S. dollars using average exchange rates. The net assets of foreign subsidiaries are translated into U.S. dollars using current exchange rates. The U.S. dollar effects that arise from translating the net assets of these subsidiaries at changing rates are recognized in other comprehensive income (OCI). The net assets of subsidiaries in highly inflationary economies are remeasured as if the functional currency were the reporting currency. The remeasurement is recognized in earnings and is immaterial for all years presented.",
+        "The accompanying combined financial statements have been prepared on a stand-alone basis and are derived from Abbott's consolidated financial statements and accounting records as if the former research-based pharmaceutical business of Abbott had been part of AbbVie for all periods presented. The combined financial statements reflected AbbVie's financial position, results of operations and cash flows as its business was operated as part of Abbott prior to the distribution, in conformity with U.S. generally accepted accounting principles. The combined financial statements included the allocation of certain assets and liabilities that have historically been held at the Abbott corporate level but which are specifically identifiable or allocable to AbbVie. Prior to 2012, cash and equivalents, short-term investments and restricted funds held by Abbott were not allocated to AbbVie unless those assets were held by an entity that was transferred to AbbVie. As of December 31, 2012, AbbVie's combined balance sheet reflected the direct holdings for AbbVie legal entities. All intracompany transactions and accounts have been eliminated.",
+        "On January 1, 2013, AbbVie became an independent company as a result of the distribution by Abbott Laboratories (Abbott) of 100 percent of the outstanding common stock of AbbVie to Abbott's shareholders. AbbVie was incorporated in Delaware on April 10, 2012."
+      ],
+      "inference": true,
+      "reasoning": "AbbVie-specific presentation-currency inference from its own combined statements: all foreign subsidiary earnings and net assets translate into USD and differences enter group OCI. Its own full stand-alone basis separates the pharmaceutical carveout from Abbott and confirms the January 2013 separation already occurred. Currency only; the carveout historical economics are not assumed comparable to standalone guidance. This March filing is deliberately NOT applied to the January 2013 calls.",
+      "issuerConsolidatedStatementsTitle": "AbbVie Inc. and Subsidiaries Notes to Combined Financial Statements",
+      "limitations": "Dated currency-only analyst inference; no guidance numeric, owner, period, comparability or model approval. Not a literal USD reporting declaration. No source economics are modified.",
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1551152/000104746913002827/0001047469-13-002827-index.html",
+        "documentSha256": "21f6a29a46fde35228fed2195640ac301b61092764664b70215f24ceeb6b7293",
+        "headerText": "EDGAR Filing Documents for 0001047469-13-002827 This page uses Javascript. Your browser either doesn't support Javascript or you have it turned off. To see this page as it is meant to appear please use a Javascript enabled browser. SEC.gov EDGAR Latest Filings Filings search tools Filing Detail SEC Home » Company Search » Current Page Form 10-K - Annual report [Section 13 and 15(d), not S-K Item 405]: SEC Accession No. 0001047469-13-002827 Filing Date 2013-03-15 Accepted 2013-03-15 15:05:42 Documents 13 Period of Report 2012-12-31 Document Format Files Seq Description Document Type Size 1 10-K a2213529z10-k.htm 10-K 1187760 2 EX-10.14 a2213529zex-10_14.htm EX-10.14 160749 3 EX-10.15 a2213529zex-10_15.htm EX-10.15 153414 4 EX-10.16 a2213529zex-10_16.htm EX-10.16 177157 5 EX-10.17 a2213529zex-10_17.htm EX-10.17 156630 6 EX-10.18 a2213529zex-10_18.htm EX-10.18 162058 7 EX-10.19 a2213529zex-10_19.htm EX-10.19 156534 8 EX-21.1 a2213529zex-21_1.htm EX-21.1 149383 9 EX-23.1 a2213529zex-23_1.htm EX-23.1 3448 10 EX-31.1 a2213529zex-31_1.htm EX-31.1 7375 11 EX-31.2 a2213529zex-31_2.htm EX-31.2 7361 12 EX-32.1 a2213529zex-32_1.htm EX-32.1 4716 13 EX-32.2 a2213529zex-32_2.htm EX-32.2 4701 Complete submission text file 0001047469-13-002827.txt 2332263 Mailing Address 1 NORTH WAUKEGAN ROAD NORTH CHICAGO IL 60064 Business Address 1 NORTH WAUKEGAN ROAD NORTH CHICAGO IL 60064 (847) 937-6100 AbbVie Inc. (Filer) CIK : 0001551152 (see all company filings) EIN. : 320375147 | State of Incorp.: DE | Fiscal Year End: 1231 Type: 10-K | Act: 34 | File No.: 001-35565 | Film No.: 13693701 SIC : 2834 Pharmaceutical Preparations",
+        "headerTextSha256": "73b846ced92c269de6bbe4ab75172ff41236414e364e205b8882f22f37b9bdd3"
+      }
+    },
+    "reviewed": {
+      "reviewClassification": "analyst_inference",
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1551152/000104746913002827/0001047469-13-002827-index.html",
+        "documentSha256": "21f6a29a46fde35228fed2195640ac301b61092764664b70215f24ceeb6b7293",
+        "headerText": "EDGAR Filing Documents for 0001047469-13-002827 This page uses Javascript. Your browser either doesn't support Javascript or you have it turned off. To see this page as it is meant to appear please use a Javascript enabled browser. SEC.gov EDGAR Latest Filings Filings search tools Filing Detail SEC Home » Company Search » Current Page Form 10-K - Annual report [Section 13 and 15(d), not S-K Item 405]: SEC Accession No. 0001047469-13-002827 Filing Date 2013-03-15 Accepted 2013-03-15 15:05:42 Documents 13 Period of Report 2012-12-31 Document Format Files Seq Description Document Type Size 1 10-K a2213529z10-k.htm 10-K 1187760 2 EX-10.14 a2213529zex-10_14.htm EX-10.14 160749 3 EX-10.15 a2213529zex-10_15.htm EX-10.15 153414 4 EX-10.16 a2213529zex-10_16.htm EX-10.16 177157 5 EX-10.17 a2213529zex-10_17.htm EX-10.17 156630 6 EX-10.18 a2213529zex-10_18.htm EX-10.18 162058 7 EX-10.19 a2213529zex-10_19.htm EX-10.19 156534 8 EX-21.1 a2213529zex-21_1.htm EX-21.1 149383 9 EX-23.1 a2213529zex-23_1.htm EX-23.1 3448 10 EX-31.1 a2213529zex-31_1.htm EX-31.1 7375 11 EX-31.2 a2213529zex-31_2.htm EX-31.2 7361 12 EX-32.1 a2213529zex-32_1.htm EX-32.1 4716 13 EX-32.2 a2213529zex-32_2.htm EX-32.2 4701 Complete submission text file 0001047469-13-002827.txt 2332263 Mailing Address 1 NORTH WAUKEGAN ROAD NORTH CHICAGO IL 60064 Business Address 1 NORTH WAUKEGAN ROAD NORTH CHICAGO IL 60064 (847) 937-6100 AbbVie Inc. (Filer) CIK : 0001551152 (see all company filings) EIN. : 320375147 | State of Incorp.: DE | Fiscal Year End: 1231 Type: 10-K | Act: 34 | File No.: 001-35565 | Film No.: 13693701 SIC : 2834 Pharmaceutical Preparations",
+        "headerTextSha256": "73b846ced92c269de6bbe4ab75172ff41236414e364e205b8882f22f37b9bdd3"
+      }
+    }
+  }
+]

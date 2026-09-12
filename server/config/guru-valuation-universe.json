@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-09-05",
+  "companies": [
+    {
+      "ticker": "TBBB",
+      "sourceTicker": "TBBB",
+      "priceTicker": "TBBB",
+      "cik": "0001978954",
+      "name": "BBB Foods Inc.",
+      "currency": "USD",
+      "reportingCurrency": "MXN",
+      "reviewStatus": "unreviewed",
+      "reason": "Official Q2 cash-flow bridge and share claims staged. Retail forecast, future grants and historical-node treatment require model audit before activation.",
+      "identityEvidence": [
+        {
+          "source": "SEC issuer prospectus supplement",
+          "url": "https://www.sec.gov/Archives/edgar/data/1978954/000119312526248693/tbbb-20260529.htm",
+          "evidence": "NYSE-listed Class A common shares, not ADSs; include other economic share classes and contingent awards in the equity-claims audit."
+        }
+      ]
+    },
+    {
+      "ticker": "CRDO",
+      "sourceTicker": "CRDO",
+      "priceTicker": "CRDO",
+      "cik": "0001807794",
+      "name": "Credo Technology Group Holding Ltd",
+      "currency": "USD",
+      "reportingCurrency": "USD",
+      "reviewStatus": "unreviewed",
+      "proposedValuationProfile": "semiconductor_growth",
+      "reason": "2026-09-06 scoped repair: FY2027 Q1 ARQ/ART added to a private candidate, latest official revenue outlook restored to quarterly scope. Historical guidance currency, period-end shares, technology-license financing cash, SBC and DustPhotonics contingent claims require reconciliation before activation. No valuation has been released.",
+      "identityEvidence": [
+        {
+          "source": "SEC FY2027 Q1 Form 10-Q",
+          "url": "https://www.sec.gov/Archives/edgar/data/1807794/000162828026060111/crdo-20260801.htm",
+          "availableDate": "2026-09-02",
+          "evidence": "Nasdaq CRDO is an ordinary share, not an ADS. The quarter ends August 1, 2026; financial statement units are USD. This dated identity evidence does not approve historical inputs or the model."
+        }
+      ],
+      "repairAudit": "docs/audits/crdo-valuation-gap-2026-09-06.md"
+    }
+  ]
+}

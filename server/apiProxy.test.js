@@ -8,6 +8,7 @@ process.env.ONTOLOGY_API_ORIGIN = "https://ontology.example";
 
 const {
   default: proxyHandler,
+  createProxyHandler,
   forwardedHeaders,
   forwardedResponseHeaders,
   isPrivateInternalPath,
@@ -229,4 +230,99 @@ test("replaces unsent upstream representation headers when the stream fails", as
   assert.equal(Number(result.headers["content-length"]), result.body.length);
   assert.equal(result.headers["cache-control"], "no-store");
   assert.equal(JSON.parse(result.body.toString("utf8")).error, "upstream_stream_failed");
+});
+
+test("rejects paths that escape API routing or select another origin", () => {
+  for (const path of ["//attacker.example/api/gurus", "/\\attacker.example/api/gurus",
+    "/api/../../outside", "/api/gurus?secret=1", "/api/gurus#fragment", "/api/%ZZ", ["/api/gurus"]]) {
+    assert.throws(() => targetUrl({ url: "/proxy", query: { path } }), undefined, String(path));
+  }
+  for (const path of ["/api/%69nternal/a", "/api/%2569nternal/a", "/api/x/../INTERNAL/a", "/api%2finternal/a"]) {
+    assert.equal(isPrivateInternalPath(targetUrl(request(path))), true, path);
+  }
+  for (const legacyOrigin of ["ftp://example.com", "https://user:password@example.com", "https://example.com/base"]) {
+    assert.throws(() => targetUrl(request("/api/gurus"), { legacyOrigin }));
+  }
+});
+
+async function proxyFixture(context, respond, options = {}) {
+  let forwarded = 0;
+  const origin = await listen(http.createServer((req, res) => { forwarded += 1; respond(req, res); }));
+  const handler = createProxyHandler({ production: false,
+    legacyOrigin: `http://127.0.0.1:${origin.address().port}`, ...options });
+  const proxy = await listen(http.createServer((req, res) => {
+    req.query = Object.fromEntries(new URL(req.url, "http://localhost").searchParams);
+    handler(req, res).catch((error) => res.destroy(error));
+  }));
+  context.after(() => { proxy.closeAllConnections(); proxy.close(); origin.closeAllConnections(); origin.close(); });
+  return { port: proxy.address().port, forwarded: () => forwarded };
+}
+
+function proxyCall(port, { path = "/api/gurus", method = "GET", headers = {}, chunks = [] } = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: "127.0.0.1", port, method, headers,
+      path: `/proxy?path=${encodeURIComponent(path)}` }, (res) => {
+      const parts = [];
+      res.on("data", (chunk) => parts.push(chunk));
+      res.on("error", reject);
+      res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(parts).toString() }));
+    });
+    req.on("error", reject);
+    for (const chunk of chunks) req.write(chunk);
+    req.end();
+  });
+}
+
+test("production rejects HTTP before forwarding authorization or request body", async (context) => {
+  const fixture = await proxyFixture(context, (_req, res) => res.end("unexpected"), { production: true });
+  const result = await proxyCall(fixture.port, { method: "POST", headers: { authorization: "Bearer private-test" }, chunks: ["private"] });
+  assert.equal(result.status, 503);
+  assert.equal(JSON.parse(result.body).error, "insecure_upstream");
+  assert.equal(fixture.forwarded(), 0);
+  assert.doesNotMatch(result.body, /private-test|127\.0\.0\.1/);
+  const internal = await proxyCall(fixture.port, { path: "/api/%2569nternal/x" });
+  assert.equal(internal.status, 404);
+});
+
+test("limits both declared and chunked bodies, preserving allowed POST payloads", async (context) => {
+  const fixture = await proxyFixture(context, (req, res) => {
+    const chunks = []; req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => res.end(Buffer.concat(chunks)));
+  }, { maxBodyBytes: 8 });
+  const accepted = await proxyCall(fixture.port, { method: "POST", chunks: ["1234", "5678"] });
+  assert.equal(accepted.status, 200); assert.equal(accepted.body, "12345678");
+  for (const headers of [{ "content-length": "9" }, {}]) {
+    const rejected = await proxyCall(fixture.port, { method: "POST", headers, chunks: ["123456789"] });
+    assert.equal(rejected.status, 413);
+  }
+  assert.equal(fixture.forwarded(), 1);
+});
+
+test("upstream wall-clock deadline returns 504 before headers", async (context) => {
+  const fixture = await proxyFixture(context, () => {}, { upstreamTimeoutMs: 30 });
+  const result = await proxyCall(fixture.port);
+  assert.equal(result.status, 504);
+  assert.equal(JSON.parse(result.body).error, "upstream_timeout");
+});
+
+test("incomplete incoming bodies time out without reaching the upstream", async (context) => {
+  const fixture = await proxyFixture(context, () => {}, { bodyTimeoutMs: 30 });
+  const result = await new Promise((resolve, reject) => {
+    const req = http.request({ host: "127.0.0.1", port: fixture.port, method: "POST",
+      path: "/proxy?path=/api/gurus", headers: { "content-length": "8" } }, (res) => {
+      res.resume(); res.on("end", () => { resolve(res.statusCode); req.destroy(); });
+    });
+    req.on("error", reject); req.write("1");
+  });
+  assert.equal(result, 408); assert.equal(fixture.forwarded(), 0);
+});
+
+test("conditional 304 responses retain validators and do not acquire a body", async (context) => {
+  const fixture = await proxyFixture(context, (req, res) => {
+    assert.equal(req.headers["if-none-match"], '"same"');
+    res.writeHead(304, { etag: '"same"', vary: "Accept-Encoding" }); res.end();
+  });
+  const result = await proxyCall(fixture.port, { headers: { "if-none-match": '"same"' } });
+  assert.equal(result.status, 304); assert.equal(result.body, "");
+  assert.equal(result.headers.etag, '"same"'); assert.equal(result.headers.vary, "Accept-Encoding");
 });

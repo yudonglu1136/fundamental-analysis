@@ -1043,6 +1043,11 @@ const cusipTickerMap = new Map([
   //   one-record correction is deliberately not a generic left-pad rule.
   ["N31738102", "FCAU"],
   ["384313508", "EAF"],
+  // Defender's 2018 Q4–2019 Q2 BioTime common shares are the same outstanding
+  // shares renamed Lineage (LCTX) on 2019-08-12; certificates remained valid.
+  // This is a name/CUSIP change, not a cash deal or successor consideration.
+  // https://www.sec.gov/Archives/edgar/data/876343/000149315219012036/form8-k.htm
+  ["09066L105", "LCTX"],
 ]);
 
 // Filing-error repairs are narrower than ordinary CUSIP mappings. The broken

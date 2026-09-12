@@ -1,0 +1,122 @@
+[
+  {
+    "ticker": "GEV",
+    "sourceId": "99db92ac9e105e032d544068",
+    "observedAt": "2024-04-25",
+    "evidence": "For full year 2024, we continue to forecast revenue in the $34 billion-$35 billion range, with adjusted EBITDA margin at the high end of mid-single digits.",
+    "currency": "USD",
+    "amount": 34500,
+    "unit": "reported millions",
+    "metricName": "revenue_guidance",
+    "fiscalPeriod": "Q12024",
+    "perShareValue": null,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "GEV",
+      "sourceId": "99db92ac9e105e032d544068",
+      "observedAt": "2024-04-25",
+      "originalQuoteSha256": "dc1a285b07d686c62d36863092a962f84a108148c809be64a56d5908c08f296c",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "revenue_guidance",
+      "fiscalPeriod": "Q12024",
+      "amountM": 34500,
+      "unit": "reported millions",
+      "sourceLedgerSha256": "66019caa326959a1e2dca4eb9943c71d723789e0fcb2ff4c065699fd35ad2d95",
+      "preEnrichmentPayloadSha256": "4bd6a47945e5d23ce4320322465d6c9969f3cc8a8b050a77e00072b02baaf9fd",
+      "originalEvidencePayloadSha256": "4bd6a47945e5d23ce4320322465d6c9969f3cc8a8b050a77e00072b02baaf9fd",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "Additionally, we are subject to foreign exchange translation risk due to changes in the value of foreign currencies in relation to our reporting currency, the U.S. Dollar.",
+          "General Electric Company (“GE”) of its wholly-owned subsidiary, GE Vernova LLC (together with its subsidiaries, “GE Vernova,” the “Company,” “we,” “us,” or “our”)"
+        ],
+        "availableAt": "2024-03-05",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1996810/000119312524059354/d542465dex991.htm",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-next-direct-primary-20260906/GEV/d542465dex991.htm",
+        "documentSha256": "6e188b2af11ef157d6140c03c70ccc17b635eb12fc39dc5f9b9bf5989e7784a5",
+        "form": "10-12B/A",
+        "accession": "0001193125-24-059354",
+        "cik": "0001996810",
+        "inference": false,
+        "limitations": "Currency is explicitly stated for GE Vernova carve-out group in an already-filed pre-spin information statement, not inferred from GE Aerospace. Source is marked Subject to Completion; no forecast or model economics approved.",
+        "filingDateEvidence": {
+          "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1996810/000119312524059354/0001193125-24-059354-index-headers.html",
+          "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-next-direct-primary-20260906/GEV/0001193125-24-059354-index-headers.html",
+          "documentSha256": "7dc91712cf98ee48055afa9c2c81c1453055dd304490c2e1bf4e27b591e4ea64",
+          "headerText": "<SEC-HEADER>0001193125-24-059354.hdr.sgml : 20240305 <ACCEPTANCE-DATETIME>20240305164315 ACCESSION NUMBER: 0001193125-24-059354 CONFORMED SUBMISSION TYPE: 10-12B/A PUBLIC DOCUMENT COUNT: 33 FILED AS OF DATE: 20240305 DATE AS OF CHANGE: 20240305 FILER: COMPANY DATA: COMPANY CONFORMED NAME: GE Vernova LLC CENTRAL INDEX KEY: 0001996810 STANDARD INDUSTRIAL CLASSIFICATION: ELECTRONIC & OTHER ELECTRICAL EQUIPMENT (NO COMPUTER EQUIP) [3600] ORGANIZATION NAME: 04 Manufacturing IRS NUMBER: 461480316 STATE OF INCORPORATION: DE FISCAL YEAR END: 1231 FILING VALUES: FORM TYPE: 10-12B/A SEC ACT: 1934 Act SEC FILE NUMBER: 001-41966 FILM NUMBER: 24721466 BUSINESS ADDRESS: STREET 1: 58 CHARLES STREET CITY: CAMBRIDGE STATE: MA ZIP: 02141 BUSINESS PHONE: 617-674-7555 MAIL ADDRESS: STREET 1: 58 CHARLES STREET CITY: CAMBRIDGE STATE: MA ZIP: 02141 </SEC-HEADER>",
+          "headerTextSha256": "b44efd95eb9b89ec696396826aa543b607574a3ad6e4e0c6a1dedb81b89c88ae"
+        },
+        "paragraphSha256": [
+          "1022d0cc52355433c576a8acd402b7c83727bae94e45782c1243cda8f8a9f895",
+          "8ad8787985898546d1a04a6a85ba2e05da96646d08af1e4bc7bd12d10166f160"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required."
+    }
+  },
+  {
+    "ticker": "NWSA",
+    "sourceId": "b16468d693c7d2867723e024",
+    "observedAt": "2013-11-11",
+    "evidence": "We expect full-year CapEx to be higher than fiscal 2013 and more in line with levels seen in fiscal 2012 of $375 million, as we had discussed at the Investor Day.",
+    "currency": "USD",
+    "amount": 375,
+    "unit": "reported millions",
+    "metricName": "capex_guidance",
+    "fiscalPeriod": "Q12014",
+    "perShareValue": null,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "NWSA",
+      "sourceId": "b16468d693c7d2867723e024",
+      "observedAt": "2013-11-11",
+      "originalQuoteSha256": "da7a77d3e887efac7c94c80d1fd09ee913e6e29a8fb2c2557929a5a34c91a081",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "capex_guidance",
+      "fiscalPeriod": "Q12014",
+      "amountM": 375,
+      "unit": "reported millions",
+      "sourceLedgerSha256": "66019caa326959a1e2dca4eb9943c71d723789e0fcb2ff4c065699fd35ad2d95",
+      "preEnrichmentPayloadSha256": "8d9d30beae9a68b23ebf4140393bbfb6eb723ad0c0c66c5bf647f7d16896023f",
+      "originalEvidencePayloadSha256": "8d9d30beae9a68b23ebf4140393bbfb6eb723ad0c0c66c5bf647f7d16896023f",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "Foreign currency translation risk is the risk that exchange rate gains or losses arise from translating foreign entities’ statements of earnings and balance sheets from functional currency to the Company’s reporting currency (the U.S. dollar) for consolidation purposes.",
+          "NEWS CORPORATION (Exact Name of Registrant as Specified in its Charter)"
+        ],
+        "availableAt": "2013-09-20",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1564708/000119312513373501/d581644d10k.htm",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-next-direct-primary-20260906/NWSA/d581644d10k.htm",
+        "documentSha256": "776c07856438141df9490ac77f01cedd733d28b7504545e2a359c1269be9eb98",
+        "form": "10-K",
+        "accession": "0001193125-13-373501",
+        "cik": "0001564708",
+        "inference": false,
+        "limitations": "Direct consolidated presentation-currency statement, not revenue exposure inference. Original guidance_target_year=2012 compares historical CapEx, requiring a separate target-year/semantic audit; currency proof does not approve that year.",
+        "filingDateEvidence": {
+          "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1564708/000119312513373501/0001193125-13-373501-index.html",
+          "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-next-direct-primary-20260906/NWSA/0001193125-13-373501-index.html",
+          "documentSha256": "5d1215f7497a42a247ed1d34efef968816c95c990322c3e146837cca00480e6e",
+          "headerText": "EDGAR Filing Documents for 0001193125-13-373501 This page uses Javascript. Your browser either doesn't support Javascript or you have it turned off. To see this page as it is meant to appear please use a Javascript enabled browser. SEC.gov EDGAR Latest Filings Filings search tools Filing Detail SEC Home » Company Search » Current Page Form 10-K - Annual report [Section 13 and 15(d), not S-K Item 405]: SEC Accession No. 0001193125-13-373501 Filing Date 2013-09-20 Accepted 2013-09-20 17:15:42 Documents 15 Period of Report 2013-06-30 Document Format Files Seq Description Document Type Size 1 10-K d581644d10k.htm 10-K 2619446 2 EX-3.1 d581644dex31.htm EX-3.1 90317 3 EX-10.3 d581644dex103.htm EX-10.3 51003 4 EX-10.4 d581644dex104.htm EX-10.4 9870 5 EX-10.6 d581644dex106.htm EX-10.6 39761 6 EX-10.7 d581644dex107.htm EX-10.7 37557 7 EX-10.8 d581644dex108.htm EX-10.8 94460 8 EX-21.1 d581644dex211.htm EX-21.1 84501 9 EX-23.1 d581644dex231.htm EX-23.1 1387 10 EX-23.2 d581644dex232.htm EX-23.2 1572 11 EX-31.1 d581644dex311.htm EX-31.1 9156 12 EX-31.2 d581644dex312.htm EX-31.2 9193 13 EX-32.1 d581644dex321.htm EX-32.1 4024 14 EX-99.1 d581644dex991.htm EX-99.1 636276 15 GRAPHIC g581644g20w16.jpg GRAPHIC 10296 Complete submission text file 0001193125-13-373501.txt 3704126 Mailing Address 1211 AVENUE OF THE AMERICAS NEW YORK NY 10036 Business Address 1211 AVENUE OF THE AMERICAS NEW YORK NY 10036 212-416-3400 NEWS CORP (Filer) CIK : 0001564708 (see all company filings) EIN. : 000000000 | State of Incorp.: DE | Fiscal Year End: 0613 Type: 10-K | Act: 34 | File No.: 001-35769 | Film No.: 131108604 SIC : 2711 Newspapers: Publishing or Publishing & Printing",
+          "headerTextSha256": "9d9cef0b2ec2086152dc010139cf9aa82bfcd4e2197d22baa75803f62e8c9d11"
+        },
+        "paragraphSha256": [
+          "efc03b4a23d629cc7580d1856021f7689b6cad2548352641359aca820a9a4940",
+          "aa530b8db481794095d74738fddd2cd176f6cd5a87e505bb8d6497322e9c225c"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required."
+    }
+  }
+]

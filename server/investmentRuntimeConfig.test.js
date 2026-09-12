@@ -1,0 +1,169 @@
+import test from 'node:test';
+import a from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import express from 'express';
+import { DatabaseSync } from 'node:sqlite';
+import { holdingResolutionVersion } from './cusipOverrides.js';
+import { manager13fCorporateActionCatalogVersion } from './corporateActions.js';
+import { INVESTMENT_RELEASE_VERSION, INVESTMENT_REQUIRED_SOURCE_TABLES, resolveInvestmentRuntimeConfig, validateInvestmentRelease, verifiedInvestmentOwner } from './investmentRuntimeConfig.js';
+import { investmentProductionIdentity } from './investmentRoutes.js';
+import { InvestmentStore } from './investmentStore.js';
+import { portfolioResponsePrivacy } from './portfolioHttp.js';
+import { strategyWorkerLimits } from './strategyLabRoutes.js';
+
+function fixture(t) {
+  const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'tf-investment-runtime-')));
+  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  const release=path.join(root,'release');fs.mkdirSync(release);
+  const manifestPath=path.join(release,'manifest.json');
+  const paths={releaseId:'test-release-20260912'},files={};
+  for(const key of ['research','strategy','composition']) {
+    const file=path.join(release,`${key}.sqlite`),data=Buffer.from(`Synthetic fixture: ${key}`);
+    fs.writeFileSync(file,data,{mode:0o600}); paths[key]=file;
+    files[key]={path:file,bytes:data.length,sha256:crypto.createHash('sha256').update(data).digest('hex')};
+  }
+  const manifest={version:INVESTMENT_RELEASE_VERSION,releaseId:paths.releaseId,state:'verified',cutoff:'2026-09-11',
+    checks:{integrity:'ok',schema:'pass',sourceAlignment:'pass',privateDataExcluded:true},files};
+  fs.writeFileSync(manifestPath,JSON.stringify(manifest),{mode:0o600});
+  return {root,paths,manifest,manifestPath,options:{manifestPath,trustedUid:fs.statSync(manifestPath).uid}};
+}
+
+function productionFixture(t) {
+  const f=fixture(t),users=path.join(f.root,'users');fs.mkdirSync(users,{mode:0o700});
+  const legacy=path.join(f.root,'legacy.sqlite');new DatabaseSync(legacy).close();
+  for(const file of Object.values(f.paths).filter(value=>value.endsWith('.sqlite'))) fs.unlinkSync(file);
+  const source=new DatabaseSync(f.paths.research);
+  for(const table of INVESTMENT_REQUIRED_SOURCE_TABLES)source.exec(`CREATE TABLE ${table}(fixture TEXT)`);
+  source.close();
+  const warehouse=new DatabaseSync(f.paths.strategy);
+  warehouse.exec('CREATE TABLE warehouse_meta(id INTEGER PRIMARY KEY,schema_version INTEGER,state TEXT,manifest_hash TEXT,security_version TEXT,action_version TEXT,cutoff TEXT)');
+  warehouse.prepare('INSERT INTO warehouse_meta VALUES(1,1,?,?,?,?,?)').run('complete','f'.repeat(64),holdingResolutionVersion(),manager13fCorporateActionCatalogVersion,f.manifest.cutoff);warehouse.close();
+  const prices=new DatabaseSync(f.paths.composition);prices.exec('CREATE TABLE series(symbol TEXT);CREATE TABLE prices(symbol TEXT)');prices.close();
+  const updateManifest=()=>{
+    for(const [key,file] of Object.entries(f.paths).filter(([key])=>['research','strategy','composition'].includes(key))) {
+      const bytes=fs.readFileSync(file);f.manifest.files[key].bytes=bytes.length;f.manifest.files[key].sha256=crypto.createHash('sha256').update(bytes).digest('hex');
+    }
+    fs.writeFileSync(f.manifestPath,JSON.stringify(f.manifest));
+  };
+  updateManifest();
+  // The pure validator separately tests owner mismatch. Simulate the trusted
+  // root installer only for this local HTTP/schema test (never in runtime).
+  const originalStat=fs.statSync;t.mock.method(fs,'statSync',(file,...args)=>{
+    const result=originalStat(file,...args);if(file===f.manifestPath)result.uid=0;return result;
+  });
+  const env={NODE_ENV:'production',INVESTMENT_WORKFLOW_ENABLED:'true',SQLITE_DB_PATH:legacy,USER_PORTFOLIO_DATA_DIR:users,
+    INVESTMENT_SOURCE_DB_PATH:f.paths.research,INVESTMENT_DB_PATH:path.join(users,'investment.sqlite'),
+    STRATEGY_DATA_DB_PATH:f.paths.strategy,STRATEGY_COMPOSITION_PRICE_DB_PATH:f.paths.composition,
+    INVESTMENT_RELEASE_MANIFEST_PATH:f.manifestPath,INVESTMENT_RELEASE_ID:f.paths.releaseId};
+  return {...f,env,updateManifest};
+}
+
+test('workflow stays disabled without probing files; preview accepts separate source without changing legacy roots',t=>{
+  a.equal(resolveInvestmentRuntimeConfig({NODE_ENV:'production'}),null);
+  const {root}=fixture(t);
+  const config=resolveInvestmentRuntimeConfig({INVESTMENT_WORKFLOW_ENABLED:'true',SQLITE_DB_PATH:path.join(root,'legacy.sqlite'),
+    INVESTMENT_SOURCE_DB_PATH:path.join(root,'new-source.sqlite'),INVESTMENT_DB_PATH:path.join(root,'private/investment.sqlite')});
+  a.equal(config.research,path.join(root,'new-source.sqlite'));
+  a.equal(config.investment,path.join(root,'private/investment.sqlite'));a.equal(config.production,false);
+  a.equal(fs.existsSync(path.join(root,'private')),false);
+});
+
+test('reviewed manifest validates exact versions paths sizes and distinct physical files without scanning large payloads',t=>{
+  const {manifest,paths,options}=fixture(t);
+  a.equal(validateInvestmentRelease(manifest,paths,options),manifest);
+  for(const mutate of [m=>m.state='staged',m=>m.releaseId='different-release',m=>m.version='other',
+    m=>m.checks.privateDataExcluded=false,m=>m.checks.integrity='pending',m=>m.cutoff='2026-02-30',
+    m=>m.files.strategy.bytes++,m=>m.files.research.sha256='unverified',m=>m.files.composition.path=paths.strategy]) {
+    const changed=structuredClone(manifest);mutate(changed);a.throws(()=>validateInvestmentRelease(changed,paths,options));
+  }
+});
+
+test('manifest trust and public artifacts reject writable metadata, wrong root owner, symlink and pending WAL',t=>{
+  const {manifest,paths,options,root,manifestPath}=fixture(t);
+  a.throws(()=>validateInvestmentRelease(manifest,paths,{...options,trustedUid:-1}),/permissions/);
+  fs.chmodSync(manifestPath,0o666);a.throws(()=>validateInvestmentRelease(manifest,paths,options),/permissions/);fs.chmodSync(manifestPath,0o600);
+  fs.chmodSync(paths.research,0o666);a.throws(()=>validateInvestmentRelease(manifest,paths,options),/file_mismatch/);fs.chmodSync(paths.research,0o600);
+  fs.writeFileSync(`${paths.research}-wal`,'pending');a.throws(()=>validateInvestmentRelease(manifest,paths,options),/pending_wal/);fs.unlinkSync(`${paths.research}-wal`);
+  const link=path.join(root,'release','linked.sqlite');fs.symlinkSync(paths.research,link);
+  const linked=structuredClone(manifest);linked.files.research.path=link;
+  a.throws(()=>validateInvestmentRelease(linked,{...paths,research:link},options),/path_mismatch/);
+});
+
+test('public/private collision including hard links fails before creating or mutating stores',t=>{
+  const {root,paths}=fixture(t),privateFile=path.join(root,'private.sqlite');fs.linkSync(paths.research,privateFile);
+  const base={INVESTMENT_WORKFLOW_ENABLED:'true',SQLITE_DB_PATH:paths.research,INVESTMENT_DB_PATH:privateFile};
+  a.throws(()=>resolveInvestmentRuntimeConfig(base),/collision/);
+  a.throws(()=>resolveInvestmentRuntimeConfig({...base,INVESTMENT_DB_PATH:paths.research}),/separate|collision/);
+});
+
+test('production refuses local owner identity or implicit new data paths before any mutation',t=>{
+  const {root}=fixture(t),base={NODE_ENV:'production',INVESTMENT_WORKFLOW_ENABLED:'true',
+    SQLITE_DB_PATH:path.join(root,'legacy.sqlite'),INVESTMENT_DB_PATH:path.join(root,'users/investment.sqlite')};
+  for(const overrides of [{API_AUTH_DEV_BYPASS:'true'},{AUTH_DEV_BYPASS:'true'},{LOCAL_OWNER_PORTFOLIO_DB:'/private/owner.sqlite'},{LOCAL_OWNER_PORTFOLIO_HASH:'private'}])
+    a.throws(()=>resolveInvestmentRuntimeConfig({...base,...overrides}),/local_identity_forbidden/);
+  a.throws(()=>resolveInvestmentRuntimeConfig(base),/explicit_paths/);
+  a.equal(fs.existsSync(path.join(root,'users')),false);
+});
+
+test('production read-only preflight accepts the reviewed schemas without creating user data or touching the legacy database',t=>{
+  const {env}=productionFixture(t),before=fs.readFileSync(env.SQLITE_DB_PATH);
+  const config=resolveInvestmentRuntimeConfig(env);
+  a.equal(config.production,true);a.equal(config.cutoff,'2026-09-11');a.equal(config.research,env.INVESTMENT_SOURCE_DB_PATH);
+  a.deepEqual(fs.readFileSync(env.SQLITE_DB_PATH),before);a.equal(fs.existsSync(env.INVESTMENT_DB_PATH),false);
+});
+
+test('production preflight rejects copied local account tables and existing broker-store destinations',t=>{
+  const {env,updateManifest}=productionFixture(t);
+  const privateDb=new DatabaseSync(env.INVESTMENT_DB_PATH);privateDb.exec('CREATE TABLE portfolio_credentials(owner TEXT)');privateDb.close();
+  a.throws(()=>resolveInvestmentRuntimeConfig(env),/private_store_schema_conflict/);
+  a.throws(()=>new InvestmentStore(env.INVESTMENT_DB_PATH,undefined,{verifiedOwnersOnly:true}),/private_store_schema_conflict/);
+  const source=new DatabaseSync(env.INVESTMENT_SOURCE_DB_PATH);source.exec('CREATE TABLE portfolio_nav_points(owner TEXT)');source.close();updateManifest();
+  a.throws(()=>resolveInvestmentRuntimeConfig(env),/unexpected_source_table/);
+});
+
+test('production preflight rejects local-dev journal owners and stale warehouse schema identities',t=>{
+  const {env,updateManifest}=productionFixture(t);
+  const store=new InvestmentStore(env.INVESTMENT_DB_PATH);
+  store.write('local-dev-user','strategy','','preview_fixture_1234',{},()=>({fixture:true}));store.close();
+  a.throws(()=>resolveInvestmentRuntimeConfig(env),/unverified_owner/);
+  a.throws(()=>new InvestmentStore(env.INVESTMENT_DB_PATH,undefined,{verifiedOwnersOnly:true}),/unverified_owner/);
+  const warehouse=new DatabaseSync(env.STRATEGY_DATA_DB_PATH);warehouse.exec("UPDATE warehouse_meta SET security_version='old'");warehouse.close();updateManifest();
+  a.throws(()=>resolveInvestmentRuntimeConfig(env),/strategy_database_version_mismatch/);
+});
+
+test('production append-only journal accepts verified UUID owner and remains isolated after reopen',t=>{
+  const {root}=fixture(t),file=path.join(root,'journal.sqlite'),owner=crypto.randomUUID(),other=crypto.randomUUID();
+  const store=new InvestmentStore(file,undefined,{verifiedOwnersOnly:true});
+  const saved=store.write(owner,'strategy_lab','','test_operation_12345',{rule:1},()=>({asOf:'2026-09-11',rule:1}));
+  for(const invalid of ['local-dev-user','admin','',null,'../user']) {
+    a.equal(verifiedInvestmentOwner(invalid),false);
+    a.throws(()=>store.write(invalid,'strategy_lab','','test_operation_12345',{rule:1},()=>({rule:1})),/unauthorized/);
+  }
+  a.throws(()=>store.get(other,saved.id),/record_not_found/);store.close();
+  const reopened=new InvestmentStore(file,undefined,{verifiedOwnersOnly:true});
+  a.equal(reopened.list(owner)[0].id,saved.id);a.deepEqual(reopened.list(other),[]);reopened.close();
+});
+
+test('production investment route identity requires matching verified bearer subject, not user or owner overrides',async t=>{
+  const id=crypto.randomUUID();
+  const app=express();app.use('/api/investment',portfolioResponsePrivacy);
+  app.use((req,_,next)=>{if(req.headers['x-fixture-user'])req.user={id:req.headers['x-fixture-user']};if(req.headers['x-fixture-verified'])req.auth={user:{id:req.headers['x-fixture-verified']}};next();});
+  app.use('/api/investment',investmentProductionIdentity);app.get('/api/investment/test',(req,res)=>res.json({owner:req.user.id}));
+  const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));t.after(()=>new Promise(r=>server.close(r)));
+  for(const headers of [{},{'x-fixture-user':id},{'x-fixture-user':id,'x-fixture-verified':crypto.randomUUID()},
+    {'x-fixture-user':'local-dev-user','x-fixture-verified':'local-dev-user'}]) {
+    const r=await fetch(`http://127.0.0.1:${server.address().port}/api/investment/test?owner=${id}`,{headers});
+    a.equal(r.status,401);a.match(r.headers.get('cache-control'),/no-store/);a.match(r.headers.get('vary'),/Authorization/);
+  }
+  const r=await fetch(`http://127.0.0.1:${server.address().port}/api/investment/test?owner=other`,{headers:{'x-fixture-user':id,'x-fixture-verified':id}});
+  a.equal(r.status,200);a.deepEqual(await r.json(),{owner:id});
+});
+
+test('production strategy compute fits a single bounded worker instead of an unbounded queue',()=>{
+  const limits=strategyWorkerLimits({NODE_ENV:'production'});
+  a.equal(limits.maxActive,1);a.equal(limits.resourceLimits.maxOldGenerationSizeMb,512);
+  a.equal(strategyWorkerLimits({NODE_ENV:'test'}).maxActive,2);
+});

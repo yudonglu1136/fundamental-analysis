@@ -585,6 +585,64 @@ export const gurus = [
     ]
   },
   {
+    id: "william-heard",
+    name: "William Heard",
+    chineseName: "威廉·赫德",
+    entityName: "Heard Capital LLC",
+    cik: "0001796409",
+    type: "manager13f",
+    role: "Heard Capital founder / CEO / CIO",
+    thesisTag: "Heard Capital public long-equity portfolio",
+    notes: [
+      "Heard Capital LLC files quarterly Form 13F-HR reports. The app uses the firm's reportable long holdings as William Heard's public-equity proxy.",
+      "The 13F is not a personal portfolio or the firm's complete strategy: shorts, cash, private investments and intra-quarter trading are outside this view."
+    ]
+  },
+  {
+    id: "evan-mcgoff",
+    name: "Evan McGoff",
+    chineseName: "埃文·麦戈夫",
+    entityName: "DOCK STREET ASSET MANAGEMENT INC",
+    cik: "0001172779",
+    type: "manager13f",
+    role: "Dock Street Asset Management CIO",
+    thesisTag: "Concentrated profitable businesses with competitive advantages",
+    notes: [
+      "Dock Street Asset Management Inc files quarterly Form 13F-HR reports. Holdings and changes belong to the reporting firm, not to Evan McGoff personally.",
+      "The historical series begins before McGoff's tenure and must not be interpreted as his personal investment track record.",
+      "The 13F omits cash, shorts, non-reportable securities and intra-quarter trading; it is not the complete client-account portfolio."
+    ]
+  },
+  {
+    id: "michael-cuggino",
+    name: "Michael Cuggino",
+    chineseName: "迈克尔·库吉诺",
+    entityName: "PACIFIC HEIGHTS ASSET MANAGEMENT LLC",
+    cik: "0001323414",
+    type: "manager13f",
+    role: "Pacific Heights Asset Management president / portfolio manager",
+    thesisTag: "Pacific Heights reportable long-equity sleeve",
+    notes: [
+      "Pacific Heights Asset Management LLC is the Form 13F filer associated with Michael Cuggino. Filings are assigned by the reporting CIK, not by a filing agent's accession-number prefix.",
+      "This manager-level 13F is not the complete Permanent Portfolio allocation: gold, bonds, currencies, cash and other non-reportable exposures are not reconstructed.",
+      "Quarterly share changes are delayed ownership disclosures, not actual execution dates or a record of fund returns."
+    ]
+  },
+  {
+    id: "john-stamas",
+    name: "John Stamas",
+    chineseName: "约翰·斯塔马斯",
+    entityName: "Defender Capital, LLC.",
+    cik: "0001766929",
+    type: "manager13f",
+    role: "Defender Capital CIO",
+    thesisTag: "Defender Capital public long-equity portfolio",
+    notes: [
+      "Defender Capital, LLC. is the Form 13F filer associated with CIO John Stamas. This is not the similarly named Defender Capital Partners private-fund entity.",
+      "The app tracks the firm's reportable long holdings, not John Stamas's personal assets; cash, shorts, private investments and intra-quarter trading are not disclosed by this series."
+    ]
+  },
+  {
     id: "george-soros",
     name: "George Soros",
     chineseName: "索罗斯",

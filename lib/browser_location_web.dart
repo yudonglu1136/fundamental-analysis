@@ -1,5 +1,29 @@
 import 'package:web/web.dart' as web;
 
+// Only a display preference is persisted, never portfolio values or credentials.
+bool readPortfolioPrivacyPreference() {
+  try {
+    return web.window.localStorage.getItem(
+          'thesisforge.portfolio.privacy.v1',
+        ) ==
+        'on';
+  } catch (_) {
+    return true; // Do not reveal amounts when a saved preference cannot be read.
+  }
+}
+
+bool writePortfolioPrivacyPreference(bool hidden) {
+  try {
+    web.window.localStorage.setItem(
+      'thesisforge.portfolio.privacy.v1',
+      hidden ? 'on' : 'off',
+    );
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 Map<String, String> readBrowserQuery() => Uri.base.queryParameters;
 
 String readBrowserPath() => Uri.base.path;

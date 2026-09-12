@@ -3,10 +3,11 @@ import https from "node:https";
 
 const LEGACY_AWS_ORIGIN =
   process.env.AWS_API_ORIGIN ||
-  "http://guru-analysis-api-prod-378477120101.us-east-1.elasticbeanstalk.com";
+  "https://backend.thesisforge.tech";
 const ONTOLOGY_API_ORIGIN =
   process.env.ONTOLOGY_API_ORIGIN ||
   "https://api.thesisforge.tech";
+const PRODUCTION = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
 
 const RETIRED_PATH_ALIASES = new Map([
   ["/api/dbmf", "/api/ontology/overview"]
@@ -47,21 +48,35 @@ const REQUEST_HEADERS = [
   "user-agent"
 ];
 
-export function targetUrl(request) {
+export function targetUrl(request, origins = {}) {
   const requestUrl = new URL(request.url, "https://thesisforge.tech");
-  const path = request.query.path || "";
+  const path = request.query?.path;
+  if (typeof path !== "string") throw new Error("Invalid API path");
   requestUrl.searchParams.delete("path");
-  const normalizedPath = String(path).startsWith("/")
-    ? String(path)
-    : `/${path}`;
+  let normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  // Canonicalize before routing and checking the private namespace. Never let
+  // an absolute URL, encoded traversal or backslash select another origin.
+  for (let depth = 0; depth < 8; depth += 1) {
+    const decoded = decodeURIComponent(normalizedPath);
+    if (decoded === normalizedPath) break;
+    normalizedPath = decoded;
+  }
+  if (!/^\/api(?:\/|$)/i.test(normalizedPath) || /[\\?#%\x00-\x20\x7f]/.test(normalizedPath)) {
+    throw new Error("Invalid API path");
+  }
+  normalizedPath = new URL(normalizedPath, "https://thesisforge.tech").pathname;
+  if (!/^\/api(?:\/|$)/i.test(normalizedPath)) throw new Error("Invalid API path");
   const targetPath = RETIRED_PATH_ALIASES.get(normalizedPath) || normalizedPath;
   const ontologyRequest = ONTOLOGY_PATHS.some((prefix) => (
     targetPath === prefix || targetPath.startsWith(`${prefix}/`)
   ));
-  const target = new URL(
-    targetPath,
-    ontologyRequest ? ONTOLOGY_API_ORIGIN : LEGACY_AWS_ORIGIN
-  );
+  const origin = new URL(ontologyRequest
+    ? (origins.ontologyOrigin || ONTOLOGY_API_ORIGIN)
+    : (origins.legacyOrigin || LEGACY_AWS_ORIGIN));
+  if (!["http:", "https:"].includes(origin.protocol) || origin.username || origin.password
+      || origin.pathname !== "/" || origin.search || origin.hash) throw new Error("Invalid API origin");
+  const target = new URL(targetPath, origin);
+  if (target.origin !== origin.origin) throw new Error("Invalid API path");
   target.search = requestUrl.searchParams.toString();
   return target;
 }
@@ -103,25 +118,71 @@ function hasRequestBody(request) {
   return !["GET", "HEAD"].includes(String(request.method || "GET").toUpperCase());
 }
 
-function sendProxyError(response, code, error) {
+function sendProxyError(response, code, error, status = 502) {
   if (response.headersSent) {
     response.destroy(error);
     return;
   }
-  for (const header of response.getHeaderNames()) response.removeHeader(header);
+  for (const header of response.getHeaderNames?.() || []) response.removeHeader(header);
   const body = Buffer.from(JSON.stringify({ error: code, message: error.message }));
-  response.statusCode = 502;
+  response.statusCode = status;
   response.setHeader("content-type", "application/json; charset=utf-8");
   response.setHeader("cache-control", "no-store");
+  if (status === 413 || status === 408) response.setHeader("connection", "close");
   response.setHeader("content-length", body.length);
   response.end(body);
 }
 
-export default async function handler(request, response) {
-  const target = targetUrl(request);
-  // The production Elastic Beanstalk origin is currently HTTP-only. Internal
-  // bearer credentials must never be forwarded across that public hop; release
-  // automation reaches the same routes through loopback on the EB instance.
+function readBody(request, maxBytes, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const declared = request.headers["content-length"];
+    if (declared !== undefined && (!/^\d+$/.test(String(declared)) || Number(declared) > maxBytes)) {
+      request.on("error", () => {});
+      request.resume?.();
+      reject(Object.assign(new Error("Request body exceeds the allowed size."), { status: 413 }));
+      return;
+    }
+    let bytes = 0;
+    let finished = false;
+    const chunks = [];
+    const finish = (error, body) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      request.removeListener("data", onData);
+      request.removeListener("end", onEnd);
+      request.removeListener("error", onError);
+      request.removeListener("aborted", onAborted);
+      if (error) { request.on("error", () => {}); request.resume?.(); reject(error); }
+      else resolve(body);
+    };
+    const onData = (chunk) => {
+      bytes += chunk.length;
+      if (bytes > maxBytes) finish(Object.assign(new Error("Request body exceeds the allowed size."), { status: 413 }));
+      else chunks.push(chunk);
+    };
+    const onEnd = () => finish(null, Buffer.concat(chunks));
+    const onError = () => finish(Object.assign(new Error("Request body was interrupted."), { status: 400 }));
+    const onAborted = () => finish(Object.assign(new Error("Request body was interrupted."), { status: 400 }));
+    const timer = setTimeout(() => finish(Object.assign(new Error("Request body timed out."), { status: 408 })), timeoutMs);
+    timer.unref?.();
+    request.on("data", onData);
+    request.once("end", onEnd);
+    request.once("error", onError);
+    request.once("aborted", onAborted);
+  });
+}
+
+export function createProxyHandler({ production = PRODUCTION, maxBodyBytes = 1024 * 1024,
+  bodyTimeoutMs = 10000, upstreamTimeoutMs = 120000, ...origins } = {}) {
+ return async function handler(request, response) {
+  let target;
+  try { target = targetUrl(request, origins); }
+  catch {
+    sendProxyError(response, "invalid_proxy_target", new Error("The API route or origin is invalid."), 400);
+    return;
+  }
+  // Internal release credentials are restricted to EB loopback, even after TLS.
   if (isPrivateInternalPath(target)) {
     const body = Buffer.from(JSON.stringify({
       error: "not_found",
@@ -134,14 +195,16 @@ export default async function handler(request, response) {
     response.end(body);
     return;
   }
-  const body = hasRequestBody(request)
-    ? await new Promise((resolve, reject) => {
-        const chunks = [];
-        request.on("data", (chunk) => chunks.push(chunk));
-        request.on("end", () => resolve(Buffer.concat(chunks)));
-        request.on("error", reject);
-      })
-    : undefined;
+  if (production && target.protocol !== "https:") {
+    sendProxyError(response, "insecure_upstream", new Error("The production API requires a secure upstream."), 503);
+    return;
+  }
+  let body;
+  try { body = hasRequestBody(request) ? await readBody(request, maxBodyBytes, bodyTimeoutMs) : undefined; }
+  catch (error) {
+    sendProxyError(response, "invalid_request_body", error, error.status || 400);
+    return;
+  }
   const transport = target.protocol === "https:" ? https : http;
 
   await new Promise((resolve) => {
@@ -149,13 +212,16 @@ export default async function handler(request, response) {
     const settle = () => {
       if (completed) return;
       completed = true;
+      clearTimeout(deadline);
       resolve();
     };
     const fail = (code, error) => {
       if (completed) return;
-      sendProxyError(response, code, error);
-      completed = true;
-      resolve();
+      // Do not return raw transport errors (which can contain private origins).
+      sendProxyError(response, code, new Error(code === "upstream_timeout"
+        ? "The upstream API timed out." : "The upstream API response could not be completed."), code === "upstream_timeout" ? 504 : 502);
+      settle();
+      upstreamRequest.destroy();
     };
     const upstreamRequest = transport.request(target, {
       method: request.method,
@@ -174,6 +240,10 @@ export default async function handler(request, response) {
     });
 
     upstreamRequest.once("error", (error) => fail("upstream_unavailable", error));
+    // Wall-clock deadline includes DNS, TLS, headers and the complete stream;
+    // an idle-only socket timeout can be evaded by a trickling response.
+    const deadline = setTimeout(() => fail("upstream_timeout"), upstreamTimeoutMs);
+    deadline.unref?.();
 
     if (body?.length) upstreamRequest.end(body);
     else upstreamRequest.end();
@@ -189,4 +259,7 @@ export default async function handler(request, response) {
       settle();
     });
   });
+ };
 }
+
+export default createProxyHandler();

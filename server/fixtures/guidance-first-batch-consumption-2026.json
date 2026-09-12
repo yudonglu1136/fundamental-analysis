@@ -1,0 +1,132 @@
+{
+  "events": [
+    {
+      "original": {
+        "id": "9af6128e5cd17bd029bfb64c",
+        "ticker": "POWL",
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-02-03",
+        "metric_name": "gross_margin",
+        "actual_or_guidance": "guidance",
+        "amount": null,
+        "unit": null,
+        "currency": null,
+        "growth_yoy": null,
+        "growth_qoq": null,
+        "margin_pct": 28.4,
+        "value_text": "Brett A. Cope, Powell’s Chairman and Chief Executive Officer, stated, “Ongoing levels of solid project execution drove a strong start to our fiscal year, as we delivered a gross margin of 28.4% despite the typical seasonality and lower volumes that define our first quarter. We also experienced high levels of order activity across most of the markets we serve, as the $439 million of awards booked was the highest quarterly total in over two years and led to a book-to-bill ratio of",
+        "quality_status": "clear",
+        "extraction_confidence": 0.84,
+        "speaker": "Issuer management / investor relations filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/80420/000008042026000013/ex991-powlq1xfy2026earning.htm",
+        "evidence_excerpt": "Brett A. Cope, Powell’s Chairman and Chief Executive Officer, stated, “Ongoing levels of solid project execution drove a strong start to our fiscal year, as we delivered a gross margin of 28.4% despite the typical seasonality and lower volumes that define our first quarter. We also experienced high levels of order activity across most of the markets we serve, as the $439 million of awards booked was the highest quarterly total in over two years and led to a book-to-bill ratio of",
+        "source_file": "SEC:0000080420-26-000013:ex991-powlq1xfy2026earning.htm",
+        "source_type": "official_issuer_sec_filing",
+        "extraction_version": "pit-guidance-rules-v18-explicit-currency-2026-09-05+official-sec-guidance-v6-currency-review-gate-2026-09-05",
+        "payload_json": "{\"id\":\"9af6128e5cd17bd029bfb64c\",\"ticker\":\"POWL\",\"fiscal_period\":\"2026-Q1\",\"observed_at\":\"2026-02-03\",\"metric_name\":\"gross_margin\",\"actual_or_guidance\":\"guidance\",\"amount\":null,\"unit\":null,\"currency\":null,\"growth_yoy\":null,\"growth_qoq\":null,\"margin_pct\":28.4,\"value_text\":\"Brett A. Cope, Powell\\u2019s Chairman and Chief Executive Officer, stated, \\u201cOngoing levels of solid project execution drove a strong start to our fiscal year, as we delivered a gross margin of 28.4% despite the typical seasonality and lower volumes that define our first quarter. We also experienced high levels of order activity across most of the markets we serve, as the $439 million of awards booked was the highest quarterly total in over two years and led to a book-to-bill ratio of\",\"quality_status\":\"clear\",\"currency_resolution\":{\"status\":\"not_monetary\",\"selected_currencies\":[],\"policy\":\"Bare $ never establishes USD; unknown monetary currency requires issuer reporting-currency evidence before model use.\"},\"extraction_confidence\":0.84,\"speaker\":\"Issuer management / investor relations filing\",\"source_url\":\"https://www.sec.gov/Archives/edgar/data/80420/000008042026000013/ex991-powlq1xfy2026earning.htm\",\"evidence_excerpt\":\"Brett A. Cope, Powell\\u2019s Chairman and Chief Executive Officer, stated, \\u201cOngoing levels of solid project execution drove a strong start to our fiscal year, as we delivered a gross margin of 28.4% despite the typical seasonality and lower volumes that define our first quarter. We also experienced high levels of order activity across most of the markets we serve, as the $439 million of awards booked was the highest quarterly total in over two years and led to a book-to-bill ratio of\",\"source_file\":\"SEC:0000080420-26-000013:ex991-powlq1xfy2026earning.htm\",\"source_type\":\"official_issuer_sec_filing\",\"extraction_version\":\"pit-guidance-rules-v18-explicit-currency-2026-09-05+official-sec-guidance-v6-currency-review-gate-2026-09-05\",\"guidance_scope\":\"full_year\",\"guidance_target_year\":null,\"guidance_scope_evidence\":\"fiscal year\",\"guidance_subject\":\"company_total_or_unspecified\",\"guidance_subject_evidence\":\"and Chief Executive Officer, stated, \\u201cOngoing levels of solid project execution drove a strong start to our fiscal year, as we delivered a gross margin of 28.4% despite the typical seasonality and lower volumes that define our first quarter. We also experienced high levels of order activity across\",\"metric_position\":172,\"selected_values\":[{\"value\":28.4,\"position\":188,\"end\":193}]}"
+      },
+      "correctedEvidence": "Brett A. Cope, Powell’s Chairman and Chief Executive Officer, stated, “Ongoing levels of solid project execution drove a strong start to our fiscal year, as we delivered a gross margin of 28.4% despite the typical seasonality and lower volumes that define our first quarter. We also experienced high levels of order activity across most of the markets we serve, as the $439 million of awards booked was the highest quarterly total in over two years and led to a book-to-bill ratio of",
+      "expected": {
+        "actual_or_guidance": "actual",
+        "quality_status": "historical_actual",
+        "margin_pct": 28.4
+      }
+    },
+    {
+      "original": {
+        "id": "b06bc5686c8406da4e81fd55",
+        "ticker": "CROX",
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-04-30",
+        "metric_name": "revenue_guidance",
+        "actual_or_guidance": "guidance",
+        "amount": null,
+        "unit": null,
+        "currency": null,
+        "growth_yoy": 1,
+        "growth_qoq": null,
+        "margin_pct": null,
+        "value_text": "Revenues to be down approximately 1% to up 1% compared to full year 2025, up from our previous guidance of down 1% to up slightly, at currency rates as of April 27, 2026.",
+        "quality_status": "clear",
+        "extraction_confidence": 0.94,
+        "speaker": "Issuer management / investor relations filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1334036/000133403626000029/croxq12026-pressrelease.htm",
+        "evidence_excerpt": "Revenues to be down approximately 1% to up 1% compared to full year 2025, up from our previous guidance of down 1% to up slightly, at currency rates as of April 27, 2026.",
+        "source_file": "SEC:0001334036-26-000029:croxq12026-pressrelease.htm",
+        "source_type": "official_issuer_sec_filing",
+        "extraction_version": "pit-guidance-rules-v18-explicit-currency-2026-09-05+official-sec-guidance-v6-currency-review-gate-2026-09-05",
+        "payload_json": "{\"id\":\"b06bc5686c8406da4e81fd55\",\"ticker\":\"CROX\",\"fiscal_period\":\"2026-Q1\",\"observed_at\":\"2026-04-30\",\"metric_name\":\"revenue_guidance\",\"actual_or_guidance\":\"guidance\",\"amount\":null,\"unit\":null,\"currency\":null,\"growth_yoy\":1.0,\"growth_qoq\":null,\"margin_pct\":null,\"value_text\":\"Revenues to be down approximately 1% to up 1% compared to full year 2025, up from our previous guidance of down 1% to up slightly, at currency rates as of April 27, 2026.\",\"quality_status\":\"clear\",\"currency_resolution\":{\"status\":\"not_monetary\",\"selected_currencies\":[],\"policy\":\"Bare $ never establishes USD; unknown monetary currency requires issuer reporting-currency evidence before model use.\"},\"extraction_confidence\":0.94,\"speaker\":\"Issuer management / investor relations filing\",\"source_url\":\"https://www.sec.gov/Archives/edgar/data/1334036/000133403626000029/croxq12026-pressrelease.htm\",\"evidence_excerpt\":\"Revenues to be down approximately 1% to up 1% compared to full year 2025, up from our previous guidance of down 1% to up slightly, at currency rates as of April 27, 2026.\",\"source_file\":\"SEC:0001334036-26-000029:croxq12026-pressrelease.htm\",\"source_type\":\"official_issuer_sec_filing\",\"extraction_version\":\"pit-guidance-rules-v18-explicit-currency-2026-09-05+official-sec-guidance-v6-currency-review-gate-2026-09-05\",\"guidance_scope\":\"full_year\",\"guidance_target_year\":2025,\"guidance_scope_evidence\":\"full year\",\"guidance_subject\":\"company_total_or_unspecified\",\"guidance_subject_evidence\":\"Revenues to be down approximately 1% to up 1% compared to full year 2025, up from our prev\",\"metric_position\":0,\"selected_values\":[{\"value\":1.0,\"position\":34,\"end\":36},{\"value\":1.0,\"position\":43,\"end\":45}]}"
+      },
+      "correctedEvidence": "For 2026, we expect:. Revenues to be down approximately 1% to up 1% compared to full year 2025, up from our previous guidance of down 1% to up slightly, at currency rates as of April 27, 2026.",
+      "expected": {
+        "guidance_scope": "full_year",
+        "guidance_target_year": 2026,
+        "growth_yoy": 0
+      }
+    },
+    {
+      "original": {
+        "id": "ecd47fcbddba79a98507b178",
+        "ticker": "CROX",
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-07-30",
+        "metric_name": "revenue_guidance",
+        "actual_or_guidance": "guidance",
+        "amount": null,
+        "unit": null,
+        "currency": null,
+        "growth_yoy": 1.5,
+        "growth_qoq": null,
+        "margin_pct": null,
+        "value_text": "Revenues to be up approximately 1% to 2% compared to full year 2025, up from our previous guidance of down 1% to up 1%, at currency rates as of July 27, 2026.",
+        "quality_status": "clear",
+        "extraction_confidence": 0.94,
+        "speaker": "Issuer management / investor relations filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1334036/000133403626000050/croxq22026-pressrelease.htm",
+        "evidence_excerpt": "Revenues to be up approximately 1% to 2% compared to full year 2025, up from our previous guidance of down 1% to up 1%, at currency rates as of July 27, 2026.",
+        "source_file": "SEC:0001334036-26-000050:croxq22026-pressrelease.htm",
+        "source_type": "official_issuer_sec_filing",
+        "extraction_version": "pit-guidance-rules-v18-explicit-currency-2026-09-05+official-sec-guidance-v6-currency-review-gate-2026-09-05",
+        "payload_json": "{\"id\":\"ecd47fcbddba79a98507b178\",\"ticker\":\"CROX\",\"fiscal_period\":\"2026-Q2\",\"observed_at\":\"2026-07-30\",\"metric_name\":\"revenue_guidance\",\"actual_or_guidance\":\"guidance\",\"amount\":null,\"unit\":null,\"currency\":null,\"growth_yoy\":1.5,\"growth_qoq\":null,\"margin_pct\":null,\"value_text\":\"Revenues to be up approximately 1% to 2% compared to full year 2025, up from our previous guidance of down 1% to up 1%, at currency rates as of July 27, 2026.\",\"quality_status\":\"clear\",\"currency_resolution\":{\"status\":\"not_monetary\",\"selected_currencies\":[],\"policy\":\"Bare $ never establishes USD; unknown monetary currency requires issuer reporting-currency evidence before model use.\"},\"extraction_confidence\":0.94,\"speaker\":\"Issuer management / investor relations filing\",\"source_url\":\"https://www.sec.gov/Archives/edgar/data/1334036/000133403626000050/croxq22026-pressrelease.htm\",\"evidence_excerpt\":\"Revenues to be up approximately 1% to 2% compared to full year 2025, up from our previous guidance of down 1% to up 1%, at currency rates as of July 27, 2026.\",\"source_file\":\"SEC:0001334036-26-000050:croxq22026-pressrelease.htm\",\"source_type\":\"official_issuer_sec_filing\",\"extraction_version\":\"pit-guidance-rules-v18-explicit-currency-2026-09-05+official-sec-guidance-v6-currency-review-gate-2026-09-05\",\"guidance_scope\":\"full_year\",\"guidance_target_year\":2025,\"guidance_scope_evidence\":\"full year\",\"guidance_subject\":\"company_total_or_unspecified\",\"guidance_subject_evidence\":\"Revenues to be up approximately 1% to 2% compared to full year 2025, up from our previous\",\"metric_position\":0,\"selected_values\":[{\"value\":1.0,\"position\":32,\"end\":34},{\"value\":2.0,\"position\":38,\"end\":40}]}"
+      },
+      "correctedEvidence": "For 2026, we expect:. Revenues to be up approximately 1% to 2% compared to full year 2025, up from our previous guidance of down 1% to up 1%, at currency rates as of July 27, 2026.",
+      "expected": {
+        "guidance_scope": "full_year",
+        "guidance_target_year": 2026,
+        "growth_yoy": 1.5
+      }
+    },
+    {
+      "original": {
+        "id": "ca2deb8217b469c63246f0ee",
+        "ticker": "SOFI",
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-07-29",
+        "metric_name": "revenue_guidance",
+        "actual_or_guidance": "guidance",
+        "amount": 4800,
+        "unit": "reported millions",
+        "currency": null,
+        "growth_yoy": null,
+        "growth_qoq": null,
+        "margin_pct": null,
+        "value_text": "Increases 2026 Adjusted Net Revenue Guidance to $4.75 billion to $4.85 billion",
+        "quality_status": "clear",
+        "extraction_confidence": 0.94,
+        "speaker": "Issuer management / investor relations filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1818874/000181887426000050/a2026q2earningsrelease.htm",
+        "evidence_excerpt": "Increases 2026 Adjusted Net Revenue Guidance to $4.75 billion to $4.85 billion",
+        "source_file": "SEC:0001818874-26-000050:a2026q2earningsrelease.htm",
+        "source_type": "official_issuer_sec_filing",
+        "extraction_version": "pit-guidance-rules-v18-explicit-currency-2026-09-05+official-sec-guidance-v6-currency-review-gate-2026-09-05",
+        "payload_json": "{\"id\":\"ca2deb8217b469c63246f0ee\",\"ticker\":\"SOFI\",\"fiscal_period\":\"2026-Q2\",\"observed_at\":\"2026-07-29\",\"metric_name\":\"revenue_guidance\",\"actual_or_guidance\":\"guidance\",\"amount\":4800.0,\"unit\":\"reported millions\",\"currency\":null,\"growth_yoy\":null,\"growth_qoq\":null,\"margin_pct\":null,\"value_text\":\"Increases 2026 Adjusted Net Revenue Guidance to $4.75 billion to $4.85 billion\",\"quality_status\":\"clear\",\"currency_resolution\":{\"status\":\"source_currency_required\",\"selected_currencies\":[],\"policy\":\"Bare $ never establishes USD; unknown monetary currency requires issuer reporting-currency evidence before model use.\"},\"extraction_confidence\":0.94,\"speaker\":\"Issuer management / investor relations filing\",\"source_url\":\"https://www.sec.gov/Archives/edgar/data/1818874/000181887426000050/a2026q2earningsrelease.htm\",\"evidence_excerpt\":\"Increases 2026 Adjusted Net Revenue Guidance to $4.75 billion to $4.85 billion\",\"source_file\":\"SEC:0001818874-26-000050:a2026q2earningsrelease.htm\",\"source_type\":\"official_issuer_sec_filing\",\"extraction_version\":\"pit-guidance-rules-v18-explicit-currency-2026-09-05+official-sec-guidance-v6-currency-review-gate-2026-09-05\",\"guidance_scope\":null,\"guidance_target_year\":null,\"guidance_scope_evidence\":null,\"guidance_subject\":\"company_total\",\"guidance_subject_evidence\":\"Net Revenue\",\"metric_position\":28,\"selected_values\":[{\"value\":4750.0,\"currency\":null,\"currency_conflict\":false,\"text\":\"$4.75 billion\",\"position\":48,\"end\":61},{\"value\":4850.0,\"currency\":null,\"currency_conflict\":false,\"text\":\"$4.85 billion\",\"position\":65,\"end\":78}]}"
+      },
+      "correctedEvidence": "Increases 2026 Adjusted Net Revenue Guidance to $4.75 billion to $4.85 billion",
+      "expected": {
+        "guidance_scope": "full_year",
+        "guidance_target_year": 2026,
+        "amount": 4800
+      }
+    }
+  ]
+}

@@ -11,6 +11,7 @@ process.env.SQLITE_DB_PATH=path.join(root,'research.sqlite');
 process.env.PORTFOLIO_CREDENTIALS_KEY='synthetic-persistence-secret';
 const store=await import('./userPortfolioStore.js');
 const {loadPortfolioDashboard,clearPortfolioCache}=await import('./portfolioClient.js');
+const {analysePortfolio}=await import('./investmentPortfolio.js');
 const originalFetch=globalThis.fetch;
 test.after(()=>{globalThis.fetch=originalFetch;store.closeUserPortfolioStores();fs.rmSync(root,{recursive:true,force:true});});
 
@@ -104,6 +105,10 @@ test('successful broker load persists; outage after restart returns the dated re
   // null; the durable payload must reproduce that same JSON representation.
   assert.deepEqual(stale.holdings,JSON.parse(JSON.stringify(fresh.holdings)));
   assert.deepEqual(stale.analysisAccounts,fresh.analysisAccounts);
+  const analysis=analysePortfolio(stale,{asOf:'2026-09-12'});
+  assert.equal(analysis.status,'ready');assert.equal(analysis.freshness.status,'stale');
+  assert.equal(analysis.groups[0].positions[0].ticker,'AAA');
+  assert.deepEqual(analysis.groups[0].reportDates,['2026-09-09']);
   assert.equal(store.readUserPortfolioReport(user).reportAsOf,'2026-09-09');
   const other={id:'persistence-outage-no-report'};store.savePortfolioConnection(other,config());
   const absent=await loadPortfolioDashboard({user:other,forceRefresh:true});

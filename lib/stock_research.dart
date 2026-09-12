@@ -16,10 +16,12 @@ class StockLogo extends StatelessWidget {
     required this.ticker,
     required this.palette,
     this.size = 28,
+    this.backgroundColor,
   });
   final String ticker;
   final Palette palette;
   final double size;
+  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +49,7 @@ class StockLogo extends StatelessWidget {
         height: size,
         padding: EdgeInsets.all(size * .12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF4F6F8),
+          color: backgroundColor ?? const Color(0xFFF4F6F8),
           borderRadius: BorderRadius.circular(size * .23),
         ),
         child: symbol.isEmpty
@@ -474,6 +476,23 @@ class _StockValuationPanelState extends State<StockValuationPanel> {
                 ],
               ),
               const SizedBox(height: 12),
+              if (investmentWorkflowEnabled)
+                FilledButton.icon(
+                  onPressed: () => openBrowserPath(
+                    Uri(
+                      path: '/',
+                      queryParameters: {
+                        'view': 'research',
+                        'valuation': widget.ticker,
+                        'lang': appLanguageCode(context.language),
+                      },
+                    ).toString(),
+                  ),
+                  icon: const Icon(Icons.account_tree_outlined),
+                  label: Text(
+                    context.tr('研究、估值与决策', 'Research, value & decide'),
+                  ),
+                ),
               Text(
                 context.tr(
                   '大佬披露 ≠ 买入建议。以下是当前估值，不代表大佬买入时的价格或估值。',

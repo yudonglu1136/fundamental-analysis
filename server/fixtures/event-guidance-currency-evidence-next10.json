@@ -1,0 +1,708 @@
+[
+  {
+    "ticker": "ESTC",
+    "sourceId": "16099a1509e11d77baa0f9b1",
+    "observedAt": "2018-12-04",
+    "evidence": "For the third quarter of fiscal 2019, we expect revenue in the range of $64 million-$66 million, representing a growth rate of 56% year-over-year at the midpoint.",
+    "currency": "USD",
+    "amount": 65.0,
+    "unit": "reported millions",
+    "metricName": "revenue_guidance",
+    "fiscalPeriod": "Q22019",
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "ESTC",
+      "sourceId": "16099a1509e11d77baa0f9b1",
+      "observedAt": "2018-12-04",
+      "originalQuoteSha256": "b851cc25d005290b0cf40b5f2dba9f6b97b09ed331fe86dddab1865a1f77dcbf",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "revenue_guidance",
+      "fiscalPeriod": "Q22019",
+      "amountM": 65.0,
+      "unit": "reported millions",
+      "sourceLedgerSha256": "9d350ad3fd3874a9699c8f67a746f98a09223f935f0522abe22826792dbe9fc1",
+      "preEnrichmentPayloadSha256": "b620756ab0be65cc9ce1d4a5fb9f040f785857da747d978aac66d1967a1f6ad9",
+      "originalEvidencePayloadSha256": "b620756ab0be65cc9ce1d4a5fb9f040f785857da747d978aac66d1967a1f6ad9",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "The reporting currency of the Company is the U.S. dollar"
+        ],
+        "availableAt": "2018-10-05",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1707753/000119312518294675/d588632d424b4.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/ESTC/000119312518294675/d588632d424b4.htm",
+        "documentSha256": "e0798a99cb0fdac1c3cb69367bf2f574f86959e7c53cfc802ed1f3f668459453",
+        "form": "424B4",
+        "accession": "0001193125-18-294675",
+        "cik": "0001707753",
+        "guidancePolicy": "Dated company reporting-currency support for an ambiguous monetary quote; not a model-economics or guidance-scope approval",
+        "paragraphSha256": [
+          "f011a1268c79fa016690a30045d3de8e926f8b6140236717ff6566bc45449c6a"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required."
+    }
+  },
+  {
+    "ticker": "ESTC",
+    "sourceId": "b2d9df01b75ffbcd8596fa4e",
+    "observedAt": "2018-12-04",
+    "evidence": "For the full year of fiscal 2019, we expect revenue in the range of $254 million-$258 million, representing a growth rate of 60% year-over-year at the midpoint.",
+    "currency": "USD",
+    "amount": 256.0,
+    "unit": "reported millions",
+    "metricName": "revenue_guidance",
+    "fiscalPeriod": "Q22019",
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "ESTC",
+      "sourceId": "b2d9df01b75ffbcd8596fa4e",
+      "observedAt": "2018-12-04",
+      "originalQuoteSha256": "5d941ff291f1ce2cbb12c3ec7aa2848dad2f5e9d032138aceff80e3f0c11e08f",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "revenue_guidance",
+      "fiscalPeriod": "Q22019",
+      "amountM": 256.0,
+      "unit": "reported millions",
+      "sourceLedgerSha256": "9d350ad3fd3874a9699c8f67a746f98a09223f935f0522abe22826792dbe9fc1",
+      "preEnrichmentPayloadSha256": "d2e6514a6ea460964af42825f5084bb2f1580fb28d7d1f0abfaa4d6b4986ee20",
+      "originalEvidencePayloadSha256": "d2e6514a6ea460964af42825f5084bb2f1580fb28d7d1f0abfaa4d6b4986ee20",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "The reporting currency of the Company is the U.S. dollar"
+        ],
+        "availableAt": "2018-10-05",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1707753/000119312518294675/d588632d424b4.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/ESTC/000119312518294675/d588632d424b4.htm",
+        "documentSha256": "e0798a99cb0fdac1c3cb69367bf2f574f86959e7c53cfc802ed1f3f668459453",
+        "form": "424B4",
+        "accession": "0001193125-18-294675",
+        "cik": "0001707753",
+        "guidancePolicy": "Dated company reporting-currency support for an ambiguous monetary quote; not a model-economics or guidance-scope approval",
+        "paragraphSha256": [
+          "f011a1268c79fa016690a30045d3de8e926f8b6140236717ff6566bc45449c6a"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required."
+    }
+  },
+  {
+    "ticker": "GDDY",
+    "sourceId": "008a11466d076084d5e03118",
+    "observedAt": "2015-05-12",
+    "evidence": "For the full year ending December 31st, we expect revenues to fall in the range of $1.595 billion-$1.605 billion, and adjusted EBITDA to fall in the range of $322 million-$327 million.",
+    "currency": "USD",
+    "amount": 1600.0,
+    "unit": "reported millions",
+    "metricName": "revenue_guidance",
+    "fiscalPeriod": "Q12015",
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "GDDY",
+      "sourceId": "008a11466d076084d5e03118",
+      "observedAt": "2015-05-12",
+      "originalQuoteSha256": "3cac05cd016ec4102af40d56889bbb8a105ac382b56c15cd70ce5285a9ffb0d2",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "reportingCurrencyOverride": false,
+      "metricName": "revenue_guidance",
+      "fiscalPeriod": "Q12015",
+      "amountM": 1600.0,
+      "unit": "reported millions",
+      "sourceLedgerSha256": "d44e5396b57bd719dc45f5cc9809d05739dcbc2f539c4b77e843c47f9a1dd487",
+      "preEnrichmentPayloadSha256": "2f277bd417f7372b98de75be8954d60fd7e5842cdd43272b868d6d7b089931af",
+      "originalEvidencePayloadSha256": "2f277bd417f7372b98de75be8954d60fd7e5842cdd43272b868d6d7b089931af",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+        "quotes": [
+          "Our functional currency, and the functional currency of each of our subsidiaries, is the U.S. dollar. Assets denominated in foreign currencies are remeasured into U.S. dollars at period-end exchange rates. Foreign currency based revenue and expense transactions are measured at transaction date exchange rates. Foreign currency gains and losses are recorded in other income (expense), net in our consolidated statements of operations, and were $(575), $(711) and $(2,952) during 2012, 2013 and 2014, respectively.",
+          "Our consolidated financial statements have been prepared in accordance with U.S. generally accepted accounting principles (GAAP), and include our accounts and the accounts of our wholly-owned subsidiaries. All significant intercompany accounts and transactions have been eliminated in consolidation.",
+          "GoDaddy Inc. will consolidate Desert Newco in its consolidated financial statements and will report a non-controlling interest related to the LLC Units held by the Continuing LLC Owners on its consolidated financial statements."
+        ],
+        "availableAt": "2015-04-01",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000119312515116327/d728713d424b4.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/GDDY/000119312515116327/d728713d424b4.htm",
+        "documentSha256": "dd3c93b52cedd3160b6b40c9c13b93d303350cfb69cc2e7140a730e719cb87d9",
+        "form": "424B4",
+        "accession": "0001193125-15-116327",
+        "cik": "0001609711",
+        "issuerConsolidatedStatementsTitle": "Desert Newco, LLC",
+        "reviewedAt": "2026-09-06",
+        "inference": true,
+        "reasoning": "The IPO prospectus explicitly connects GoDaddy's post-offering consolidation to operating predecessor Desert Newco. That operating group's own policy declares the parent and every subsidiary functional currency USD, remeasures foreign-currency assets into USD, measures foreign-currency revenue/expense transactions at event rates, and records FX in consolidated operations. Taken together, these support USD presentation for the post-IPO operating guidance; not inferred from listing currency, revenue-contract currency alone, or removal of noncontrolling interests.",
+        "limitations": "Dated currency-only analyst inference; no numerical statement, forecast scope, management guidance accuracy, economics or full model review approval.",
+        "supportingDocuments": [
+          {
+            "availableAt": "2015-05-12",
+            "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000160971115000006/gddy20150512ex991q1earning.htm",
+            "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/GDDY/000160971115000006/gddy20150512ex991q1earning.htm",
+            "documentSha256": "8d90ac4d21e45434453d6024fe7465548622bd27d67bb525f1bf459f4016141c",
+            "cik": "0001609711",
+            "accession": "0001609711-15-000006",
+            "form": "8-K",
+            "quotes": [
+              "On April 7, 2015, GoDaddy Inc. successfully closed its initial public offering (IPO) of 26 million shares of Class A common stock at a public offering price of $20 per share, which included 3 million shares sold pursuant to the underwriters’ over-allotment option and 2.5 million shares sold to certain affiliates.",
+              "This press release presents historical results, for the periods presented, of Desert Newco, LLC, the predecessor of GoDaddy Inc. for financial reporting purposes."
+            ],
+            "paragraphSha256": [
+              "ff97d4ad0cd6ab5be1a742827dc6111808e00412e040dd8eb130bd06b33bb63a",
+              "33ef2e67f77043b9440b6edde9b221e321c703bb3fe8f6cca1bc637c998e573e"
+            ]
+          }
+        ],
+        "paragraphSha256": [
+          "cee9e1b910382ee66c8e5910bdf8af0f33db4b4cbf08ab4f0d883fad3837a685",
+          "a268b1a14bc3b60978355f973cd9b7daa8a3e2089fd03dd20a833d9582dd11f4",
+          "f0c9cef214423d97e890c088dbd79200361582471d1e014108f945f0d33d557b"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required."
+    }
+  },
+  {
+    "ticker": "GDDY",
+    "sourceId": "2fd3c42cd3039551ef37cc9f",
+    "observedAt": "2015-08-05",
+    "evidence": "For the third quarter ending September 30th, 2015, we expect revenue between $405 million and $410 million, and adjusted EBITDA in the range of $82 million-$85 million.",
+    "currency": "USD",
+    "amount": 407.5,
+    "unit": "reported millions",
+    "metricName": "revenue_guidance",
+    "fiscalPeriod": "Q22015",
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "GDDY",
+      "sourceId": "2fd3c42cd3039551ef37cc9f",
+      "observedAt": "2015-08-05",
+      "originalQuoteSha256": "e648f9ea9c161a619503ad94d1fd7a024ed36421fd6af3b9a256181a39bcf460",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "reportingCurrencyOverride": false,
+      "metricName": "revenue_guidance",
+      "fiscalPeriod": "Q22015",
+      "amountM": 407.5,
+      "unit": "reported millions",
+      "sourceLedgerSha256": "d44e5396b57bd719dc45f5cc9809d05739dcbc2f539c4b77e843c47f9a1dd487",
+      "preEnrichmentPayloadSha256": "afb694e136181425ebaad22f0f30160427c6468a320cd072567a3f4efd04092b",
+      "originalEvidencePayloadSha256": "afb694e136181425ebaad22f0f30160427c6468a320cd072567a3f4efd04092b",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+        "quotes": [
+          "Our functional currency, and the functional currency of each of our subsidiaries, is the U.S. dollar. Assets denominated in foreign currencies are remeasured into U.S. dollars at period-end exchange rates. Foreign currency based revenue and expense transactions are measured at transaction date exchange rates. Foreign currency gains and losses are recorded in other income (expense), net in our consolidated statements of operations, and were $(575), $(711) and $(2,952) during 2012, 2013 and 2014, respectively.",
+          "Our consolidated financial statements have been prepared in accordance with U.S. generally accepted accounting principles (GAAP), and include our accounts and the accounts of our wholly-owned subsidiaries. All significant intercompany accounts and transactions have been eliminated in consolidation.",
+          "GoDaddy Inc. will consolidate Desert Newco in its consolidated financial statements and will report a non-controlling interest related to the LLC Units held by the Continuing LLC Owners on its consolidated financial statements."
+        ],
+        "availableAt": "2015-04-01",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000119312515116327/d728713d424b4.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/GDDY/000119312515116327/d728713d424b4.htm",
+        "documentSha256": "dd3c93b52cedd3160b6b40c9c13b93d303350cfb69cc2e7140a730e719cb87d9",
+        "form": "424B4",
+        "accession": "0001193125-15-116327",
+        "cik": "0001609711",
+        "issuerConsolidatedStatementsTitle": "Desert Newco, LLC",
+        "reviewedAt": "2026-09-06",
+        "inference": true,
+        "reasoning": "The IPO prospectus explicitly connects GoDaddy's post-offering consolidation to operating predecessor Desert Newco. That operating group's own policy declares the parent and every subsidiary functional currency USD, remeasures foreign-currency assets into USD, measures foreign-currency revenue/expense transactions at event rates, and records FX in consolidated operations. Taken together, these support USD presentation for the post-IPO operating guidance; not inferred from listing currency, revenue-contract currency alone, or removal of noncontrolling interests.",
+        "limitations": "Dated currency-only analyst inference; no numerical statement, forecast scope, management guidance accuracy, economics or full model review approval.",
+        "supportingDocuments": [
+          {
+            "availableAt": "2015-05-12",
+            "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000160971115000006/gddy20150512ex991q1earning.htm",
+            "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/GDDY/000160971115000006/gddy20150512ex991q1earning.htm",
+            "documentSha256": "8d90ac4d21e45434453d6024fe7465548622bd27d67bb525f1bf459f4016141c",
+            "cik": "0001609711",
+            "accession": "0001609711-15-000006",
+            "form": "8-K",
+            "quotes": [
+              "On April 7, 2015, GoDaddy Inc. successfully closed its initial public offering (IPO) of 26 million shares of Class A common stock at a public offering price of $20 per share, which included 3 million shares sold pursuant to the underwriters’ over-allotment option and 2.5 million shares sold to certain affiliates.",
+              "This press release presents historical results, for the periods presented, of Desert Newco, LLC, the predecessor of GoDaddy Inc. for financial reporting purposes."
+            ],
+            "paragraphSha256": [
+              "ff97d4ad0cd6ab5be1a742827dc6111808e00412e040dd8eb130bd06b33bb63a",
+              "33ef2e67f77043b9440b6edde9b221e321c703bb3fe8f6cca1bc637c998e573e"
+            ]
+          }
+        ],
+        "paragraphSha256": [
+          "cee9e1b910382ee66c8e5910bdf8af0f33db4b4cbf08ab4f0d883fad3837a685",
+          "a268b1a14bc3b60978355f973cd9b7daa8a3e2089fd03dd20a833d9582dd11f4",
+          "f0c9cef214423d97e890c088dbd79200361582471d1e014108f945f0d33d557b"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required."
+    }
+  },
+  {
+    "ticker": "GDDY",
+    "sourceId": "492db95feadf4da704835c9f",
+    "observedAt": "2015-05-12",
+    "evidence": "For the second quarter ending June 30th, 2015, we expect revenue between $390 million-$395 million, and adjusted EBITDA to fall under the range of $75 million-$78 million.",
+    "currency": "USD",
+    "amount": 392.5,
+    "unit": "reported millions",
+    "metricName": "revenue_guidance",
+    "fiscalPeriod": "Q12015",
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "GDDY",
+      "sourceId": "492db95feadf4da704835c9f",
+      "observedAt": "2015-05-12",
+      "originalQuoteSha256": "8966b46f51af0c890d0710c68a6224fec5957874ba2394e540fef9bd4df0aab4",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "reportingCurrencyOverride": false,
+      "metricName": "revenue_guidance",
+      "fiscalPeriod": "Q12015",
+      "amountM": 392.5,
+      "unit": "reported millions",
+      "sourceLedgerSha256": "d44e5396b57bd719dc45f5cc9809d05739dcbc2f539c4b77e843c47f9a1dd487",
+      "preEnrichmentPayloadSha256": "ff0b9f3b09e9a5ee26c8a86adf636adec257c97c0c450be6407c8c2c65532b7e",
+      "originalEvidencePayloadSha256": "ff0b9f3b09e9a5ee26c8a86adf636adec257c97c0c450be6407c8c2c65532b7e",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+        "quotes": [
+          "Our functional currency, and the functional currency of each of our subsidiaries, is the U.S. dollar. Assets denominated in foreign currencies are remeasured into U.S. dollars at period-end exchange rates. Foreign currency based revenue and expense transactions are measured at transaction date exchange rates. Foreign currency gains and losses are recorded in other income (expense), net in our consolidated statements of operations, and were $(575), $(711) and $(2,952) during 2012, 2013 and 2014, respectively.",
+          "Our consolidated financial statements have been prepared in accordance with U.S. generally accepted accounting principles (GAAP), and include our accounts and the accounts of our wholly-owned subsidiaries. All significant intercompany accounts and transactions have been eliminated in consolidation.",
+          "GoDaddy Inc. will consolidate Desert Newco in its consolidated financial statements and will report a non-controlling interest related to the LLC Units held by the Continuing LLC Owners on its consolidated financial statements."
+        ],
+        "availableAt": "2015-04-01",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000119312515116327/d728713d424b4.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/GDDY/000119312515116327/d728713d424b4.htm",
+        "documentSha256": "dd3c93b52cedd3160b6b40c9c13b93d303350cfb69cc2e7140a730e719cb87d9",
+        "form": "424B4",
+        "accession": "0001193125-15-116327",
+        "cik": "0001609711",
+        "issuerConsolidatedStatementsTitle": "Desert Newco, LLC",
+        "reviewedAt": "2026-09-06",
+        "inference": true,
+        "reasoning": "The IPO prospectus explicitly connects GoDaddy's post-offering consolidation to operating predecessor Desert Newco. That operating group's own policy declares the parent and every subsidiary functional currency USD, remeasures foreign-currency assets into USD, measures foreign-currency revenue/expense transactions at event rates, and records FX in consolidated operations. Taken together, these support USD presentation for the post-IPO operating guidance; not inferred from listing currency, revenue-contract currency alone, or removal of noncontrolling interests.",
+        "limitations": "Dated currency-only analyst inference; no numerical statement, forecast scope, management guidance accuracy, economics or full model review approval.",
+        "supportingDocuments": [
+          {
+            "availableAt": "2015-05-12",
+            "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000160971115000006/gddy20150512ex991q1earning.htm",
+            "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/GDDY/000160971115000006/gddy20150512ex991q1earning.htm",
+            "documentSha256": "8d90ac4d21e45434453d6024fe7465548622bd27d67bb525f1bf459f4016141c",
+            "cik": "0001609711",
+            "accession": "0001609711-15-000006",
+            "form": "8-K",
+            "quotes": [
+              "On April 7, 2015, GoDaddy Inc. successfully closed its initial public offering (IPO) of 26 million shares of Class A common stock at a public offering price of $20 per share, which included 3 million shares sold pursuant to the underwriters’ over-allotment option and 2.5 million shares sold to certain affiliates.",
+              "This press release presents historical results, for the periods presented, of Desert Newco, LLC, the predecessor of GoDaddy Inc. for financial reporting purposes."
+            ],
+            "paragraphSha256": [
+              "ff97d4ad0cd6ab5be1a742827dc6111808e00412e040dd8eb130bd06b33bb63a",
+              "33ef2e67f77043b9440b6edde9b221e321c703bb3fe8f6cca1bc637c998e573e"
+            ]
+          }
+        ],
+        "paragraphSha256": [
+          "cee9e1b910382ee66c8e5910bdf8af0f33db4b4cbf08ab4f0d883fad3837a685",
+          "a268b1a14bc3b60978355f973cd9b7daa8a3e2089fd03dd20a833d9582dd11f4",
+          "f0c9cef214423d97e890c088dbd79200361582471d1e014108f945f0d33d557b"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required."
+    }
+  },
+  {
+    "ticker": "GDDY",
+    "sourceId": "5ea36a774e5552653c98b28d",
+    "observedAt": "2015-08-05",
+    "evidence": "For the third quarter ending September 30th, 2015, we expect revenue between $405 million and $410 million, and adjusted EBITDA in the range of $82 million-$85 million.",
+    "currency": "USD",
+    "amount": 83.5,
+    "unit": "reported millions",
+    "metricName": "ebitda_guidance",
+    "fiscalPeriod": "Q22015",
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "GDDY",
+      "sourceId": "5ea36a774e5552653c98b28d",
+      "observedAt": "2015-08-05",
+      "originalQuoteSha256": "e648f9ea9c161a619503ad94d1fd7a024ed36421fd6af3b9a256181a39bcf460",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "reportingCurrencyOverride": false,
+      "metricName": "ebitda_guidance",
+      "fiscalPeriod": "Q22015",
+      "amountM": 83.5,
+      "unit": "reported millions",
+      "sourceLedgerSha256": "d44e5396b57bd719dc45f5cc9809d05739dcbc2f539c4b77e843c47f9a1dd487",
+      "preEnrichmentPayloadSha256": "2a6c08f1ffe09a6953f57aeca5fd0fb7b6a701c8c8f32b2b4081462d766645b5",
+      "originalEvidencePayloadSha256": "2a6c08f1ffe09a6953f57aeca5fd0fb7b6a701c8c8f32b2b4081462d766645b5",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+        "quotes": [
+          "Our functional currency, and the functional currency of each of our subsidiaries, is the U.S. dollar. Assets denominated in foreign currencies are remeasured into U.S. dollars at period-end exchange rates. Foreign currency based revenue and expense transactions are measured at transaction date exchange rates. Foreign currency gains and losses are recorded in other income (expense), net in our consolidated statements of operations, and were $(575), $(711) and $(2,952) during 2012, 2013 and 2014, respectively.",
+          "Our consolidated financial statements have been prepared in accordance with U.S. generally accepted accounting principles (GAAP), and include our accounts and the accounts of our wholly-owned subsidiaries. All significant intercompany accounts and transactions have been eliminated in consolidation.",
+          "GoDaddy Inc. will consolidate Desert Newco in its consolidated financial statements and will report a non-controlling interest related to the LLC Units held by the Continuing LLC Owners on its consolidated financial statements."
+        ],
+        "availableAt": "2015-04-01",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000119312515116327/d728713d424b4.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/GDDY/000119312515116327/d728713d424b4.htm",
+        "documentSha256": "dd3c93b52cedd3160b6b40c9c13b93d303350cfb69cc2e7140a730e719cb87d9",
+        "form": "424B4",
+        "accession": "0001193125-15-116327",
+        "cik": "0001609711",
+        "issuerConsolidatedStatementsTitle": "Desert Newco, LLC",
+        "reviewedAt": "2026-09-06",
+        "inference": true,
+        "reasoning": "The IPO prospectus explicitly connects GoDaddy's post-offering consolidation to operating predecessor Desert Newco. That operating group's own policy declares the parent and every subsidiary functional currency USD, remeasures foreign-currency assets into USD, measures foreign-currency revenue/expense transactions at event rates, and records FX in consolidated operations. Taken together, these support USD presentation for the post-IPO operating guidance; not inferred from listing currency, revenue-contract currency alone, or removal of noncontrolling interests.",
+        "limitations": "Dated currency-only analyst inference; no numerical statement, forecast scope, management guidance accuracy, economics or full model review approval.",
+        "supportingDocuments": [
+          {
+            "availableAt": "2015-05-12",
+            "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000160971115000006/gddy20150512ex991q1earning.htm",
+            "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/GDDY/000160971115000006/gddy20150512ex991q1earning.htm",
+            "documentSha256": "8d90ac4d21e45434453d6024fe7465548622bd27d67bb525f1bf459f4016141c",
+            "cik": "0001609711",
+            "accession": "0001609711-15-000006",
+            "form": "8-K",
+            "quotes": [
+              "On April 7, 2015, GoDaddy Inc. successfully closed its initial public offering (IPO) of 26 million shares of Class A common stock at a public offering price of $20 per share, which included 3 million shares sold pursuant to the underwriters’ over-allotment option and 2.5 million shares sold to certain affiliates.",
+              "This press release presents historical results, for the periods presented, of Desert Newco, LLC, the predecessor of GoDaddy Inc. for financial reporting purposes."
+            ],
+            "paragraphSha256": [
+              "ff97d4ad0cd6ab5be1a742827dc6111808e00412e040dd8eb130bd06b33bb63a",
+              "33ef2e67f77043b9440b6edde9b221e321c703bb3fe8f6cca1bc637c998e573e"
+            ]
+          }
+        ],
+        "paragraphSha256": [
+          "cee9e1b910382ee66c8e5910bdf8af0f33db4b4cbf08ab4f0d883fad3837a685",
+          "a268b1a14bc3b60978355f973cd9b7daa8a3e2089fd03dd20a833d9582dd11f4",
+          "f0c9cef214423d97e890c088dbd79200361582471d1e014108f945f0d33d557b"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required."
+    }
+  },
+  {
+    "ticker": "GDDY",
+    "sourceId": "95d8c0570ef9fd6a2895bf64",
+    "observedAt": "2015-08-05",
+    "evidence": "For the full year ending December 31st, 2015, we expect revenues in the range of $1.595 billion-$1.605 billion, and we're raising our outlook for adjusted EBITDA to a range of $328 million-$333 million.",
+    "currency": "USD",
+    "amount": 330.5,
+    "unit": "reported millions",
+    "metricName": "ebitda_guidance",
+    "fiscalPeriod": "Q22015",
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "GDDY",
+      "sourceId": "95d8c0570ef9fd6a2895bf64",
+      "observedAt": "2015-08-05",
+      "originalQuoteSha256": "e1f3f238699f69439c28b0f54a576fde8db11a9465faa4dc6218d44a1d22ad92",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "reportingCurrencyOverride": false,
+      "metricName": "ebitda_guidance",
+      "fiscalPeriod": "Q22015",
+      "amountM": 330.5,
+      "unit": "reported millions",
+      "sourceLedgerSha256": "d44e5396b57bd719dc45f5cc9809d05739dcbc2f539c4b77e843c47f9a1dd487",
+      "preEnrichmentPayloadSha256": "37dcff2bb9eebe2b3026aa1991d651a67ad4a08200b7e93e552260bf32911cb4",
+      "originalEvidencePayloadSha256": "37dcff2bb9eebe2b3026aa1991d651a67ad4a08200b7e93e552260bf32911cb4",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+        "quotes": [
+          "Our functional currency, and the functional currency of each of our subsidiaries, is the U.S. dollar. Assets denominated in foreign currencies are remeasured into U.S. dollars at period-end exchange rates. Foreign currency based revenue and expense transactions are measured at transaction date exchange rates. Foreign currency gains and losses are recorded in other income (expense), net in our consolidated statements of operations, and were $(575), $(711) and $(2,952) during 2012, 2013 and 2014, respectively.",
+          "Our consolidated financial statements have been prepared in accordance with U.S. generally accepted accounting principles (GAAP), and include our accounts and the accounts of our wholly-owned subsidiaries. All significant intercompany accounts and transactions have been eliminated in consolidation.",
+          "GoDaddy Inc. will consolidate Desert Newco in its consolidated financial statements and will report a non-controlling interest related to the LLC Units held by the Continuing LLC Owners on its consolidated financial statements."
+        ],
+        "availableAt": "2015-04-01",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000119312515116327/d728713d424b4.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/GDDY/000119312515116327/d728713d424b4.htm",
+        "documentSha256": "dd3c93b52cedd3160b6b40c9c13b93d303350cfb69cc2e7140a730e719cb87d9",
+        "form": "424B4",
+        "accession": "0001193125-15-116327",
+        "cik": "0001609711",
+        "issuerConsolidatedStatementsTitle": "Desert Newco, LLC",
+        "reviewedAt": "2026-09-06",
+        "inference": true,
+        "reasoning": "The IPO prospectus explicitly connects GoDaddy's post-offering consolidation to operating predecessor Desert Newco. That operating group's own policy declares the parent and every subsidiary functional currency USD, remeasures foreign-currency assets into USD, measures foreign-currency revenue/expense transactions at event rates, and records FX in consolidated operations. Taken together, these support USD presentation for the post-IPO operating guidance; not inferred from listing currency, revenue-contract currency alone, or removal of noncontrolling interests.",
+        "limitations": "Dated currency-only analyst inference; no numerical statement, forecast scope, management guidance accuracy, economics or full model review approval.",
+        "supportingDocuments": [
+          {
+            "availableAt": "2015-05-12",
+            "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000160971115000006/gddy20150512ex991q1earning.htm",
+            "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/GDDY/000160971115000006/gddy20150512ex991q1earning.htm",
+            "documentSha256": "8d90ac4d21e45434453d6024fe7465548622bd27d67bb525f1bf459f4016141c",
+            "cik": "0001609711",
+            "accession": "0001609711-15-000006",
+            "form": "8-K",
+            "quotes": [
+              "On April 7, 2015, GoDaddy Inc. successfully closed its initial public offering (IPO) of 26 million shares of Class A common stock at a public offering price of $20 per share, which included 3 million shares sold pursuant to the underwriters’ over-allotment option and 2.5 million shares sold to certain affiliates.",
+              "This press release presents historical results, for the periods presented, of Desert Newco, LLC, the predecessor of GoDaddy Inc. for financial reporting purposes."
+            ],
+            "paragraphSha256": [
+              "ff97d4ad0cd6ab5be1a742827dc6111808e00412e040dd8eb130bd06b33bb63a",
+              "33ef2e67f77043b9440b6edde9b221e321c703bb3fe8f6cca1bc637c998e573e"
+            ]
+          }
+        ],
+        "paragraphSha256": [
+          "cee9e1b910382ee66c8e5910bdf8af0f33db4b4cbf08ab4f0d883fad3837a685",
+          "a268b1a14bc3b60978355f973cd9b7daa8a3e2089fd03dd20a833d9582dd11f4",
+          "f0c9cef214423d97e890c088dbd79200361582471d1e014108f945f0d33d557b"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required."
+    }
+  },
+  {
+    "ticker": "GDDY",
+    "sourceId": "b6519cd4c53601868e2d71c7",
+    "observedAt": "2015-05-12",
+    "evidence": "For the full year ending December 31st, we expect revenues to fall in the range of $1.595 billion-$1.605 billion, and adjusted EBITDA to fall in the range of $322 million-$327 million.",
+    "currency": "USD",
+    "amount": 324.5,
+    "unit": "reported millions",
+    "metricName": "ebitda_guidance",
+    "fiscalPeriod": "Q12015",
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "GDDY",
+      "sourceId": "b6519cd4c53601868e2d71c7",
+      "observedAt": "2015-05-12",
+      "originalQuoteSha256": "3cac05cd016ec4102af40d56889bbb8a105ac382b56c15cd70ce5285a9ffb0d2",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "reportingCurrencyOverride": false,
+      "metricName": "ebitda_guidance",
+      "fiscalPeriod": "Q12015",
+      "amountM": 324.5,
+      "unit": "reported millions",
+      "sourceLedgerSha256": "d44e5396b57bd719dc45f5cc9809d05739dcbc2f539c4b77e843c47f9a1dd487",
+      "preEnrichmentPayloadSha256": "a51c68b9bda49f6b5d91fc50c31f82c80049c608c2ec9693c7b4c10c4e555e2c",
+      "originalEvidencePayloadSha256": "a51c68b9bda49f6b5d91fc50c31f82c80049c608c2ec9693c7b4c10c4e555e2c",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+        "quotes": [
+          "Our functional currency, and the functional currency of each of our subsidiaries, is the U.S. dollar. Assets denominated in foreign currencies are remeasured into U.S. dollars at period-end exchange rates. Foreign currency based revenue and expense transactions are measured at transaction date exchange rates. Foreign currency gains and losses are recorded in other income (expense), net in our consolidated statements of operations, and were $(575), $(711) and $(2,952) during 2012, 2013 and 2014, respectively.",
+          "Our consolidated financial statements have been prepared in accordance with U.S. generally accepted accounting principles (GAAP), and include our accounts and the accounts of our wholly-owned subsidiaries. All significant intercompany accounts and transactions have been eliminated in consolidation.",
+          "GoDaddy Inc. will consolidate Desert Newco in its consolidated financial statements and will report a non-controlling interest related to the LLC Units held by the Continuing LLC Owners on its consolidated financial statements."
+        ],
+        "availableAt": "2015-04-01",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000119312515116327/d728713d424b4.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/GDDY/000119312515116327/d728713d424b4.htm",
+        "documentSha256": "dd3c93b52cedd3160b6b40c9c13b93d303350cfb69cc2e7140a730e719cb87d9",
+        "form": "424B4",
+        "accession": "0001193125-15-116327",
+        "cik": "0001609711",
+        "issuerConsolidatedStatementsTitle": "Desert Newco, LLC",
+        "reviewedAt": "2026-09-06",
+        "inference": true,
+        "reasoning": "The IPO prospectus explicitly connects GoDaddy's post-offering consolidation to operating predecessor Desert Newco. That operating group's own policy declares the parent and every subsidiary functional currency USD, remeasures foreign-currency assets into USD, measures foreign-currency revenue/expense transactions at event rates, and records FX in consolidated operations. Taken together, these support USD presentation for the post-IPO operating guidance; not inferred from listing currency, revenue-contract currency alone, or removal of noncontrolling interests.",
+        "limitations": "Dated currency-only analyst inference; no numerical statement, forecast scope, management guidance accuracy, economics or full model review approval.",
+        "supportingDocuments": [
+          {
+            "availableAt": "2015-05-12",
+            "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000160971115000006/gddy20150512ex991q1earning.htm",
+            "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/GDDY/000160971115000006/gddy20150512ex991q1earning.htm",
+            "documentSha256": "8d90ac4d21e45434453d6024fe7465548622bd27d67bb525f1bf459f4016141c",
+            "cik": "0001609711",
+            "accession": "0001609711-15-000006",
+            "form": "8-K",
+            "quotes": [
+              "On April 7, 2015, GoDaddy Inc. successfully closed its initial public offering (IPO) of 26 million shares of Class A common stock at a public offering price of $20 per share, which included 3 million shares sold pursuant to the underwriters’ over-allotment option and 2.5 million shares sold to certain affiliates.",
+              "This press release presents historical results, for the periods presented, of Desert Newco, LLC, the predecessor of GoDaddy Inc. for financial reporting purposes."
+            ],
+            "paragraphSha256": [
+              "ff97d4ad0cd6ab5be1a742827dc6111808e00412e040dd8eb130bd06b33bb63a",
+              "33ef2e67f77043b9440b6edde9b221e321c703bb3fe8f6cca1bc637c998e573e"
+            ]
+          }
+        ],
+        "paragraphSha256": [
+          "cee9e1b910382ee66c8e5910bdf8af0f33db4b4cbf08ab4f0d883fad3837a685",
+          "a268b1a14bc3b60978355f973cd9b7daa8a3e2089fd03dd20a833d9582dd11f4",
+          "f0c9cef214423d97e890c088dbd79200361582471d1e014108f945f0d33d557b"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required."
+    }
+  },
+  {
+    "ticker": "GDDY",
+    "sourceId": "dd48486f7f0178e2da54efcd",
+    "observedAt": "2015-08-05",
+    "evidence": "For the full year ending December 31st, 2015, we expect revenues in the range of $1.595 billion-$1.605 billion, and we're raising our outlook for adjusted EBITDA to a range of $328 million-$333 million.",
+    "currency": "USD",
+    "amount": 1600.0,
+    "unit": "reported millions",
+    "metricName": "revenue_guidance",
+    "fiscalPeriod": "Q22015",
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "GDDY",
+      "sourceId": "dd48486f7f0178e2da54efcd",
+      "observedAt": "2015-08-05",
+      "originalQuoteSha256": "e1f3f238699f69439c28b0f54a576fde8db11a9465faa4dc6218d44a1d22ad92",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "reportingCurrencyOverride": false,
+      "metricName": "revenue_guidance",
+      "fiscalPeriod": "Q22015",
+      "amountM": 1600.0,
+      "unit": "reported millions",
+      "sourceLedgerSha256": "d44e5396b57bd719dc45f5cc9809d05739dcbc2f539c4b77e843c47f9a1dd487",
+      "preEnrichmentPayloadSha256": "ed0e8a2758efeb48bea2c72c5c3bcad4771c7571c2867439d29c5963f7c38f33",
+      "originalEvidencePayloadSha256": "ed0e8a2758efeb48bea2c72c5c3bcad4771c7571c2867439d29c5963f7c38f33",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+        "quotes": [
+          "Our functional currency, and the functional currency of each of our subsidiaries, is the U.S. dollar. Assets denominated in foreign currencies are remeasured into U.S. dollars at period-end exchange rates. Foreign currency based revenue and expense transactions are measured at transaction date exchange rates. Foreign currency gains and losses are recorded in other income (expense), net in our consolidated statements of operations, and were $(575), $(711) and $(2,952) during 2012, 2013 and 2014, respectively.",
+          "Our consolidated financial statements have been prepared in accordance with U.S. generally accepted accounting principles (GAAP), and include our accounts and the accounts of our wholly-owned subsidiaries. All significant intercompany accounts and transactions have been eliminated in consolidation.",
+          "GoDaddy Inc. will consolidate Desert Newco in its consolidated financial statements and will report a non-controlling interest related to the LLC Units held by the Continuing LLC Owners on its consolidated financial statements."
+        ],
+        "availableAt": "2015-04-01",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000119312515116327/d728713d424b4.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/GDDY/000119312515116327/d728713d424b4.htm",
+        "documentSha256": "dd3c93b52cedd3160b6b40c9c13b93d303350cfb69cc2e7140a730e719cb87d9",
+        "form": "424B4",
+        "accession": "0001193125-15-116327",
+        "cik": "0001609711",
+        "issuerConsolidatedStatementsTitle": "Desert Newco, LLC",
+        "reviewedAt": "2026-09-06",
+        "inference": true,
+        "reasoning": "The IPO prospectus explicitly connects GoDaddy's post-offering consolidation to operating predecessor Desert Newco. That operating group's own policy declares the parent and every subsidiary functional currency USD, remeasures foreign-currency assets into USD, measures foreign-currency revenue/expense transactions at event rates, and records FX in consolidated operations. Taken together, these support USD presentation for the post-IPO operating guidance; not inferred from listing currency, revenue-contract currency alone, or removal of noncontrolling interests.",
+        "limitations": "Dated currency-only analyst inference; no numerical statement, forecast scope, management guidance accuracy, economics or full model review approval.",
+        "supportingDocuments": [
+          {
+            "availableAt": "2015-05-12",
+            "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000160971115000006/gddy20150512ex991q1earning.htm",
+            "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/GDDY/000160971115000006/gddy20150512ex991q1earning.htm",
+            "documentSha256": "8d90ac4d21e45434453d6024fe7465548622bd27d67bb525f1bf459f4016141c",
+            "cik": "0001609711",
+            "accession": "0001609711-15-000006",
+            "form": "8-K",
+            "quotes": [
+              "On April 7, 2015, GoDaddy Inc. successfully closed its initial public offering (IPO) of 26 million shares of Class A common stock at a public offering price of $20 per share, which included 3 million shares sold pursuant to the underwriters’ over-allotment option and 2.5 million shares sold to certain affiliates.",
+              "This press release presents historical results, for the periods presented, of Desert Newco, LLC, the predecessor of GoDaddy Inc. for financial reporting purposes."
+            ],
+            "paragraphSha256": [
+              "ff97d4ad0cd6ab5be1a742827dc6111808e00412e040dd8eb130bd06b33bb63a",
+              "33ef2e67f77043b9440b6edde9b221e321c703bb3fe8f6cca1bc637c998e573e"
+            ]
+          }
+        ],
+        "paragraphSha256": [
+          "cee9e1b910382ee66c8e5910bdf8af0f33db4b4cbf08ab4f0d883fad3837a685",
+          "a268b1a14bc3b60978355f973cd9b7daa8a3e2089fd03dd20a833d9582dd11f4",
+          "f0c9cef214423d97e890c088dbd79200361582471d1e014108f945f0d33d557b"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required."
+    }
+  },
+  {
+    "ticker": "GDDY",
+    "sourceId": "e99805dae847ba174008b910",
+    "observedAt": "2015-05-12",
+    "evidence": "For the second quarter ending June 30th, 2015, we expect revenue between $390 million-$395 million, and adjusted EBITDA to fall under the range of $75 million-$78 million.",
+    "currency": "USD",
+    "amount": 76.5,
+    "unit": "reported millions",
+    "metricName": "ebitda_guidance",
+    "fiscalPeriod": "Q12015",
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "GDDY",
+      "sourceId": "e99805dae847ba174008b910",
+      "observedAt": "2015-05-12",
+      "originalQuoteSha256": "8966b46f51af0c890d0710c68a6224fec5957874ba2394e540fef9bd4df0aab4",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "reportingCurrencyOverride": false,
+      "metricName": "ebitda_guidance",
+      "fiscalPeriod": "Q12015",
+      "amountM": 76.5,
+      "unit": "reported millions",
+      "sourceLedgerSha256": "d44e5396b57bd719dc45f5cc9809d05739dcbc2f539c4b77e843c47f9a1dd487",
+      "preEnrichmentPayloadSha256": "4d90846967cbef33d97cb48dcd859a3dd06a123f0607574d4d72d220e39844ab",
+      "originalEvidencePayloadSha256": "4d90846967cbef33d97cb48dcd859a3dd06a123f0607574d4d72d220e39844ab",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+        "quotes": [
+          "Our functional currency, and the functional currency of each of our subsidiaries, is the U.S. dollar. Assets denominated in foreign currencies are remeasured into U.S. dollars at period-end exchange rates. Foreign currency based revenue and expense transactions are measured at transaction date exchange rates. Foreign currency gains and losses are recorded in other income (expense), net in our consolidated statements of operations, and were $(575), $(711) and $(2,952) during 2012, 2013 and 2014, respectively.",
+          "Our consolidated financial statements have been prepared in accordance with U.S. generally accepted accounting principles (GAAP), and include our accounts and the accounts of our wholly-owned subsidiaries. All significant intercompany accounts and transactions have been eliminated in consolidation.",
+          "GoDaddy Inc. will consolidate Desert Newco in its consolidated financial statements and will report a non-controlling interest related to the LLC Units held by the Continuing LLC Owners on its consolidated financial statements."
+        ],
+        "availableAt": "2015-04-01",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000119312515116327/d728713d424b4.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/GDDY/000119312515116327/d728713d424b4.htm",
+        "documentSha256": "dd3c93b52cedd3160b6b40c9c13b93d303350cfb69cc2e7140a730e719cb87d9",
+        "form": "424B4",
+        "accession": "0001193125-15-116327",
+        "cik": "0001609711",
+        "issuerConsolidatedStatementsTitle": "Desert Newco, LLC",
+        "reviewedAt": "2026-09-06",
+        "inference": true,
+        "reasoning": "The IPO prospectus explicitly connects GoDaddy's post-offering consolidation to operating predecessor Desert Newco. That operating group's own policy declares the parent and every subsidiary functional currency USD, remeasures foreign-currency assets into USD, measures foreign-currency revenue/expense transactions at event rates, and records FX in consolidated operations. Taken together, these support USD presentation for the post-IPO operating guidance; not inferred from listing currency, revenue-contract currency alone, or removal of noncontrolling interests.",
+        "limitations": "Dated currency-only analyst inference; no numerical statement, forecast scope, management guidance accuracy, economics or full model review approval.",
+        "supportingDocuments": [
+          {
+            "availableAt": "2015-05-12",
+            "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000160971115000006/gddy20150512ex991q1earning.htm",
+            "documentPath": "output/guru-valuation-expansion-2026-09-05/ipo-next18-currency-primary/GDDY/000160971115000006/gddy20150512ex991q1earning.htm",
+            "documentSha256": "8d90ac4d21e45434453d6024fe7465548622bd27d67bb525f1bf459f4016141c",
+            "cik": "0001609711",
+            "accession": "0001609711-15-000006",
+            "form": "8-K",
+            "quotes": [
+              "On April 7, 2015, GoDaddy Inc. successfully closed its initial public offering (IPO) of 26 million shares of Class A common stock at a public offering price of $20 per share, which included 3 million shares sold pursuant to the underwriters’ over-allotment option and 2.5 million shares sold to certain affiliates.",
+              "This press release presents historical results, for the periods presented, of Desert Newco, LLC, the predecessor of GoDaddy Inc. for financial reporting purposes."
+            ],
+            "paragraphSha256": [
+              "ff97d4ad0cd6ab5be1a742827dc6111808e00412e040dd8eb130bd06b33bb63a",
+              "33ef2e67f77043b9440b6edde9b221e321c703bb3fe8f6cca1bc637c998e573e"
+            ]
+          }
+        ],
+        "paragraphSha256": [
+          "cee9e1b910382ee66c8e5910bdf8af0f33db4b4cbf08ab4f0d883fad3837a685",
+          "a268b1a14bc3b60978355f973cd9b7daa8a3e2089fd03dd20a833d9582dd11f4",
+          "f0c9cef214423d97e890c088dbd79200361582471d1e014108f945f0d33d557b"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required."
+    }
+  }
+]

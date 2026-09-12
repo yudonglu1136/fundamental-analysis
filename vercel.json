@@ -26,7 +26,7 @@
       "continue": true
     },
     {
-      "src": "^/(index\\.html|refresh\\.html|main\\.dart\\.js|flutter_bootstrap\\.js|flutter_service_worker\\.js)$",
+      "src": "^/(index\\.html|refresh\\.html|main\\.dart\\.js|thesisforge-build\\.json|flutter_bootstrap\\.js|flutter_service_worker\\.js)$",
       "headers": {
         "Cache-Control": "public, max-age=0, must-revalidate"
       },

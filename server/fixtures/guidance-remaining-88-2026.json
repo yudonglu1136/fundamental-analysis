@@ -1,0 +1,2784 @@
+{
+  "schemaVersion": 1,
+  "scope": "88 source-bound failures (20 semantic + 68 quantified) from isolated 2026-09-05 candidate; manual original-evidence classifications.",
+  "events": [
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "ADMA",
+        "sourceId": "eb5fe75fd95684069f6f3799",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "eb5fe75fd95684069f6f3799",
+        "ticker": "ADMA",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2025,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-01-12",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1368514/000114036126000906/ef20062685_ex99-1.htm",
+        "evidence_excerpt": "company dedicated to manufacturing, marketing and developing specialty biologics, today announced its preliminary unaudited full year 2025 revenue and provided a business update. Based on unaudited financial information, ADMA preliminarily estimates that its total revenue for the full year ended December 31, 2025 will be approximately $510-$511 million. ADMA’s total cash holdings at year-end 2025 grew to approximately $88 million, including an unaudited approximately $40 million in"
+      },
+      "index": 1
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "ADMA",
+        "sourceId": "5c95e061cc7875f139aebd26",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "5c95e061cc7875f139aebd26",
+        "ticker": "ADMA",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-25",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1368514/000114036126006781/ef20066393_ex99-1.htm",
+        "evidence_excerpt": "Guidance: to generate operating leverage and execute against both our near- and long-term targets, including achieving more than $1.1 billion in annual revenue and greater than $700 million in Adjusted EBITDA expected in 2029, representing approximately 20%"
+      },
+      "index": 2
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "ALK",
+        "sourceId": "d6a797e1fef52f4dd35fd08d",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "d6a797e1fef52f4dd35fd08d",
+        "ticker": "ALK",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-07-21",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/766421/000076642126000036/ex9917212026earningsrelease.htm",
+        "evidence_excerpt": "(a) Q3 earnings per share guidance assumes non-operating expense of approximately $60 million, a tax rate of approximately 35%, and shares outstanding of approximately 113.5 million."
+      },
+      "index": 3
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "ALKS",
+        "sourceId": "5f3b9c4cd6144734e2717455",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "5f3b9c4cd6144734e2717455",
+        "ticker": "ALKS",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-05-05",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1520262/000119312526205008/alks-ex99_2.htm",
+        "evidence_excerpt": "ARISTADA® Performance and Expectations Q1’26 ARISTADA net sales were $93.8M Outlook: FY’26 net sales expected to range from $365M – $385M†* *Inclusive of ARISTADA INITIO®"
+      },
+      "index": 4
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "ALKS",
+        "sourceId": "6f1981c1a39842f5dc7046bf",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "6f1981c1a39842f5dc7046bf",
+        "ticker": "ALKS",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-05-05",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1520262/000119312526205008/alks-ex99_2.htm",
+        "evidence_excerpt": "VIVITROL® Performance and Expectations *These expectations were initially provided by the Company on Feb. 25, 2026, are reiterated by the Company on May 5, 2026 and are effective only as of such date. The Company expressly disclaims any obligation to update or reaffirm these expectations. Q1’26 VIVITROL net sales were $112.4M Outlook: FY’26 net sales expected to range from $460M – $480M* VIVITROL Quarterly Net Sales ($M)"
+      },
+      "index": 5
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "ALKS",
+        "sourceId": "00b750c9e4340fbd634e62fd",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "00b750c9e4340fbd634e62fd",
+        "ticker": "ALKS",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-07-28",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1520262/000119312526318844/alks-ex99_2.htm",
+        "evidence_excerpt": "VIVITROL® Performance and Expectations *These expectations were initially provided by the Company on Feb. 25, 2026, are reiterated by the Company on July 28, 2026 and are effective only as of such date. The Company expressly disclaims any obligation to update or reaffirm these expectations. Q2’26 VIVITROL net sales were $124.5M Outlook: FY’26 net sales expected to range from $460M – $480M* VIVITROL Quarterly Net Sales ($M)"
+      },
+      "index": 6
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "ALKS",
+        "sourceId": "2e162f8adcb7ddc6d58d8b7b",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "2e162f8adcb7ddc6d58d8b7b",
+        "ticker": "ALKS",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-07-28",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1520262/000119312526318844/alks-ex99_2.htm",
+        "evidence_excerpt": "ARISTADA® Performance and Expectations Q2’26 ARISTADA net sales were $96.7M Outlook: FY’26 net sales expected to range from $365M – $385M†* *Inclusive of ARISTADA INITIO®"
+      },
+      "index": 7
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "ALSN",
+        "sourceId": "dac347dfb4b3b2e7c96c4915",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "dac347dfb4b3b2e7c96c4915",
+        "ticker": "ALSN",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-23",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1411207/000119312526063975/d105532dex991.htm",
+        "evidence_excerpt": "Full Year 2026 Guidance. acquisition is expected to be accretive to net income and Diluted EPS in 2026 Consolidated Adjusted EBITDA in the range of $1,365 to $1,515 million"
+      },
+      "index": 8
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "AMBQ",
+        "sourceId": "7d3b27aa8b229eb5e560b6fa",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "7d3b27aa8b229eb5e560b6fa",
+        "ticker": "AMBQ",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-08-11",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1500412/000119312526343443/ambq-ex99_1.htm",
+        "evidence_excerpt": "Gross profit more than doubled year-over-year on higher net sales and margin expansion Expect third quarter net sales of $36.0 million to $37.0 million, which would represent the sixth consecutive quarter of sequential growth"
+      },
+      "index": 9
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "ARX",
+        "sourceId": "01f0dfc171ee5cf410809db2",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "01f0dfc171ee5cf410809db2",
+        "ticker": "ARX",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total",
+        "guidance_target_year": 2025,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-27",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1997350/000119312526079144/d31226dex991.htm",
+        "evidence_excerpt": "Total full-year 2025 Adjusted EBITDA* is expected to be $282"
+      },
+      "index": 10
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "ARX",
+        "sourceId": "6ab581cb7b6bbaf423a13173",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "6ab581cb7b6bbaf423a13173",
+        "ticker": "ARX",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2025,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-27",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1997350/000119312526079144/d31226dex991.htm",
+        "evidence_excerpt": "Total full-year 2025 revenue is expected to be $913"
+      },
+      "index": 11
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "ARX",
+        "sourceId": "834d5ad13ca981a1c41d7035",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "834d5ad13ca981a1c41d7035",
+        "ticker": "ARX",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-27",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1997350/000119312526079144/d31226dex991.htm",
+        "evidence_excerpt": "Total fourth quarter revenue is expected to be $248"
+      },
+      "index": 12
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "ARX",
+        "sourceId": "8a3bea7987aff72ff7b08c8d",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "8a3bea7987aff72ff7b08c8d",
+        "ticker": "ARX",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-27",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1997350/000119312526079144/d31226dex991.htm",
+        "evidence_excerpt": "Total fourth quarter Adjusted EBITDA* is expected to be $71"
+      },
+      "index": 13
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "ARX",
+        "sourceId": "b572efd614a81d831200844b",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "b572efd614a81d831200844b",
+        "ticker": "ARX",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-03-18",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1997350/000119312526113962/d80009dex992.htm",
+        "evidence_excerpt": "Guidance Expected to be at least Q1’26 FY2026 Adjusted EBITDA Key Driver Bridge (2025-2026E) Adjusted EBITDA Bridge Exchange (1) 282 $1.07-1.13B $5.1B 275 Premium 9 241 (41) Business expected to continuing Underwriting mixing towards third-party 57 insurance companies, expect loss ratio performance in line with"
+      },
+      "index": 14
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "CHYM",
+        "sourceId": "4b6e41feb1e9ddfb5e808087",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "4b6e41feb1e9ddfb5e808087",
+        "ticker": "CHYM",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-05-06",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1795586/000179558626000035/ex991q126.htm",
+        "evidence_excerpt": "We are raising our full-year guidance for revenue and adjusted EBITDA. For the full year of 2026, we now expect: Revenue between $2.66 billion to $2.69 billion, resulting in year-over-year revenue growth between 22% and 23%."
+      },
+      "index": 15
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "CHYM",
+        "sourceId": "9e82f1048bdd292a53d11f5d",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "9e82f1048bdd292a53d11f5d",
+        "ticker": "CHYM",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-05-06",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1795586/000179558626000035/ex991q126.htm",
+        "evidence_excerpt": "We are raising our full-year guidance for revenue and adjusted EBITDA. For the full year of 2026, we now expect: Revenue between $2.66 billion to $2.69 billion, resulting in year-over-year revenue growth between 22% and 23%."
+      },
+      "index": 16
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "CNH",
+        "sourceId": "7ca22efb6603e612db9705d0",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "7ca22efb6603e612db9705d0",
+        "ticker": "CNH",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-17",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1567094/000156709426000003/cnh_2025xq4xfinal.htm",
+        "evidence_excerpt": "Q4 2025 results | February 17, 202620 2026 OUTLOOK – FINANCIAL TARGETS (1) Non-GAAP measure (definition in the appendix) Industrial Activities 2025A 2026E Net Sales $15.3B (4)% - flat YoY Adj. EBIT margin1 4.3% 2.5% - 3.5% R&D expenses $853M ~flat YoY Capex $530M $600M - $650M Free Cash Flow1 $513M $150M - $350M Company Adj. Effective Tax Rate1 26.7% 24% - 26% Adj. Diluted EPS1 $0.55 $0.35 - $0.45"
+      },
+      "index": 17
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "COMP",
+        "sourceId": "c4a1f7dae95069a8bd80ea6d",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "c4a1f7dae95069a8bd80ea6d",
+        "ticker": "COMP",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-26",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1563190/000156319026000044/exhibit9918-k4q25pr.htm",
+        "evidence_excerpt": "Adjusted EBITDA outlook for Q1 includes $15-20 million of impact from discrete expense items"
+      },
+      "index": 18
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "CRDO",
+        "sourceId": "3e6d4939138148bb8957591e",
+        "reasons": [
+          "guidance_scope_unresolved"
+        ]
+      },
+      "row": {
+        "id": "3e6d4939138148bb8957591e",
+        "ticker": "CRDO",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": 50,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q32026",
+        "observed_at": "2026-03-02",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/crdo/transcripts/455378-q3-2026/",
+        "evidence_excerpt": "As we look ahead to fiscal 2027, we expect sequential revenue growth in the mid-single digits, leading to more than 50% year-over-year growth."
+      },
+      "index": 19
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "CRDO",
+        "sourceId": "e6d6008e43469aac45359ae7",
+        "reasons": [
+          "guidance_scope_unresolved"
+        ]
+      },
+      "row": {
+        "id": "e6d6008e43469aac45359ae7",
+        "ticker": "CRDO",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "clear",
+        "amount": 200,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q42022",
+        "observed_at": "2022-06-01",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/crdo/transcripts/179338-q4-2022/",
+        "evidence_excerpt": "As Bill mentioned, we expect to achieve at least $200 million of revenue in fiscal 2023."
+      },
+      "index": 20
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "CRS",
+        "sourceId": "c1e63bf067b56a746e78661d",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "c1e63bf067b56a746e78661d",
+        "ticker": "CRS",
+        "metric_name": "operating_income_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-01-29",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/17843/000001784326000007/a2ndqtrfy2026results.htm",
+        "evidence_excerpt": "Increased Operating Income Guidance for Fiscal Year 2026 PHILADELPHIA, January 29, 2026 (GLOBE NEWSWIRE) — Carpenter Technology Corporation (NYSE: CRS) (the “Company”) today announced financial results for the fiscal second quarter ended December 31, 2025. For the quarter, the Company reported operating income of $155.2 million and earnings per diluted share of $2.09. Excluding the special item discussed below, adjusted earnings per diluted share was $2.33 for the current quarter."
+      },
+      "index": 21
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "CRS",
+        "sourceId": "0e258fbc8d8de2f3fbfc605b",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted",
+          "guidance_scope_not_supported_by_evidence"
+        ]
+      },
+      "row": {
+        "id": "0e258fbc8d8de2f3fbfc605b",
+        "ticker": "CRS",
+        "metric_name": "operating_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q3",
+        "observed_at": "2026-04-29",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/17843/000001784326000018/a3rdqtrfy2026results.htm",
+        "evidence_excerpt": "“With the record third quarter performance and strengthening outlook, we have raised our operating income and adjusted free cash flow expectations for fiscal year 2026. We expect operating income to be in the range of $700 million to $705 million, with adjusted free cash flow to be approximately $350 million.”"
+      },
+      "index": 22
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "CRS",
+        "sourceId": "ac14ab62b6ceb32ca1293c76",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "ac14ab62b6ceb32ca1293c76",
+        "ticker": "CRS",
+        "metric_name": "operating_income_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q3",
+        "observed_at": "2026-04-29",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/17843/000001784326000018/a3rdqtrfy2026results.htm",
+        "evidence_excerpt": "Increased Operating Income and Adjusted Free Cash Flow Outlook for Fiscal Year 2026 PHILADELPHIA, April 29, 2026 (GLOBE NEWSWIRE) — Carpenter Technology Corporation (NYSE: CRS) (the “Company”) today announced financial results for the fiscal third quarter ended March 31, 2026. For the quarter, the Company reported operating income of $186.5 million and earnings per diluted share of $2.77."
+      },
+      "index": 23
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "CRS",
+        "sourceId": "fefc17b17cc8a5375ba3411f",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "fefc17b17cc8a5375ba3411f",
+        "ticker": "CRS",
+        "metric_name": "free_cash_flow_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q3",
+        "observed_at": "2026-04-29",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/17843/000001784326000018/a3rdqtrfy2026results.htm",
+        "evidence_excerpt": "“With the record third quarter performance and strengthening outlook, we have raised our operating income and adjusted free cash flow expectations for fiscal year 2026. We expect operating income to be in the range of $700 million to $705 million, with adjusted free cash flow to be approximately $350 million.”"
+      },
+      "index": 24
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "CRS",
+        "sourceId": "98ac43dcc8944016e3c082c0",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "98ac43dcc8944016e3c082c0",
+        "ticker": "CRS",
+        "metric_name": "operating_income_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2029,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q4",
+        "observed_at": "2026-07-30",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/17843/000001784326000030/a4thqtr2026resultspressrel.htm",
+        "evidence_excerpt": "Announced Fiscal Year 2027 Outlook and Fiscal Year 2029 Target for Operating Income PHILADELPHIA, July 30, 2026 (GLOBE NEWSWIRE) — Carpenter Technology Corporation (NYSE: CRS) (the “Company”) today announced financial results for the fiscal fourth quarter and year ended June 30, 2026. For the quarter, the Company reported operating income of $206.9 million, and earnings per diluted share of $3.23."
+      },
+      "index": 25
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "DOCN",
+        "sourceId": "f85f233578888363f6cd65c2",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "f85f233578888363f6cd65c2",
+        "ticker": "DOCN",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-24",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1582961/000158296126000015/a2025-q4dopressrelease.htm",
+        "evidence_excerpt": "Company raises 2026 and 2027 revenue outlook after strong Q4 2025 on back of top customer growth and growing AI traction Q4 2025 revenue of $242 million, up 18% year-over-year; Reached $1B annualized monthly revenue in Dec 2025; Raised 2026 guidance to 21% growth"
+      },
+      "index": 26
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "DUOL",
+        "sourceId": "01bc3ba4866885627bba7494",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "01bc3ba4866885627bba7494",
+        "ticker": "DUOL",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-08-05",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1562088/000162828026053299/q2fy26duolingo6-30x26share.htm",
+        "evidence_excerpt": "revenue , our outlook calls for Q3 growth of approximately 11.1% compared to the prior year and approximately 16.3% for the full year. Our outlook reflects exchange rates as of the end of July. As a reminder, over half of our bookings come from outside the US, and we estimate that every 1% change in the dollar versus our currency basket equates to about a $4 million impact on our H2 bookings."
+      },
+      "index": 27
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "FIVE",
+        "sourceId": "fe9ee898f3279ea11fbac67f",
+        "reasons": [
+          "guidance_scope_unresolved"
+        ]
+      },
+      "row": {
+        "id": "fe9ee898f3279ea11fbac67f",
+        "ticker": "FIVE",
+        "metric_name": "capex_guidance",
+        "guidance_scope": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "clear",
+        "amount": 240,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q4",
+        "observed_at": "2026-03-18",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1177609/000117760926000006/q42025fivebelowexhibit991.htm",
+        "evidence_excerpt": "Gross capital expenditures are expected to be approximately $230 million to $250 million in fiscal 2026."
+      },
+      "index": 28
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "GENI",
+        "sourceId": "d6bdd5fdc57f9c25f5eb70d9",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "d6bdd5fdc57f9c25f5eb70d9",
+        "ticker": "GENI",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-08-06",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1834489/000119312526336663/geni-ex99_2.htm",
+        "evidence_excerpt": "Raised Full-Year 2026 Group Revenue guidance to $1.005b-$1.025b and Adjusted EBITDA guidance to $285m-295m, implying a Group Adjusted EBITDA Margin of approximately 28.6% at the midpoint"
+      },
+      "index": 29
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "HLF",
+        "sourceId": "6a8e4d690fc3276d13db1fe1",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "6a8e4d690fc3276d13db1fe1",
+        "ticker": "HLF",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-08-05",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1180262/000121390026085702/ea030059301ex99-1.htm",
+        "evidence_excerpt": "Full-year 2026 guidance revised: range tightened for net sales; narrowed adjusted EBITDA1 guidance range to $670 million to $690 million from $675 million to $705 million, primarily reflecting FX headwinds,"
+      },
+      "index": 30
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "INIO",
+        "sourceId": "05e93757928f439b1c8c471f",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "05e93757928f439b1c8c471f",
+        "ticker": "INIO",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2025,
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-07-28",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/2109150/000119312526318820/d174544dex992.htm",
+        "evidence_excerpt": "Fiscal 2026 full - year outlook 1 Revenue ($m) Adj. EBITDA ($m) 1 2 Margin 21% ~19 % 2 +46% 2 $3,800 - 3,900 +33% 3 $720 - 740 Services 2 ~35% $ 2,637 $549 Services ~48% Equipment 2 ~65% Equipment ~52% FY25 A FY26 E FY25 A FY26 E Accelerating revenue growth expected in combination with margin recovery as we grow"
+      },
+      "index": 31
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "INIO",
+        "sourceId": "444520e6dcff76b042ee2514",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "444520e6dcff76b042ee2514",
+        "ticker": "INIO",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2025,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-07-28",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/2109150/000119312526318820/d174544dex992.htm",
+        "evidence_excerpt": "Fiscal 2026 full - year outlook 1 Revenue ($m) Adj. EBITDA ($m) 1 2 Margin 21% ~19 % 2 +46% 2 $3,800 - 3,900 +33% 3 $720 - 740 Services 2 ~35% $ 2,637 $549 Services ~48% Equipment 2 ~65% Equipment ~52% FY25 A FY26 E FY25 A FY26 E Accelerating revenue growth expected in combination with margin recovery as we grow"
+      },
+      "index": 32
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "IOT",
+        "sourceId": "6aac106df45c16728d6b304f",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "6aac106df45c16728d6b304f",
+        "ticker": "IOT",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2027,
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2027-Q1",
+        "observed_at": "2026-06-04",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1642896/000162828026040788/samsaraepr-q12027.htm",
+        "evidence_excerpt": "FY 2027 Outlook. We expect to be FY27 GAAP EPS profitable even excluding the $30 million arbitration award issued in Samsara’s favor in the Motive breach of contract, fraud, unfair competition, and false advertising matter."
+      },
+      "index": 33
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "MDB",
+        "sourceId": "0a46b20da6888e3ba0d1420e",
+        "reasons": [
+          "guidance_scope_not_supported_by_evidence"
+        ]
+      },
+      "row": {
+        "id": "0a46b20da6888e3ba0d1420e",
+        "ticker": "MDB",
+        "metric_name": "operating_margin",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": 10,
+        "currency": null,
+        "fiscal_period": "Q22025",
+        "observed_at": "2024-08-29",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/201783-q2-2025/",
+        "evidence_excerpt": "Finally, thanks to the performance in Q2 and the increased revenue outlook, we now expect a 10% operating margin at the midpoint of our fiscal 2025 guidance."
+      },
+      "index": 34
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "MDB",
+        "sourceId": "080d04da34da62090387ac60",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "080d04da34da62090387ac60",
+        "ticker": "MDB",
+        "metric_name": "net_income_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2024,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q42023",
+        "observed_at": "2023-03-08",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/45083-q4-2023/",
+        "evidence_excerpt": "For the full fiscal year 2024, we expect non-GAAP income from operations to be in the range of $69 million-$84 million, and non-GAAP net income per share to the range of $0.96-$1.10."
+      },
+      "index": 35
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "MDB",
+        "sourceId": "5fe6e65becb4f9e52db8ddda",
+        "reasons": [
+          "guidance_scope_unresolved"
+        ]
+      },
+      "row": {
+        "id": "5fe6e65becb4f9e52db8ddda",
+        "ticker": "MDB",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "clear",
+        "amount": 40,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q42024",
+        "observed_at": "2024-03-07",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/130032-q4-2024/",
+        "evidence_excerpt": "First, we expect to recognize close to zero revenue from unused Atlas commitments in fiscal 2025, compared to over $40 million in fiscal 2024."
+      },
+      "index": 36
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "MOD",
+        "sourceId": "de9f8541065c3b3336a70863",
+        "reasons": [
+          "guidance_scope_unresolved"
+        ]
+      },
+      "row": {
+        "id": "de9f8541065c3b3336a70863",
+        "ticker": "MOD",
+        "metric_name": "capex_guidance",
+        "guidance_scope": null,
+        "guidance_subject": "company_total",
+        "guidance_target_year": null,
+        "quality_status": "clear",
+        "amount": 175,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q4",
+        "observed_at": "2026-05-26",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/67347/000110465926066291/mod-20260526xex99d2.htm",
+        "evidence_excerpt": "Guidance: Company estimates capital expenditures will total approximately $150 to $200 million in fiscal 2027."
+      },
+      "index": 37
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "MOD",
+        "sourceId": "9c879d2a8014cef4f2340d57",
+        "reasons": [
+          "guidance_scope_unresolved"
+        ]
+      },
+      "row": {
+        "id": "9c879d2a8014cef4f2340d57",
+        "ticker": "MOD",
+        "metric_name": "capex_guidance",
+        "guidance_scope": null,
+        "guidance_subject": "company_total",
+        "guidance_target_year": null,
+        "quality_status": "clear",
+        "amount": 175,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2027-Q1",
+        "observed_at": "2026-07-29",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/67347/000110465926088230/mod-20260729xex99d2.htm",
+        "evidence_excerpt": "Guidance: Company estimates capital expenditures will total approximately $150 to $200 million in fiscal 2027."
+      },
+      "index": 38
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "MTZ",
+        "sourceId": "4f46ca15876d67353a1e945a",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "4f46ca15876d67353a1e945a",
+        "ticker": "MTZ",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-04-30",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/15615/000001561526000052/mtz331268-kex991.htm",
+        "evidence_excerpt": "Increased Full Year Diluted EPS guidance to $6.77, a 33% year-over-year increase; Increased Full Year Adjusted Diluted EPS guidance to $8.79, a 34% year-over-year increase"
+      },
+      "index": 39
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "MTZ",
+        "sourceId": "b804ea6b8b1edf0e27426604",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "b804ea6b8b1edf0e27426604",
+        "ticker": "MTZ",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-07-30",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/15615/000001561526000095/mtz630268-kex991.htm",
+        "evidence_excerpt": "Updated Full Year Diluted EPS guidance to $6.20, a 22% year-over-year increase; Increased Full Year Adjusted Diluted EPS guidance to $9.30, a 42% year-over-year increase"
+      },
+      "index": 40
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "NE",
+        "sourceId": "05a9c63c260cc69f549c5d2a",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "05a9c63c260cc69f549c5d2a",
+        "ticker": "NE",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-04-27",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1895262/000189526226000108/exhibit991-q12026pressrele.htm",
+        "evidence_excerpt": "Full Year 2026 Guidance for Revenue and Adjusted EBITDA maintained, 2026 capital expenditures guidance increased by $25 million due to the reactivation of the"
+      },
+      "index": 41
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "NE",
+        "sourceId": "cb2292b87e105e72018cc9c5",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "cb2292b87e105e72018cc9c5",
+        "ticker": "NE",
+        "metric_name": "capex_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-04-27",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1895262/000189526226000108/exhibit991-q12026pressrele.htm",
+        "evidence_excerpt": "For the full year 2026, previous guidance is maintained for Revenue ($2,800-$3,000 million) and Adjusted EBITDA ($940-$1,020 million), while guidance for capital expenditures is increased to $615-$665 million (previously $590-$640 million) due to the"
+      },
+      "index": 42
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "NE",
+        "sourceId": "d2e573ff2999597f5dae89a9",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "d2e573ff2999597f5dae89a9",
+        "ticker": "NE",
+        "metric_name": "capex_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-04-27",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1895262/000189526226000108/exhibit991-q12026pressrele.htm",
+        "evidence_excerpt": "Outlook For the full year 2026, previous guidance is maintained for Revenue ($2,800-$3,000 million) and Adjusted EBITDA ($940-$1,020 million), while guidance for capital expenditures is increased to $615-$665 million (previously $590-$640 million) due to the"
+      },
+      "index": 43
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "NET",
+        "sourceId": "04c24913cb674ad205eead03",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "04c24913cb674ad205eead03",
+        "ticker": "NET",
+        "metric_name": "net_income_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q22023",
+        "observed_at": "2023-08-03",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/net/transcripts/65509-q2-2023/",
+        "evidence_excerpt": "We expect operating income for the full year in the range of $81 million-$85 million, and we expect diluted net income per share over that period to be $0.37, assuming approximately 345 million shares outstanding."
+      },
+      "index": 44
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "NET",
+        "sourceId": "2ffe5a890f7ddbd2e9b912be",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "2ffe5a890f7ddbd2e9b912be",
+        "ticker": "NET",
+        "metric_name": "net_income_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q42023",
+        "observed_at": "2024-02-08",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/net/transcripts/123143-q4-2023/",
+        "evidence_excerpt": "We expect an effective tax rate of 11% for 2024, and we expect diluted net income per share over that period to be $0.58-$0.59, assuming approximately 358 million shares outstanding."
+      },
+      "index": 45
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "PFGC",
+        "sourceId": "0c2d7798fc86207268c4d4ff",
+        "reasons": [
+          "guidance_scope_not_supported_by_evidence"
+        ]
+      },
+      "row": {
+        "id": "0c2d7798fc86207268c4d4ff",
+        "ticker": "PFGC",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "clear",
+        "amount": 400,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-02-04",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1618673/000119312526036704/pfgc-ex99_1.htm",
+        "evidence_excerpt": "Guidance: For the third quarter of fiscal 2026, PFG expects net sales to be in a range of approximately $16.0 billion to $16.3 billion. For the third quarter of fiscal 2026, PFG expects Adjusted EBITDA to be in a range of approximately $390 million to $410 million."
+      },
+      "index": 46
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "PFGC",
+        "sourceId": "d26010947e388a8c17e28b70",
+        "reasons": [
+          "guidance_scope_not_supported_by_evidence"
+        ]
+      },
+      "row": {
+        "id": "d26010947e388a8c17e28b70",
+        "ticker": "PFGC",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total",
+        "guidance_target_year": null,
+        "quality_status": "clear",
+        "amount": 16150,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-02-04",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1618673/000119312526036704/pfgc-ex99_1.htm",
+        "evidence_excerpt": "Guidance: For the third quarter of fiscal 2026, PFG expects net sales to be in a range of approximately $16.0 billion to $16.3 billion. For the third quarter of fiscal 2026, PFG expects Adjusted EBITDA to be in a range of approximately $390 million to $410 million."
+      },
+      "index": 47
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "PFGC",
+        "sourceId": "c8049cf7b1ab5efc7709610d",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "c8049cf7b1ab5efc7709610d",
+        "ticker": "PFGC",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q3",
+        "observed_at": "2026-05-06",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1618673/000119312526207521/pfgc-ex99_1.htm",
+        "evidence_excerpt": "For the full fiscal year 2026, PFG is narrowing the guidance range for both net sales and Adjusted EBITDA. PFG now expects net sales to be in a range of approximately $67.7 billion to $68.0 billion compared to the prior expectation of a $67.25 billion to $68.25 billion range. For the full fiscal year 2026, PFG now expects Adjusted EBITDA to be in a range of approximately $1.9 billion to $1.93 billion compared to the prior range of approximately $1.875 billion to $1.975 billion."
+      },
+      "index": 48
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "PFGC",
+        "sourceId": "e9b523f9c5d2e4703656da39",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "e9b523f9c5d2e4703656da39",
+        "ticker": "PFGC",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q3",
+        "observed_at": "2026-05-06",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1618673/000119312526207521/pfgc-ex99_1.htm",
+        "evidence_excerpt": "For the full fiscal year 2026, PFG is narrowing the guidance range for both net sales and Adjusted EBITDA. PFG now expects net sales to be in a range of approximately $67.7 billion to $68.0 billion compared to the prior expectation of a $67.25 billion to $68.25 billion range. For the full fiscal year 2026, PFG now expects Adjusted EBITDA to be in a range of approximately $1.9 billion to $1.93 billion compared to the prior range of approximately $1.875 billion to $1.975 billion."
+      },
+      "index": 49
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "PFGC",
+        "sourceId": "43ad4cee5893d163d799da86",
+        "reasons": [
+          "guidance_scope_not_supported_by_evidence"
+        ]
+      },
+      "row": {
+        "id": "43ad4cee5893d163d799da86",
+        "ticker": "PFGC",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total",
+        "guidance_target_year": null,
+        "quality_status": "clear",
+        "amount": 18000,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q4",
+        "observed_at": "2026-08-12",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1618673/000119312526345718/pfgc-ex99_1.htm",
+        "evidence_excerpt": "Guidance: For the first quarter of fiscal 2027, PFG expects net sales to be in a range of approximately $17.9 billion to $18.1 billion and Adjusted EBITDA to be in a range of approximately $510 million to $530 million."
+      },
+      "index": 50
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "PFGC",
+        "sourceId": "c6676ecb5d604597909842d1",
+        "reasons": [
+          "guidance_scope_not_supported_by_evidence"
+        ]
+      },
+      "row": {
+        "id": "c6676ecb5d604597909842d1",
+        "ticker": "PFGC",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "clear",
+        "amount": 520,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q4",
+        "observed_at": "2026-08-12",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1618673/000119312526345718/pfgc-ex99_1.htm",
+        "evidence_excerpt": "Guidance: For the first quarter of fiscal 2027, PFG expects net sales to be in a range of approximately $17.9 billion to $18.1 billion and Adjusted EBITDA to be in a range of approximately $510 million to $530 million."
+      },
+      "index": 51
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "PINS",
+        "sourceId": "71da2091955ad1155846b236",
+        "reasons": [
+          "guidance_scope_not_supported_by_evidence"
+        ]
+      },
+      "row": {
+        "id": "71da2091955ad1155846b236",
+        "ticker": "PINS",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "clear",
+        "amount": 968,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-18",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1506293/000150629326000026/pins-20260217.htm",
+        "evidence_excerpt": "As a result of the closing of the acquisition, the Company is updating its first quarter 2026 guidance to $958 million to $978 million in revenue and $163 million to $183 million in Adjusted EBITDA to include, in each case, the expected partial-quarter contribution of tvScientific to the Company's consolidated financials."
+      },
+      "index": 52
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "PINS",
+        "sourceId": "b322ecaafbf9d072908da6ed",
+        "reasons": [
+          "guidance_scope_not_supported_by_evidence"
+        ]
+      },
+      "row": {
+        "id": "b322ecaafbf9d072908da6ed",
+        "ticker": "PINS",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total",
+        "guidance_target_year": 2026,
+        "quality_status": "clear",
+        "amount": 173,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-18",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1506293/000150629326000026/pins-20260217.htm",
+        "evidence_excerpt": "As a result of the closing of the acquisition, the Company is updating its first quarter 2026 guidance to $958 million to $978 million in revenue and $163 million to $183 million in Adjusted EBITDA to include, in each case, the expected partial-quarter contribution of tvScientific to the Company's consolidated financials."
+      },
+      "index": 53
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "PLUG",
+        "sourceId": "29c897fd30b0a13b6a76d9c5",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "29c897fd30b0a13b6a76d9c5",
+        "ticker": "PLUG",
+        "metric_name": "gross_margin",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-08-10",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1093691/000110465926093339/tm2622713d1_ex99-1.htm",
+        "evidence_excerpt": "Reports Revenue of ~$178 Million, ~Break-Even Gross Margin, Net Cash Usage of ~$61 Million and Increases Revenue Guidance for 2026"
+      },
+      "index": 54
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "PPLI",
+        "sourceId": "0f53962394d57e2302483a75",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted",
+          "guidance_scope_not_supported_by_evidence"
+        ]
+      },
+      "row": {
+        "id": "0f53962394d57e2302483a75",
+        "ticker": "PPLI",
+        "metric_name": "operating_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-03",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1800227/000162828026004988/iacq42025earningscallpre.htm",
+        "evidence_excerpt": "2026 Guidance 11 ($ in M) FY 2026 Outlook1,2 Adjusted EBITDA People Inc. $310-$340 Care.com 45-55 Search (5)-10 Emerging & Other 0-10 Corporate (90-80) Total Adjusted EBITDA $260-$335 Stock-based compensation expense (55-50) Depreciation (30-25) Amortization of intangibles (80-70) Total Operating income $95-$190 1 As of Q4 2025 Earnings on 2/3/2026 2 Guidance assumes no future expenses such as severance, transactions costs or non-cash lease impairments. Full Year 2026 Observations"
+      },
+      "index": 55
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "PPLI",
+        "sourceId": "221b5f9dbb7285ac71ac5191",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "221b5f9dbb7285ac71ac5191",
+        "ticker": "PPLI",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-03",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1800227/000162828026004988/iacq42025earningscallpre.htm",
+        "evidence_excerpt": "2026 Guidance 11 ($ in M) FY 2026 Outlook1,2 Adjusted EBITDA People Inc. $310-$340 Care.com 45-55 Search (5)-10 Emerging & Other 0-10 Corporate (90-80) Total Adjusted EBITDA $260-$335 Stock-based compensation expense (55-50) Depreciation (30-25) Amortization of intangibles (80-70) Total Operating income $95-$190 1 As of Q4 2025 Earnings on 2/3/2026 2 Guidance assumes no future expenses such as severance, transactions costs or non-cash lease impairments. Full Year 2026 Observations"
+      },
+      "index": 56
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "PVH",
+        "sourceId": "9a2b9a8f642d6c48fb883936",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "9a2b9a8f642d6c48fb883936",
+        "ticker": "PVH",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q4",
+        "observed_at": "2026-03-31",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/78239/000007823926000020/ex99120254q8k.htm",
+        "evidence_excerpt": "Full Year 2026 Guidance. EPS: Projected to be in a range of $11.80 to $12.10 on a non-GAAP basis compared to $0.52 on a GAAP basis and $11.40 on a non-GAAP basis in 2025."
+      },
+      "index": 57
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "PVH",
+        "sourceId": "bca56ae6d019454d83d649b3",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "bca56ae6d019454d83d649b3",
+        "ticker": "PVH",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q4",
+        "observed_at": "2026-03-31",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/78239/000007823926000020/ex99120254q8k.htm",
+        "evidence_excerpt": "Guidance: EPS: Projected to be in a range of $1.65 to $1.80 on a non-GAAP basis compared to $(0.88) on a GAAP basis and $2.30 on a non-GAAP basis in the first quarter of 2025."
+      },
+      "index": 58
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "PVH",
+        "sourceId": "1ac9372b3c5618f20360aa46",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "1ac9372b3c5618f20360aa46",
+        "ticker": "PVH",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2027-Q1",
+        "observed_at": "2026-06-03",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/78239/000007823926000034/ex99120261q8k.htm",
+        "evidence_excerpt": "Guidance: EPS: Projected to be in a range of $3.00 to $3.10 on a non-GAAP basis compared to $4.63 on a GAAP basis and $2.52 on a non-GAAP basis in the second quarter of 2025."
+      },
+      "index": 59
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "PVH",
+        "sourceId": "cd0adc7d0fa65dad97037fdd",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "cd0adc7d0fa65dad97037fdd",
+        "ticker": "PVH",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2027-Q1",
+        "observed_at": "2026-06-03",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/78239/000007823926000034/ex99120261q8k.htm",
+        "evidence_excerpt": "Full Year 2026 Guidance. EPS: Reaffirms outlook in a range of $11.80 to $12.10"
+      },
+      "index": 60
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "PVH",
+        "sourceId": "ddd8e5851932af7ae8e53635",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "ddd8e5851932af7ae8e53635",
+        "ticker": "PVH",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q12026",
+        "observed_at": "2026-09-02",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/78239/000007823926000055/ex99120262q8k.htm",
+        "evidence_excerpt": "Full Year 2026 Guidance. EPS: Reaffirming outlook in a range of $11.80 to $12.10"
+      },
+      "index": 61
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "RIVN",
+        "sourceId": "26009a730cb4c817a8f3e17e",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "26009a730cb4c817a8f3e17e",
+        "ticker": "RIVN",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-04-30",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1874178/000187417826000033/ex-9921q26rivianearnings.htm",
+        "evidence_excerpt": "Drive towards profitability 15 2026 Guidance Vehicles Delivered 62,000 – 67,000 Adjusted EBITDA $(2.10B) – $(1.80B) Capital Expenditures $1.95B – $2.05B Q1 2026 Earnings Presentation © 2026 Rivian. All rights reserved. Business Outlook"
+      },
+      "index": 62
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "RIVN",
+        "sourceId": "f494f9d9e555a5e7213ddb1f",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted",
+          "guidance_scope_not_supported_by_evidence"
+        ]
+      },
+      "row": {
+        "id": "f494f9d9e555a5e7213ddb1f",
+        "ticker": "RIVN",
+        "metric_name": "capex_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-04-30",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1874178/000187417826000033/ex-9921q26rivianearnings.htm",
+        "evidence_excerpt": "Drive towards profitability 15 2026 Guidance Vehicles Delivered 62,000 – 67,000 Adjusted EBITDA $(2.10B) – $(1.80B) Capital Expenditures $1.95B – $2.05B Q1 2026 Earnings Presentation © 2026 Rivian. All rights reserved. Business Outlook"
+      },
+      "index": 63
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "RIVN",
+        "sourceId": "35595bf827f229742ec3c55f",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "35595bf827f229742ec3c55f",
+        "ticker": "RIVN",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-07-30",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1874178/000187417826000053/ex-9922q26rivianearnings.htm",
+        "evidence_excerpt": "Capital Expenditures reduced by $250M at the mid-point due to project efficiencies and timing of spend 11 2026 Guidance Vehicles Delivered 65,000 – 70,000 Adjusted EBITDA $(2.00)B – $(1.80)B Capital Expenditures $1.70B – $1.80B Q2 2026 Earnings Presentation © 2026 Rivian. All rights reserved. Business Outlook"
+      },
+      "index": 64
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "RRX",
+        "sourceId": "83d3b34d90ad39d45f5045bf",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "83d3b34d90ad39d45f5045bf",
+        "ticker": "RRX",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-05",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/82811/000008281126000041/a4q2025earningsannouncement.htm",
+        "evidence_excerpt": "Full Year 2026 Guidance. Introducing Guidance For 2026 GAAP Diluted Earnings Per Share In A Range Of $5.29 To $6.09 And For Adjusted Diluted Earnings Per Share In A Range Of $10.20 To $11.00, Representing Growth Of ~10% At The Mid-Point"
+      },
+      "index": 65
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "SCI",
+        "sourceId": "536493ec9b0575567c2b354b",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "536493ec9b0575567c2b354b",
+        "ticker": "SCI",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-11",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/89089/000162828026007289/exhibit991sciq425earningsr.htm",
+        "evidence_excerpt": "2026 Outlook. Cash taxes expected in 2026 (at the midpoint of diluted earnings per share excluding special items guidance) $120"
+      },
+      "index": 66
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "SCI",
+        "sourceId": "0a04fe015031feadf0f5fa21",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "0a04fe015031feadf0f5fa21",
+        "ticker": "SCI",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-04-29",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/89089/000008908926000031/exhibit991q126earningsrele.htm",
+        "evidence_excerpt": "2026 Outlook. Cash taxes expected in 2026 (at the midpoint of diluted earnings per share excluding special items guidance) $120"
+      },
+      "index": 67
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "SCI",
+        "sourceId": "9a1d00165bc1cd05dac2fb83",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "9a1d00165bc1cd05dac2fb83",
+        "ticker": "SCI",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-07-29",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/89089/000008908926000076/exhibit991q226earningsrele.htm",
+        "evidence_excerpt": "2026 Outlook. Cash taxes expected in 2026 (at the midpoint of diluted earnings per share excluding special items guidance) $120"
+      },
+      "index": 68
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "SHC",
+        "sourceId": "1595a36b1afdc78c48b066ea",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "1595a36b1afdc78c48b066ea",
+        "ticker": "SHC",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-24",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1822479/000182247926000012/february242026-ex991.htm",
+        "evidence_excerpt": "of Revenue Growth and Provides 2026 Outlook 2025 net revenues increased 5.7% to $1.164 billion"
+      },
+      "index": 69
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "SIRI",
+        "sourceId": "b235cebf513966657c0f8ee1",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "b235cebf513966657c0f8ee1",
+        "ticker": "SIRI",
+        "metric_name": "free_cash_flow_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-05",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/908937/000090893726000003/siriq42025earningsrelease.htm",
+        "evidence_excerpt": "Guidance for 2026 revenue, adjusted EBITDA, and free cash flow are as follows: Total revenue of approximately $8.5 billion,"
+      },
+      "index": 70
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "SIRI",
+        "sourceId": "17044f24c48416f3aec93a2e",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "17044f24c48416f3aec93a2e",
+        "ticker": "SIRI",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-07-30",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/908937/000090893726000020/siriq22026earningsrelease.htm",
+        "evidence_excerpt": "The company increased its full-year 2026 guidance for revenue, adjusted EBITDA and free cash flow by $25 million across the board, to the following:"
+      },
+      "index": 71
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "SIRI",
+        "sourceId": "b0f7eaf65c50fb23a40d53b2",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "b0f7eaf65c50fb23a40d53b2",
+        "ticker": "SIRI",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-07-30",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/908937/000090893726000020/siriq22026earningsrelease.htm",
+        "evidence_excerpt": "The company increased its full-year 2026 guidance for revenue, adjusted EBITDA and free cash flow by $25 million across the board, to the following:"
+      },
+      "index": 72
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "SPB",
+        "sourceId": "da8aa70d81dee1ed5e99e5c7",
+        "reasons": [
+          "guidance_scope_unresolved"
+        ]
+      },
+      "row": {
+        "id": "da8aa70d81dee1ed5e99e5c7",
+        "ticker": "SPB",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": null,
+        "guidance_subject": "company_total",
+        "guidance_target_year": null,
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": 50,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-05-07",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/109177/000010917726000018/earningsreleaseexhibit991.htm",
+        "evidence_excerpt": "Updating Fiscal 2026 Framework, Continue to Expect Net Sales to be Flat to Up Low Single Digits and Approximately 50% Conversion of Adjusted EBITDA to Adjusted Free Cash Flow; Adjusted EBITDA is Now Expected to be Up Low to Mid Single Digits"
+      },
+      "index": 73
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "TEX",
+        "sourceId": "09b54d8f7a8603b2579395a5",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "09b54d8f7a8603b2579395a5",
+        "ticker": "TEX",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-05-01",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/97216/000009721626000078/terexearningsreleaseexq1-26.htm",
+        "evidence_excerpt": "2026 Outlook. basis to between $930 million and $1 billion, or 12.4% EBITDA margin at the mid-point. The EPS outlook of $4.50 - $5.00 includes the following assumptions/commentary:"
+      },
+      "index": 74
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "TFX",
+        "sourceId": "6f6722330f29fdd301033710",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "6f6722330f29fdd301033710",
+        "ticker": "TFX",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-26",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/96943/000009694326000011/ex991to2-26x2026re2025yeea.htm",
+        "evidence_excerpt": "The Company expects full year 2026 GAAP diluted earnings per share from continuing operations outlook of $2.90 to $3.20. The Company expects full year 2026 adjusted diluted earnings per share from continuing operations of $6.25 to $6.55."
+      },
+      "index": 75
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "TFX",
+        "sourceId": "8c4167b056e3a15ddc266170",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "8c4167b056e3a15ddc266170",
+        "ticker": "TFX",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-05-07",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/96943/000009694326000048/ex991to5-6x2026req12026ear.htm",
+        "evidence_excerpt": "The Company maintained its full year 2026 GAAP diluted earnings per share from continuing operations outlook range of $2.90 to $3.20. The Company continues to expect full year 2026 adjusted diluted earnings per share from continuing operations of $6.25 to $6.55."
+      },
+      "index": 76
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "TFX",
+        "sourceId": "9ef05c335fa83120cfc40573",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "9ef05c335fa83120cfc40573",
+        "ticker": "TFX",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-05-07",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/96943/000009694326000048/exhibit992to5-7x2026req1.htm",
+        "evidence_excerpt": "Forecasted 2026 Pro Forma Adjusted Revenue From Continuing Operations Reconciliation TELEFLEX EARNINGS CONFERENCE CALL 5/7/202616 2026 Guidance 2025 2026 Guidance Low High GAAP revenue $1,992.7 $2,280 $2,300 Vascular Intervention pro forma adjustment 199.0 — — Discontinued product adjustment (14.3) — — Italian payback measure adjustment (9.0) — — Pro forma adjusted revenue $2,168.4 $2,280 $2,300 Note: See appendices for reconciliations of non-GAAP financial information."
+      },
+      "index": 77
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "TFX",
+        "sourceId": "c94b99a675876d36d062d508",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "c94b99a675876d36d062d508",
+        "ticker": "TFX",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-08-06",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/96943/000009694326000091/ex991to8-6x2026req2earning.htm",
+        "evidence_excerpt": "The Company reduced its full year 2026 GAAP diluted earnings per share from continuing operations outlook range of $2.54 to $2.84. The Company increased its full year 2026 adjusted diluted earnings per share from continuing operations outlook to $6.90 to $7.20."
+      },
+      "index": 78
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "TFX",
+        "sourceId": "e8f32013ea15a33101b5c81b",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "e8f32013ea15a33101b5c81b",
+        "ticker": "TFX",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-08-06",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/96943/000009694326000091/exhibit992to8-6x2026req2.htm",
+        "evidence_excerpt": "Forecasted 2026 Pro Forma Adjusted Revenue From Continuing Operations Reconciliation TELEFLEX EARNINGS CONFERENCE CALL 8/6/202618 2026 Guidance 2025 2026 Guidance Low High GAAP revenue $1,992.7 $2,260 $2,280 Vascular Intervention pro forma adjustment 199.0 — — Discontinued product adjustment (14.3) — — Italian payback measure adjustment (9.0) — — Pro forma adjusted revenue $2,168.4 $2,260 $2,280 Note: See appendices for reconciliations of non-GAAP financial information."
+      },
+      "index": 79
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "WCC",
+        "sourceId": "32cf84611369314b46a7534f",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "32cf84611369314b46a7534f",
+        "ticker": "WCC",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-10",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/929008/000092900826000004/wcc-4q2025slides.htm",
+        "evidence_excerpt": "Looking ahead in 2026, we anticipate meaningful improvement in both EBITDA margin and free cash flow Initiating 2026 outlook with a reported sales growth range of 5%-8%, adjusted EBITDA margin of ~6.8% at the mid-point, adjusted EPS range of $14.50 to $16.50 and free cash flow between $500-$800 million Full-year 2026 outlook reflects increasing momentum seen throughout 2025. See appendix for non-GAAP definitions and reconciliations. © 2026 Wesco International"
+      },
+      "index": 80
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "WCC",
+        "sourceId": "bdf18e23fc98901236ce1362",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "bdf18e23fc98901236ce1362",
+        "ticker": "WCC",
+        "metric_name": "free_cash_flow_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-10",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/929008/000092900826000004/wcc-4q2025slides.htm",
+        "evidence_excerpt": "Looking ahead in 2026, we anticipate meaningful improvement in both EBITDA margin and free cash flow Initiating 2026 outlook with a reported sales growth range of 5%-8%, adjusted EBITDA margin of ~6.8% at the mid-point, adjusted EPS range of $14.50 to $16.50 and free cash flow between $500-$800 million Full-year 2026 outlook reflects increasing momentum seen throughout 2025. See appendix for non-GAAP definitions and reconciliations. © 2026 Wesco International"
+      },
+      "index": 81
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "WCC",
+        "sourceId": "d3a4643f5fa7e37ba1662dca",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "d3a4643f5fa7e37ba1662dca",
+        "ticker": "WCC",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-10",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/929008/000092900826000004/wcc-4q2025slides.htm",
+        "evidence_excerpt": "Looking ahead in 2026, we anticipate meaningful improvement in both EBITDA margin and free cash flow Initiating 2026 outlook with a reported sales growth range of 5%-8%, adjusted EBITDA margin of ~6.8% at the mid-point, adjusted EPS range of $14.50 to $16.50 and free cash flow between $500-$800 million Full-year 2026 outlook reflects increasing momentum seen throughout 2025. See appendix for non-GAAP definitions and reconciliations. © 2026 Wesco International"
+      },
+      "index": 82
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "WCC",
+        "sourceId": "ff0340848125304410c212b0",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "ff0340848125304410c212b0",
+        "ticker": "WCC",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-10",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/929008/000092900826000004/wcc-4q2025earnings.htm",
+        "evidence_excerpt": "Full-year 2026 outlook of 5% to 8% reported sales growth, adjusted EBITDA margin of ~6.8% at the mid-point, adjusted diluted EPS of $14.50 to $16.50, and free cash flow of $500 - $800 million"
+      },
+      "index": 83
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "WIX",
+        "sourceId": "8654048e8744976f40bc7fc0",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "8654048e8744976f40bc7fc0",
+        "ticker": "WIX",
+        "metric_name": "free_cash_flow_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": 2026,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-05-13",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1576789/000162828026034370/firstquarter2026results.htm",
+        "evidence_excerpt": "For the full year 2026, we expect FCF margin excluding acquisition costs to be in the high-teens. This includes the impact of foregone interest income on our cash balance liquidated to fund our tender program as well as interest expense on our $500 million credit facility. FCF outlook also includes approximately $64 million of headwind on our full year operating expense base, net of hedging activity, as the Israeli shekel has strengthened meaningfully against the U.S. dollar."
+      },
+      "index": 84
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "ZM",
+        "sourceId": "00cbab7c88fb38f574ac04a3",
+        "reasons": [
+          "guidance_scope_not_supported_by_evidence"
+        ]
+      },
+      "row": {
+        "id": "00cbab7c88fb38f574ac04a3",
+        "ticker": "ZM",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total",
+        "guidance_target_year": 2027,
+        "quality_status": "clear",
+        "amount": 1222.5,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q4",
+        "observed_at": "2026-02-25",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1585521/000158552126000026/zm-20260225ex991.htm",
+        "evidence_excerpt": "First Quarter Fiscal Year 2027: Total revenue is expected to be between $1.220 billion and $1.225 billion and revenue in constant currency is expected to be between $1.212 billion and $1.217 billion. Non-GAAP income from operations is expected to be between $487.0 million and $492.0 million. First quarter non-GAAP diluted EPS is expected to be between $1.40 and $1.42 with approximately 304 million non-GAAP weighted average shares outstanding."
+      },
+      "index": 85
+    },
+    {
+      "failure": {
+        "code": "guidance_quantified_evidence_review_incomplete",
+        "ticker": "ZM",
+        "sourceId": "665c27bc5b800304220777ad",
+        "reasons": [
+          "guidance_not_quantified",
+          "guidance_quality_not_clear",
+          "guidance_quantified_source_not_extracted"
+        ]
+      },
+      "row": {
+        "id": "665c27bc5b800304220777ad",
+        "ticker": "ZM",
+        "metric_name": "eps_guidance",
+        "guidance_scope": "quarter",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_target_year": null,
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q4",
+        "observed_at": "2026-02-25",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1585521/000158552126000026/zm-20260225ex991.htm",
+        "evidence_excerpt": "First Quarter Fiscal Year 2027: Total revenue is expected to be between $1.220 billion and $1.225 billion and revenue in constant currency is expected to be between $1.212 billion and $1.217 billion. Non-GAAP income from operations is expected to be between $487.0 million and $492.0 million. First quarter non-GAAP diluted EPS is expected to be between $1.40 and $1.42 with approximately 304 million non-GAAP weighted average shares outstanding."
+      },
+      "index": 86
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "ZM",
+        "sourceId": "02810c5a3bb41c43d700bdc9",
+        "reasons": [
+          "guidance_scope_not_supported_by_evidence"
+        ]
+      },
+      "row": {
+        "id": "02810c5a3bb41c43d700bdc9",
+        "ticker": "ZM",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total",
+        "guidance_target_year": 2027,
+        "quality_status": "clear",
+        "amount": 1267.5,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2027-Q1",
+        "observed_at": "2026-05-21",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1585521/000158552126000069/zm-20260430ex991.htm",
+        "evidence_excerpt": "Second Quarter Fiscal Year 2027: Total revenue is expected to be between $1.265 billion and $1.270 billion and revenue in constant currency is expected to be between $1.262 billion and $1.267 billion. Non-GAAP income from operations is expected to be between $508.0 million and $513.0 million. Non-GAAP diluted EPS is expected to be between $1.45 and $1.47 with approximately 304 million weighted average shares outstanding."
+      },
+      "index": 87
+    },
+    {
+      "failure": {
+        "code": "guidance_semantic_classification_conflict",
+        "ticker": "ZM",
+        "sourceId": "cc8b71e981a2d79213d16f03",
+        "reasons": [
+          "guidance_scope_not_supported_by_evidence"
+        ]
+      },
+      "row": {
+        "id": "cc8b71e981a2d79213d16f03",
+        "ticker": "ZM",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_subject": "company_total",
+        "guidance_target_year": 2027,
+        "quality_status": "clear",
+        "amount": 1277.5,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2027-Q2",
+        "observed_at": "2026-08-25",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1585521/000158552126000119/zm-20260731ex991.htm",
+        "evidence_excerpt": "Third Quarter Fiscal Year 2027: Total revenue is expected to be between $1.275 billion and $1.280 billion and revenue in constant currency is expected to be between $1.275 billion and $1.280 billion. Non-GAAP income from operations is expected to be between $510.0 million and $515.0 million. Non-GAAP diluted EPS is expected to be between $1.46 and $1.48 with approximately 301 million weighted average shares outstanding."
+      },
+      "index": 88
+    }
+  ]
+}

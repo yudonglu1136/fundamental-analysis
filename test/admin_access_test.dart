@@ -186,4 +186,46 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  for (final width in [390.0, 1280.0]) {
+    for (final language in AppLanguage.values) {
+      testWidgets('workspace admin entry is gated at $width / $language', (
+        tester,
+      ) async {
+        tester.view.physicalSize = Size(width, width == 390 ? 844 : 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        String? target;
+        for (final showAdmin in [false, true]) {
+          await tester.pumpWidget(
+            MaterialApp(
+              home: LanguageScope(
+                language: language,
+                child: InvestmentWorkspace(
+                  api: _AdminAccessApi(),
+                  palette: Palette(false),
+                  initialPage: 'home',
+                  initialTicker: '',
+                  onLanguage: (_) {},
+                  onLegacy: () {},
+                  onLegacyView: (mode) => target = mode,
+                  showAdmin: showAdmin,
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final label = language == AppLanguage.en ? 'Admin' : '管理';
+          expect(find.text(label), showAdmin ? findsOneWidget : findsNothing);
+          if (showAdmin) {
+            await tester.tap(find.text(label));
+            await tester.pumpAndSettle();
+            expect(target, 'admin');
+          }
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+        }
+      });
+    }
+  }
 }

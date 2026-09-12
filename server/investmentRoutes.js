@@ -1,0 +1,72 @@
+import { InvestmentSource } from './investmentSource.js';
+import { guruStudy } from './investmentGuruStudy.js';
+import { InvestmentStore } from './investmentStore.js';
+import { resolveInvestmentRuntimeConfig, verifiedInvestmentOwner } from './investmentRuntimeConfig.js';
+import { InvestmentService } from './investmentService.js';
+import { earningsResearch } from './investmentEarnings.js';
+import { researchCompanies } from './investmentCompanies.js';
+import { registerPortfolioAnalysisRoute } from './investmentPortfolio.js';
+import { registerStrategyLabRoutes } from './strategyLabRoutes.js';
+import { registerHedgeRoutes } from './hedgeRoutes.js';
+import { buildValueFlow } from './investmentValueFlow.js';
+import { buildFundamentals, fundamentalGuruQuarter } from './investmentFundamentals.js';
+import { buildOpportunities, opportunityTimeline, saveWatch, reviewWatch, saveWatchReview } from './investmentOpportunities.js';
+
+export function registerInvestmentRoutes(app,service) {
+  function route(method,path,handler) {app[method]('/api/investment'+path,(req,res)=>{
+    res.setHeader('Cache-Control','private, no-store');
+    if(!req.user?.id)return res.status(401).json({error:'unauthorized'});
+    try {res.json(handler(req.user.id,req));}catch(e){res.status(e.status??500).json({error:e.status?e.message:'investment_request_failed'});}
+  });}
+  route('get','/home',(owner,r)=>service.home(owner,r.query.asOf));
+  route('get','/discover',(owner,r)=>service.discover(owner,r.query.asOf));
+  route('get','/guru-study',(_,r)=>guruStudy(service.source,service.date(r.query.asOf),r.query.period??'common'));
+  route('get','/companies',(_,r)=>researchCompanies(service.source,service.date(r.query.asOf)));
+  route('get','/value-flow',(_,r)=>buildValueFlow(service.source,service.date(r.query.asOf)));
+  route('get','/fundamentals',(_,r)=>buildFundamentals(service.source,service.date(r.query.asOf)));
+  route('get','/fundamentals/:ticker/gurus',(_,r)=>fundamentalGuruQuarter(service.source,r.params.ticker,service.date(r.query.asOf),r.query.quarter??null));
+  route('get','/opportunities',(_,r)=>buildOpportunities(service.source,service.date(r.query.asOf),r.query.quarter??null));
+  route('get','/opportunities/:ticker',(_,r)=>({ticker:r.params.ticker,asOf:service.date(r.query.asOf),events:opportunityTimeline(service.source,r.params.ticker,service.date(r.query.asOf))}));
+  route('post','/watches',(owner,r)=>saveWatch(service,owner,r.body));
+  route('get','/watches/:id',(owner,r)=>reviewWatch(service,owner,r.params.id,r.query.asOf));
+  route('post','/watch-reviews',(owner,r)=>saveWatchReview(service,owner,r.body));
+  route('get','/gurus/:id',(_,r)=>service.source.guruDetail(r.params.id,service.date(r.query.asOf)));
+  route('get','/research/:ticker',(owner,r)=>service.research(owner,r.params.ticker,r.query.asOf));
+  route('get','/research/:ticker/earnings',(_,r)=>earningsResearch(service.source,r.params.ticker,service.date(r.query.asOf),r.query.period));
+  route('post','/calculate',(_,r)=>service.calculate(r.body));
+  route('post','/valuation-drafts',(owner,r)=>service.saveWorksheet(owner,r.body));
+  route('post','/scenarios',(owner,r)=>service.saveScenario(owner,r.body));
+  route('post','/decisions',(owner,r)=>service.saveDecision(owner,r.body));
+  route('get','/review/:id',(owner,r)=>service.reviewContext(owner,r.params.id,r.query.asOf));
+  route('post','/reviews',(owner,r)=>service.saveReview(owner,r.body));
+  route('post','/follows',(owner,r)=>service.follow(owner,r.body));
+  route('post','/strategies',(owner,r)=>service.strategy(owner,r.body));
+  route('get','/portfolio',(owner,r)=>service.portfolio(owner,r.query.asOf));
+}
+export function investmentProductionIdentity(req, res, next) {
+  // requireAuth supplies both objects only after verifying the bearer token.
+  // A frontend owner field, local preview identity or mismatched admin context
+  // must never become a production investment-journal owner.
+  if (!verifiedInvestmentOwner(req.user?.id) || req.auth?.user?.id !== req.user.id)
+    return res.status(401).json({error:'unauthorized'});
+  next();
+}
+
+export function enableInvestmentPreview(app) {
+  const config=resolveInvestmentRuntimeConfig();
+  if(!config)return;
+  if(config.production)app.use('/api/investment',investmentProductionIdentity);
+  const source=new InvestmentSource(config.research);
+  let store;
+  try {store=new InvestmentStore(config.investment,undefined,{verifiedOwnersOnly:config.production});}
+  catch(error){source.close();throw error;}
+  const service=new InvestmentService(source,store);
+  registerInvestmentRoutes(app,service);
+  registerStrategyLabRoutes(app,service);
+  registerHedgeRoutes(app,service);
+  registerPortfolioAnalysisRoute(app,service, async options => {
+    const {loadPortfolioDashboard} = await import('./portfolioClient.js');
+    return loadPortfolioDashboard(options);
+  });
+  return service;
+}

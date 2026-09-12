@@ -18,7 +18,8 @@ Keep these rules intact:
 
 - `www.thesisforge.tech` -> Vercel frontend.
 - `thesisforge.tech` -> Vercel frontend or redirect to `www`.
-- `api.thesisforge.tech` may point to AWS for direct backend diagnostics.
+- `api.thesisforge.tech` remains the separate Lightsail Ontology read service.
+- `backend.thesisforge.tech` points to the existing EB instance's Elastic IP; Caddy terminates HTTPS on that instance.
 - Do not create `A` records for `www` or apex pointing to the Lightsail IP.
 
 If `dig +short www.thesisforge.tech A` returns the Lightsail IP, the frontend is no longer on Vercel and the deployment contract is broken.
@@ -43,8 +44,9 @@ VITE_SUPABASE_URL=<supabase project url>
 VITE_SUPABASE_ANON_KEY=<browser publishable key>
 VITE_AUTH_DEV_BYPASS=false
 VITE_AUTH_PROVIDER=supabase
-AWS_API_ORIGIN=http://guru-analysis-api-prod-378477120101.us-east-1.elasticbeanstalk.com
+AWS_API_ORIGIN=https://backend.thesisforge.tech
 ONTOLOGY_API_ORIGIN=https://api.thesisforge.tech
+VITE_INVESTMENT_WORKFLOW_ENABLED=true
 ```
 
 `api/proxy.js` keeps a single browser-facing `/api/*` contract while routing
@@ -55,10 +57,16 @@ the runtime contract explicit.
 
 The public proxy and EB nginx deliberately reject the case-insensitive
 `/api/internal/*` namespace before reading the request body or forwarding
-`Authorization`. The current EB origin is HTTP-only, so release and maintenance
-calls that carry `INTERNAL_CRON_SECRET` must execute inside the EB instance
-against the Node listener on `127.0.0.1`; public custom domains and the EB CNAME
-are only for non-secret application APIs and `/api/health`.
+`Authorization`. The application proxy requires HTTPS in production. The EB
+CNAME still supports legacy HTTP diagnostics, but bearer credentials must use
+`backend.thesisforge.tech`. Release and maintenance calls carrying
+`INTERNAL_CRON_SECRET` remain restricted to the EB instance's Node listener
+on `127.0.0.1`; HTTPS does not expose or authorize internal routes.
+
+Backend TLS uses the existing instance, EIP and security group, not an additional
+load balancer. `THESISFORGE_BACKEND_TLS_ENABLED=true` enables the pinned Caddy
+postdeploy installer; certificate renewal is automatic. Preserve the original
+port-80 nginx service and the separate Ontology host.
 
 AWS backend production env must also include both frontend origins:
 
@@ -188,6 +196,52 @@ INCLUDE_FRONTEND_DIST=1 bash scripts/package-aws-backend.sh <version>
 ```
 
 Do not make the fallback the normal path.
+
+## Redesigned investment workspace compatibility
+
+The redesigned frontend must only be enabled after its backend is ready.
+EB cannot combine an application version update and environment configuration
+update in one operation. Deploy the clean published backend first with the
+workflow disabled, wait for Ready, then add the verified release environment
+below and wait for Ready again. Only then set the Vercel workflow flag to the
+literal string `true`, pull the production configuration, build and verify the
+compiled workflow marker before publishing. An empty environment value is false.
+The workflow flag is non-secret build configuration: use a plain/encrypted
+exportable value, not a sensitive (non-exportable) environment record for a
+local prebuilt deployment. Verify the pulled literal and the compiled marker;
+a successful environment-update command alone is not sufficient.
+
+```text
+INVESTMENT_WORKFLOW_ENABLED=true
+INVESTMENT_SOURCE_DB_PATH=/var/app/data/investment-releases/redesign-20260912-v1/research.sqlite
+STRATEGY_DATA_DB_PATH=/var/app/data/investment-releases/redesign-20260912-v1/strategy.sqlite
+STRATEGY_COMPOSITION_PRICE_DB_PATH=/var/app/data/investment-releases/redesign-20260912-v1/composition.sqlite
+INVESTMENT_DB_PATH=/var/app/data/user-portfolios/investment.sqlite
+INVESTMENT_RELEASE_MANIFEST_PATH=/var/app/data/investment-releases/redesign-20260912-v1/manifest.json
+INVESTMENT_RELEASE_ID=redesign-20260912-v1
+THESISFORGE_BACKEND_TLS_ENABLED=true
+```
+
+The installer creates an immutable, root-owned public-data directory. Full
+SQLite integrity/foreign-key checks and private-table exclusion are completed
+at the producer and bound to each exact file's SHA-256 and size. AWS verifies
+those hashes and bounded table/header/journal checks without repeating large
+full scans on the live disk; the manifest records both verification locations.
+Never replace `SQLITE_DB_PATH`, copy a local
+portfolio database to AWS, change the existing portfolio encryption/HMAC keys,
+or enable a production local-owner override. User scenarios use a separate
+persistent journal keyed by the verified Supabase UUID; existing IBKR account
+connections and encrypted reports remain in their original stores.
+
+Take and restore-test the encrypted user-data backup and an encrypted EBS
+rollback copy before activation. Rollback changes code/flags, not live user
+data. Keep the investment journal, including edits made after deployment.
+Legacy links and the original broker connection screen remain available.
+
+This public-source migration does not refresh issuer financial APIs or certify
+Guru study curves. Current-method/security-master cache validation must keep
+incompatible or unavailable study results unavailable, not reuse earlier
+curves or weaken public readiness checks.
 
 ## Atomic Guru 13F refresh
 

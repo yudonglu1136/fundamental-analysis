@@ -1,0 +1,1563 @@
+{
+  "documents": {
+    "b15cac7ec07d181023cc35e13f14e2e97cbfb2e76010a462076cd1d09fd83951": {
+      "currency": "USD",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "quotes": [
+        "Cigna Corporation Consolidated Statements of Income"
+      ],
+      "availableAt": "2018-02-28",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/701221/000104746918001158/a2234149z10-k.htm",
+      "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/CI/0001047469-18-001158/a2234149z10-k.htm",
+      "documentSha256": "b15cac7ec07d181023cc35e13f14e2e97cbfb2e76010a462076cd1d09fd83951",
+      "form": "10-K",
+      "accession": "0001047469-18-001158",
+      "cik": "0000701221",
+      "inference": false,
+      "xbrlStatementEvidence": {
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2017-12-31",
+        "contextScope": "whole_entity_no_dimensions",
+        "rootOpenTag": "<xbrli:xbrl xmlns:xbrli=\"http://www.xbrl.org/2003/instance\" xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:link=\"http://www.xbrl.org/2003/linkbase\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xl=\"http://www.xbrl.org/2003/XLink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xbrldt=\"http://xbrl.org/2005/xbrldt\" xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\" xmlns:iso4217=\"http://www.xbrl.org/2003/iso4217\" xmlns:ci=\"http://www.cigna.com/20171231\" xmlns:num=\"http://www.xbrl.org/dtr/type/numeric\" xmlns:nonnum=\"http://www.xbrl.org/dtr/type/non-numeric\" xmlns:negated=\"http://www.xbrl.org/2009/role/negated\" xmlns:dei=\"http://xbrl.sec.gov/dei/2014-01-31\" xmlns:invest=\"http://xbrl.sec.gov/invest/2013-01-31\" xmlns:us-gaap=\"http://fasb.org/us-gaap/2017-01-31\" xmlns:ref=\"http://www.xbrl.org/2006/ref\" xmlns:us-types=\"http://fasb.org/us-types/2017-01-31\" xmlns:us-roles=\"http://fasb.org/us-roles/2017-01-31\" xmlns:country=\"http://xbrl.sec.gov/country/2017-01-31\" xsi:schemaLocation=\"http://www.cigna.com/20171231 ci-20171231.xsd http://www.xbrl.org/dtr/type/numeric http://www.xbrl.org/dtr/type/numeric-2009-12-16.xsd http://www.xbrl.org/dtr/type/non-numeric http://www.xbrl.org/dtr/type/nonNumeric-2009-12-16.xsd http://www.xbrl.org/2009/role/negated http://www.xbrl.org/lrr/role/negated-2009-12-16.xsd http://xbrl.sec.gov/dei/2014-01-31 http://xbrl.sec.gov/dei/2014/dei-2014-01-31.xsd http://xbrl.sec.gov/invest/2013-01-31 http://xbrl.sec.gov/invest/2013/invest-2013-01-31.xsd http://fasb.org/us-gaap/2017-01-31 http://xbrl.fasb.org/us-gaap/2017/elts/us-gaap-2017-01-31.xsd http://www.xbrl.org/2006/ref http://www.xbrl.org/2006/ref-2006-02-27.xsd http://fasb.org/us-types/2017-01-31 http://xbrl.fasb.org/us-gaap/2017/elts/us-types-2017-01-31.xsd http://fasb.org/us-roles/2017-01-31 http://xbrl.fasb.org/us-gaap/2017/elts/us-roles-2017-01-31.xsd http://xbrl.sec.gov/country/2017-01-31 http://xbrl.sec.gov/country/2017/country-2017-01-31.xsd\">",
+        "rootCloseTag": "</xbrli:xbrl>",
+        "rootOpenTagSha256": "0a2693551668e3994d7050724ef909fa0b6d73252cce1e5a5b2bd89fda14f141",
+        "fragments": [
+          {
+            "key": "unit:USD",
+            "raw": "<xbrli:unit id=\"USD\">\n    <xbrli:measure>iso4217:USD</xbrli:measure>\n  </xbrli:unit>"
+          },
+          {
+            "key": "unit:myPerShare",
+            "raw": "<xbrli:unit id=\"myPerShare\">\n    <xbrli:divide>\n      <xbrli:unitNumerator>\n        <xbrli:measure>iso4217:USD</xbrli:measure>\n      </xbrli:unitNumerator>\n      <xbrli:unitDenominator>\n        <xbrli:measure>xbrli:shares</xbrli:measure>\n      </xbrli:unitDenominator>\n    </xbrli:divide>\n  </xbrli:unit>"
+          },
+          {
+            "key": "context:AS_OF_Dec31_2017_Entity_0000701221",
+            "raw": "<xbrli:context id=\"AS_OF_Dec31_2017_Entity_0000701221\">\n    <xbrli:entity>\n      <xbrli:identifier scheme=\"http://www.sec.gov/CIK\">0000701221</xbrli:identifier>\n    </xbrli:entity>\n    <xbrli:period>\n      <xbrli:instant>2017-12-31</xbrli:instant>\n    </xbrli:period>\n  </xbrli:context>"
+          },
+          {
+            "key": "context:FROM_Jan01_2017_TO_Dec31_2017_Entity_0000701221",
+            "raw": "<xbrli:context id=\"FROM_Jan01_2017_TO_Dec31_2017_Entity_0000701221\">\n    <xbrli:entity>\n      <xbrli:identifier scheme=\"http://www.sec.gov/CIK\">0000701221</xbrli:identifier>\n    </xbrli:entity>\n    <xbrli:period>\n      <xbrli:startDate>2017-01-01</xbrli:startDate>\n      <xbrli:endDate>2017-12-31</xbrli:endDate>\n    </xbrli:period>\n  </xbrli:context>"
+          },
+          {
+            "key": "fact:Assets",
+            "raw": "<us-gaap:Assets id=\"ID_138\" contextRef=\"AS_OF_Dec31_2017_Entity_0000701221\" unitRef=\"USD\" decimals=\"-6\">61753000000</us-gaap:Assets>"
+          },
+          {
+            "key": "fact:Revenues",
+            "raw": "<us-gaap:Revenues id=\"ID_30\" contextRef=\"FROM_Jan01_2017_TO_Dec31_2017_Entity_0000701221\" unitRef=\"USD\" decimals=\"-6\">41616000000</us-gaap:Revenues>"
+          },
+          {
+            "key": "fact:NetCashProvidedByUsedInOperatingActivities",
+            "raw": "<us-gaap:NetCashProvidedByUsedInOperatingActivities id=\"ID_2517\" contextRef=\"FROM_Jan01_2017_TO_Dec31_2017_Entity_0000701221\" unitRef=\"USD\" decimals=\"-6\">4086000000</us-gaap:NetCashProvidedByUsedInOperatingActivities>"
+          },
+          {
+            "key": "fact:EarningsPerShareDiluted",
+            "raw": "<us-gaap:EarningsPerShareDiluted id=\"ID_57\" contextRef=\"FROM_Jan01_2017_TO_Dec31_2017_Entity_0000701221\" unitRef=\"myPerShare\" decimals=\"2\">8.77</us-gaap:EarningsPerShareDiluted>"
+          }
+        ],
+        "fragmentsSha256": [
+          "e1910bb629ac736a4bc74fd615a0eee75be6ba670017ac35d41a68cd1936a05c",
+          "19e28778ab0005b91cd8ae987bea1a76e283abc51e89f074200c792ea44b2cd7",
+          "f0fce7741816c850715e23d2875b12140b47ff01838cc654df246b74e13cb286",
+          "de270e1974751a4d2e4aa0c3525032d850bc98a798c43558fb417c3c123ac648",
+          "7f84fcfe54529dcb99d183d8c2362c35b2f7a03fc471764a7a155bc9277e35e5",
+          "737a0f687aefb27e96d590640dd8bd4298562ed3c3881e431815ae5fa498dd5d",
+          "bc7aa9dfca57c03cb62dedf60256790ef593a8b76a972e2af3975416876314e9",
+          "5b909c031d50a51f17a749b402528aed8d2e63ca196a6f0523b2cb55adaa17e0"
+        ],
+        "reconstructedFacts": [
+          {
+            "concept": "Assets",
+            "value": "61753000000",
+            "contextRef": "AS_OF_Dec31_2017_Entity_0000701221",
+            "unitRef": "USD"
+          },
+          {
+            "concept": "Revenues",
+            "value": "41616000000",
+            "contextRef": "FROM_Jan01_2017_TO_Dec31_2017_Entity_0000701221",
+            "unitRef": "USD"
+          },
+          {
+            "concept": "NetCashProvidedByUsedInOperatingActivities",
+            "value": "4086000000",
+            "contextRef": "FROM_Jan01_2017_TO_Dec31_2017_Entity_0000701221",
+            "unitRef": "USD"
+          },
+          {
+            "concept": "EarningsPerShareDiluted",
+            "value": "8.77",
+            "contextRef": "FROM_Jan01_2017_TO_Dec31_2017_Entity_0000701221",
+            "unitRef": "myPerShare"
+          }
+        ],
+        "unitScope": "Whole-entity CIK-matched consolidated aggregate; no segment, subsidiary, LP, parent-only dimension or scenario. Three monetary statement categories USD and annual EPS USD/share.",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/701221/000104746918001158/ci-20171231.xml",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/CI/0001047469-18-001158/ci-20171231.xml",
+        "documentSha256": "f8d83c3ce6bdb13b221dad1a1194a3526b441e8fb3d25d4fac2826dfe4390587"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/701221/000104746918001158/0001047469-18-001158-index.html",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/CI/0001047469-18-001158/0001047469-18-001158-index.html",
+        "documentSha256": "593513b8363060738253569152f67d640cfbc54e1899874fe5a5e92eb0ccdd4e",
+        "headerText": "EDGAR Filing Documents for 0001047469-18-001158 This page uses Javascript. Your browser either doesn't support Javascript or you have it turned off. To see this page as it is meant to appear please use a Javascript enabled browser. SEC.gov EDGAR Latest Filings Filings search tools Filing Detail SEC Home » Company Search » Current Page Form 10-K - Annual report [Section 13 and 15(d), not S-K Item 405]: SEC Accession No. 0001047469-18-001158 Filing Date 2018-02-28 Accepted 2018-02-28 16:28:43 Documents 201 Period of Report 2017-12-31 Interactive Data Document Format Files Seq Description Document Type Size 1 10-K a2234149z10-k.htm 10-K 6508503 2 EX-12 a2234149zex-12.htm EX-12 53740 3 EX-21 a2234149zex-21.htm EX-21 66416 4 EX-23 a2234149zex-23.htm EX-23 5476 5 EX-31.1 a2234149zex-31_1.htm EX-31.1 9360 6 EX-31.2 a2234149zex-31_2.htm EX-31.2 9361 7 EX-32.1 a2234149zex-32_1.htm EX-32.1 4759 8 EX-32.2 a2234149zex-32_2.htm EX-32.2 4704 15 G117129.JPG g117129.jpg GRAPHIC 8331 16 G699074.JPG g699074.jpg GRAPHIC 111663 17 G19950.JPG g19950.jpg GRAPHIC 57129 18 G901083.JPG g901083.jpg GRAPHIC 16847 19 G59874.JPG g59874.jpg GRAPHIC 45546 20 G816899.JPG g816899.jpg GRAPHIC 4755 21 G9462.JPG g9462.jpg GRAPHIC 14175 22 G351620.JPG g351620.jpg GRAPHIC 6464 23 G487230.JPG g487230.jpg GRAPHIC 14176 24 G490216.JPG g490216.jpg GRAPHIC 5986 25 G497115.JPG g497115.jpg GRAPHIC 13760 26 G729770.JPG g729770.jpg GRAPHIC 7962 27 G495449.JPG g495449.jpg GRAPHIC 15195 28 G4519.JPG g4519.jpg GRAPHIC 4717 29 G688486.JPG g688486.jpg GRAPHIC 15002 Complete submission text file 0001047469-18-001158.txt 31868582 Data Files Seq Description Document Type Size 9 EX-101.PRE ci-20171231_pre.xml EX-101.PRE 1806213 10 EX-101.INS ci-20171231.xml EX-101.INS 8137076 11 EX-101.SCH ci-20171231.xsd EX-101.SCH 189647 12 EX-101.CAL ci-20171231_cal.xml EX-101.CAL 243470 13 EX-101.DEF ci-20171231_def.xml EX-101.DEF 1403219 14 EX-101.LAB ci-20171231_lab.xml EX-101.LAB 1605138 Mailing Address 900 COTTAGE GROVE ROAD BLOOMFIELD CT 06002 Business Address 900 COTTAGE GROVE ROAD BLOOMFIELD CT 06002 8602266000 CIGNA CORP (Filer) CIK : 0000701221 (see all company filings) EIN. : 061059331 | State of Incorp.: DE | Fiscal Year End: 1231 Type: 10-K | Act: 34 | File No.: 001-08323 | Film No.: 18651659 SIC : 6324 Hospital & Medical Service Plans",
+        "headerTextSha256": "1cf8853fafee158b8edd2e284ecd45a1be48cba78fef5762ed50c6fa76899bc5"
+      },
+      "limitations": "Currency evidence only. Historical pre-reorganization entity is identified by contemporaneous CIK; no later-parent currency substituted. Original guidance amount, component/shift semantics and target years remain subject to independent review.",
+      "paragraphSha256": [
+        "81b08373492439259d898e34a9c29d7648ae9fb3e5f2effcf139e0de576c8534"
+      ],
+      "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+    },
+    "5d2e76a66d443d56e201944d46df45db6c7714086c56643a6ce8120833f1375f": {
+      "currency": "USD",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "quotes": [
+        "The Walt Disney Company and Subsidiaries Consolidated Statements of Income"
+      ],
+      "availableAt": "2013-11-20",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103913000164/fy2013_q4x10k.htm",
+      "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001001039-13-000164/fy2013_q4x10k.htm",
+      "documentSha256": "5d2e76a66d443d56e201944d46df45db6c7714086c56643a6ce8120833f1375f",
+      "form": "10-K",
+      "accession": "0001001039-13-000164",
+      "cik": "0001001039",
+      "inference": false,
+      "xbrlStatementEvidence": {
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2013-09-28",
+        "contextScope": "whole_entity_no_dimensions",
+        "rootOpenTag": "<xbrli:xbrl xmlns:country=\"http://xbrl.sec.gov/country/2012-01-31\" xmlns:dei=\"http://xbrl.sec.gov/dei/2012-01-31\" xmlns:dis=\"http://corporate.disney.go.com/20130928\" xmlns:iso4217=\"http://www.xbrl.org/2003/iso4217\" xmlns:link=\"http://www.xbrl.org/2003/linkbase\" xmlns:stpr=\"http://xbrl.sec.gov/stpr/2011-01-31\" xmlns:us-gaap=\"http://fasb.org/us-gaap/2012-01-31\" xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\" xmlns:xbrli=\"http://www.xbrl.org/2003/instance\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">",
+        "rootCloseTag": "</xbrli:xbrl>",
+        "rootOpenTagSha256": "aed3fecc793d8420b035d750746f9638c2b541d2842caac3f40c844f56d29c6e",
+        "fragments": [
+          {
+            "key": "unit:usd",
+            "raw": "<xbrli:unit id=\"usd\">\n    <xbrli:measure>iso4217:USD</xbrli:measure>\n  </xbrli:unit>"
+          },
+          {
+            "key": "unit:usdPerShare",
+            "raw": "<xbrli:unit id=\"usdPerShare\">\n    <xbrli:divide>\n      <xbrli:unitNumerator>\n        <xbrli:measure>iso4217:USD</xbrli:measure>\n      </xbrli:unitNumerator>\n      <xbrli:unitDenominator>\n        <xbrli:measure>xbrli:shares</xbrli:measure>\n      </xbrli:unitDenominator>\n    </xbrli:divide>\n  </xbrli:unit>"
+          },
+          {
+            "key": "context:I2013Q4",
+            "raw": "<xbrli:context id=\"I2013Q4\">\n    <xbrli:entity>\n      <xbrli:identifier scheme=\"http://www.sec.gov/CIK\">0001001039</xbrli:identifier>\n    </xbrli:entity>\n    <xbrli:period>\n      <xbrli:instant>2013-09-28</xbrli:instant>\n    </xbrli:period>\n  </xbrli:context>"
+          },
+          {
+            "key": "context:D2013Q4YTD",
+            "raw": "<xbrli:context id=\"D2013Q4YTD\">\n    <xbrli:entity>\n      <xbrli:identifier scheme=\"http://www.sec.gov/CIK\">0001001039</xbrli:identifier>\n    </xbrli:entity>\n    <xbrli:period>\n      <xbrli:startDate>2012-09-30</xbrli:startDate>\n      <xbrli:endDate>2013-09-28</xbrli:endDate>\n    </xbrli:period>\n  </xbrli:context>"
+          },
+          {
+            "key": "fact:Assets",
+            "raw": "<us-gaap:Assets contextRef=\"I2013Q4\" decimals=\"-6\" id=\"Fact-7E890401B015948879A1A4A9E158EEC7\" unitRef=\"usd\">81241000000</us-gaap:Assets>"
+          },
+          {
+            "key": "fact:SalesRevenueNet",
+            "raw": "<us-gaap:SalesRevenueNet contextRef=\"D2013Q4YTD\" decimals=\"-6\" id=\"Fact-C1D44C295324D5207BAAA4A9E1372565\" unitRef=\"usd\">45041000000</us-gaap:SalesRevenueNet>"
+          },
+          {
+            "key": "fact:NetCashProvidedByUsedInOperatingActivities",
+            "raw": "<us-gaap:NetCashProvidedByUsedInOperatingActivities contextRef=\"D2013Q4YTD\" decimals=\"-6\" id=\"Fact-6E8FAAB6A6913116E70FA4A9E129FE45\" unitRef=\"usd\">9452000000</us-gaap:NetCashProvidedByUsedInOperatingActivities>"
+          },
+          {
+            "key": "fact:EarningsPerShareDiluted",
+            "raw": "<us-gaap:EarningsPerShareDiluted contextRef=\"D2013Q4YTD\" decimals=\"2\" id=\"Fact-04068F3B696CEEC5280DA4A9E1071188\" unitRef=\"usdPerShare\">3.38</us-gaap:EarningsPerShareDiluted>"
+          }
+        ],
+        "fragmentsSha256": [
+          "37d9892b4a017ea3e36c944d5cece54eefc500ed3dd051d33ad434b0b2fea4a1",
+          "b41ff0665fbc813fad1bec59842a556189892906a0cedfe7774636f4626f715a",
+          "0638eaa057fbd119343ea1494387ff746a63423e786200f5cdd6baddcf710522",
+          "363b85f6a29dcc9b7a2f93a2433769d56d777f7a65b72caf127ab89bc05f903e",
+          "2f8ec06b8f05bc4ceb6e2c0b8c12296af5d0ed09c1efdb9bbeb2a867d99cdaff",
+          "1d6ee400e8ed63d0dd17f060bd551352d0e76726756caf83c8b368793ab9ed7c",
+          "a314aabd78e86f028100da432185967d069b2a59f2509749fb0a058210541c48",
+          "b4ef3d83b41daa4491fe51553a50e521d1b193deab1ef7acf2fa91b799ff63a4"
+        ],
+        "reconstructedFacts": [
+          {
+            "concept": "Assets",
+            "value": "81241000000",
+            "contextRef": "I2013Q4",
+            "unitRef": "usd"
+          },
+          {
+            "concept": "SalesRevenueNet",
+            "value": "45041000000",
+            "contextRef": "D2013Q4YTD",
+            "unitRef": "usd"
+          },
+          {
+            "concept": "NetCashProvidedByUsedInOperatingActivities",
+            "value": "9452000000",
+            "contextRef": "D2013Q4YTD",
+            "unitRef": "usd"
+          },
+          {
+            "concept": "EarningsPerShareDiluted",
+            "value": "3.38",
+            "contextRef": "D2013Q4YTD",
+            "unitRef": "usdPerShare"
+          }
+        ],
+        "unitScope": "Whole-entity CIK-matched consolidated aggregate; no segment, subsidiary, LP, parent-only dimension or scenario. Three monetary statement categories USD and annual EPS USD/share.",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103913000164/dis-20130928.xml",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001001039-13-000164/dis-20130928.xml",
+        "documentSha256": "7a67685ea6ab13e2c41fe69a03f72480b13ae0e784efc04b42fa1eadf0152555"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103913000164/0001001039-13-000164-index.html",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001001039-13-000164/0001001039-13-000164-index.html",
+        "documentSha256": "bedea7416b6999168860c0ddcce3d6f2b0c9e7ac10efc3086161712c4e6bfd86",
+        "headerText": "EDGAR Filing Documents for 0001001039-13-000164 This page uses Javascript. Your browser either doesn't support Javascript or you have it turned off. To see this page as it is meant to appear please use a Javascript enabled browser. SEC.gov EDGAR Latest Filings Filings search tools Filing Detail SEC Home » Company Search » Current Page Form 10-K - Annual report [Section 13 and 15(d), not S-K Item 405]: SEC Accession No. 0001001039-13-000164 Filing Date 2013-11-20 Accepted 2013-11-20 17:13:03 Documents 15 Period of Report 2013-09-28 Interactive Data Document Format Files Seq Description Document Type Size 1 FORM 10-K fy2013_q4x10k.htm 10-K 3763985 2 RATIO OF EARNINGS TO FIXED CHARGES fy2013_q4x10kxex121.htm EX-12.1 56961 3 SUBSIDIARIES OF THE COMPANY fy2013_q4x10kxex21.htm EX-21 62522 4 CONSENT OF PRICEWATERHOUSECOOPERS LLP fy2013_q4x10kxex23.htm EX-23 2543 5 SECTION 302 CERTIFICATION OF CHIEF EXECUTIVE OFFICER fy2013_q4x10kxex31a.htm EX-31.(A) 16261 6 SECTION 302 CERTIFICATION OF CHIEF FINANCIAL OFFICER fy2013_q4x10kxex31b.htm EX-31.(B) 16350 7 SECTION 906 CERTIFICATION OF CHIEF EXECUTIVE OFFICER fy2013_q4x10kxex32a.htm EX-32.(A) 8833 8 SECTION 906 CERTIFICATION OF CHIEF FINANCIAL OFFICER fy2013_q4x10kxex32b.htm EX-32.(B) 8957 15 twdcimagea01.jpg GRAPHIC 71244 Complete submission text file 0001001039-13-000164.txt 27801338 Data Files Seq Description Document Type Size 9 XBRL INSTANCE DOCUMENT dis-20130928.xml EX-101.INS 5227189 10 XBRL TAXONOMY EXTENSION SCHEMA DOCUMENT dis-20130928.xsd EX-101.SCH 129580 11 XBRL TAXONOMY EXTENSION CALCULATION LINKBASE DOCUMENT dis-20130928_cal.xml EX-101.CAL 201866 12 XBRL TAXONOMY EXTENSION DEFINITION LINKBASE DOCUMENT dis-20130928_def.xml EX-101.DEF 581627 13 XBRL TAXONOMY EXTENSION LABEL LINKBASE DOCUMENT dis-20130928_lab.xml EX-101.LAB 1521833 14 XBRL TAXONOMY EXTENSION PRESENTATION LINKBASE DOCUMENT dis-20130928_pre.xml EX-101.PRE 953574 Mailing Address 500 SOUTH BUENA VISTA ST BURBANK CA 91521 Business Address 500 SOUTH BUENA VISTA ST BURBANK CA 91521 8185601000 WALT DISNEY CO/ (Filer) CIK : 0001001039 (see all company filings) EIN. : 954545390 | State of Incorp.: DE | Fiscal Year End: 0927 Type: 10-K | Act: 34 | File No.: 001-11605 | Film No.: 131233597 SIC : 4841 Cable & Other Pay Television Services",
+        "headerTextSha256": "300abc826aa56b30f5562461019e41f069f0cc8b0afa6f3ec26ab25ce7c61412"
+      },
+      "limitations": "Currency evidence only. Historical pre-reorganization entity is identified by contemporaneous CIK; no later-parent currency substituted. Original guidance amount, component/shift semantics and target years remain subject to independent review.",
+      "paragraphSha256": [
+        "ed43acaf99eb4de75d8b5d13f9c525404064053c00c90408d69e8f563e25132d"
+      ],
+      "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+    },
+    "9176f6aa484202b1bcf571985b945f3c37662673538726d880ba6aaa947892fc": {
+      "currency": "USD",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "quotes": [
+        "The Walt Disney Company and Subsidiaries Consolidated Statements of Income"
+      ],
+      "availableAt": "2010-11-24",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312510268910/d10k.htm",
+      "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001193125-10-268910/d10k.htm",
+      "documentSha256": "9176f6aa484202b1bcf571985b945f3c37662673538726d880ba6aaa947892fc",
+      "form": "10-K",
+      "accession": "0001193125-10-268910",
+      "cik": "0001001039",
+      "inference": false,
+      "xbrlStatementEvidence": {
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2010-10-02",
+        "contextScope": "whole_entity_no_dimensions",
+        "rootOpenTag": "<xbrl xmlns=\"http://www.xbrl.org/2003/instance\" xmlns:dei=\"http://xbrl.us/dei/2009-01-31\" xmlns:dei-ent=\"http://xbrl.us/dei-ent/2009-01-31\" xmlns:dei-std=\"http://xbrl.us/dei-std/2009-01-31\" xmlns:dis=\"http://corporate.disney.go.com/20101002\" xmlns:iso4217=\"http://www.xbrl.org/2003/iso4217\" xmlns:negated=\"http://xbrl.us/us-gaap/negated/2008-03-31\" xmlns:us-gaap=\"http://xbrl.us/us-gaap/2009-01-31\" xmlns:us-gaap-ent=\"http://xbrl.us/us-gaap-ent/2009-01-31\" xmlns:us-roles=\"http://xbrl.us/us-roles/2009-01-31\" xmlns:us-types=\"http://xbrl.us/us-types/2009-01-31\" xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\" xmlns:xbrldt=\"http://xbrl.org/2005/xbrldt\" xmlns:xbrll=\"http://www.xbrl.org/2003/linkbase\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">",
+        "rootCloseTag": "</xbrl>",
+        "rootOpenTagSha256": "0336c72cb79d71b0eb8641e2f0fe15f44e81bfb9d6b042ed4e811a3f5e90b84d",
+        "fragments": [
+          {
+            "key": "unit:iso4217_USD",
+            "raw": "<unit id=\"iso4217_USD\">\n    <measure>iso4217:USD</measure>\n  </unit>"
+          },
+          {
+            "key": "unit:iso4217_USD_per_shares",
+            "raw": "<unit id=\"iso4217_USD_per_shares\">\n    <divide>\n      <unitNumerator>\n        <measure>iso4217:USD</measure>\n      </unitNumerator>\n      <unitDenominator>\n        <measure>shares</measure>\n      </unitDenominator>\n    </divide>\n  </unit>"
+          },
+          {
+            "key": "context:eol_PE9479----1010-K0020_STD_0_20101002_0",
+            "raw": "<context id=\"eol_PE9479----1010-K0020_STD_0_20101002_0\">\n    <entity>\n      <identifier scheme=\"http://www.sec.gov/CIK\">0001001039</identifier>\n    </entity>\n    <period>\n      <instant>2010-10-02</instant>\n    </period>\n  </context>"
+          },
+          {
+            "key": "context:eol_PE9479----1010-K0020_STD_364_20101002_0",
+            "raw": "<context id=\"eol_PE9479----1010-K0020_STD_364_20101002_0\">\n    <entity>\n      <identifier scheme=\"http://www.sec.gov/CIK\">0001001039</identifier>\n    </entity>\n    <period>\n      <startDate>2009-10-04</startDate>\n      <endDate>2010-10-02</endDate>\n    </period>\n  </context>"
+          },
+          {
+            "key": "fact:Assets",
+            "raw": "<us-gaap:Assets contextRef=\"eol_PE9479----1010-K0020_STD_0_20101002_0\" decimals=\"-6\" id=\"fnid_9157103_1_21\" unitRef=\"iso4217_USD\">69206000000</us-gaap:Assets>"
+          },
+          {
+            "key": "fact:SalesRevenueNet",
+            "raw": "<us-gaap:SalesRevenueNet contextRef=\"eol_PE9479----1010-K0020_STD_364_20101002_0\" decimals=\"-6\" unitRef=\"iso4217_USD\">38063000000</us-gaap:SalesRevenueNet>"
+          },
+          {
+            "key": "fact:NetCashProvidedByUsedInOperatingActivities",
+            "raw": "<us-gaap:NetCashProvidedByUsedInOperatingActivities contextRef=\"eol_PE9479----1010-K0020_STD_364_20101002_0\" decimals=\"-6\" unitRef=\"iso4217_USD\">6578000000</us-gaap:NetCashProvidedByUsedInOperatingActivities>"
+          },
+          {
+            "key": "fact:EarningsPerShareDiluted",
+            "raw": "<us-gaap:EarningsPerShareDiluted contextRef=\"eol_PE9479----1010-K0020_STD_364_20101002_0\" decimals=\"2\" unitRef=\"iso4217_USD_per_shares\">2.03</us-gaap:EarningsPerShareDiluted>"
+          }
+        ],
+        "fragmentsSha256": [
+          "ae14ff3a92e84766b7848ffcbf587b63deaa3ea6b7039e95779230d529fc59d1",
+          "740099904d20101734d83a9269b63f6d9db42dcd5222a78e303940d4d2191aa1",
+          "1e2dd55f5c0e9b0d38b755eadae346e825dc8f695615530eee8a782e03c45aed",
+          "b8bdfa7268196afec70154a347c1655d92b2e18cb338bc0847cf999b22f39fce",
+          "5fa9c5d6ef0842a8e6395231b38a905093ed34e9890e5bb68dbddd90784dc5b3",
+          "da5696a617df52f30757b6ca35e12842f31297e4e658339d418cb4d7e2fa7a95",
+          "26f668910f43d0d9f7248c4033dfaabee35d38d8b29f0f9a4bff3f6fc6888da2",
+          "9796f7f79a29c0ff4ae437e4b90a9ada1cc89ef7ea3cab80b211d687e5ff577c"
+        ],
+        "reconstructedFacts": [
+          {
+            "concept": "Assets",
+            "value": "69206000000",
+            "contextRef": "eol_PE9479----1010-K0020_STD_0_20101002_0",
+            "unitRef": "iso4217_USD"
+          },
+          {
+            "concept": "SalesRevenueNet",
+            "value": "38063000000",
+            "contextRef": "eol_PE9479----1010-K0020_STD_364_20101002_0",
+            "unitRef": "iso4217_USD"
+          },
+          {
+            "concept": "NetCashProvidedByUsedInOperatingActivities",
+            "value": "6578000000",
+            "contextRef": "eol_PE9479----1010-K0020_STD_364_20101002_0",
+            "unitRef": "iso4217_USD"
+          },
+          {
+            "concept": "EarningsPerShareDiluted",
+            "value": "2.03",
+            "contextRef": "eol_PE9479----1010-K0020_STD_364_20101002_0",
+            "unitRef": "iso4217_USD_per_shares"
+          }
+        ],
+        "unitScope": "Whole-entity CIK-matched consolidated aggregate; no segment, subsidiary, LP, parent-only dimension or scenario. Three monetary statement categories USD and annual EPS USD/share.",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312510268910/dis-20101002.xml",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001193125-10-268910/dis-20101002.xml",
+        "documentSha256": "584add3d72968e7906b22fa38b73e41205c8be370a3b7dfcec73a5f8dc466982"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312510268910/0001193125-10-268910-index.html",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001193125-10-268910/0001193125-10-268910-index.html",
+        "documentSha256": "bb8071260e555f0a3ad1c406e67855a72f406960eb1763cce802e1f2bd26c8f4",
+        "headerText": "EDGAR Filing Documents for 0001193125-10-268910 This page uses Javascript. Your browser either doesn't support Javascript or you have it turned off. To see this page as it is meant to appear please use a Javascript enabled browser. SEC.gov EDGAR Latest Filings Filings search tools Filing Detail SEC Home » Company Search » Current Page Form 10-K - Annual report [Section 13 and 15(d), not S-K Item 405]: SEC Accession No. 0001193125-10-268910 Filing Date 2010-11-24 Accepted 2010-11-24 17:14:48 Documents 15 Period of Report 2010-10-02 Interactive Data Document Format Files Seq Description Document Type Size 1 FORM 10-K d10k.htm 10-K 2426711 2 DESCRIPTION OF DIRECTORS COMPENSATION dex108.htm EX-10.8 9503 3 SUBSIDIARIES OF THE COMPANY dex21.htm EX-21 23073 4 CONSENT OF PRICEWATERHOUSECOOPERS LLP dex23.htm EX-23 1567 5 SECTION 302 CERTIFICATION OF CHIEF EXECUTIVE OFFICER dex31a.htm EX-31.A 9940 6 SECTION 302 CERTIFICATION OF CHIEF FINANCIAL OFFICER dex31b.htm EX-31.B 10108 7 SECTION 906 CERTIFICATION OF CHIEF EXECUTIVE OFFICER dex32a.htm EX-32.A 4441 8 SECTION 906 CERTIFICATION OF CHIEF FINANCIAL OFFICER dex32b.htm EX-32.B 4609 15 GRAPHIC g100216g06t38.jpg GRAPHIC 10164 Complete submission text file 0001193125-10-268910.txt 23318688 Data Files Seq Description Document Type Size 9 XBRL INSTANCE DOCUMENT dis-20101002.xml EX-101.INS 3480502 10 XBRL TAXONOMY EXTENSION SCHEMA dis-20101002.xsd EX-101.SCH 164680 11 XBRL TAXONOMY EXTENSION CALCULATION LINKBASE dis-20101002_cal.xml EX-101.CAL 173789 12 XBRL TAXONOMY EXTENSION DEFINITION LINKBASE dis-20101002_def.xml EX-101.DEF 799646 13 XBRL TAXONOMY EXTENSION LABEL LINKBASE dis-20101002_lab.xml EX-101.LAB 831996 14 XBRL TAXONOMY EXTENSION PRESENTATION LINKBASE dis-20101002_pre.xml EX-101.PRE 857470 Mailing Address 500 SOUTH BUENA VISTA ST BURBANK CA 91521 Business Address 500 SOUTH BUENA VISTA ST BURBANK CA 91521 8185601000 WALT DISNEY CO/ (Filer) CIK : 0001001039 (see all company filings) EIN. : 954545390 | State of Incorp.: DE | Fiscal Year End: 1002 Type: 10-K | Act: 34 | File No.: 001-11605 | Film No.: 101215663 SIC : 7990 Services-Miscellaneous Amusement & Recreation",
+        "headerTextSha256": "8f28d4644dbfc5d8e69e3cbc435782e320ac2979929eb8092c1c24492eac2f7b"
+      },
+      "limitations": "Currency evidence only. Historical pre-reorganization entity is identified by contemporaneous CIK; no later-parent currency substituted. Original guidance amount, component/shift semantics and target years remain subject to independent review.",
+      "paragraphSha256": [
+        "ed43acaf99eb4de75d8b5d13f9c525404064053c00c90408d69e8f563e25132d"
+      ],
+      "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+    },
+    "71fdc8bf76d41e599aa54766490eb1baf7d2580a225528a0e9f94eda25c4f5b8": {
+      "currency": "USD",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "quotes": [
+        "The Walt Disney Company and Subsidiaries Consolidated Statements of Income"
+      ],
+      "availableAt": "2014-11-19",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103914000228/fy2014_q4x10k.htm",
+      "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001001039-14-000228/fy2014_q4x10k.htm",
+      "documentSha256": "71fdc8bf76d41e599aa54766490eb1baf7d2580a225528a0e9f94eda25c4f5b8",
+      "form": "10-K",
+      "accession": "0001001039-14-000228",
+      "cik": "0001001039",
+      "inference": false,
+      "xbrlStatementEvidence": {
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2014-09-27",
+        "contextScope": "whole_entity_no_dimensions",
+        "rootOpenTag": "<xbrli:xbrl xmlns:country=\"http://xbrl.sec.gov/country/2013-01-31\" xmlns:currency=\"http://xbrl.sec.gov/currency/2012-01-31\" xmlns:dei=\"http://xbrl.sec.gov/dei/2013-01-31\" xmlns:dis=\"http://corporate.disney.go.com/20140927\" xmlns:exch=\"http://xbrl.sec.gov/exch/2013-01-31\" xmlns:invest=\"http://xbrl.sec.gov/invest/2013-01-31\" xmlns:iso4217=\"http://www.xbrl.org/2003/iso4217\" xmlns:link=\"http://www.xbrl.org/2003/linkbase\" xmlns:naics=\"http://xbrl.sec.gov/naics/2011-01-31\" xmlns:nonnum=\"http://www.xbrl.org/dtr/type/non-numeric\" xmlns:num=\"http://www.xbrl.org/dtr/type/numeric\" xmlns:ref=\"http://www.xbrl.org/2006/ref\" xmlns:sic=\"http://xbrl.sec.gov/sic/2011-01-31\" xmlns:stpr=\"http://xbrl.sec.gov/stpr/2011-01-31\" xmlns:us-gaap=\"http://fasb.org/us-gaap/2013-01-31\" xmlns:us-roles=\"http://fasb.org/us-roles/2013-01-31\" xmlns:us-types=\"http://fasb.org/us-types/2013-01-31\" xmlns:utreg=\"http://www.xbrl.org/2009/utr\" xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\" xmlns:xbrldt=\"http://xbrl.org/2005/xbrldt\" xmlns:xbrli=\"http://www.xbrl.org/2003/instance\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">",
+        "rootCloseTag": "</xbrli:xbrl>",
+        "rootOpenTagSha256": "8bc54e59e9579382d8f6dce5bc147fef369620ddc75cad0adcdad195344af503",
+        "fragments": [
+          {
+            "key": "unit:usd",
+            "raw": "<xbrli:unit id=\"usd\">\n    <xbrli:measure>iso4217:USD</xbrli:measure>\n  </xbrli:unit>"
+          },
+          {
+            "key": "unit:usdPerShare",
+            "raw": "<xbrli:unit id=\"usdPerShare\">\n    <xbrli:divide>\n      <xbrli:unitNumerator>\n        <xbrli:measure>iso4217:USD</xbrli:measure>\n      </xbrli:unitNumerator>\n      <xbrli:unitDenominator>\n        <xbrli:measure>xbrli:shares</xbrli:measure>\n      </xbrli:unitDenominator>\n    </xbrli:divide>\n  </xbrli:unit>"
+          },
+          {
+            "key": "context:FI2014Q4",
+            "raw": "<xbrli:context id=\"FI2014Q4\">\n    <xbrli:entity>\n      <xbrli:identifier scheme=\"http://www.sec.gov/CIK\">0001001039</xbrli:identifier>\n    </xbrli:entity>\n    <xbrli:period>\n      <xbrli:instant>2014-09-27</xbrli:instant>\n    </xbrli:period>\n  </xbrli:context>"
+          },
+          {
+            "key": "context:FD2014Q4YTD",
+            "raw": "<xbrli:context id=\"FD2014Q4YTD\">\n    <xbrli:entity>\n      <xbrli:identifier scheme=\"http://www.sec.gov/CIK\">0001001039</xbrli:identifier>\n    </xbrli:entity>\n    <xbrli:period>\n      <xbrli:startDate>2013-09-29</xbrli:startDate>\n      <xbrli:endDate>2014-09-27</xbrli:endDate>\n    </xbrli:period>\n  </xbrli:context>"
+          },
+          {
+            "key": "fact:Assets",
+            "raw": "<us-gaap:Assets contextRef=\"FI2014Q4\" decimals=\"-6\" id=\"Fact-876548005D86BA6A6AC7C65593234ABB\" unitRef=\"usd\">84186000000</us-gaap:Assets>"
+          },
+          {
+            "key": "fact:SalesRevenueNet",
+            "raw": "<us-gaap:SalesRevenueNet contextRef=\"FD2014Q4YTD\" decimals=\"-6\" id=\"Fact-DAC13844B075C94DB2A3A2F617AEB5C1\" unitRef=\"usd\">48813000000</us-gaap:SalesRevenueNet>"
+          },
+          {
+            "key": "fact:NetCashProvidedByUsedInOperatingActivities",
+            "raw": "<us-gaap:NetCashProvidedByUsedInOperatingActivities contextRef=\"FD2014Q4YTD\" decimals=\"-6\" id=\"Fact-84458C1DC98FECCE3328C655932517D1\" unitRef=\"usd\">9780000000</us-gaap:NetCashProvidedByUsedInOperatingActivities>"
+          },
+          {
+            "key": "fact:EarningsPerShareDiluted",
+            "raw": "<us-gaap:EarningsPerShareDiluted contextRef=\"FD2014Q4YTD\" decimals=\"2\" id=\"Fact-2DC6A9DDF7E0E2310155C655931EC320\" unitRef=\"usdPerShare\">4.26</us-gaap:EarningsPerShareDiluted>"
+          }
+        ],
+        "fragmentsSha256": [
+          "37d9892b4a017ea3e36c944d5cece54eefc500ed3dd051d33ad434b0b2fea4a1",
+          "b41ff0665fbc813fad1bec59842a556189892906a0cedfe7774636f4626f715a",
+          "af810d69461770affb7786978d0f2349d12785ae9b8113da6c7768fcc5fbb333",
+          "bdffd9aa672f100a046283f50802c6506c3958a0f79787c789a1c7faa1afeee0",
+          "85652b9b12c2c2e60491d26eb73e5c62c5a0b12e132605527bfd2c31b3e2543f",
+          "66978204145b0fff993c486c9643f21dbe9c14f4fa59b219b718a70a40e5c38b",
+          "258d84f5ef2ce77008648e51bccfc275d8d7508dfad958ad23580c9853a787b2",
+          "fc17fc38841be38e8d0374066403d2414e6f66db90888a14a24afda133425920"
+        ],
+        "reconstructedFacts": [
+          {
+            "concept": "Assets",
+            "value": "84186000000",
+            "contextRef": "FI2014Q4",
+            "unitRef": "usd"
+          },
+          {
+            "concept": "SalesRevenueNet",
+            "value": "48813000000",
+            "contextRef": "FD2014Q4YTD",
+            "unitRef": "usd"
+          },
+          {
+            "concept": "NetCashProvidedByUsedInOperatingActivities",
+            "value": "9780000000",
+            "contextRef": "FD2014Q4YTD",
+            "unitRef": "usd"
+          },
+          {
+            "concept": "EarningsPerShareDiluted",
+            "value": "4.26",
+            "contextRef": "FD2014Q4YTD",
+            "unitRef": "usdPerShare"
+          }
+        ],
+        "unitScope": "Whole-entity CIK-matched consolidated aggregate; no segment, subsidiary, LP, parent-only dimension or scenario. Three monetary statement categories USD and annual EPS USD/share.",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103914000228/dis-20140927.xml",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001001039-14-000228/dis-20140927.xml",
+        "documentSha256": "0638173cfebfbde929705c72231e382e6c3dd0ae99df4a9c2a968ae2182d81d6"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103914000228/0001001039-14-000228-index.html",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001001039-14-000228/0001001039-14-000228-index.html",
+        "documentSha256": "8ca9c6e2ea41b921dffb6a753c47fd77f01c846f785575d0782e0711c11910f7",
+        "headerText": "EDGAR Filing Documents for 0001001039-14-000228 This page uses Javascript. Your browser either doesn't support Javascript or you have it turned off. To see this page as it is meant to appear please use a Javascript enabled browser. SEC.gov EDGAR Latest Filings Filings search tools Filing Detail SEC Home » Company Search » Current Page Form 10-K - Annual report [Section 13 and 15(d), not S-K Item 405]: SEC Accession No. 0001001039-14-000228 Filing Date 2014-11-19 Accepted 2014-11-19 16:44:47 Documents 15 Period of Report 2014-09-27 Interactive Data Document Format Files Seq Description Document Type Size 1 FORM 10-K fy2014_q4x10k.htm 10-K 3920456 2 RATIO OF EARNINGS TO FIXED CHARGES fy2014_q4x10kxex121.htm EX-12.1 57083 3 SUBSIDIARIES OF THE COMPANY fy2014_q4x10kxex21.htm EX-21 54711 4 CONSENT OF PRICEWATERHOUSECOOPERS LLP fy2014_q4x10kxex23.htm EX-23 2504 5 SECTION 302 CERTIFICATION OF CHIEF EXECUTIVE OFFICER fy2014_q4x10kxex31a.htm EX-31.(A) 16223 6 SECTION 302 CERTIFICATION OF CHIEF FINANCIAL OFFICER fy2014_q4x10kxex31b.htm EX-31.(B) 16312 7 SECTION 906 CERTIFICATION OF CHIEF EXECUTIVE OFFICER fy2014_q4x10kxex32a.htm EX-32.(A) 8795 8 SECTION 906 CERTIFICATION OF CHIEF FINANCIAL OFFICER fy2014_q4x10kxex32b.htm EX-32.(B) 8919 15 twdcimagea02.jpg GRAPHIC 71244 Complete submission text file 0001001039-14-000228.txt 28627599 Data Files Seq Description Document Type Size 9 XBRL INSTANCE DOCUMENT dis-20140927.xml EX-101.INS 5463473 10 XBRL TAXONOMY EXTENSION SCHEMA DOCUMENT dis-20140927.xsd EX-101.SCH 126222 11 XBRL TAXONOMY EXTENSION CALCULATION LINKBASE DOCUMENT dis-20140927_cal.xml EX-101.CAL 203028 12 XBRL TAXONOMY EXTENSION DEFINITION LINKBASE DOCUMENT dis-20140927_def.xml EX-101.DEF 719625 13 XBRL TAXONOMY EXTENSION LABEL LINKBASE DOCUMENT dis-20140927_lab.xml EX-101.LAB 1539578 14 XBRL TAXONOMY EXTENSION PRESENTATION LINKBASE DOCUMENT dis-20140927_pre.xml EX-101.PRE 999211 Mailing Address 500 SOUTH BUENA VISTA ST BURBANK CA 91521 Business Address 500 SOUTH BUENA VISTA ST BURBANK CA 91521 8185601000 WALT DISNEY CO/ (Filer) CIK : 0001001039 (see all company filings) EIN. : 954545390 | State of Incorp.: DE | Fiscal Year End: 0927 Type: 10-K | Act: 34 | File No.: 001-11605 | Film No.: 141236023 SIC : 4841 Cable & Other Pay Television Services",
+        "headerTextSha256": "2db11791cae0e5bd1219c49a3b8193f5413833c4aa0e918893ca3b621a30a3fd"
+      },
+      "limitations": "Currency evidence only. Historical pre-reorganization entity is identified by contemporaneous CIK; no later-parent currency substituted. Original guidance amount, component/shift semantics and target years remain subject to independent review.",
+      "paragraphSha256": [
+        "ed43acaf99eb4de75d8b5d13f9c525404064053c00c90408d69e8f563e25132d"
+      ],
+      "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+    },
+    "4aba05b9f52bb63f3cba44b0bf861dfb3e0396ab276b5aa6960bbd9fa29b4f14": {
+      "currency": "USD",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "quotes": [
+        "The Walt Disney Company and Subsidiaries Consolidated Statements of Income"
+      ],
+      "availableAt": "2017-11-22",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103917000198/fy2017_q4x10k.htm",
+      "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001001039-17-000198/fy2017_q4x10k.htm",
+      "documentSha256": "4aba05b9f52bb63f3cba44b0bf861dfb3e0396ab276b5aa6960bbd9fa29b4f14",
+      "form": "10-K",
+      "accession": "0001001039-17-000198",
+      "cik": "0001001039",
+      "inference": false,
+      "xbrlStatementEvidence": {
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2017-09-30",
+        "contextScope": "whole_entity_no_dimensions",
+        "rootOpenTag": "<xbrli:xbrl xmlns:country=\"http://xbrl.sec.gov/country/2016-01-31\" xmlns:currency=\"http://xbrl.sec.gov/currency/2016-01-31\" xmlns:dei=\"http://xbrl.sec.gov/dei/2014-01-31\" xmlns:dis=\"http://corporate.disney.go.com/20170930\" xmlns:exch=\"http://xbrl.sec.gov/exch/2016-01-31\" xmlns:invest=\"http://xbrl.sec.gov/invest/2013-01-31\" xmlns:iso4217=\"http://www.xbrl.org/2003/iso4217\" xmlns:link=\"http://www.xbrl.org/2003/linkbase\" xmlns:naics=\"http://xbrl.sec.gov/naics/2011-01-31\" xmlns:nonnum=\"http://www.xbrl.org/dtr/type/non-numeric\" xmlns:num=\"http://www.xbrl.org/dtr/type/numeric\" xmlns:ref=\"http://www.xbrl.org/2006/ref\" xmlns:sic=\"http://xbrl.sec.gov/sic/2011-01-31\" xmlns:stpr=\"http://xbrl.sec.gov/stpr/2011-01-31\" xmlns:us-gaap=\"http://fasb.org/us-gaap/2016-01-31\" xmlns:us-roles=\"http://fasb.org/us-roles/2016-01-31\" xmlns:us-types=\"http://fasb.org/us-types/2016-01-31\" xmlns:utreg=\"http://www.xbrl.org/2009/utr\" xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\" xmlns:xbrldt=\"http://xbrl.org/2005/xbrldt\" xmlns:xbrli=\"http://www.xbrl.org/2003/instance\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">",
+        "rootCloseTag": "</xbrli:xbrl>",
+        "rootOpenTagSha256": "9b4b427d157bf67412d0dbc20fea45033a8c650bfdf3e05aa0724d01c38ce060",
+        "fragments": [
+          {
+            "key": "unit:usd",
+            "raw": "<xbrli:unit id=\"usd\">\n\t\t<xbrli:measure>iso4217:USD</xbrli:measure>\n\t</xbrli:unit>"
+          },
+          {
+            "key": "unit:usdPerShare",
+            "raw": "<xbrli:unit id=\"usdPerShare\">\n\t\t<xbrli:divide>\n\t\t\t<xbrli:unitNumerator>\n\t\t\t\t<xbrli:measure>iso4217:USD</xbrli:measure>\n\t\t\t</xbrli:unitNumerator>\n\t\t\t<xbrli:unitDenominator>\n\t\t\t\t<xbrli:measure>xbrli:shares</xbrli:measure>\n\t\t\t</xbrli:unitDenominator>\n\t\t</xbrli:divide>\n\t</xbrli:unit>"
+          },
+          {
+            "key": "context:FI2017Q4",
+            "raw": "<xbrli:context id=\"FI2017Q4\">\n\t\t<xbrli:entity>\n\t\t\t<xbrli:identifier scheme=\"http://www.sec.gov/CIK\">0001001039</xbrli:identifier>\n\t\t</xbrli:entity>\n\t\t<xbrli:period>\n\t\t\t<xbrli:instant>2017-09-30</xbrli:instant>\n\t\t</xbrli:period>\n\t</xbrli:context>"
+          },
+          {
+            "key": "context:FD2017Q4YTD",
+            "raw": "<xbrli:context id=\"FD2017Q4YTD\">\n\t\t<xbrli:entity>\n\t\t\t<xbrli:identifier scheme=\"http://www.sec.gov/CIK\">0001001039</xbrli:identifier>\n\t\t</xbrli:entity>\n\t\t<xbrli:period>\n\t\t\t<xbrli:startDate>2016-10-02</xbrli:startDate>\n\t\t\t<xbrli:endDate>2017-09-30</xbrli:endDate>\n\t\t</xbrli:period>\n\t</xbrli:context>"
+          },
+          {
+            "key": "fact:Assets",
+            "raw": "<us-gaap:Assets contextRef=\"FI2017Q4\" decimals=\"-6\" id=\"Fact-B0F3A54451FF378EF8728B6E432B3362\" unitRef=\"usd\">95789000000</us-gaap:Assets>"
+          },
+          {
+            "key": "fact:SalesRevenueNet",
+            "raw": "<us-gaap:SalesRevenueNet contextRef=\"FD2017Q4YTD\" decimals=\"-6\" id=\"Fact-F8D377A169E4B58E76508B6E4335AB44\" unitRef=\"usd\">55137000000</us-gaap:SalesRevenueNet>"
+          },
+          {
+            "key": "fact:NetCashProvidedByUsedInOperatingActivities",
+            "raw": "<us-gaap:NetCashProvidedByUsedInOperatingActivities contextRef=\"FD2017Q4YTD\" decimals=\"-6\" id=\"Fact-2C7B7DE38BF0BAA59B4C8B6E433523BD\" unitRef=\"usd\">12343000000</us-gaap:NetCashProvidedByUsedInOperatingActivities>"
+          },
+          {
+            "key": "fact:EarningsPerShareDiluted",
+            "raw": "<us-gaap:EarningsPerShareDiluted contextRef=\"FD2017Q4YTD\" decimals=\"2\" id=\"Fact-5A061D104609B68FF2A68B6E43358C47\" unitRef=\"usdPerShare\">5.69</us-gaap:EarningsPerShareDiluted>"
+          }
+        ],
+        "fragmentsSha256": [
+          "8c1bc42fb0610a89dca19e8f47b034c54ac69593569837b00a39f65662d31b77",
+          "61e6eb7243a66db67d21dbf36c435dbc4f0863448aeb3fa59625e64805ff9866",
+          "20844b544f68c4491ca53905595be229c0c4456700c85a076d8e9742bfdf638e",
+          "e6f965d127fc44613f27a63e3475d435239a50a0c87332111fd79b0e75dcfac9",
+          "9d366b5c2854922949dbaa59baccb8976479c680584c8f908c7345fef41c42da",
+          "6be199ecd50469e835fc95350e69bffdb6f596b7c6253e8ec1c5c76fc191697a",
+          "2e3126556146f017484dc76175091e4c9825073fabb7c6ba58738014d3636b4b",
+          "a2780e5c415cb9a3878e8dcc05751252e6717b7b84c3a208512f1d01ec0ec7eb"
+        ],
+        "reconstructedFacts": [
+          {
+            "concept": "Assets",
+            "value": "95789000000",
+            "contextRef": "FI2017Q4",
+            "unitRef": "usd"
+          },
+          {
+            "concept": "SalesRevenueNet",
+            "value": "55137000000",
+            "contextRef": "FD2017Q4YTD",
+            "unitRef": "usd"
+          },
+          {
+            "concept": "NetCashProvidedByUsedInOperatingActivities",
+            "value": "12343000000",
+            "contextRef": "FD2017Q4YTD",
+            "unitRef": "usd"
+          },
+          {
+            "concept": "EarningsPerShareDiluted",
+            "value": "5.69",
+            "contextRef": "FD2017Q4YTD",
+            "unitRef": "usdPerShare"
+          }
+        ],
+        "unitScope": "Whole-entity CIK-matched consolidated aggregate; no segment, subsidiary, LP, parent-only dimension or scenario. Three monetary statement categories USD and annual EPS USD/share.",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103917000198/dis-20170930.xml",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001001039-17-000198/dis-20170930.xml",
+        "documentSha256": "1cd3a75b83c8f3a602b42b75b6a5197b594808c8b7729c243d96c7c310e893ef"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103917000198/0001001039-17-000198-index.html",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001001039-17-000198/0001001039-17-000198-index.html",
+        "documentSha256": "71d6525dfcb7cbf5aaa4e907d05e1e6b87f72dc5cce5dc6dcd51a61c57f3dec6",
+        "headerText": "EDGAR Filing Documents for 0001001039-17-000198 This page uses Javascript. Your browser either doesn't support Javascript or you have it turned off. To see this page as it is meant to appear please use a Javascript enabled browser. SEC.gov EDGAR Latest Filings Filings search tools Filing Detail SEC Home » Company Search » Current Page Form 10-K - Annual report [Section 13 and 15(d), not S-K Item 405]: SEC Accession No. 0001001039-17-000198 Filing Date 2017-11-22 Accepted 2017-11-22 17:01:00 Documents 145 Period of Report 2017-09-30 Interactive Data Document Format Files Seq Description Document Type Size 1 FORM 10-K fy2017_q4x10k.htm 10-K 3703232 2 DISNEY SAVINGS AND INVESTMENT PLAN 2015 RESTATEMENT fy2017_q4x10kxex1030.htm EX-10.30 821607 3 FIRST AMENDMENT TO DISNEY SAVINGS AND INVESTMENT PLAN fy2017_q4x10kxex1031.htm EX-10.31 16907 4 RATIO OF EARNINGS TO FIXED CHARGES fy2017_q4x10kxex121.htm EX-12.1 57367 5 SUBSIDIARIES OF THE COMPANY fy2017_q4x10kxex21.htm EX-21 41362 6 CONSENT OF PRICEWATERHOUSECOOPERS LLP fy2017_q4x10kxex23.htm EX-23 2527 7 SECTION 302 CERTIFICATION OF CHIEF EXECUTIVE OFFICER fy2017_q4x10kxex31a.htm EX-31.A 16284 8 SECTION 302 CERTIFICATION OF CHIEF FINANCIAL OFFICER fy2017_q4x10kxex31b.htm EX-31.B 16391 9 SECTION 906 CERTIFICATION OF CHIEF EXECUTIVE OFFICER fy2017_q4x10kxex32a.htm EX-32.A 8849 10 SECTION 906 CERTIFICATION OF CHIEF FINANCIAL OFFICER fy2017_q4x10kxex32b.htm EX-32.B 8992 17 twdcimagea02a06.jpg GRAPHIC 71244 Complete submission text file 0001001039-17-000198.txt 21308524 Data Files Seq Description Document Type Size 11 XBRL INSTANCE DOCUMENT dis-20170930.xml EX-101.INS 5188835 12 XBRL TAXONOMY EXTENSION SCHEMA DOCUMENT dis-20170930.xsd EX-101.SCH 125007 13 XBRL TAXONOMY EXTENSION CALCULATION LINKBASE DOCUMENT dis-20170930_cal.xml EX-101.CAL 200954 14 XBRL TAXONOMY EXTENSION DEFINITION LINKBASE DOCUMENT dis-20170930_def.xml EX-101.DEF 700189 15 XBRL TAXONOMY EXTENSION LABEL LINKBASE DOCUMENT dis-20170930_lab.xml EX-101.LAB 1534504 16 XBRL TAXONOMY EXTENSION PRESENTATION LINKBASE DOCUMENT dis-20170930_pre.xml EX-101.PRE 983060 Mailing Address 500 SOUTH BUENA VISTA ST BURBANK CA 91521 Business Address 500 SOUTH BUENA VISTA ST BURBANK CA 91521 8185601000 WALT DISNEY CO/ (Filer) CIK : 0001001039 (see all company filings) EIN. : 954545390 | State of Incorp.: DE | Fiscal Year End: 0930 Type: 10-K | Act: 34 | File No.: 001-11605 | Film No.: 171220525 SIC : 4841 Cable & Other Pay Television Services",
+        "headerTextSha256": "6f693c57524cf36852fabe2e154312b571293d9ef65e4c329c7e52aefacbf3f6"
+      },
+      "limitations": "Currency evidence only. Historical pre-reorganization entity is identified by contemporaneous CIK; no later-parent currency substituted. Original guidance amount, component/shift semantics and target years remain subject to independent review.",
+      "paragraphSha256": [
+        "ed43acaf99eb4de75d8b5d13f9c525404064053c00c90408d69e8f563e25132d"
+      ],
+      "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+    },
+    "05bc5250974d7c6d24a00790fd5cc5600e4751d5e095311d7fb8e9aaaf317ee1": {
+      "currency": "USD",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "quotes": [
+        "The Walt Disney Company and Subsidiaries Consolidated Statements of Income"
+      ],
+      "availableAt": "2012-11-21",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312512479027/d405160d10k.htm",
+      "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001193125-12-479027/d405160d10k.htm",
+      "documentSha256": "05bc5250974d7c6d24a00790fd5cc5600e4751d5e095311d7fb8e9aaaf317ee1",
+      "form": "10-K",
+      "accession": "0001193125-12-479027",
+      "cik": "0001001039",
+      "inference": false,
+      "xbrlStatementEvidence": {
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2012-09-29",
+        "contextScope": "whole_entity_no_dimensions",
+        "rootOpenTag": "<xbrl xmlns=\"http://www.xbrl.org/2003/instance\" xmlns:xbrll=\"http://www.xbrl.org/2003/linkbase\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:iso4217=\"http://www.xbrl.org/2003/iso4217\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:country=\"http://xbrl.sec.gov/country/2012-01-31\" xmlns:dei=\"http://xbrl.sec.gov/dei/2012-01-31\" xmlns:dis=\"http://thewaltdisneycompany.com/20120929\" xmlns:invest=\"http://xbrl.sec.gov/invest/2012-01-31\" xmlns:nonnum=\"http://www.xbrl.org/dtr/type/non-numeric\" xmlns:num=\"http://www.xbrl.org/dtr/type/numeric\" xmlns:us-gaap=\"http://fasb.org/us-gaap/2012-01-31\" xmlns:us-types=\"http://fasb.org/us-types/2012-01-31\" xmlns:utr=\"http://www.xbrl.org/2009/utr\" xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\" xmlns:xbrldt=\"http://xbrl.org/2005/xbrldt\">",
+        "rootCloseTag": "</xbrl>",
+        "rootOpenTagSha256": "031fe12349632d44f2a1c1093a92e69b919d9d018e1965b66dfd9dc71a611ca5",
+        "fragments": [
+          {
+            "key": "unit:iso4217_USD",
+            "raw": "<unit id=\"iso4217_USD\">\n    <measure>iso4217:USD</measure>\n  </unit>"
+          },
+          {
+            "key": "unit:iso4217_USD_per_shares",
+            "raw": "<unit id=\"iso4217_USD_per_shares\">\n    <divide>\n      <unitNumerator>\n        <measure>iso4217:USD</measure>\n      </unitNumerator>\n      <unitDenominator>\n        <measure>shares</measure>\n      </unitDenominator>\n    </divide>\n  </unit>"
+          },
+          {
+            "key": "context:eol_PE9479----1210-K0011_STD_0_20120929_0",
+            "raw": "<context id=\"eol_PE9479----1210-K0011_STD_0_20120929_0\">\n    <entity>\n      <identifier scheme=\"http://www.sec.gov/CIK\">0001001039</identifier>\n    </entity>\n    <period>\n      <instant>2012-09-29</instant>\n    </period>\n  </context>"
+          },
+          {
+            "key": "context:eol_PE9479----1210-K0011_STD_364_20120929_0",
+            "raw": "<context id=\"eol_PE9479----1210-K0011_STD_364_20120929_0\">\n    <entity>\n      <identifier scheme=\"http://www.sec.gov/CIK\">0001001039</identifier>\n    </entity>\n    <period>\n      <startDate>2011-10-02</startDate>\n      <endDate>2012-09-29</endDate>\n    </period>\n  </context>"
+          },
+          {
+            "key": "fact:Assets",
+            "raw": "<us-gaap:Assets contextRef=\"eol_PE9479----1210-K0011_STD_0_20120929_0\" unitRef=\"iso4217_USD\" decimals=\"-6\" id=\"id_477090_4B52E115-B045-4F56-891E-3C61EC2319D2_1_20\">74898000000</us-gaap:Assets>"
+          },
+          {
+            "key": "fact:SalesRevenueNet",
+            "raw": "<us-gaap:SalesRevenueNet contextRef=\"eol_PE9479----1210-K0011_STD_364_20120929_0\" unitRef=\"iso4217_USD\" decimals=\"-6\" id=\"id_477090_9B993C60-FE4E-4815-AA08-53F38194D5F4_1_0\">42278000000</us-gaap:SalesRevenueNet>"
+          },
+          {
+            "key": "fact:NetCashProvidedByUsedInOperatingActivities",
+            "raw": "<us-gaap:NetCashProvidedByUsedInOperatingActivities contextRef=\"eol_PE9479----1210-K0011_STD_364_20120929_0\" unitRef=\"iso4217_USD\" decimals=\"-6\" id=\"id_477090_008AEA73-6AD3-40BB-B05B-677B71981EF3_1_17\">7966000000</us-gaap:NetCashProvidedByUsedInOperatingActivities>"
+          },
+          {
+            "key": "fact:EarningsPerShareDiluted",
+            "raw": "<us-gaap:EarningsPerShareDiluted contextRef=\"eol_PE9479----1210-K0011_STD_364_20120929_0\" unitRef=\"iso4217_USD_per_shares\" decimals=\"2\" id=\"id_477090_9B993C60-FE4E-4815-AA08-53F38194D5F4_1_12\">3.13</us-gaap:EarningsPerShareDiluted>"
+          }
+        ],
+        "fragmentsSha256": [
+          "ae14ff3a92e84766b7848ffcbf587b63deaa3ea6b7039e95779230d529fc59d1",
+          "740099904d20101734d83a9269b63f6d9db42dcd5222a78e303940d4d2191aa1",
+          "cffe7f2cb0310fc3c7428a8f364fbd66be2944342a7240d9eef288e37566af6b",
+          "468145bb3d4c5f97683b650b56aa3af3ceacff433f1eaaa3f7480a0c36599d3e",
+          "c1140c1fda019d579bfe65a9add08232b91ffc9943bdbde7bcecf28566225c34",
+          "050de942a2b747e03ad9af10765f2c5789cd5b322e11e77fca0c053995a16567",
+          "5a71d7c378f557e4c8d6e0868d8a422d18e47d950d74734627070c8228c4a64f",
+          "b7e0b2bb104ca30cf8064af3f9d65eb74bba15a4340f39e5dc197d2a4716dbf9"
+        ],
+        "reconstructedFacts": [
+          {
+            "concept": "Assets",
+            "value": "74898000000",
+            "contextRef": "eol_PE9479----1210-K0011_STD_0_20120929_0",
+            "unitRef": "iso4217_USD"
+          },
+          {
+            "concept": "SalesRevenueNet",
+            "value": "42278000000",
+            "contextRef": "eol_PE9479----1210-K0011_STD_364_20120929_0",
+            "unitRef": "iso4217_USD"
+          },
+          {
+            "concept": "NetCashProvidedByUsedInOperatingActivities",
+            "value": "7966000000",
+            "contextRef": "eol_PE9479----1210-K0011_STD_364_20120929_0",
+            "unitRef": "iso4217_USD"
+          },
+          {
+            "concept": "EarningsPerShareDiluted",
+            "value": "3.13",
+            "contextRef": "eol_PE9479----1210-K0011_STD_364_20120929_0",
+            "unitRef": "iso4217_USD_per_shares"
+          }
+        ],
+        "unitScope": "Whole-entity CIK-matched consolidated aggregate; no segment, subsidiary, LP, parent-only dimension or scenario. Three monetary statement categories USD and annual EPS USD/share.",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312512479027/dis-20120929.xml",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001193125-12-479027/dis-20120929.xml",
+        "documentSha256": "65f051f9ff445f5f2c03e9f504be86734715adc3806285f5a90cf5a240e91bd8"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312512479027/0001193125-12-479027-index.html",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001193125-12-479027/0001193125-12-479027-index.html",
+        "documentSha256": "d0a9aa7a466ace8e1834b7bc444d18046f0b88f8ce4a9ece1c8bcb31380bbf34",
+        "headerText": "EDGAR Filing Documents for 0001193125-12-479027 This page uses Javascript. Your browser either doesn't support Javascript or you have it turned off. To see this page as it is meant to appear please use a Javascript enabled browser. SEC.gov EDGAR Latest Filings Filings search tools Filing Detail SEC Home » Company Search » Current Page Form 10-K - Annual report [Section 13 and 15(d), not S-K Item 405]: SEC Accession No. 0001193125-12-479027 Filing Date 2012-11-21 Accepted 2012-11-21 17:19:24 Documents 18 Period of Report 2012-09-29 Interactive Data Document Format Files Seq Description Document Type Size 1 FORM 10-K d405160d10k.htm 10-K 2426443 2 EMPLOYMENT AGREEMENT - KEVIN A. MAYER d405160dex106.htm EX-10.6 139790 3 EMPLOYMENT AGREEEMENT - JAYNE PARKER d405160dex107.htm EX-10.7 139485 4 DESCRIPTION OF DIRECTORS COMPENSATION d405160dex108.htm EX-10.8 6082 5 RATIO OF EARNINGS TO FIXED CHARGES d405160dex121.htm EX-12.1 41316 6 SUBSIDIARIES OF THE COMPANY d405160dex21.htm EX-21 20917 7 CONSENT OF PRICEWATERHOUSECOOPERS LLP d405160dex23.htm EX-23 2038 8 SECTION 302 CERTIFICATION OF CHIEF EXECUTIVE OFFICER d405160dex31a.htm EX-31.(A) 9989 9 SECTION 302 CERTIFICATION OF CHIEF FINANCIAL OFFICER d405160dex31b.htm EX-31.(B) 10160 10 SECTION 906 CERTIFICATION OF CHIEF EXECUTIVE OFFICER d405160dex32a.htm EX-32.(A) 4444 11 SECTION 906 CERTIFICATION OF CHIEF FINANCIAL OFFICER d405160dex32b.htm EX-32.(B) 4604 18 GRAPHIC g405160logo.jpg GRAPHIC 8566 Complete submission text file 0001193125-12-479027.txt 21073203 Data Files Seq Description Document Type Size 12 XBRL INSTANCE DOCUMENT dis-20120929.xml EX-101.INS 3952995 13 XBRL TAXONOMY EXTENSION SCHEMA dis-20120929.xsd EX-101.SCH 164357 14 XBRL TAXONOMY EXTENSION CALCULATION LINKBASE dis-20120929_cal.xml EX-101.CAL 180729 15 XBRL TAXONOMY EXTENSION DEFINITION LINKBASE dis-20120929_def.xml EX-101.DEF 837520 16 XBRL TAXONOMY EXTENSION LABEL LINKBASE dis-20120929_lab.xml EX-101.LAB 1194400 17 XBRL TAXONOMY EXTENSION PRESENTATION LINKBASE dis-20120929_pre.xml EX-101.PRE 987527 Mailing Address 500 SOUTH BUENA VISTA ST BURBANK CA 91521 Business Address 500 SOUTH BUENA VISTA ST BURBANK CA 91521 8185601000 WALT DISNEY CO/ (Filer) CIK : 0001001039 (see all company filings) EIN. : 954545390 | State of Incorp.: DE | Fiscal Year End: 0929 Type: 10-K | Act: 34 | File No.: 001-11605 | Film No.: 121221827 SIC : 4841 Cable & Other Pay Television Services",
+        "headerTextSha256": "37432d0be5650ac45a37eeba58312278fe0755003b4c414d26adb466142ed67e"
+      },
+      "limitations": "Currency evidence only. Historical pre-reorganization entity is identified by contemporaneous CIK; no later-parent currency substituted. Original guidance amount, component/shift semantics and target years remain subject to independent review.",
+      "paragraphSha256": [
+        "ed43acaf99eb4de75d8b5d13f9c525404064053c00c90408d69e8f563e25132d"
+      ],
+      "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+    },
+    "9ea5e2524e0b10442844edeb5cfdb4d5d7a1bfc7e92ded983917af2aa06cc250": {
+      "currency": "USD",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "quotes": [
+        "The Walt Disney Company and Subsidiaries Consolidated Statements of Income"
+      ],
+      "availableAt": "2016-11-23",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103916000516/fy2016_q4x10k.htm",
+      "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001001039-16-000516/fy2016_q4x10k.htm",
+      "documentSha256": "9ea5e2524e0b10442844edeb5cfdb4d5d7a1bfc7e92ded983917af2aa06cc250",
+      "form": "10-K",
+      "accession": "0001001039-16-000516",
+      "cik": "0001001039",
+      "inference": false,
+      "xbrlStatementEvidence": {
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2016-10-01",
+        "contextScope": "whole_entity_no_dimensions",
+        "rootOpenTag": "<xbrli:xbrl xmlns:country=\"http://xbrl.sec.gov/country/2013-01-31\" xmlns:currency=\"http://xbrl.sec.gov/currency/2014-01-31\" xmlns:dei=\"http://xbrl.sec.gov/dei/2014-01-31\" xmlns:dis=\"http://corporate.disney.go.com/20161001\" xmlns:exch=\"http://xbrl.sec.gov/exch/2015-01-31\" xmlns:invest=\"http://xbrl.sec.gov/invest/2013-01-31\" xmlns:iso4217=\"http://www.xbrl.org/2003/iso4217\" xmlns:link=\"http://www.xbrl.org/2003/linkbase\" xmlns:naics=\"http://xbrl.sec.gov/naics/2011-01-31\" xmlns:nonnum=\"http://www.xbrl.org/dtr/type/non-numeric\" xmlns:num=\"http://www.xbrl.org/dtr/type/numeric\" xmlns:ref=\"http://www.xbrl.org/2006/ref\" xmlns:sic=\"http://xbrl.sec.gov/sic/2011-01-31\" xmlns:stpr=\"http://xbrl.sec.gov/stpr/2011-01-31\" xmlns:us-gaap=\"http://fasb.org/us-gaap/2015-01-31\" xmlns:us-roles=\"http://fasb.org/us-roles/2015-01-31\" xmlns:us-types=\"http://fasb.org/us-types/2015-01-31\" xmlns:utreg=\"http://www.xbrl.org/2009/utr\" xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\" xmlns:xbrldt=\"http://xbrl.org/2005/xbrldt\" xmlns:xbrli=\"http://www.xbrl.org/2003/instance\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">",
+        "rootCloseTag": "</xbrli:xbrl>",
+        "rootOpenTagSha256": "c67acb34ba97f99869baaf15e5817e125922c1740a2919c15ace892ea4e50510",
+        "fragments": [
+          {
+            "key": "unit:usd",
+            "raw": "<xbrli:unit id=\"usd\">\n\t\t<xbrli:measure>iso4217:USD</xbrli:measure>\n\t</xbrli:unit>"
+          },
+          {
+            "key": "unit:usdPerShare",
+            "raw": "<xbrli:unit id=\"usdPerShare\">\n\t\t<xbrli:divide>\n\t\t\t<xbrli:unitNumerator>\n\t\t\t\t<xbrli:measure>iso4217:USD</xbrli:measure>\n\t\t\t</xbrli:unitNumerator>\n\t\t\t<xbrli:unitDenominator>\n\t\t\t\t<xbrli:measure>xbrli:shares</xbrli:measure>\n\t\t\t</xbrli:unitDenominator>\n\t\t</xbrli:divide>\n\t</xbrli:unit>"
+          },
+          {
+            "key": "context:FI2016Q4",
+            "raw": "<xbrli:context id=\"FI2016Q4\">\n\t\t<xbrli:entity>\n\t\t\t<xbrli:identifier scheme=\"http://www.sec.gov/CIK\">0001001039</xbrli:identifier>\n\t\t</xbrli:entity>\n\t\t<xbrli:period>\n\t\t\t<xbrli:instant>2016-10-01</xbrli:instant>\n\t\t</xbrli:period>\n\t</xbrli:context>"
+          },
+          {
+            "key": "context:FD2016Q4YTD",
+            "raw": "<xbrli:context id=\"FD2016Q4YTD\">\n\t\t<xbrli:entity>\n\t\t\t<xbrli:identifier scheme=\"http://www.sec.gov/CIK\">0001001039</xbrli:identifier>\n\t\t</xbrli:entity>\n\t\t<xbrli:period>\n\t\t\t<xbrli:startDate>2015-10-04</xbrli:startDate>\n\t\t\t<xbrli:endDate>2016-10-01</xbrli:endDate>\n\t\t</xbrli:period>\n\t</xbrli:context>"
+          },
+          {
+            "key": "fact:Assets",
+            "raw": "<us-gaap:Assets contextRef=\"FI2016Q4\" decimals=\"-6\" id=\"Fact-93930A147AF05DE8A7E761C92D83FB25\" unitRef=\"usd\">92033000000</us-gaap:Assets>"
+          },
+          {
+            "key": "fact:SalesRevenueNet",
+            "raw": "<us-gaap:SalesRevenueNet contextRef=\"FD2016Q4YTD\" decimals=\"-6\" id=\"Fact-ECFA2AF201D35F7A9FD9C1BEF9677779\" unitRef=\"usd\">55632000000</us-gaap:SalesRevenueNet>"
+          },
+          {
+            "key": "fact:NetCashProvidedByUsedInOperatingActivities",
+            "raw": "<us-gaap:NetCashProvidedByUsedInOperatingActivities contextRef=\"FD2016Q4YTD\" decimals=\"-6\" id=\"Fact-FD920D496AE65B52A94C8180C5CCD6F6\" unitRef=\"usd\">13213000000</us-gaap:NetCashProvidedByUsedInOperatingActivities>"
+          },
+          {
+            "key": "fact:EarningsPerShareDiluted",
+            "raw": "<us-gaap:EarningsPerShareDiluted contextRef=\"FD2016Q4YTD\" decimals=\"2\" id=\"Fact-FC3872E0197756A892ED742168B01741\" unitRef=\"usdPerShare\">5.73</us-gaap:EarningsPerShareDiluted>"
+          }
+        ],
+        "fragmentsSha256": [
+          "8c1bc42fb0610a89dca19e8f47b034c54ac69593569837b00a39f65662d31b77",
+          "61e6eb7243a66db67d21dbf36c435dbc4f0863448aeb3fa59625e64805ff9866",
+          "16f54659191444c340b38166d1abbd371b9492c54226c73369df3744c2e3266b",
+          "daf88991bb1213a8a881abb4c5f26bf0575e5fb3e28772a7d311b4612f3ef358",
+          "36b2973a09c44210fd797dad70a9e46890dd26f65656c5b63b7cf97fd5b2bf22",
+          "7d14807ef7749d90b044c063f4c980149c2c24123854e6356d6ae6a143e7fed4",
+          "59f4c42611e5c2c3106d7ab37a96aafe245d033d1c89f454b800a540a0da109a",
+          "2eed010295099f0c2b547f7c7bfa697de74bb4a221fe89e432a3eac3c18e3392"
+        ],
+        "reconstructedFacts": [
+          {
+            "concept": "Assets",
+            "value": "92033000000",
+            "contextRef": "FI2016Q4",
+            "unitRef": "usd"
+          },
+          {
+            "concept": "SalesRevenueNet",
+            "value": "55632000000",
+            "contextRef": "FD2016Q4YTD",
+            "unitRef": "usd"
+          },
+          {
+            "concept": "NetCashProvidedByUsedInOperatingActivities",
+            "value": "13213000000",
+            "contextRef": "FD2016Q4YTD",
+            "unitRef": "usd"
+          },
+          {
+            "concept": "EarningsPerShareDiluted",
+            "value": "5.73",
+            "contextRef": "FD2016Q4YTD",
+            "unitRef": "usdPerShare"
+          }
+        ],
+        "unitScope": "Whole-entity CIK-matched consolidated aggregate; no segment, subsidiary, LP, parent-only dimension or scenario. Three monetary statement categories USD and annual EPS USD/share.",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103916000516/dis-20161001.xml",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001001039-16-000516/dis-20161001.xml",
+        "documentSha256": "32a2c3df841cc1163465abd81260de0be475b1e9c620e74b94e7309c14d3a819"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103916000516/0001001039-16-000516-index.html",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001001039-16-000516/0001001039-16-000516-index.html",
+        "documentSha256": "e3dad5bf4a55551d7459ead56184e25025d303cfb0bd96ef75e29693c6f70f98",
+        "headerText": "EDGAR Filing Documents for 0001001039-16-000516 This page uses Javascript. Your browser either doesn't support Javascript or you have it turned off. To see this page as it is meant to appear please use a Javascript enabled browser. SEC.gov EDGAR Latest Filings Filings search tools Filing Detail SEC Home » Company Search » Current Page Form 10-K - Annual report [Section 13 and 15(d), not S-K Item 405]: SEC Accession No. 0001001039-16-000516 Filing Date 2016-11-23 Accepted 2016-11-23 16:48:43 Documents 142 Period of Report 2016-10-01 Interactive Data Document Format Files Seq Description Document Type Size 1 FORM 10-K fy2016_q4x10k.htm 10-K 3688115 2 RESTATED CERTIFICATE OF INCORPORATION OF THE REGISTRANT fy2016_q4x10kxex31.htm EX-3.1 66367 3 RATIO OF EARNINGS TO FIXED CHARGES fy2016_q4x10kxex121.htm EX-12.1 57250 4 SUBSIDIARIES OF THE COMPANY fy2016_q4x10kxex21.htm EX-21 37128 5 CONSENT OF PRICEWATERHOUSECOOPERS LLP fy2016_q4x10kxex23.htm EX-23 2527 6 SECTION 302 CERTIFICATION OF CHIEF EXECUTIVE OFFICER fy2016_q4x10kxex31a.htm EX-31.A 16284 7 SECTION 302 CERTIFICATION OF CHIEF FINANCIAL OFFICER fy2016_q4x10kxex31b.htm EX-31.B 16391 8 SECTION 906 CERTIFICATION OF CHIEF EXECUTIVE OFFICER fy2016_q4x10kxex32a.htm EX-32.A 8846 9 SECTION 906 CERTIFICATION OF CHIEF FINANCIAL OFFICER fy2016_q4x10kxex32b.htm EX-32.B 8988 16 twdcimagea02a05.jpg GRAPHIC 71244 Complete submission text file 0001001039-16-000516.txt 20038733 Data Files Seq Description Document Type Size 10 XBRL INSTANCE DOCUMENT dis-20161001.xml EX-101.INS 5023541 11 XBRL TAXONOMY EXTENSION SCHEMA DOCUMENT dis-20161001.xsd EX-101.SCH 119735 12 XBRL TAXONOMY EXTENSION CALCULATION LINKBASE DOCUMENT dis-20161001_cal.xml EX-101.CAL 199335 13 XBRL TAXONOMY EXTENSION DEFINITION LINKBASE DOCUMENT dis-20161001_def.xml EX-101.DEF 671704 14 XBRL TAXONOMY EXTENSION LABEL LINKBASE DOCUMENT dis-20161001_lab.xml EX-101.LAB 1516421 15 XBRL TAXONOMY EXTENSION PRESENTATION LINKBASE DOCUMENT dis-20161001_pre.xml EX-101.PRE 958415 Mailing Address 500 SOUTH BUENA VISTA ST BURBANK CA 91521 Business Address 500 SOUTH BUENA VISTA ST BURBANK CA 91521 8185601000 WALT DISNEY CO/ (Filer) CIK : 0001001039 (see all company filings) EIN. : 954545390 | State of Incorp.: DE | Fiscal Year End: 1001 Type: 10-K | Act: 34 | File No.: 001-11605 | Film No.: 162017128 SIC : 4841 Cable & Other Pay Television Services",
+        "headerTextSha256": "7b51e6037ec0c3f1a36fd9660890075deb813da72f1536006f2918859759db05"
+      },
+      "limitations": "Currency evidence only. Historical pre-reorganization entity is identified by contemporaneous CIK; no later-parent currency substituted. Original guidance amount, component/shift semantics and target years remain subject to independent review.",
+      "paragraphSha256": [
+        "ed43acaf99eb4de75d8b5d13f9c525404064053c00c90408d69e8f563e25132d"
+      ],
+      "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+    },
+    "9727570a82d5597dac12c94ce085fa6b555b19bdff842228dccf82aea82d239c": {
+      "currency": "USD",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "quotes": [
+        "The Walt Disney Company and Subsidiaries Consolidated Statements of Income"
+      ],
+      "availableAt": "2018-11-21",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103918000187/fy2018_q4x10k.htm",
+      "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001001039-18-000187/fy2018_q4x10k.htm",
+      "documentSha256": "9727570a82d5597dac12c94ce085fa6b555b19bdff842228dccf82aea82d239c",
+      "form": "10-K",
+      "accession": "0001001039-18-000187",
+      "cik": "0001001039",
+      "inference": false,
+      "xbrlStatementEvidence": {
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2018-09-29",
+        "contextScope": "whole_entity_no_dimensions",
+        "rootOpenTag": "<xbrli:xbrl xmlns:country=\"http://xbrl.sec.gov/country/2017-01-31\" xmlns:currency=\"http://xbrl.sec.gov/currency/2017-01-31\" xmlns:dei=\"http://xbrl.sec.gov/dei/2014-01-31\" xmlns:dis=\"http://corporate.disney.go.com/20180929\" xmlns:exch=\"http://xbrl.sec.gov/exch/2017-01-31\" xmlns:invest=\"http://xbrl.sec.gov/invest/2013-01-31\" xmlns:iso4217=\"http://www.xbrl.org/2003/iso4217\" xmlns:link=\"http://www.xbrl.org/2003/linkbase\" xmlns:naics=\"http://xbrl.sec.gov/naics/2017-01-31\" xmlns:nonnum=\"http://www.xbrl.org/dtr/type/non-numeric\" xmlns:num=\"http://www.xbrl.org/dtr/type/numeric\" xmlns:ref=\"http://www.xbrl.org/2006/ref\" xmlns:sic=\"http://xbrl.sec.gov/sic/2011-01-31\" xmlns:stpr=\"http://xbrl.sec.gov/stpr/2011-01-31\" xmlns:us-gaap=\"http://fasb.org/us-gaap/2017-01-31\" xmlns:us-roles=\"http://fasb.org/us-roles/2017-01-31\" xmlns:us-types=\"http://fasb.org/us-types/2017-01-31\" xmlns:utreg=\"http://www.xbrl.org/2009/utr\" xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\" xmlns:xbrldt=\"http://xbrl.org/2005/xbrldt\" xmlns:xbrli=\"http://www.xbrl.org/2003/instance\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">",
+        "rootCloseTag": "</xbrli:xbrl>",
+        "rootOpenTagSha256": "56b4e42be0cc8c7f6a44388384b20146c5b3049f426fc24daead1152c0ac8037",
+        "fragments": [
+          {
+            "key": "unit:usd",
+            "raw": "<xbrli:unit id=\"usd\">\n\t\t<xbrli:measure>iso4217:USD</xbrli:measure>\n\t</xbrli:unit>"
+          },
+          {
+            "key": "unit:usdPerShare",
+            "raw": "<xbrli:unit id=\"usdPerShare\">\n\t\t<xbrli:divide>\n\t\t\t<xbrli:unitNumerator>\n\t\t\t\t<xbrli:measure>iso4217:USD</xbrli:measure>\n\t\t\t</xbrli:unitNumerator>\n\t\t\t<xbrli:unitDenominator>\n\t\t\t\t<xbrli:measure>xbrli:shares</xbrli:measure>\n\t\t\t</xbrli:unitDenominator>\n\t\t</xbrli:divide>\n\t</xbrli:unit>"
+          },
+          {
+            "key": "context:FI2018Q4",
+            "raw": "<xbrli:context id=\"FI2018Q4\">\n\t\t<xbrli:entity>\n\t\t\t<xbrli:identifier scheme=\"http://www.sec.gov/CIK\">0001001039</xbrli:identifier>\n\t\t</xbrli:entity>\n\t\t<xbrli:period>\n\t\t\t<xbrli:instant>2018-09-29</xbrli:instant>\n\t\t</xbrli:period>\n\t</xbrli:context>"
+          },
+          {
+            "key": "context:FD2018Q4YTD",
+            "raw": "<xbrli:context id=\"FD2018Q4YTD\">\n\t\t<xbrli:entity>\n\t\t\t<xbrli:identifier scheme=\"http://www.sec.gov/CIK\">0001001039</xbrli:identifier>\n\t\t</xbrli:entity>\n\t\t<xbrli:period>\n\t\t\t<xbrli:startDate>2017-10-01</xbrli:startDate>\n\t\t\t<xbrli:endDate>2018-09-29</xbrli:endDate>\n\t\t</xbrli:period>\n\t</xbrli:context>"
+          },
+          {
+            "key": "fact:Assets",
+            "raw": "<us-gaap:Assets contextRef=\"FI2018Q4\" decimals=\"-6\" id=\"Fact-A2BC4F847A3B8AC8CDA1FD0BFB3C0AFB\" unitRef=\"usd\">98598000000</us-gaap:Assets>"
+          },
+          {
+            "key": "fact:SalesRevenueNet",
+            "raw": "<us-gaap:SalesRevenueNet contextRef=\"FD2018Q4YTD\" decimals=\"-6\" id=\"Fact-ECE698ED6B4AE07DEA99FD0BFB64CE01\" unitRef=\"usd\">59434000000</us-gaap:SalesRevenueNet>"
+          },
+          {
+            "key": "fact:NetCashProvidedByUsedInOperatingActivities",
+            "raw": "<us-gaap:NetCashProvidedByUsedInOperatingActivities contextRef=\"FD2018Q4YTD\" decimals=\"-6\" id=\"Fact-816876BA9169AE1BF6C2FD0BFB6ED1E3\" unitRef=\"usd\">14295000000</us-gaap:NetCashProvidedByUsedInOperatingActivities>"
+          },
+          {
+            "key": "fact:EarningsPerShareDiluted",
+            "raw": "<us-gaap:EarningsPerShareDiluted contextRef=\"FD2018Q4YTD\" decimals=\"2\" id=\"Fact-E3D18BC05B66DA9CF875FD0BFB46DE1F\" unitRef=\"usdPerShare\">8.36</us-gaap:EarningsPerShareDiluted>"
+          }
+        ],
+        "fragmentsSha256": [
+          "8c1bc42fb0610a89dca19e8f47b034c54ac69593569837b00a39f65662d31b77",
+          "61e6eb7243a66db67d21dbf36c435dbc4f0863448aeb3fa59625e64805ff9866",
+          "3491fab05d2fe742fa9eaf3e822308d2d7085d4881fff792ec91b83cfc1a0ba8",
+          "c23d5525f0120be5f1e710c2c6829c5195a4b09a779148d85a3c06318676a4f2",
+          "17cadb2d3ab65a0e455cafd97bd8607765c329ef34a4e486800818591542cbb9",
+          "15ad8fc921811f9b2ca0d35706c2c8183e42c13c8d5eef22f9b7d9200ea7d52f",
+          "42db1273009e9e38e1a83d9537f2277a5afae39bcc51f7bd5c07d5aa83770010",
+          "0a07aa24e571b7e0d5d3b7a5e02d420155fe40c955dfe8afdb32b892e24095f5"
+        ],
+        "reconstructedFacts": [
+          {
+            "concept": "Assets",
+            "value": "98598000000",
+            "contextRef": "FI2018Q4",
+            "unitRef": "usd"
+          },
+          {
+            "concept": "SalesRevenueNet",
+            "value": "59434000000",
+            "contextRef": "FD2018Q4YTD",
+            "unitRef": "usd"
+          },
+          {
+            "concept": "NetCashProvidedByUsedInOperatingActivities",
+            "value": "14295000000",
+            "contextRef": "FD2018Q4YTD",
+            "unitRef": "usd"
+          },
+          {
+            "concept": "EarningsPerShareDiluted",
+            "value": "8.36",
+            "contextRef": "FD2018Q4YTD",
+            "unitRef": "usdPerShare"
+          }
+        ],
+        "unitScope": "Whole-entity CIK-matched consolidated aggregate; no segment, subsidiary, LP, parent-only dimension or scenario. Three monetary statement categories USD and annual EPS USD/share.",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103918000187/dis-20180929.xml",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001001039-18-000187/dis-20180929.xml",
+        "documentSha256": "a64bcf36e982aab225a261c38db0458f5bb31a160817beb842eef08327130e00"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103918000187/0001001039-18-000187-index.html",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001001039-18-000187/0001001039-18-000187-index.html",
+        "documentSha256": "955f6d42afc16180047809e0793f0bd521a80fb7c54fcb6994966365939439e7",
+        "headerText": "EDGAR Filing Documents for 0001001039-18-000187 This page uses Javascript. Your browser either doesn't support Javascript or you have it turned off. To see this page as it is meant to appear please use a Javascript enabled browser. SEC.gov EDGAR Latest Filings Filings search tools Filing Detail SEC Home » Company Search » Current Page Form 10-K - Annual report [Section 13 and 15(d), not S-K Item 405]: SEC Accession No. 0001001039-18-000187 Filing Date 2018-11-21 Accepted 2018-11-21 17:05:57 Documents 143 Period of Report 2018-09-29 Interactive Data Document Format Files Seq Description Document Type Size 1 FORM 10-K fy2018_q4x10k.htm 10-K 3891436 2 SUBSIDIARIES OF THE COMPANY fy2018_q4x10kxex21.htm EX-21 38564 3 CONSENT OF PRICEWATERHOUSECOOPERS LLP fy2018_q4x10kxex23.htm EX-23 2526 4 SECTION 302 CERTIFICATION OF CHIEF EXECUTIVE OFFICER fy2018_q4x10kxex31a.htm EX-31.A 16284 5 SECTION 302 CERTIFICATION OF CHIEF FINANCIAL OFFICER fy2018_q4x10kxex31b.htm EX-31.B 16391 6 SECTION 906 CERTIFICATION OF CHIEF EXECUTIVE OFFICER fy2018_q4x10kxex32a.htm EX-32.A 8849 7 SECTION 906 CERTIFICATION OF CHIEF FINANCIAL OFFICER fy2018_q4x10kxex32b.htm EX-32.B 8991 14 twdcimagea02a06.jpg GRAPHIC 71244 Complete submission text file 0001001039-18-000187.txt 21378552 Data Files Seq Description Document Type Size 8 XBRL INSTANCE DOCUMENT dis-20180929.xml EX-101.INS 5535691 9 XBRL TAXONOMY EXTENSION SCHEMA DOCUMENT dis-20180929.xsd EX-101.SCH 126142 10 XBRL TAXONOMY EXTENSION CALCULATION LINKBASE DOCUMENT dis-20180929_cal.xml EX-101.CAL 203104 11 XBRL TAXONOMY EXTENSION DEFINITION LINKBASE DOCUMENT dis-20180929_def.xml EX-101.DEF 729828 12 XBRL TAXONOMY EXTENSION LABEL LINKBASE DOCUMENT dis-20180929_lab.xml EX-101.LAB 1566823 13 XBRL TAXONOMY EXTENSION PRESENTATION LINKBASE DOCUMENT dis-20180929_pre.xml EX-101.PRE 1012089 Mailing Address 500 SOUTH BUENA VISTA ST BURBANK CA 91521 Business Address 500 SOUTH BUENA VISTA ST BURBANK CA 91521 8185601000 WALT DISNEY CO/ (Filer) CIK : 0001001039 (see all company filings) EIN. : 954545390 | State of Incorp.: DE | Fiscal Year End: 0929 Type: 10-K | Act: 34 | File No.: 001-11605 | Film No.: 181198757 SIC : 4841 Cable & Other Pay Television Services",
+        "headerTextSha256": "d8d05bed6681593c7de50ff63d923e7c76f0f83c6b3f5352b89f47a06abff814"
+      },
+      "limitations": "Currency evidence only. Historical pre-reorganization entity is identified by contemporaneous CIK; no later-parent currency substituted. Original guidance amount, component/shift semantics and target years remain subject to independent review.",
+      "paragraphSha256": [
+        "ed43acaf99eb4de75d8b5d13f9c525404064053c00c90408d69e8f563e25132d"
+      ],
+      "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+    },
+    "2df5d3d8aca30eb184c0f69cd3966cfcb49c8723b47090be35e1fea7a707b922": {
+      "currency": "USD",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "quotes": [
+        "The Walt Disney Company and Subsidiaries Consolidated Statements of Income"
+      ],
+      "availableAt": "2011-11-23",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312511321340/d232174d10k.htm",
+      "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001193125-11-321340/d232174d10k.htm",
+      "documentSha256": "2df5d3d8aca30eb184c0f69cd3966cfcb49c8723b47090be35e1fea7a707b922",
+      "form": "10-K",
+      "accession": "0001193125-11-321340",
+      "cik": "0001001039",
+      "inference": false,
+      "xbrlStatementEvidence": {
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2011-10-01",
+        "contextScope": "whole_entity_no_dimensions",
+        "rootOpenTag": "<xbrl xmlns=\"http://www.xbrl.org/2003/instance\" xmlns:xbrll=\"http://www.xbrl.org/2003/linkbase\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:iso4217=\"http://www.xbrl.org/2003/iso4217\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:country=\"http://xbrl.sec.gov/country/2011-01-31\" xmlns:dei=\"http://xbrl.sec.gov/dei/2011-01-31\" xmlns:dis=\"http://corporate.disney.go.com/20111001\" xmlns:invest=\"http://xbrl.sec.gov/invest/2011-01-31\" xmlns:nonnum=\"http://www.xbrl.org/dtr/type/non-numeric\" xmlns:num=\"http://www.xbrl.org/dtr/type/numeric\" xmlns:us-gaap=\"http://fasb.org/us-gaap/2011-01-31\" xmlns:us-types=\"http://fasb.org/us-types/2011-01-31\" xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\" xmlns:xbrldt=\"http://xbrl.org/2005/xbrldt\">",
+        "rootCloseTag": "</xbrl>",
+        "rootOpenTagSha256": "a28257a57b1bb9524eb9b14d032e1a9a7557638d5c3f4dc1a730667277f172ec",
+        "fragments": [
+          {
+            "key": "unit:iso4217_USD",
+            "raw": "<unit id=\"iso4217_USD\">\n    <measure>iso4217:USD</measure>\n  </unit>"
+          },
+          {
+            "key": "unit:iso4217_USD_per_shares",
+            "raw": "<unit id=\"iso4217_USD_per_shares\">\n    <divide>\n      <unitNumerator>\n        <measure>iso4217:USD</measure>\n      </unitNumerator>\n      <unitDenominator>\n        <measure>shares</measure>\n      </unitDenominator>\n    </divide>\n  </unit>"
+          },
+          {
+            "key": "context:eol_PE9479----1110-K0026_STD_0_20111001_0",
+            "raw": "<context id=\"eol_PE9479----1110-K0026_STD_0_20111001_0\">\n    <entity>\n      <identifier scheme=\"http://www.sec.gov/CIK\">0001001039</identifier>\n    </entity>\n    <period>\n      <instant>2011-10-01</instant>\n    </period>\n  </context>"
+          },
+          {
+            "key": "context:eol_PE9479----1110-K0026_STD_364_20111001_0",
+            "raw": "<context id=\"eol_PE9479----1110-K0026_STD_364_20111001_0\">\n    <entity>\n      <identifier scheme=\"http://www.sec.gov/CIK\">0001001039</identifier>\n    </entity>\n    <period>\n      <startDate>2010-10-03</startDate>\n      <endDate>2011-10-01</endDate>\n    </period>\n  </context>"
+          },
+          {
+            "key": "fact:Assets",
+            "raw": "<us-gaap:Assets contextRef=\"eol_PE9479----1110-K0026_STD_0_20111001_0\" unitRef=\"iso4217_USD\" decimals=\"-6\" id=\"fnid_32342483_1_21\">72124000000</us-gaap:Assets>"
+          },
+          {
+            "key": "fact:SalesRevenueNet",
+            "raw": "<us-gaap:SalesRevenueNet contextRef=\"eol_PE9479----1110-K0026_STD_364_20111001_0\" unitRef=\"iso4217_USD\" decimals=\"-6\">40893000000</us-gaap:SalesRevenueNet>"
+          },
+          {
+            "key": "fact:NetCashProvidedByUsedInOperatingActivities",
+            "raw": "<us-gaap:NetCashProvidedByUsedInOperatingActivities contextRef=\"eol_PE9479----1110-K0026_STD_364_20111001_0\" unitRef=\"iso4217_USD\" decimals=\"-6\">6994000000</us-gaap:NetCashProvidedByUsedInOperatingActivities>"
+          },
+          {
+            "key": "fact:EarningsPerShareDiluted",
+            "raw": "<us-gaap:EarningsPerShareDiluted contextRef=\"eol_PE9479----1110-K0026_STD_364_20111001_0\" unitRef=\"iso4217_USD_per_shares\" decimals=\"2\">2.52</us-gaap:EarningsPerShareDiluted>"
+          }
+        ],
+        "fragmentsSha256": [
+          "ae14ff3a92e84766b7848ffcbf587b63deaa3ea6b7039e95779230d529fc59d1",
+          "740099904d20101734d83a9269b63f6d9db42dcd5222a78e303940d4d2191aa1",
+          "d9a6de4759d923340e90600e74365d85c0514521aa1d5d1a3ebf0a1fb282567c",
+          "d42a59155cfcfaa20db2c9e42774feb966176997e5d458ae75cd6b555e636e0d",
+          "9b2a943c8de7b8b8a8e41f8b2ef7ada6dc18007e83bfa607ac2d519c7cce8d65",
+          "140aa670a90d5f86eb8968db748da56481a22225cb96bb0d2f0a2f5a801d6686",
+          "4a1f7db42ca0dacebe146b3c14d53628a6c0ce24db323b0e6c7c75a2f78bb91f",
+          "4f3a3ae6c3366ec38c0da10c975c2e488bf2fcbb7a14ec39e15d6fe176e71712"
+        ],
+        "reconstructedFacts": [
+          {
+            "concept": "Assets",
+            "value": "72124000000",
+            "contextRef": "eol_PE9479----1110-K0026_STD_0_20111001_0",
+            "unitRef": "iso4217_USD"
+          },
+          {
+            "concept": "SalesRevenueNet",
+            "value": "40893000000",
+            "contextRef": "eol_PE9479----1110-K0026_STD_364_20111001_0",
+            "unitRef": "iso4217_USD"
+          },
+          {
+            "concept": "NetCashProvidedByUsedInOperatingActivities",
+            "value": "6994000000",
+            "contextRef": "eol_PE9479----1110-K0026_STD_364_20111001_0",
+            "unitRef": "iso4217_USD"
+          },
+          {
+            "concept": "EarningsPerShareDiluted",
+            "value": "2.52",
+            "contextRef": "eol_PE9479----1110-K0026_STD_364_20111001_0",
+            "unitRef": "iso4217_USD_per_shares"
+          }
+        ],
+        "unitScope": "Whole-entity CIK-matched consolidated aggregate; no segment, subsidiary, LP, parent-only dimension or scenario. Three monetary statement categories USD and annual EPS USD/share.",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312511321340/dis-20111001.xml",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001193125-11-321340/dis-20111001.xml",
+        "documentSha256": "fd6f0f0a8018d922d1d10eb3a58838c5f949abb15fbd7d93fdd56da5fca71606"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312511321340/0001193125-11-321340-index.html",
+        "documentPath": "/Users/yudonglu/Documents/guru-intelligence/output/guru-valuation-expansion-2026-09-05/currency-lane-dis-ci-abbv-primary-20260906/DIS/0001193125-11-321340/0001193125-11-321340-index.html",
+        "documentSha256": "18f3eeb216421ba4c94a2fa4fbef331df506f48565336ac5d6996c468515acb4",
+        "headerText": "EDGAR Filing Documents for 0001193125-11-321340 This page uses Javascript. Your browser either doesn't support Javascript or you have it turned off. To see this page as it is meant to appear please use a Javascript enabled browser. SEC.gov EDGAR Latest Filings Filings search tools Filing Detail SEC Home » Company Search » Current Page Form 10-K - Annual report [Section 13 and 15(d), not S-K Item 405]: SEC Accession No. 0001193125-11-321340 Filing Date 2011-11-23 Accepted 2011-11-23 17:05:01 Documents 16 Period of Report 2011-10-01 Interactive Data Document Format Files Seq Description Document Type Size 1 FORM 10-K d232174d10k.htm 10-K 2454780 2 AMENDED AND RESTATED EMPLOYMENT AGREEMENT d232174dex101.htm EX-10.1 120094 3 DESCRIPTION OF DIRECTORS COMPENSATION d232174dex108.htm EX-10.8 9295 4 SUBSIDIARIES OF THE COMPANY d232174dex21.htm EX-21 21762 5 CONSENT OF PRICEWATERHOUSECOOPERS LLP d232174dex23.htm EX-23 1504 6 SECTION 302 CERTIFICATION OF CHIEF EXECUTIVE OFFICER d232174dex31a.htm EX-31.(A) 10037 7 SECTION 302 CERTIFICATION OF CHIEF FINANCIAL OFFICER d232174dex31b.htm EX-31.(B) 10139 8 SECTION 906 CERTIFICATION OF CHIEF EXECUTIVE OFFICER d232174dex32a.htm EX-32.(A) 4531 9 SECTION 906 CERTIFICATION OF CHIEF FINANCIAL OFFICER d232174dex32b.htm EX-32.(B) 4719 16 GRAPHIC g232174g06t38.jpg GRAPHIC 10164 Complete submission text file 0001193125-11-321340.txt 20047963 Data Files Seq Description Document Type Size 10 XBRL INSTANCE DOCUMENT dis-20111001.xml EX-101.INS 3894659 11 XBRL TAXONOMY EXTENSION SCHEMA dis-20111001.xsd EX-101.SCH 171779 12 XBRL TAXONOMY EXTENSION CALCULATION LINKBASE dis-20111001_cal.xml EX-101.CAL 183399 13 XBRL TAXONOMY EXTENSION DEFINITION LINKBASE dis-20111001_def.xml EX-101.DEF 856998 14 XBRL TAXONOMY EXTENSION LABEL LINKBASE dis-20111001_lab.xml EX-101.LAB 911107 15 XBRL TAXONOMY EXTENSION PRESENTATION LINKBASE dis-20111001_pre.xml EX-101.PRE 921405 Mailing Address 500 SOUTH BUENA VISTA ST BURBANK CA 91521 Business Address 500 SOUTH BUENA VISTA ST BURBANK CA 91521 8185601000 WALT DISNEY CO/ (Filer) CIK : 0001001039 (see all company filings) EIN. : 954545390 | State of Incorp.: DE | Fiscal Year End: 1001 Type: 10-K | Act: 34 | File No.: 001-11605 | Film No.: 111225860 SIC : 7990 Services-Miscellaneous Amusement & Recreation",
+        "headerTextSha256": "644be2be5eb35bd48006f9182e4324360cecdd8a491eb3f922bb7a8b545d39c7"
+      },
+      "limitations": "Currency evidence only. Historical pre-reorganization entity is identified by contemporaneous CIK; no later-parent currency substituted. Original guidance amount, component/shift semantics and target years remain subject to independent review.",
+      "paragraphSha256": [
+        "ed43acaf99eb4de75d8b5d13f9c525404064053c00c90408d69e8f563e25132d"
+      ],
+      "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+    }
+  },
+  "events": [
+    {
+      "ticker": "CI",
+      "sourceId": "0f302d25b0f046aba25077f2",
+      "observedAt": "2018-05-03",
+      "evidence": "Our outlook for full year 2018 consolidated adjusted income from operations is now in the range of approximately $3.17 billion-$3.27 billion, or $12.85-$13.25 per share.",
+      "currency": "USD",
+      "amount": 3220,
+      "unit": "reported millions",
+      "metricName": "operating_income_guidance",
+      "fiscalPeriod": "Q12018",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "CI",
+        "sourceId": "0f302d25b0f046aba25077f2",
+        "observedAt": "2018-05-03",
+        "originalQuoteSha256": "16c2c57069ba1c15ae9b33e322a0dcf5e1f7d6c29f325283ed2433973bdcb260",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "operating_income_guidance",
+        "fiscalPeriod": "Q12018",
+        "amountM": 3220,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "4ddc9b6bcec97740644db8239f0374c8eaa5a71120ee4f0e742bb07e162c2292",
+        "originalEvidencePayloadSha256": "4ddc9b6bcec97740644db8239f0374c8eaa5a71120ee4f0e742bb07e162c2292",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "b15cac7ec07d181023cc35e13f14e2e97cbfb2e76010a462076cd1d09fd83951"
+      }
+    },
+    {
+      "ticker": "DIS",
+      "sourceId": "3f07918e26efb5e8604a4df9",
+      "observedAt": "2014-02-05",
+      "evidence": "As we look to the second quarter, we expect ESPN to defer approximately $75 million less in affiliate revenue than last year.",
+      "currency": "USD",
+      "amount": 75,
+      "unit": "reported millions",
+      "metricName": "revenue_guidance",
+      "fiscalPeriod": "Q12014",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "DIS",
+        "sourceId": "3f07918e26efb5e8604a4df9",
+        "observedAt": "2014-02-05",
+        "originalQuoteSha256": "ebf0576682e4d20c62ad32d738f384c29c033adb957c213f02cdef82fa6b473c",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "revenue_guidance",
+        "fiscalPeriod": "Q12014",
+        "amountM": 75,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "4672d9d1769ae107855d35414dcfa531579aa4bc07105c330b26f8d5958ba134",
+        "originalEvidencePayloadSha256": "4672d9d1769ae107855d35414dcfa531579aa4bc07105c330b26f8d5958ba134",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "5d2e76a66d443d56e201944d46df45db6c7714086c56643a6ce8120833f1375f"
+      }
+    },
+    {
+      "ticker": "DIS",
+      "sourceId": "4180a81d29ca3b323b3f7f07",
+      "observedAt": "2011-08-09",
+      "evidence": "To give you some perspective on what this means financially, we now expect annual revenue streams to total between $400 million and $500 million by fiscal 2015.",
+      "currency": "USD",
+      "amount": 450,
+      "unit": "reported millions",
+      "metricName": "revenue_guidance",
+      "fiscalPeriod": "Q32011",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "DIS",
+        "sourceId": "4180a81d29ca3b323b3f7f07",
+        "observedAt": "2011-08-09",
+        "originalQuoteSha256": "8e724ee8473c7a61a409d5b891dc0fef6a0a3c6096ed839751e8015988294ea0",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "revenue_guidance",
+        "fiscalPeriod": "Q32011",
+        "amountM": 450,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "f6fc524da82e6bccb6a072f6c9efc08f42bab780dc28ed6fe3ac26bc3ec17620",
+        "originalEvidencePayloadSha256": "f6fc524da82e6bccb6a072f6c9efc08f42bab780dc28ed6fe3ac26bc3ec17620",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "9176f6aa484202b1bcf571985b945f3c37662673538726d880ba6aaa947892fc"
+      }
+    },
+    {
+      "ticker": "DIS",
+      "sourceId": "508ae84e94618734cf036bf8",
+      "observedAt": "2015-11-05",
+      "evidence": "We estimate this will shift about $90 million in operating income into Q1 this year that was recognized in Q2 last year.",
+      "currency": "USD",
+      "amount": 90,
+      "unit": "reported millions",
+      "metricName": "operating_income_guidance",
+      "fiscalPeriod": "Q42015",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "DIS",
+        "sourceId": "508ae84e94618734cf036bf8",
+        "observedAt": "2015-11-05",
+        "originalQuoteSha256": "5f6a04aa46444a6236d9a4058357f7ff246d46c87a2883ef837f0a22630cd953",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "operating_income_guidance",
+        "fiscalPeriod": "Q42015",
+        "amountM": 90,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "df84a5e814a7d2b2af05f826dc10733d0b9e6c64c4c7f8a0d3562a485e175bf1",
+        "originalEvidencePayloadSha256": "df84a5e814a7d2b2af05f826dc10733d0b9e6c64c4c7f8a0d3562a485e175bf1",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "71fdc8bf76d41e599aa54766490eb1baf7d2580a225528a0e9f94eda25c4f5b8"
+      }
+    },
+    {
+      "ticker": "DIS",
+      "sourceId": "54138aee854680ce61d5c046",
+      "observedAt": "2018-05-08",
+      "evidence": "We now expect BAMTech's results to have an adverse impact on Media Network's fiscal 2018 operating income of $180 million compared to the prior year.",
+      "currency": "USD",
+      "amount": 180,
+      "unit": "reported millions",
+      "metricName": "operating_income_guidance",
+      "fiscalPeriod": "Q22018",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "DIS",
+        "sourceId": "54138aee854680ce61d5c046",
+        "observedAt": "2018-05-08",
+        "originalQuoteSha256": "48ea0e8ae9df7fdd1010c0f8266106b70ceb10074a6b0616b2c3b52ae53958e8",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "operating_income_guidance",
+        "fiscalPeriod": "Q22018",
+        "amountM": 180,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "084cfcfb825aaa2705e7f8e792f719ebafb9f8f7851663389aebebf8e9ede32d",
+        "originalEvidencePayloadSha256": "084cfcfb825aaa2705e7f8e792f719ebafb9f8f7851663389aebebf8e9ede32d",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "4aba05b9f52bb63f3cba44b0bf861dfb3e0396ab276b5aa6960bbd9fa29b4f14"
+      }
+    },
+    {
+      "ticker": "CI",
+      "sourceId": "5bbb111f05a88d152ced118a",
+      "observedAt": "2018-08-02",
+      "evidence": "All in, for full year 2018, we now expect consolidated adjusted income from operations of $3.34 billion-$3.42 billion, or $13.60-$13.90 per share.",
+      "currency": "USD",
+      "amount": 3380,
+      "unit": "reported millions",
+      "metricName": "operating_income_guidance",
+      "fiscalPeriod": "Q22018",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "CI",
+        "sourceId": "5bbb111f05a88d152ced118a",
+        "observedAt": "2018-08-02",
+        "originalQuoteSha256": "e8777af7fc2fd3cb539eb8c541d3a5902a2f7f59b0492f0eaeccfbe1e92cf2fe",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "operating_income_guidance",
+        "fiscalPeriod": "Q22018",
+        "amountM": 3380,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "ff553fdf2179e6c29ed12eb5c3e5f5b3b8f3728b2652681968e25bab061c4514",
+        "originalEvidencePayloadSha256": "ff553fdf2179e6c29ed12eb5c3e5f5b3b8f3728b2652681968e25bab061c4514",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "b15cac7ec07d181023cc35e13f14e2e97cbfb2e76010a462076cd1d09fd83951"
+      }
+    },
+    {
+      "ticker": "CI",
+      "sourceId": "5fbedcfb890ab1c1416ef1de",
+      "observedAt": "2018-05-03",
+      "evidence": "All in, for full year 2018, we now expect consolidated adjusted income from operations of $3.17 billion-$3.27 billion, or $12.85-$13.25 per share.",
+      "currency": "USD",
+      "amount": 3220,
+      "unit": "reported millions",
+      "metricName": "operating_income_guidance",
+      "fiscalPeriod": "Q12018",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "CI",
+        "sourceId": "5fbedcfb890ab1c1416ef1de",
+        "observedAt": "2018-05-03",
+        "originalQuoteSha256": "b8ab58474a2a7b6e596aad446f22fc8d5fdcf11e4be2442e161c4d1ea853d271",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "operating_income_guidance",
+        "fiscalPeriod": "Q12018",
+        "amountM": 3220,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "a55b271f5fe98707e616a5f9dbd32ee5063f9f27aadacd84e750df2e91b6aefa",
+        "originalEvidencePayloadSha256": "a55b271f5fe98707e616a5f9dbd32ee5063f9f27aadacd84e750df2e91b6aefa",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "b15cac7ec07d181023cc35e13f14e2e97cbfb2e76010a462076cd1d09fd83951"
+      }
+    },
+    {
+      "ticker": "DIS",
+      "sourceId": "683fcd54bbbf8023b4702384",
+      "observedAt": "2013-05-07",
+      "evidence": "We also face a difficult syndication comparison due to the sale of shows, including Castle in the prior year, as well as lower sales of library shows this year, which we expect to have a total adverse impact of about $40 million in Q3.",
+      "currency": "USD",
+      "amount": 40,
+      "unit": "reported millions",
+      "metricName": "revenue_guidance",
+      "fiscalPeriod": "Q22013",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "DIS",
+        "sourceId": "683fcd54bbbf8023b4702384",
+        "observedAt": "2013-05-07",
+        "originalQuoteSha256": "d11fdfd413d251b7e82a98807ec3f3ac56922390968d8f852420718cba5d839a",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "revenue_guidance",
+        "fiscalPeriod": "Q22013",
+        "amountM": 40,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "3b50b8f2e5c747558d50cab7a231fc9a5975540d7e0476694fad75fd522e9b3d",
+        "originalEvidencePayloadSha256": "3b50b8f2e5c747558d50cab7a231fc9a5975540d7e0476694fad75fd522e9b3d",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "05bc5250974d7c6d24a00790fd5cc5600e4751d5e095311d7fb8e9aaaf317ee1"
+      }
+    },
+    {
+      "ticker": "DIS",
+      "sourceId": "71f0c5b4cfb3ecfebdef425f",
+      "observedAt": "2011-11-10",
+      "evidence": "We expect consolidated CapEx to be approximately $500 million higher than in fiscal year 2011, with our work on the Shanghai Disney Resort being the largest driver of this increase.",
+      "currency": "USD",
+      "amount": 500,
+      "unit": "reported millions",
+      "metricName": "capex_guidance",
+      "fiscalPeriod": "Q42011",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "DIS",
+        "sourceId": "71f0c5b4cfb3ecfebdef425f",
+        "observedAt": "2011-11-10",
+        "originalQuoteSha256": "b84fb09e6d8c9d906f560ef896abb79633c5843e20d53c93b01b4b28173f1356",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "capex_guidance",
+        "fiscalPeriod": "Q42011",
+        "amountM": 500,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "fe557049999e61c9fb9d167f9a7c5bf3b8064790a029eb75057e12df4d9dcc9d",
+        "originalEvidencePayloadSha256": "fe557049999e61c9fb9d167f9a7c5bf3b8064790a029eb75057e12df4d9dcc9d",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "9176f6aa484202b1bcf571985b945f3c37662673538726d880ba6aaa947892fc"
+      }
+    },
+    {
+      "ticker": "DIS",
+      "sourceId": "73b724b466d74010cf43fc08",
+      "observedAt": "2017-11-09",
+      "evidence": "We expect these investments, among others, to drive fiscal 2018 consolidated CapEx higher by about $1 billion.",
+      "currency": "USD",
+      "amount": 1000,
+      "unit": "reported millions",
+      "metricName": "capex_guidance",
+      "fiscalPeriod": "Q42017",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "DIS",
+        "sourceId": "73b724b466d74010cf43fc08",
+        "observedAt": "2017-11-09",
+        "originalQuoteSha256": "0f950f244eee5db2f91a31e19c7967796d2a6fbbb021017342fe0e039ebaf153",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "capex_guidance",
+        "fiscalPeriod": "Q42017",
+        "amountM": 1000,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "0c425801e40dc8b87b69ca40d9b7cc925c205be2db9f35c990602b9350fb9886",
+        "originalEvidencePayloadSha256": "0c425801e40dc8b87b69ca40d9b7cc925c205be2db9f35c990602b9350fb9886",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "9ea5e2524e0b10442844edeb5cfdb4d5d7a1bfc7e92ded983917af2aa06cc250"
+      }
+    },
+    {
+      "ticker": "DIS",
+      "sourceId": "7a44782f47d68b2645579790",
+      "observedAt": "2019-02-05",
+      "evidence": "We estimate this will result in about $45 million in operating income shifting from Q2 to Q3.",
+      "currency": "USD",
+      "amount": 45,
+      "unit": "reported millions",
+      "metricName": "operating_income_guidance",
+      "fiscalPeriod": "Q12019",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "DIS",
+        "sourceId": "7a44782f47d68b2645579790",
+        "observedAt": "2019-02-05",
+        "originalQuoteSha256": "65c47c97b98069d3dc9873db7e478d5a4ad55c7d0680a4d2eca4dbd02a893ed7",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "operating_income_guidance",
+        "fiscalPeriod": "Q12019",
+        "amountM": 45,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "41256e7e84d07659e81db1a65fd52cebe940499267f0928d7ff35901481f9c86",
+        "originalEvidencePayloadSha256": "41256e7e84d07659e81db1a65fd52cebe940499267f0928d7ff35901481f9c86",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "9727570a82d5597dac12c94ce085fa6b555b19bdff842228dccf82aea82d239c"
+      }
+    },
+    {
+      "ticker": "DIS",
+      "sourceId": "84f20d9bf75ab940fb3feb31",
+      "observedAt": "2011-05-10",
+      "evidence": "However, we expect Q4 net affiliate revenue recognition to be $245 million higher than in prior year.",
+      "currency": "USD",
+      "amount": 245,
+      "unit": "reported millions",
+      "metricName": "revenue_guidance",
+      "fiscalPeriod": "Q22011",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "DIS",
+        "sourceId": "84f20d9bf75ab940fb3feb31",
+        "observedAt": "2011-05-10",
+        "originalQuoteSha256": "ae332052afdd2f62154af53e594fefe67ea41a661288469e9072ab8cfb4e525e",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "revenue_guidance",
+        "fiscalPeriod": "Q22011",
+        "amountM": 245,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "169730a3587a214c5f251eccff29c554960945ef51b760a640cd811426763982",
+        "originalEvidencePayloadSha256": "169730a3587a214c5f251eccff29c554960945ef51b760a640cd811426763982",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "9176f6aa484202b1bcf571985b945f3c37662673538726d880ba6aaa947892fc"
+      }
+    },
+    {
+      "ticker": "DIS",
+      "sourceId": "8c59859a947fdacb75bb645d",
+      "observedAt": "2018-02-06",
+      "evidence": "We estimate the timing of the Easter holiday period will shift approximately $35 million in operating income from Q3 to Q2.",
+      "currency": "USD",
+      "amount": 35,
+      "unit": "reported millions",
+      "metricName": "operating_income_guidance",
+      "fiscalPeriod": "Q12018",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "DIS",
+        "sourceId": "8c59859a947fdacb75bb645d",
+        "observedAt": "2018-02-06",
+        "originalQuoteSha256": "f0e3703544944f5e08a2759b9d82811140a0027929b2ca9f93fc48a981cfa8e4",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "operating_income_guidance",
+        "fiscalPeriod": "Q12018",
+        "amountM": 35,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "f9720bcbbd009eb5ad56cf2adc6c6b0629b6aabe55f30a48a74e467ea85c2b8b",
+        "originalEvidencePayloadSha256": "f9720bcbbd009eb5ad56cf2adc6c6b0629b6aabe55f30a48a74e467ea85c2b8b",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "4aba05b9f52bb63f3cba44b0bf861dfb3e0396ab276b5aa6960bbd9fa29b4f14"
+      }
+    },
+    {
+      "ticker": "DIS",
+      "sourceId": "90d0abb2db85a93802731d8f",
+      "observedAt": "2012-11-08",
+      "evidence": "We estimate this will shift about $30 million in operating income from Q1 to Q2.",
+      "currency": "USD",
+      "amount": 30,
+      "unit": "reported millions",
+      "metricName": "operating_income_guidance",
+      "fiscalPeriod": "Q42012",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "DIS",
+        "sourceId": "90d0abb2db85a93802731d8f",
+        "observedAt": "2012-11-08",
+        "originalQuoteSha256": "443f10e121cd2cad6c4c229f91787eb205876ea84c8ec84c262dc796908373e6",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "operating_income_guidance",
+        "fiscalPeriod": "Q42012",
+        "amountM": 30,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "670ab52019ffb7e238ee02ea0c095a5983ccaf42eab2658f4708d2c9fde9f8d9",
+        "originalEvidencePayloadSha256": "670ab52019ffb7e238ee02ea0c095a5983ccaf42eab2658f4708d2c9fde9f8d9",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "2df5d3d8aca30eb184c0f69cd3966cfcb49c8723b47090be35e1fea7a707b922"
+      }
+    },
+    {
+      "ticker": "CI",
+      "sourceId": "a2a1b4572dbd6f0cadbfbab5",
+      "observedAt": "2018-08-02",
+      "evidence": "Our outlook for full year 2018 consolidated adjusted income from operations is now in the range of approximately $3.34 billion to $3.42 billion, or $13.60 to $13.90 per share.",
+      "currency": "USD",
+      "amount": 3380,
+      "unit": "reported millions",
+      "metricName": "operating_income_guidance",
+      "fiscalPeriod": "Q22018",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "CI",
+        "sourceId": "a2a1b4572dbd6f0cadbfbab5",
+        "observedAt": "2018-08-02",
+        "originalQuoteSha256": "f77312bd96d6e55ad4ca7f486706467501ab35131175e30138349f3cf42ebad5",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "operating_income_guidance",
+        "fiscalPeriod": "Q22018",
+        "amountM": 3380,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "0ed90ee8a0db2322bb7eea44f5e757ba4a102f923029896a1c5a0a936df07565",
+        "originalEvidencePayloadSha256": "0ed90ee8a0db2322bb7eea44f5e757ba4a102f923029896a1c5a0a936df07565",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "b15cac7ec07d181023cc35e13f14e2e97cbfb2e76010a462076cd1d09fd83951"
+      }
+    },
+    {
+      "ticker": "DIS",
+      "sourceId": "acc87488f39eb719bbb6fc84",
+      "observedAt": "2014-05-06",
+      "evidence": "As we look to the third quarter, we expect ESPN to recognize approximately $190 million less in previously deferred affiliate revenue compared to the prior year.",
+      "currency": "USD",
+      "amount": 190,
+      "unit": "reported millions",
+      "metricName": "revenue_guidance",
+      "fiscalPeriod": "Q22014",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "DIS",
+        "sourceId": "acc87488f39eb719bbb6fc84",
+        "observedAt": "2014-05-06",
+        "originalQuoteSha256": "902cd0f03647de2f804d3859c16790d05de01cab15cfc4a57db3837449e3b9eb",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "revenue_guidance",
+        "fiscalPeriod": "Q22014",
+        "amountM": 190,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "24c2c0691416ea8e63e38d72c5932d24b40dd70ec368881ced92453414a4a7e7",
+        "originalEvidencePayloadSha256": "24c2c0691416ea8e63e38d72c5932d24b40dd70ec368881ced92453414a4a7e7",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "5d2e76a66d443d56e201944d46df45db6c7714086c56643a6ce8120833f1375f"
+      }
+    },
+    {
+      "ticker": "DIS",
+      "sourceId": "ad43cdab7dd3d364573fda94",
+      "observedAt": "2017-05-09",
+      "evidence": "Given changes in timing of a number of projects under development, we now expect CapEx for fiscal 2017 to be $200 million lower than prior year.",
+      "currency": "USD",
+      "amount": 200,
+      "unit": "reported millions",
+      "metricName": "capex_guidance",
+      "fiscalPeriod": "Q22017",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "DIS",
+        "sourceId": "ad43cdab7dd3d364573fda94",
+        "observedAt": "2017-05-09",
+        "originalQuoteSha256": "7e7951fbca2fe5ee898de4632a6312480b5f6a34b964ef7ffa55518758dd518d",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "capex_guidance",
+        "fiscalPeriod": "Q22017",
+        "amountM": 200,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "318f4c46d6c17b3c27cfa092419f065eca6aa22f8d141f13bb78992183c60122",
+        "originalEvidencePayloadSha256": "318f4c46d6c17b3c27cfa092419f065eca6aa22f8d141f13bb78992183c60122",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "9ea5e2524e0b10442844edeb5cfdb4d5d7a1bfc7e92ded983917af2aa06cc250"
+      }
+    },
+    {
+      "ticker": "DIS",
+      "sourceId": "d1722c7d944969602ce5ca56",
+      "observedAt": "2012-02-07",
+      "evidence": "We expect ESPN will defer approximately $70 million less in revenue during the second quarter than in the prior year.",
+      "currency": "USD",
+      "amount": 70,
+      "unit": "reported millions",
+      "metricName": "revenue_guidance",
+      "fiscalPeriod": "Q12012",
+      "perShareValue": null,
+      "contract": {
+        "version": "event-specific-official-currency-v1-2026-09-06",
+        "ticker": "DIS",
+        "sourceId": "d1722c7d944969602ce5ca56",
+        "observedAt": "2012-02-07",
+        "originalQuoteSha256": "420114889906d50837aa02710475a5effbbbe79a1ff0118d024f57452544318d",
+        "originalQuotedCurrency": null,
+        "resolvedCurrency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "reportingCurrencyOverride": false,
+        "metricName": "revenue_guidance",
+        "fiscalPeriod": "Q12012",
+        "amountM": 70,
+        "unit": "reported millions",
+        "sourceLedgerSha256": "db4c121045b54d4c97c61f10f0a3878b532e53348ce62fce496408e32611f179",
+        "preEnrichmentPayloadSha256": "5510d221fae34659bf2e6eedb74d38dd8603b6994728618bba06dbd4a1caa7d2",
+        "originalEvidencePayloadSha256": "5510d221fae34659bf2e6eedb74d38dd8603b6994728618bba06dbd4a1caa7d2",
+        "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+        "proofDocumentSha256": "2df5d3d8aca30eb184c0f69cd3966cfcb49c8723b47090be35e1fea7a707b922"
+      }
+    }
+  ]
+}

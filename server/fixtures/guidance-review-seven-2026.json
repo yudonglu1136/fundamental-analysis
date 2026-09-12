@@ -1,0 +1,368 @@
+{
+  "schemaVersion": 1,
+  "provenance": "Read-only original official SEC evidence rows from private candidate-source.sqlite; recorded 2026-09-05. Preserve quotes, IDs, URLs and original parser metadata; expected values are independent audit corrections.",
+  "events": [
+    {
+      "original": {
+        "id": "24157269bfa0782c8ab17e76",
+        "ticker": "ELF",
+        "fiscal_period": "2027-Q1",
+        "observed_at": "2026-08-05",
+        "metric_name": "revenue_guidance",
+        "actual_or_guidance": "guidance",
+        "amount": null,
+        "unit": null,
+        "currency": null,
+        "growth_yoy": 20,
+        "growth_qoq": null,
+        "margin_pct": null,
+        "value_text": "The Company is providing the following updated outlook for fiscal 2027. The updated outlook for fiscal 2027 reflects an expected 18-20% year-over-year increase in net sales, as compared to an expected 12-14% increase previously.",
+        "quality_status": "clear",
+        "currency_resolution": {
+          "status": "not_monetary",
+          "selected_currencies": [],
+          "policy": "Bare $ never establishes USD; unknown monetary currency requires issuer reporting-currency evidence before model use."
+        },
+        "extraction_confidence": 0.94,
+        "speaker": "Issuer management / investor relations filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1600033/000160003326000036/q12027er-991.htm",
+        "evidence_excerpt": "The Company is providing the following updated outlook for fiscal 2027. The updated outlook for fiscal 2027 reflects an expected 18-20% year-over-year increase in net sales, as compared to an expected 12-14% increase previously.",
+        "source_file": "SEC:0001600033-26-000036:q12027er-991.htm",
+        "source_type": "official_issuer_sec_filing",
+        "extraction_version": "pit-guidance-rules-v18-explicit-currency-2026-09-05+official-sec-guidance-v6-currency-review-gate-2026-09-05",
+        "guidance_scope": "full_year",
+        "guidance_target_year": 2027,
+        "guidance_scope_evidence": "outlook for fiscal 2027",
+        "guidance_subject": "company_total",
+        "guidance_subject_evidence": "net sales",
+        "metric_position": 167,
+        "selected_values": [
+          {
+            "value": 20,
+            "position": 132,
+            "end": 135
+          }
+        ]
+      },
+      "expected": {
+        "growth_yoy": 19,
+        "guidance_scope": "full_year",
+        "guidance_target_year": 2027,
+        "modelEligible": true
+      }
+    },
+    {
+      "original": {
+        "id": "39a7484e01093dc8a974d815",
+        "ticker": "DUOL",
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-26",
+        "metric_name": "revenue_guidance",
+        "actual_or_guidance": "guidance",
+        "amount": null,
+        "unit": null,
+        "currency": null,
+        "growth_yoy": 18,
+        "growth_qoq": null,
+        "margin_pct": null,
+        "value_text": "2026 Outlook. revenue , we expect FY 2026 to grow about 15-18% year over year and Q1 to grow approximately 25%, or about 15% at the midpoint for FY 2026 and 21% for Q1 on a constant currency basis.",
+        "quality_status": "clear",
+        "currency_resolution": {
+          "status": "not_monetary",
+          "selected_currencies": [],
+          "policy": "Bare $ never establishes USD; unknown monetary currency requires issuer reporting-currency evidence before model use."
+        },
+        "extraction_confidence": 0.94,
+        "speaker": "Issuer management / investor relations filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1562088/000162828026012246/q4fy25duolingo12-31x25shar.htm",
+        "evidence_excerpt": "2026 Outlook. revenue , we expect FY 2026 to grow about 15-18% year over year and Q1 to grow approximately 25%, or about 15% at the midpoint for FY 2026 and 21% for Q1 on a constant currency basis.",
+        "source_file": "SEC:0001628280-26-012246:q4fy25duolingo12-31x25shar.htm",
+        "source_type": "official_issuer_sec_filing",
+        "extraction_version": "pit-guidance-rules-v18-explicit-currency-2026-09-05+official-sec-guidance-v6-currency-review-gate-2026-09-05",
+        "guidance_scope": "full_year",
+        "guidance_target_year": 2026,
+        "guidance_scope_evidence": "2026 Outlook",
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_subject_evidence": "2026 Outlook. revenue , we expect FY 2026 to grow about 15-18% year over year and Q1 to grow approximate",
+        "metric_position": 14,
+        "selected_values": [
+          {
+            "value": 18,
+            "position": 59,
+            "end": 62
+          }
+        ],
+        "guidance_year": 2026
+      },
+      "expected": {
+        "growth_yoy": 16.5,
+        "guidance_scope": "full_year",
+        "guidance_target_year": 2026,
+        "modelEligible": true
+      }
+    },
+    {
+      "original": {
+        "id": "3e349650f9af5d1f2f97f8d2",
+        "ticker": "CHYM",
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-25",
+        "metric_name": "gross_margin",
+        "actual_or_guidance": "guidance",
+        "amount": null,
+        "unit": null,
+        "currency": null,
+        "growth_yoy": null,
+        "growth_qoq": null,
+        "margin_pct": 90,
+        "value_text": "In Q4, we completed our multi-year migration to ChimeCore, and are now 100% on our own technology stack. ChimeCore strengthens our cost-to-serve advantage by reducing transaction processing costs by an estimated 60%, supporting our long-term gross margin target of 90%. ChimeCore also enables a step-change in product velocity, driving faster development and innovation at scale.",
+        "quality_status": "clear",
+        "currency_resolution": {
+          "status": "not_monetary",
+          "selected_currencies": [],
+          "policy": "Bare $ never establishes USD; unknown monetary currency requires issuer reporting-currency evidence before model use."
+        },
+        "extraction_confidence": 0.84,
+        "speaker": "Issuer management / investor relations filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1795586/000179558626000004/ex991q425.htm",
+        "evidence_excerpt": "In Q4, we completed our multi-year migration to ChimeCore, and are now 100% on our own technology stack. ChimeCore strengthens our cost-to-serve advantage by reducing transaction processing costs by an estimated 60%, supporting our long-term gross margin target of 90%. ChimeCore also enables a step-change in product velocity, driving faster development and innovation at scale.",
+        "source_file": "SEC:0001795586-26-000004:ex991q425.htm",
+        "source_type": "official_issuer_sec_filing",
+        "extraction_version": "pit-guidance-rules-v18-explicit-currency-2026-09-05+official-sec-guidance-v6-currency-review-gate-2026-09-05",
+        "guidance_scope": null,
+        "guidance_target_year": null,
+        "guidance_scope_evidence": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_subject_evidence": "k. ChimeCore strengthens our cost-to-serve advantage by reducing transaction processing costs by an estimated 60%, supporting our long-term gross margin target of 90%. ChimeCore also enables a step-change in product velocity, driving faster development and innovation at scale.",
+        "metric_position": 242,
+        "selected_values": [
+          {
+            "value": 90,
+            "position": 265,
+            "end": 268
+          }
+        ]
+      },
+      "expected": {
+        "guidance_scope": "multi_year_target",
+        "margin_pct": 90,
+        "modelEligible": false
+      }
+    },
+    {
+      "original": {
+        "id": "986fa3b269a3568e9dae7130",
+        "ticker": "NE",
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-07-27",
+        "metric_name": "capex_guidance",
+        "actual_or_guidance": "guidance",
+        "amount": 640,
+        "unit": "reported millions",
+        "currency": null,
+        "growth_yoy": null,
+        "growth_qoq": null,
+        "margin_pct": null,
+        "value_text": "For the full year 2026, Revenue guidance is reduced to $2,800-$2,900 million (versus $2,800-$3,000 million previously) and Adjusted EBITDA guidance is reduced to $850-$925 million (versus $940-$1,020 million previously). Guidance for capital expenditures is unchanged at $615-$665 million.",
+        "quality_status": "clear",
+        "currency_resolution": {
+          "status": "source_currency_required",
+          "selected_currencies": [],
+          "policy": "Bare $ never establishes USD; unknown monetary currency requires issuer reporting-currency evidence before model use."
+        },
+        "extraction_confidence": 0.94,
+        "speaker": "Issuer management / investor relations filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1895262/000189526226000138/exhibit991-q22026pressrele.htm",
+        "evidence_excerpt": "For the full year 2026, Revenue guidance is reduced to $2,800-$2,900 million (versus $2,800-$3,000 million previously) and Adjusted EBITDA guidance is reduced to $850-$925 million (versus $940-$1,020 million previously). Guidance for capital expenditures is unchanged at $615-$665 million.",
+        "source_file": "SEC:0001895262-26-000138:exhibit991-q22026pressrele.htm",
+        "source_type": "official_issuer_sec_filing",
+        "extraction_version": "pit-guidance-rules-v18-explicit-currency-2026-09-05+official-sec-guidance-v6-currency-review-gate-2026-09-05",
+        "guidance_scope": null,
+        "guidance_target_year": null,
+        "guidance_scope_evidence": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_subject_evidence": ",000 million previously) and Adjusted EBITDA guidance is reduced to $850-$925 million (versus $940-$1,020 million previously). Guidance for capital expenditures is unchanged at $615-$665 million.",
+        "metric_position": 234,
+        "selected_values": [
+          {
+            "value": 615,
+            "currency": null,
+            "currency_conflict": false,
+            "text": "$615",
+            "position": 271,
+            "end": 275
+          },
+          {
+            "value": 665,
+            "currency": null,
+            "currency_conflict": false,
+            "text": "$665 million",
+            "position": 276,
+            "end": 288
+          }
+        ]
+      },
+      "expected": {
+        "guidance_scope": "full_year",
+        "guidance_target_year": 2026,
+        "amount": 640,
+        "currency": null,
+        "modelEligible": false,
+        "currencyReviewRequired": true
+      }
+    },
+    {
+      "original": {
+        "id": "9f92b5c6fcc36b61d619f4b3",
+        "ticker": "INIO",
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-07-28",
+        "metric_name": "ebitda_guidance",
+        "actual_or_guidance": "guidance",
+        "amount": 720,
+        "unit": "reported millions",
+        "currency": null,
+        "growth_yoy": null,
+        "growth_qoq": null,
+        "margin_pct": null,
+        "value_text": "Q2 Equipment Order Intake up >300% YoY 1 Disciplined backlog execution driving growth across Equipment and Services 2 Capacity expansion projects across the U.S. and EU are already driving output growth 3 1 2 FY26E Adj. EBITDA guidance of $720M",
+        "quality_status": "clear",
+        "currency_resolution": {
+          "status": "source_currency_required",
+          "selected_currencies": [],
+          "policy": "Bare $ never establishes USD; unknown monetary currency requires issuer reporting-currency evidence before model use."
+        },
+        "extraction_confidence": 0.94,
+        "speaker": "Issuer management / investor relations filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/2109150/000119312526318820/d174544dex992.htm",
+        "evidence_excerpt": "Q2 Equipment Order Intake up >300% YoY 1 Disciplined backlog execution driving growth across Equipment and Services 2 Capacity expansion projects across the U.S. and EU are already driving output growth 3 1 2 FY26E Adj. EBITDA guidance of $720M",
+        "source_file": "SEC:0001193125-26-318820:d174544dex992.htm",
+        "source_type": "official_issuer_sec_filing",
+        "extraction_version": "pit-guidance-rules-v18-explicit-currency-2026-09-05+official-sec-guidance-v6-currency-review-gate-2026-09-05",
+        "guidance_scope": null,
+        "guidance_target_year": null,
+        "guidance_scope_evidence": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_subject_evidence": "rowth across Equipment and Services 2 Capacity expansion projects across the U.S. and EU are already driving output growth 3 1 2 FY26E Adj. EBITDA guidance of $720M",
+        "metric_position": 220,
+        "selected_values": [
+          {
+            "value": 720,
+            "currency": null,
+            "currency_conflict": false,
+            "text": "$720M",
+            "position": 239,
+            "end": 244
+          }
+        ]
+      },
+      "expected": {
+        "guidance_scope": "full_year",
+        "guidance_target_year": 2026,
+        "amount": 720,
+        "currency": null,
+        "modelEligible": false,
+        "currencyReviewRequired": true
+      }
+    },
+    {
+      "original": {
+        "id": "a40c82077133dc36f5d88f2c",
+        "ticker": "IDCC",
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-07-30",
+        "metric_name": "revenue_guidance",
+        "actual_or_guidance": "guidance",
+        "amount": 260.2,
+        "unit": "reported millions",
+        "currency": null,
+        "growth_yoy": null,
+        "growth_qoq": null,
+        "margin_pct": null,
+        "value_text": "Financial Results vs. Outlook Q 2 ’ 2 6 R E S U L T S Q 2 ’ 2 6 O U T L O O K Revenue $260.2M $139M - $143M Adjusted EBITDAa $184.1M $67M - $73M Diluted EPS $3.40 $0.80 - $0.97 Non-GAAP EPSa $4.62 $1.41 - $1.60 aNon-GAAP Measure / Please see appendix for GAAP to Non-GAAP reconciliations, as well as our Q2’26 10-Q for a sensitivity table showing the dilutive impact of our convertible notes. 7©2026 InterDigital, Inc. All Rights Reserved.",
+        "quality_status": "clear",
+        "currency_resolution": {
+          "status": "source_currency_required",
+          "selected_currencies": [],
+          "policy": "Bare $ never establishes USD; unknown monetary currency requires issuer reporting-currency evidence before model use."
+        },
+        "extraction_confidence": 0.94,
+        "speaker": "Issuer management / investor relations filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1405495/000140549526000065/supplementalmaterialsq22.htm",
+        "evidence_excerpt": "Financial Results vs. Outlook Q 2 ’ 2 6 R E S U L T S Q 2 ’ 2 6 O U T L O O K Revenue $260.2M $139M - $143M Adjusted EBITDAa $184.1M $67M - $73M Diluted EPS $3.40 $0.80 - $0.97 Non-GAAP EPSa $4.62 $1.41 - $1.60 aNon-GAAP Measure / Please see appendix for GAAP to Non-GAAP reconciliations, as well as our Q2’26 10-Q for a sensitivity table showing the dilutive impact of our convertible notes. 7©2026 InterDigital, Inc. All Rights Reserved.",
+        "source_file": "SEC:0001405495-26-000065:supplementalmaterialsq22.htm",
+        "source_type": "official_issuer_sec_filing",
+        "extraction_version": "pit-guidance-rules-v18-explicit-currency-2026-09-05+official-sec-guidance-v6-currency-review-gate-2026-09-05",
+        "guidance_scope": null,
+        "guidance_target_year": null,
+        "guidance_scope_evidence": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "guidance_subject_evidence": "Financial Results vs. Outlook Q 2 ’ 2 6 R E S U L T S Q 2 ’ 2 6 O U T L O O K Revenue $260.2M $139M - $143M Adjusted EBITDAa $184.1M $67M - $73M Diluted EPS $3.40 $0.80",
+        "metric_position": 78,
+        "selected_values": [
+          {
+            "value": 260.2,
+            "currency": null,
+            "currency_conflict": false,
+            "text": "$260.2M",
+            "position": 86,
+            "end": 93
+          }
+        ]
+      },
+      "expected": {
+        "actual_or_guidance": "actual",
+        "modelEligible": false
+      }
+    },
+    {
+      "original": {
+        "id": "c821bf193f18958370992981",
+        "ticker": "ELF",
+        "fiscal_period": "2026-Q3",
+        "observed_at": "2026-02-04",
+        "metric_name": "revenue_guidance",
+        "actual_or_guidance": "guidance",
+        "amount": null,
+        "unit": null,
+        "currency": null,
+        "growth_yoy": 23,
+        "growth_qoq": null,
+        "margin_pct": null,
+        "value_text": "The Company is providing the following updated outlook for fiscal 2026. The updated outlook for fiscal 2026 reflects an expected 22-23% year-over-year increase in net sales, as compared to an expected 18-20% increase previously.",
+        "quality_status": "clear",
+        "currency_resolution": {
+          "status": "not_monetary",
+          "selected_currencies": [],
+          "policy": "Bare $ never establishes USD; unknown monetary currency requires issuer reporting-currency evidence before model use."
+        },
+        "extraction_confidence": 0.94,
+        "speaker": "Issuer management / investor relations filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1600033/000160003326000005/q32026er-991.htm",
+        "evidence_excerpt": "The Company is providing the following updated outlook for fiscal 2026. The updated outlook for fiscal 2026 reflects an expected 22-23% year-over-year increase in net sales, as compared to an expected 18-20% increase previously.",
+        "source_file": "SEC:0001600033-26-000005:q32026er-991.htm",
+        "source_type": "official_issuer_sec_filing",
+        "extraction_version": "pit-guidance-rules-v18-explicit-currency-2026-09-05+official-sec-guidance-v6-currency-review-gate-2026-09-05",
+        "guidance_scope": "full_year",
+        "guidance_target_year": 2026,
+        "guidance_scope_evidence": "outlook for fiscal 2026",
+        "guidance_subject": "company_total",
+        "guidance_subject_evidence": "net sales",
+        "metric_position": 167,
+        "selected_values": [
+          {
+            "value": 23,
+            "position": 132,
+            "end": 135
+          }
+        ]
+      },
+      "expected": {
+        "growth_yoy": 22.5,
+        "guidance_scope": "full_year",
+        "guidance_target_year": 2026,
+        "modelEligible": true
+      }
+    }
+  ]
+}

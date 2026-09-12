@@ -1,4 +1,5 @@
 import express from "express";
+import { enableInvestmentPreview } from './investmentRoutes.js';
 import cors from "cors";
 import fs from "node:fs";
 import path from "node:path";
@@ -19,6 +20,7 @@ import { requireAuth } from "./auth/requireAuth.js";
 import { ADMIN_OWNER_EMAIL, adminResponsePrivacy, requireAdmin } from "./auth/requireAdmin.js";
 import { recordLoginActivity, registerLoginActivityRoutes } from "./loginActivityRoutes.js";
 import {
+  backtestEndGraceDays,
   guruBacktestRefreshStatus,
   loadGuruBacktest,
   loadGuruBacktests,
@@ -34,6 +36,7 @@ import { createValuationTickerHandler } from "./valuationHttp.js";
 import { importValuationTicker } from "./valuationImporter.js";
 import { translateTextsToChinese } from "./translationClient.js";
 import {
+  databaseInfo,
   readBackgroundJobRun,
   readPriceSeriesFromDb,
   writeAuditedPriceSeriesImport,
@@ -50,9 +53,10 @@ import {
   refreshDividendCalendarForTickers,
   startDividendCalendarRefresher
 } from "./dividendClient.js";
-import { buildAdminSystemHealth, buildPublicSystemHealth } from "./systemHealth.js";
+import { buildAdminSystemHealth } from "./systemHealth.js";
 import { resolvePublicOntologyHealth } from "./publicOntologyHealth.js";
 import { createPublicHealthService } from "./publicHealthService.js";
+import { createPublicHealthWorkerBuilder } from "./publicHealthWorkerRunner.js";
 import { installJsonTransport } from "./jsonTransport.js";
 import {
   addPortfolioAccount,
@@ -68,9 +72,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 const app = express();
 const port = Number(process.env.PORT || 8787);
+const publicHealthWorker = createPublicHealthWorkerBuilder({
+  databasePath: databaseInfo().path,
+  methodIdentity: {
+    backtestEndGraceDays,
+    manager13fBacktestMethodVersion,
+    manager13fProxyMethodVersion,
+    manager13fSecurityMasterVersion
+  }
+});
 const publicHealthService = createPublicHealthService({
   resolveOntology: resolvePublicOntologyHealth,
-  buildHealth: buildPublicSystemHealth
+  buildHealth: publicHealthWorker.buildHealth
 });
 
 const defaultAllowedOrigins = [
@@ -85,6 +98,7 @@ const allowedOrigins = String(process.env.API_ALLOWED_ORIGINS || defaultAllowedO
   .filter(Boolean);
 
 app.use("/api/portfolio", portfolioResponsePrivacy);
+app.use("/api/investment", portfolioResponsePrivacy);
 app.use(cors({
   origin(origin, callback) {
     const isLocalDevOrigin =
@@ -418,6 +432,7 @@ app.use("/api", (request, _response, next) => {
   recordPortfolioRequestUser(request);
   next();
 });
+enableInvestmentPreview(app);
 registerLoginActivityRoutes(app);
 
 registerOntologyRoutes(app);
@@ -509,6 +524,8 @@ app.post("/api/portfolio/sync", async (request, response) => {
   });
   try {
     recordPortfolioRequestUser(request);
+    // Force bypasses completed cache entries, but repeated sync clicks should
+    // join the same in-flight work. Only connection changes invalidate it.
     const payload = await loadPortfolioDashboard({ forceRefresh: true, user: request.user });
     const result = portfolioSyncResult(payload);
     writeBackgroundJobRun("portfolio_sync", {
@@ -827,7 +844,7 @@ if (process.env.NODE_ENV === "production" || process.env.SERVE_FRONTEND_DIST ===
   }
 }
 
-app.listen(port, () => {
+app.listen(port, process.env.INVESTMENT_WORKFLOW_ENABLED === 'true' ? '127.0.0.1' : undefined, () => {
   console.log(`Guru Analysis backend listening on http://127.0.0.1:${port}`);
 });
 

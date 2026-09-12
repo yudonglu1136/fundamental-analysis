@@ -1,0 +1,1022 @@
+{
+  "version": "event-specific-official-currency-v1-2026-09-06",
+  "policy": "Bounded original documents reviewed for exact guidance-event currencies, not a general USD issuer override",
+  "documents": {
+    "3e186eed206eaf2146547723f465b07958e2e8106dd4f43ebe5461549b9751c1": {
+      "ticker": "TSM",
+      "cik": "0001046179",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1046179/000104617924000005/a4q24e_withguidancexfinal.htm",
+      "accession": "0001046179-24-000005",
+      "availableAt": "2024-01-18",
+      "evidenceType": "explicit_same_event_guidance_currency",
+      "paragraphSha256": [
+        "ecbe0ff94e43c83e41016e20cc0b0d97cf653db934732455a9d3df0efda89ecf"
+      ],
+      "sourceIds": [
+        "9df8e9795314cfcfdf891470"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "3d1f98ceb696b932011cdb527122b9fdf98aa675d6b3456f90b42789f4a233f5": {
+      "ticker": "TSM",
+      "cik": "0001046179",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1046179/000104617924000046/a1q24e_withguidancexfinal.htm",
+      "accession": "0001046179-24-000046",
+      "availableAt": "2024-04-18",
+      "evidenceType": "explicit_same_event_guidance_currency",
+      "paragraphSha256": [
+        "c976bc77a4323f643b72e923a0f84cdd482da0953e8522ad81a642ef9b11361c"
+      ],
+      "sourceIds": [
+        "a3b7395f5ff8c53ab9b757fe"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "54c65e5e108fe4e9d945c213dbe7051341a7b0d857d029726b4b8e2080c7290c": {
+      "ticker": "TSM",
+      "cik": "0001046179",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1046179/000104617924000083/a2q24e_withguidancexfinal.htm",
+      "accession": "0001046179-24-000083",
+      "availableAt": "2024-07-18",
+      "evidenceType": "explicit_same_event_guidance_currency",
+      "paragraphSha256": [
+        "d364a86c5d2c306739a36438d656501601c148501fc67cef548f5ddb9ed33790"
+      ],
+      "sourceIds": [
+        "91b88f75af7c0e098df390c9"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "777e93acc7c63f0955fa84d5f0249f5de6398265d8eb8b485c57fde2f08ac9c5": {
+      "ticker": "TSM",
+      "cik": "0001046179",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1046179/000104617924000116/a3q24e_withguidancexfinal.htm",
+      "accession": "0001046179-24-000116",
+      "availableAt": "2024-10-17",
+      "evidenceType": "explicit_same_event_guidance_currency",
+      "paragraphSha256": [
+        "2692407a6dd3b2b35054aad2f7a355a9dc3ed7e500b14b694367c7a7d024edf8"
+      ],
+      "sourceIds": [
+        "1a4ea238bc0d453a56a837cd"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "c791fbb53f0f46dad5d0e51338f1d85c20e46e1646b5d20f2b38932779cfe45f": {
+      "ticker": "TSM",
+      "cik": "0001046179",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1046179/000104617925000004/a4q24e_withguidancexfinal.htm",
+      "accession": "0001046179-25-000004",
+      "availableAt": "2025-01-16",
+      "evidenceType": "explicit_same_event_guidance_currency",
+      "paragraphSha256": [
+        "57bfd3728d96a30ff04256ced1821ca3f4adb20f074a360157f81af230f2a345"
+      ],
+      "sourceIds": [
+        "45f72767d1a68396f69ab5bb"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "2b16dbb9b196482f84e8a1174107aab1864c6e5f9a328b75dfce799031a91a0a": {
+      "ticker": "TSM",
+      "cik": "0001046179",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1046179/000104617925000035/a1q25e_withguidancexfinal.htm",
+      "accession": "0001046179-25-000035",
+      "availableAt": "2025-04-17",
+      "evidenceType": "explicit_same_event_guidance_currency",
+      "paragraphSha256": [
+        "f72eae2da5ee12d9a58c2c7ec80c37474224513c0a3725bbcf823c226ef39aeb"
+      ],
+      "sourceIds": [
+        "40243856addd2bce5ce0cdd8"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "f0748d8cb463ad4fb2c1808b3e001927425cae06601eeb2cd37811413f2309a5": {
+      "ticker": "TSM",
+      "cik": "0001046179",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1046179/000104617925000116/a3q25e_withguidancexfinal.htm",
+      "accession": "0001046179-25-000116",
+      "availableAt": "2025-10-16",
+      "evidenceType": "explicit_same_event_guidance_currency",
+      "paragraphSha256": [
+        "aba7f71b6f6dc5d6f3fdd809a47e1eb161d7f82e6c7ce605e6c335deb48fad28"
+      ],
+      "sourceIds": [
+        "742cb6b9fa0899040625a6d9"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "182ec7f50f514c1c6e1f396febaef2589ee735f3e7c400356c6c56591a9d745b": {
+      "ticker": "TSM",
+      "cik": "0001046179",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1046179/000104617926000008/a4q25e_withguidancexfinal.htm",
+      "accession": "0001046179-26-000008",
+      "availableAt": "2026-01-15",
+      "evidenceType": "explicit_same_event_guidance_currency",
+      "paragraphSha256": [
+        "cd2925d8021ed049655f18798fd9d734fb02e11b624c208fa4c7118e1e623d7e"
+      ],
+      "sourceIds": [
+        "abb285e3ac8495f8bf0cd1eb"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "38894a5f4e753a6b17e451671419f21dd0e05ba0a39e6700e368dc99f1344a3f": {
+      "ticker": "TSM",
+      "cik": "0001046179",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1046179/000104617926000199/a1q26e_withguidancexfinal.htm",
+      "accession": "0001046179-26-000199",
+      "availableAt": "2026-04-16",
+      "evidenceType": "explicit_same_event_guidance_currency",
+      "paragraphSha256": [
+        "66805c854908318e6bbf4d75e29520edaa0e8e7a5091c1e527aa7aac4b3e9ab4"
+      ],
+      "sourceIds": [
+        "c621f4376ac40dadc40cacf8"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "6e877956870c87d857d8af23144f35ddcbd3b569d464c962e7cf368c46860be3": {
+      "ticker": "TSM",
+      "cik": "0001046179",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1046179/000104617926000451/a2q26e_withguidancexfinal.htm",
+      "accession": "0001046179-26-000451",
+      "availableAt": "2026-07-16",
+      "evidenceType": "explicit_same_event_guidance_currency",
+      "paragraphSha256": [
+        "09e0025a02999c1b39c6c1dba575f038f1375e25bd785cffee9743b44a8cc1ed"
+      ],
+      "sourceIds": [
+        "45bb2ba15d1af7581bef7ccd"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "94e63ca062c1adce6bdf4e8b2318035a2376244bec7e53f45d7f8f86df4fb78e": {
+      "ticker": "DDOG",
+      "cik": "0001561550",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1561550/000119312519249577/d745413d424b4.htm",
+      "accession": "0001193125-19-249577",
+      "availableAt": "2019-09-19",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "paragraphSha256": [
+        "e2fb1f4fe9037a9946481889660ab147a356be0e2fa948552e2e6efad7034cee",
+        "5fdf10554881e4be049d50608d31f962c27a0b262651ed0cf78e60edb2d4c0cb"
+      ],
+      "sourceIds": [
+        "4714d6281f5e5f5c478e7fe6",
+        "b61ba309ebb82f9c988d16af"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "3d33d8019663f3afb0d5372931d60ad5adab3944a07dc61b9818ccf9c3f80d0d": {
+      "ticker": "GTLB",
+      "cik": "0001653482",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1653482/000162828021020056/gitlab-424b4.htm",
+      "accession": "0001628280-21-020056",
+      "availableAt": "2021-10-14",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "paragraphSha256": [
+        "f011a1268c79fa016690a30045d3de8e926f8b6140236717ff6566bc45449c6a"
+      ],
+      "sourceIds": [
+        "bd84843d9126f2a96d2c8c89"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "ba82a31c13f916173b74e00aa3b10703eac975ec5810124616933a38502bbcb5": {
+      "ticker": "SHOP",
+      "cik": "0001594805",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1594805/000119312515269314/d27677dex991.htm",
+      "accession": "0001193125-15-269314",
+      "availableAt": "2015-07-30",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "paragraphSha256": [
+        "6b5bef2f119f13bb356ff9e22ae23fc057dcfb0adbc5df107d6df8267f848ec1"
+      ],
+      "sourceIds": [
+        "f2e5e9cd75b884b3b6b01b7c",
+        "fb550c23b75601eee37f63e6"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "59011a6cfe8ffc58289cd8cceb8c7b2089a8f3ffb9d99b389ed474d02f93879f": {
+      "ticker": "SHOP",
+      "cik": "0001594805",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1594805/000159480515000009/shopify-q3fy15xpressreleas.htm",
+      "accession": "0001594805-15-000009",
+      "availableAt": "2015-11-04",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "paragraphSha256": [
+        "6b5bef2f119f13bb356ff9e22ae23fc057dcfb0adbc5df107d6df8267f848ec1"
+      ],
+      "sourceIds": [
+        "3d33b1f80d14dad893038f64"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "64aed7d520b787dea2f122a384bf3540d4cea86eb2cc6be88d4867ec640b70aa": {
+      "ticker": "APP",
+      "cik": "0001751008",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1751008/000119312521117730/d73804d424b4.htm",
+      "accession": "0001193125-21-117730",
+      "availableAt": "2021-04-15",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "paragraphSha256": [
+        "c9e9d28b34cada359dd5e867753f465efb7a7385a3d275c14453f355ca13cfe8",
+        "9c6874fee6eacff541707049703999ff19ae527733d761acb321281ac0fe68db"
+      ],
+      "sourceIds": [
+        "f510f18a61d44cd68b59244e"
+      ],
+      "reviewClassification": "analyst_inference"
+    },
+    "43dafa5d3cefb84824354c64a4678b1961a6a46f6599825d7661062df6bc870a": {
+      "ticker": "CRWD",
+      "cik": "0001535527",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1535527/000104746919003607/a2239024z424b4.htm",
+      "accession": "0001047469-19-003607",
+      "availableAt": "2019-06-13",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "paragraphSha256": [
+        "bd124a460666dfa5dcb4690aa62567ffdbfcc442a8b0a365cadc0a5fbd5d291f",
+        "bfb407ce7f978b5e9d718fadd43d3489547e8bfcc7de22b5f3beae601e0adcae"
+      ],
+      "sourceIds": [
+        "2a5c4f6bb3bc0485d3b87443",
+        "9afb32aa7db89e224adf0a98"
+      ],
+      "reviewClassification": "analyst_inference"
+    },
+    "582a59e26b295f7d4b227d128718553d09ea2a1b911c544dde33925a90aa3273": {
+      "ticker": "PLTR",
+      "cik": "0001321655",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1321655/000119312520258493/d904406d424b4.htm",
+      "accession": "0001193125-20-258493",
+      "availableAt": "2020-09-30",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "paragraphSha256": [
+        "6d6a7d68ba453bef02aa4d6f355ebb3743f47e98ab9229642cb3d9588b5e88b6",
+        "2d2b76f0dc1c31d0c7286abfacffa2b0200d1c53d8b73239b050cc63f9ca2d77"
+      ],
+      "sourceIds": [
+        "1de75a80e092ef7628a9311b",
+        "3fce9c7aa423b378df327d25",
+        "563c0e09977c0aa6a9d1c5c9"
+      ],
+      "reviewClassification": "analyst_inference"
+    },
+    "e09b66a09d3ef86e879232e1705914d74a7977bda5ce32fdf5339a08e7535d0e": {
+      "ticker": "ZS",
+      "cik": "0001713683",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1713683/000119312518085981/d400527d424b4.htm",
+      "accession": "0001193125-18-085981",
+      "availableAt": "2018-03-16",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "paragraphSha256": [
+        "9e7cbb5cb53cf72bdf920793c92d78e0d376cbffd7f99638dcbdbc46f3bbc70c",
+        "bdeee6ea836b0d1fc27b533e368a9e201fadc0d1c4981d6398e58786a01b41bc"
+      ],
+      "sourceIds": [
+        "69d81b75550c88e01569dd2e",
+        "d11dd1047cda2f4a62ef6ef2"
+      ],
+      "reviewClassification": "analyst_inference"
+    },
+    "e0798a99cb0fdac1c3cb69367bf2f574f86959e7c53cfc802ed1f3f668459453": {
+      "ticker": "ESTC",
+      "cik": "0001707753",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1707753/000119312518294675/d588632d424b4.htm",
+      "accession": "0001193125-18-294675",
+      "availableAt": "2018-10-05",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "paragraphSha256": [
+        "f011a1268c79fa016690a30045d3de8e926f8b6140236717ff6566bc45449c6a"
+      ],
+      "sourceIds": [
+        "16099a1509e11d77baa0f9b1",
+        "b2d9df01b75ffbcd8596fa4e"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "dd3c93b52cedd3160b6b40c9c13b93d303350cfb69cc2e7140a730e719cb87d9": {
+      "ticker": "GDDY",
+      "cik": "0001609711",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000119312515116327/d728713d424b4.htm",
+      "accession": "0001193125-15-116327",
+      "availableAt": "2015-04-01",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "paragraphSha256": [
+        "cee9e1b910382ee66c8e5910bdf8af0f33db4b4cbf08ab4f0d883fad3837a685",
+        "a268b1a14bc3b60978355f973cd9b7daa8a3e2089fd03dd20a833d9582dd11f4",
+        "f0c9cef214423d97e890c088dbd79200361582471d1e014108f945f0d33d557b"
+      ],
+      "sourceIds": [
+        "008a11466d076084d5e03118",
+        "492db95feadf4da704835c9f",
+        "b6519cd4c53601868e2d71c7",
+        "e99805dae847ba174008b910",
+        "2fd3c42cd3039551ef37cc9f",
+        "5ea36a774e5552653c98b28d",
+        "95d8c0570ef9fd6a2895bf64",
+        "dd48486f7f0178e2da54efcd"
+      ],
+      "reviewClassification": "analyst_inference",
+      "supportingDocuments": [
+        {
+          "availableAt": "2015-05-12",
+          "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1609711/000160971115000006/gddy20150512ex991q1earning.htm",
+          "documentSha256": "8d90ac4d21e45434453d6024fe7465548622bd27d67bb525f1bf459f4016141c",
+          "cik": "0001609711",
+          "accession": "0001609711-15-000006",
+          "form": "8-K",
+          "paragraphSha256": [
+            "ff97d4ad0cd6ab5be1a742827dc6111808e00412e040dd8eb130bd06b33bb63a",
+            "33ef2e67f77043b9440b6edde9b221e321c703bb3fe8f6cca1bc637c998e573e"
+          ]
+        }
+      ]
+    },
+    "19cd39b1fcdf52235e17e4532fbd98896ab856d94bf0f6b15a202cef7a5dce48": {
+      "ticker": "BG",
+      "cik": "0001144519",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451919000006/bg-12312018x10k.htm",
+      "accession": "0001144519-19-000006",
+      "availableAt": "2019-02-22",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "paragraphSha256": [
+        "f853a3359c5073590d445fc737ddec22c8403d110ae87ae00bd333ca1e9434bf",
+        "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+      ],
+      "sourceIds": [
+        "dd95e7501f1f02307cf0b918",
+        "d2a4b56431dfc8b63c5e3965",
+        "10e621ace1804930c6287a82"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "bcd8ce256925eb4663aab01f5c13211513eecb24966b03201e8acb226dfce967": {
+      "ticker": "BG",
+      "cik": "0001144519",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451923000010/bg-20221231.htm",
+      "accession": "0001144519-23-000010",
+      "availableAt": "2023-02-24",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "paragraphSha256": [
+        "3ded3c8e036cbcbc360b54e71819cf16d606ca4787b95735a336ed22a655bab2",
+        "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+      ],
+      "sourceIds": [
+        "1226cfbacf41221b07a3e1ad",
+        "a37661ef168e81c725a1f889",
+        "8fa0465649cf445f97a83e55"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "a4610a75bd4d88371e544aae2e6844f9a29bdf3d99658ed9730f224661bbd0eb": {
+      "ticker": "BG",
+      "cik": "0001144519",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451921000006/bg-20201231.htm",
+      "accession": "0001144519-21-000006",
+      "availableAt": "2021-02-19",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "paragraphSha256": [
+        "3ded3c8e036cbcbc360b54e71819cf16d606ca4787b95735a336ed22a655bab2",
+        "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+      ],
+      "sourceIds": [
+        "d3710fbf47cc5a5187ffc7f3",
+        "f59f8d2be54158e72b6285e1",
+        "93a540b972b25c0df579717b",
+        "b5ba49fd6fbcf12fa7bfb418"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "0827e22a02107e7f27bd38d468129cf82638eeaa2f790c6d3430ed7095c31382": {
+      "ticker": "BG",
+      "cik": "0001144519",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451920000004/bg-12312019x10k.htm",
+      "accession": "0001144519-20-000004",
+      "availableAt": "2020-02-21",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "paragraphSha256": [
+        "f853a3359c5073590d445fc737ddec22c8403d110ae87ae00bd333ca1e9434bf",
+        "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+      ],
+      "sourceIds": [
+        "e194518208690ee3319608eb",
+        "4dafa6e596714255dc86dbae"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "d0e768af3043103f80d4cdcb68948e651988b4ec5a169334f7836d278c2b4f32": {
+      "ticker": "BG",
+      "cik": "0001144519",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451922000017/bg-20211231.htm",
+      "accession": "0001144519-22-000017",
+      "availableAt": "2022-02-24",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "paragraphSha256": [
+        "3ded3c8e036cbcbc360b54e71819cf16d606ca4787b95735a336ed22a655bab2",
+        "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+      ],
+      "sourceIds": [
+        "59e813f09a960554bf4922d2",
+        "f5271d02782476d398b7602a"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "092691ad95090d8695d1e22aff68b62edd983269e5e40024e17af66e9fd86119": {
+      "ticker": "BG",
+      "cik": "0001996862",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1996862/000199686224000002/epr12312023.htm",
+      "accession": "0001996862-24-000002",
+      "availableAt": "2024-02-07",
+      "evidenceType": "explicit_consolidated_statement_currency_units",
+      "paragraphSha256": [
+        "33bbd1c871dd6138103ead56585e7b85c0d604c89edab351e96b1e940e3f1ab6",
+        "35f7366601c18f7e45663df23f16e7c074a7f58cb4b5099d36d45a1693eb4d4b",
+        "bcb98aea00e0872a3b9ef7f7b84e2e36fb265bbd9f9dc39e59e68b715e045c1b"
+      ],
+      "sourceIds": [
+        "1636a1cdb25756132545ffd5",
+        "9329936463a9c506e59d0691"
+      ],
+      "reviewClassification": "direct_primary_statement"
+    },
+    "dd92bab934c9c0694f7f9025b760e17f815385ffef26a7ad7a4617f27a060989": {
+      "ticker": "MAA",
+      "cik": "0000912595",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/912595/000091259519000015/maa12312018-10k.htm",
+      "accession": "0000912595-19-000015",
+      "availableAt": "2019-02-21",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "paragraphSha256": [
+        "a24c0987621f15bdff2c9527fd0146bc748d08ae081051b8e0c84828fd696e7c"
+      ],
+      "sourceIds": [
+        "0af4b2954039a743afdaeb74"
+      ],
+      "reviewClassification": "direct_primary_statement",
+      "xbrlStatementEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/912595/000091259519000015/maa-20181231.xml",
+        "documentSha256": "29b937f29516f0cbe72f9cfa6d727ea6dbd615c75f66e82d5ce16de94e76d068",
+        "fragmentsSha256": [
+          "8c1bc42fb0610a89dca19e8f47b034c54ac69593569837b00a39f65662d31b77",
+          "61e6eb7243a66db67d21dbf36c435dbc4f0863448aeb3fa59625e64805ff9866",
+          "09d394310b1cf9cc5050976b9583caa9c7c8f1c7c6110e49a54fe3ef1bd9a9ca",
+          "7d62439458b5ca0b710c0699afed780a8b85faa44daa27da9594f26d88e3ec3c",
+          "fe729b75b97b3cc25995832b07daf7af1f12a08a057d5a7f53f59a8c16e7c11d",
+          "e2da90a5b6b435499220e95277005d16fa3db7104e31d0fc64d785f07f0f0bc1",
+          "7d23b8cc138a0485a5cd6cb29ddc64ac5a41d9a325bda6b67f6d8bba8344e588",
+          "0df5f9a1037a2fd0d85ef198c47527faf7c7e52541c0923c0bc1d56caa3457f4"
+        ]
+      }
+    },
+    "6e188b2af11ef157d6140c03c70ccc17b635eb12fc39dc5f9b9bf5989e7784a5": {
+      "ticker": "GEV",
+      "cik": "0001996810",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1996810/000119312524059354/d542465dex991.htm",
+      "accession": "0001193125-24-059354",
+      "availableAt": "2024-03-05",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "paragraphSha256": [
+        "1022d0cc52355433c576a8acd402b7c83727bae94e45782c1243cda8f8a9f895",
+        "8ad8787985898546d1a04a6a85ba2e05da96646d08af1e4bc7bd12d10166f160"
+      ],
+      "sourceIds": [
+        "99db92ac9e105e032d544068"
+      ],
+      "reviewClassification": "direct_primary_statement",
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1996810/000119312524059354/0001193125-24-059354-index-headers.html",
+        "documentSha256": "7dc91712cf98ee48055afa9c2c81c1453055dd304490c2e1bf4e27b591e4ea64",
+        "headerTextSha256": "b44efd95eb9b89ec696396826aa543b607574a3ad6e4e0c6a1dedb81b89c88ae"
+      }
+    },
+    "776c07856438141df9490ac77f01cedd733d28b7504545e2a359c1269be9eb98": {
+      "ticker": "NWSA",
+      "cik": "0001564708",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1564708/000119312513373501/d581644d10k.htm",
+      "accession": "0001193125-13-373501",
+      "availableAt": "2013-09-20",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "paragraphSha256": [
+        "efc03b4a23d629cc7580d1856021f7689b6cad2548352641359aca820a9a4940",
+        "aa530b8db481794095d74738fddd2cd176f6cd5a87e505bb8d6497322e9c225c"
+      ],
+      "sourceIds": [
+        "b16468d693c7d2867723e024"
+      ],
+      "reviewClassification": "direct_primary_statement",
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1564708/000119312513373501/0001193125-13-373501-index.html",
+        "documentSha256": "5d1215f7497a42a247ed1d34efef968816c95c990322c3e146837cca00480e6e",
+        "headerTextSha256": "9d9cef0b2ec2086152dc010139cf9aa82bfcd4e2197d22baa75803f62e8c9d11"
+      }
+    },
+    "b15cac7ec07d181023cc35e13f14e2e97cbfb2e76010a462076cd1d09fd83951": {
+      "ticker": "CI",
+      "cik": "0000701221",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/701221/000104746918001158/a2234149z10-k.htm",
+      "accession": "0001047469-18-001158",
+      "availableAt": "2018-02-28",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "paragraphSha256": [
+        "81b08373492439259d898e34a9c29d7648ae9fb3e5f2effcf139e0de576c8534"
+      ],
+      "sourceIds": [
+        "0f302d25b0f046aba25077f2",
+        "5fbedcfb890ab1c1416ef1de",
+        "5bbb111f05a88d152ced118a",
+        "a2a1b4572dbd6f0cadbfbab5"
+      ],
+      "reviewClassification": "direct_primary_statement",
+      "xbrlStatementEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/701221/000104746918001158/ci-20171231.xml",
+        "documentSha256": "f8d83c3ce6bdb13b221dad1a1194a3526b441e8fb3d25d4fac2826dfe4390587",
+        "fragmentsSha256": [
+          "e1910bb629ac736a4bc74fd615a0eee75be6ba670017ac35d41a68cd1936a05c",
+          "19e28778ab0005b91cd8ae987bea1a76e283abc51e89f074200c792ea44b2cd7",
+          "f0fce7741816c850715e23d2875b12140b47ff01838cc654df246b74e13cb286",
+          "de270e1974751a4d2e4aa0c3525032d850bc98a798c43558fb417c3c123ac648",
+          "7f84fcfe54529dcb99d183d8c2362c35b2f7a03fc471764a7a155bc9277e35e5",
+          "737a0f687aefb27e96d590640dd8bd4298562ed3c3881e431815ae5fa498dd5d",
+          "bc7aa9dfca57c03cb62dedf60256790ef593a8b76a972e2af3975416876314e9",
+          "5b909c031d50a51f17a749b402528aed8d2e63ca196a6f0523b2cb55adaa17e0"
+        ],
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2017-12-31",
+        "rootOpenTagSha256": "0a2693551668e3994d7050724ef909fa0b6d73252cce1e5a5b2bd89fda14f141",
+        "contextScope": "whole_entity_no_dimensions"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/701221/000104746918001158/0001047469-18-001158-index.html",
+        "documentSha256": "593513b8363060738253569152f67d640cfbc54e1899874fe5a5e92eb0ccdd4e",
+        "headerTextSha256": "1cf8853fafee158b8edd2e284ecd45a1be48cba78fef5762ed50c6fa76899bc5"
+      }
+    },
+    "2df5d3d8aca30eb184c0f69cd3966cfcb49c8723b47090be35e1fea7a707b922": {
+      "ticker": "DIS",
+      "cik": "0001001039",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312511321340/d232174d10k.htm",
+      "accession": "0001193125-11-321340",
+      "availableAt": "2011-11-23",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "paragraphSha256": [
+        "ed43acaf99eb4de75d8b5d13f9c525404064053c00c90408d69e8f563e25132d"
+      ],
+      "sourceIds": [
+        "d1722c7d944969602ce5ca56",
+        "90d0abb2db85a93802731d8f"
+      ],
+      "reviewClassification": "direct_primary_statement",
+      "xbrlStatementEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312511321340/dis-20111001.xml",
+        "documentSha256": "fd6f0f0a8018d922d1d10eb3a58838c5f949abb15fbd7d93fdd56da5fca71606",
+        "fragmentsSha256": [
+          "ae14ff3a92e84766b7848ffcbf587b63deaa3ea6b7039e95779230d529fc59d1",
+          "740099904d20101734d83a9269b63f6d9db42dcd5222a78e303940d4d2191aa1",
+          "d9a6de4759d923340e90600e74365d85c0514521aa1d5d1a3ebf0a1fb282567c",
+          "d42a59155cfcfaa20db2c9e42774feb966176997e5d458ae75cd6b555e636e0d",
+          "9b2a943c8de7b8b8a8e41f8b2ef7ada6dc18007e83bfa607ac2d519c7cce8d65",
+          "140aa670a90d5f86eb8968db748da56481a22225cb96bb0d2f0a2f5a801d6686",
+          "4a1f7db42ca0dacebe146b3c14d53628a6c0ce24db323b0e6c7c75a2f78bb91f",
+          "4f3a3ae6c3366ec38c0da10c975c2e488bf2fcbb7a14ec39e15d6fe176e71712"
+        ],
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2011-10-01",
+        "rootOpenTagSha256": "a28257a57b1bb9524eb9b14d032e1a9a7557638d5c3f4dc1a730667277f172ec",
+        "contextScope": "whole_entity_no_dimensions"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312511321340/0001193125-11-321340-index.html",
+        "documentSha256": "18f3eeb216421ba4c94a2fa4fbef331df506f48565336ac5d6996c468515acb4",
+        "headerTextSha256": "644be2be5eb35bd48006f9182e4324360cecdd8a491eb3f922bb7a8b545d39c7"
+      }
+    },
+    "5d2e76a66d443d56e201944d46df45db6c7714086c56643a6ce8120833f1375f": {
+      "ticker": "DIS",
+      "cik": "0001001039",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103913000164/fy2013_q4x10k.htm",
+      "accession": "0001001039-13-000164",
+      "availableAt": "2013-11-20",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "paragraphSha256": [
+        "ed43acaf99eb4de75d8b5d13f9c525404064053c00c90408d69e8f563e25132d"
+      ],
+      "sourceIds": [
+        "3f07918e26efb5e8604a4df9",
+        "acc87488f39eb719bbb6fc84"
+      ],
+      "reviewClassification": "direct_primary_statement",
+      "xbrlStatementEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103913000164/dis-20130928.xml",
+        "documentSha256": "7a67685ea6ab13e2c41fe69a03f72480b13ae0e784efc04b42fa1eadf0152555",
+        "fragmentsSha256": [
+          "37d9892b4a017ea3e36c944d5cece54eefc500ed3dd051d33ad434b0b2fea4a1",
+          "b41ff0665fbc813fad1bec59842a556189892906a0cedfe7774636f4626f715a",
+          "0638eaa057fbd119343ea1494387ff746a63423e786200f5cdd6baddcf710522",
+          "363b85f6a29dcc9b7a2f93a2433769d56d777f7a65b72caf127ab89bc05f903e",
+          "2f8ec06b8f05bc4ceb6e2c0b8c12296af5d0ed09c1efdb9bbeb2a867d99cdaff",
+          "1d6ee400e8ed63d0dd17f060bd551352d0e76726756caf83c8b368793ab9ed7c",
+          "a314aabd78e86f028100da432185967d069b2a59f2509749fb0a058210541c48",
+          "b4ef3d83b41daa4491fe51553a50e521d1b193deab1ef7acf2fa91b799ff63a4"
+        ],
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2013-09-28",
+        "rootOpenTagSha256": "aed3fecc793d8420b035d750746f9638c2b541d2842caac3f40c844f56d29c6e",
+        "contextScope": "whole_entity_no_dimensions"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103913000164/0001001039-13-000164-index.html",
+        "documentSha256": "bedea7416b6999168860c0ddcce3d6f2b0c9e7ac10efc3086161712c4e6bfd86",
+        "headerTextSha256": "300abc826aa56b30f5562461019e41f069f0cc8b0afa6f3ec26ab25ce7c61412"
+      }
+    },
+    "4aba05b9f52bb63f3cba44b0bf861dfb3e0396ab276b5aa6960bbd9fa29b4f14": {
+      "ticker": "DIS",
+      "cik": "0001001039",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103917000198/fy2017_q4x10k.htm",
+      "accession": "0001001039-17-000198",
+      "availableAt": "2017-11-22",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "paragraphSha256": [
+        "ed43acaf99eb4de75d8b5d13f9c525404064053c00c90408d69e8f563e25132d"
+      ],
+      "sourceIds": [
+        "8c59859a947fdacb75bb645d",
+        "54138aee854680ce61d5c046"
+      ],
+      "reviewClassification": "direct_primary_statement",
+      "xbrlStatementEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103917000198/dis-20170930.xml",
+        "documentSha256": "1cd3a75b83c8f3a602b42b75b6a5197b594808c8b7729c243d96c7c310e893ef",
+        "fragmentsSha256": [
+          "8c1bc42fb0610a89dca19e8f47b034c54ac69593569837b00a39f65662d31b77",
+          "61e6eb7243a66db67d21dbf36c435dbc4f0863448aeb3fa59625e64805ff9866",
+          "20844b544f68c4491ca53905595be229c0c4456700c85a076d8e9742bfdf638e",
+          "e6f965d127fc44613f27a63e3475d435239a50a0c87332111fd79b0e75dcfac9",
+          "9d366b5c2854922949dbaa59baccb8976479c680584c8f908c7345fef41c42da",
+          "6be199ecd50469e835fc95350e69bffdb6f596b7c6253e8ec1c5c76fc191697a",
+          "2e3126556146f017484dc76175091e4c9825073fabb7c6ba58738014d3636b4b",
+          "a2780e5c415cb9a3878e8dcc05751252e6717b7b84c3a208512f1d01ec0ec7eb"
+        ],
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2017-09-30",
+        "rootOpenTagSha256": "9b4b427d157bf67412d0dbc20fea45033a8c650bfdf3e05aa0724d01c38ce060",
+        "contextScope": "whole_entity_no_dimensions"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103917000198/0001001039-17-000198-index.html",
+        "documentSha256": "71d6525dfcb7cbf5aaa4e907d05e1e6b87f72dc5cce5dc6dcd51a61c57f3dec6",
+        "headerTextSha256": "6f693c57524cf36852fabe2e154312b571293d9ef65e4c329c7e52aefacbf3f6"
+      }
+    },
+    "9727570a82d5597dac12c94ce085fa6b555b19bdff842228dccf82aea82d239c": {
+      "ticker": "DIS",
+      "cik": "0001001039",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103918000187/fy2018_q4x10k.htm",
+      "accession": "0001001039-18-000187",
+      "availableAt": "2018-11-21",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "paragraphSha256": [
+        "ed43acaf99eb4de75d8b5d13f9c525404064053c00c90408d69e8f563e25132d"
+      ],
+      "sourceIds": [
+        "7a44782f47d68b2645579790",
+        "89adc6725be4691c7dc4bd1d"
+      ],
+      "reviewClassification": "direct_primary_statement",
+      "xbrlStatementEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103918000187/dis-20180929.xml",
+        "documentSha256": "a64bcf36e982aab225a261c38db0458f5bb31a160817beb842eef08327130e00",
+        "fragmentsSha256": [
+          "8c1bc42fb0610a89dca19e8f47b034c54ac69593569837b00a39f65662d31b77",
+          "61e6eb7243a66db67d21dbf36c435dbc4f0863448aeb3fa59625e64805ff9866",
+          "3491fab05d2fe742fa9eaf3e822308d2d7085d4881fff792ec91b83cfc1a0ba8",
+          "c23d5525f0120be5f1e710c2c6829c5195a4b09a779148d85a3c06318676a4f2",
+          "17cadb2d3ab65a0e455cafd97bd8607765c329ef34a4e486800818591542cbb9",
+          "15ad8fc921811f9b2ca0d35706c2c8183e42c13c8d5eef22f9b7d9200ea7d52f",
+          "42db1273009e9e38e1a83d9537f2277a5afae39bcc51f7bd5c07d5aa83770010",
+          "0a07aa24e571b7e0d5d3b7a5e02d420155fe40c955dfe8afdb32b892e24095f5"
+        ],
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2018-09-29",
+        "rootOpenTagSha256": "56b4e42be0cc8c7f6a44388384b20146c5b3049f426fc24daead1152c0ac8037",
+        "contextScope": "whole_entity_no_dimensions"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103918000187/0001001039-18-000187-index.html",
+        "documentSha256": "955f6d42afc16180047809e0793f0bd521a80fb7c54fcb6994966365939439e7",
+        "headerTextSha256": "d8d05bed6681593c7de50ff63d923e7c76f0f83c6b3f5352b89f47a06abff814"
+      }
+    },
+    "9176f6aa484202b1bcf571985b945f3c37662673538726d880ba6aaa947892fc": {
+      "ticker": "DIS",
+      "cik": "0001001039",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312510268910/d10k.htm",
+      "accession": "0001193125-10-268910",
+      "availableAt": "2010-11-24",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "paragraphSha256": [
+        "ed43acaf99eb4de75d8b5d13f9c525404064053c00c90408d69e8f563e25132d"
+      ],
+      "sourceIds": [
+        "84f20d9bf75ab940fb3feb31",
+        "4180a81d29ca3b323b3f7f07",
+        "71f0c5b4cfb3ecfebdef425f"
+      ],
+      "reviewClassification": "direct_primary_statement",
+      "xbrlStatementEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312510268910/dis-20101002.xml",
+        "documentSha256": "584add3d72968e7906b22fa38b73e41205c8be370a3b7dfcec73a5f8dc466982",
+        "fragmentsSha256": [
+          "ae14ff3a92e84766b7848ffcbf587b63deaa3ea6b7039e95779230d529fc59d1",
+          "740099904d20101734d83a9269b63f6d9db42dcd5222a78e303940d4d2191aa1",
+          "1e2dd55f5c0e9b0d38b755eadae346e825dc8f695615530eee8a782e03c45aed",
+          "b8bdfa7268196afec70154a347c1655d92b2e18cb338bc0847cf999b22f39fce",
+          "5fa9c5d6ef0842a8e6395231b38a905093ed34e9890e5bb68dbddd90784dc5b3",
+          "da5696a617df52f30757b6ca35e12842f31297e4e658339d418cb4d7e2fa7a95",
+          "26f668910f43d0d9f7248c4033dfaabee35d38d8b29f0f9a4bff3f6fc6888da2",
+          "9796f7f79a29c0ff4ae437e4b90a9ada1cc89ef7ea3cab80b211d687e5ff577c"
+        ],
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2010-10-02",
+        "rootOpenTagSha256": "0336c72cb79d71b0eb8641e2f0fe15f44e81bfb9d6b042ed4e811a3f5e90b84d",
+        "contextScope": "whole_entity_no_dimensions"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312510268910/0001193125-10-268910-index.html",
+        "documentSha256": "bb8071260e555f0a3ad1c406e67855a72f406960eb1763cce802e1f2bd26c8f4",
+        "headerTextSha256": "8f28d4644dbfc5d8e69e3cbc435782e320ac2979929eb8092c1c24492eac2f7b"
+      }
+    },
+    "05bc5250974d7c6d24a00790fd5cc5600e4751d5e095311d7fb8e9aaaf317ee1": {
+      "ticker": "DIS",
+      "cik": "0001001039",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312512479027/d405160d10k.htm",
+      "accession": "0001193125-12-479027",
+      "availableAt": "2012-11-21",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "paragraphSha256": [
+        "ed43acaf99eb4de75d8b5d13f9c525404064053c00c90408d69e8f563e25132d"
+      ],
+      "sourceIds": [
+        "683fcd54bbbf8023b4702384"
+      ],
+      "reviewClassification": "direct_primary_statement",
+      "xbrlStatementEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312512479027/dis-20120929.xml",
+        "documentSha256": "65f051f9ff445f5f2c03e9f504be86734715adc3806285f5a90cf5a240e91bd8",
+        "fragmentsSha256": [
+          "ae14ff3a92e84766b7848ffcbf587b63deaa3ea6b7039e95779230d529fc59d1",
+          "740099904d20101734d83a9269b63f6d9db42dcd5222a78e303940d4d2191aa1",
+          "cffe7f2cb0310fc3c7428a8f364fbd66be2944342a7240d9eef288e37566af6b",
+          "468145bb3d4c5f97683b650b56aa3af3ceacff433f1eaaa3f7480a0c36599d3e",
+          "c1140c1fda019d579bfe65a9add08232b91ffc9943bdbde7bcecf28566225c34",
+          "050de942a2b747e03ad9af10765f2c5789cd5b322e11e77fca0c053995a16567",
+          "5a71d7c378f557e4c8d6e0868d8a422d18e47d950d74734627070c8228c4a64f",
+          "b7e0b2bb104ca30cf8064af3f9d65eb74bba15a4340f39e5dc197d2a4716dbf9"
+        ],
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2012-09-29",
+        "rootOpenTagSha256": "031fe12349632d44f2a1c1093a92e69b919d9d018e1965b66dfd9dc71a611ca5",
+        "contextScope": "whole_entity_no_dimensions"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000119312512479027/0001193125-12-479027-index.html",
+        "documentSha256": "d0a9aa7a466ace8e1834b7bc444d18046f0b88f8ce4a9ece1c8bcb31380bbf34",
+        "headerTextSha256": "37432d0be5650ac45a37eeba58312278fe0755003b4c414d26adb466142ed67e"
+      }
+    },
+    "9ea5e2524e0b10442844edeb5cfdb4d5d7a1bfc7e92ded983917af2aa06cc250": {
+      "ticker": "DIS",
+      "cik": "0001001039",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103916000516/fy2016_q4x10k.htm",
+      "accession": "0001001039-16-000516",
+      "availableAt": "2016-11-23",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "paragraphSha256": [
+        "ed43acaf99eb4de75d8b5d13f9c525404064053c00c90408d69e8f563e25132d"
+      ],
+      "sourceIds": [
+        "ad43cdab7dd3d364573fda94",
+        "73b724b466d74010cf43fc08"
+      ],
+      "reviewClassification": "direct_primary_statement",
+      "xbrlStatementEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103916000516/dis-20161001.xml",
+        "documentSha256": "32a2c3df841cc1163465abd81260de0be475b1e9c620e74b94e7309c14d3a819",
+        "fragmentsSha256": [
+          "8c1bc42fb0610a89dca19e8f47b034c54ac69593569837b00a39f65662d31b77",
+          "61e6eb7243a66db67d21dbf36c435dbc4f0863448aeb3fa59625e64805ff9866",
+          "16f54659191444c340b38166d1abbd371b9492c54226c73369df3744c2e3266b",
+          "daf88991bb1213a8a881abb4c5f26bf0575e5fb3e28772a7d311b4612f3ef358",
+          "36b2973a09c44210fd797dad70a9e46890dd26f65656c5b63b7cf97fd5b2bf22",
+          "7d14807ef7749d90b044c063f4c980149c2c24123854e6356d6ae6a143e7fed4",
+          "59f4c42611e5c2c3106d7ab37a96aafe245d033d1c89f454b800a540a0da109a",
+          "2eed010295099f0c2b547f7c7bfa697de74bb4a221fe89e432a3eac3c18e3392"
+        ],
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2016-10-01",
+        "rootOpenTagSha256": "c67acb34ba97f99869baaf15e5817e125922c1740a2919c15ace892ea4e50510",
+        "contextScope": "whole_entity_no_dimensions"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103916000516/0001001039-16-000516-index.html",
+        "documentSha256": "e3dad5bf4a55551d7459ead56184e25025d303cfb0bd96ef75e29693c6f70f98",
+        "headerTextSha256": "7b51e6037ec0c3f1a36fd9660890075deb813da72f1536006f2918859759db05"
+      }
+    },
+    "71fdc8bf76d41e599aa54766490eb1baf7d2580a225528a0e9f94eda25c4f5b8": {
+      "ticker": "DIS",
+      "cik": "0001001039",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103914000228/fy2014_q4x10k.htm",
+      "accession": "0001001039-14-000228",
+      "availableAt": "2014-11-19",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "paragraphSha256": [
+        "ed43acaf99eb4de75d8b5d13f9c525404064053c00c90408d69e8f563e25132d"
+      ],
+      "sourceIds": [
+        "508ae84e94618734cf036bf8"
+      ],
+      "reviewClassification": "direct_primary_statement",
+      "xbrlStatementEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103914000228/dis-20140927.xml",
+        "documentSha256": "0638173cfebfbde929705c72231e382e6c3dd0ae99df4a9c2a968ae2182d81d6",
+        "fragmentsSha256": [
+          "37d9892b4a017ea3e36c944d5cece54eefc500ed3dd051d33ad434b0b2fea4a1",
+          "b41ff0665fbc813fad1bec59842a556189892906a0cedfe7774636f4626f715a",
+          "af810d69461770affb7786978d0f2349d12785ae9b8113da6c7768fcc5fbb333",
+          "bdffd9aa672f100a046283f50802c6506c3958a0f79787c789a1c7faa1afeee0",
+          "85652b9b12c2c2e60491d26eb73e5c62c5a0b12e132605527bfd2c31b3e2543f",
+          "66978204145b0fff993c486c9643f21dbe9c14f4fa59b219b718a70a40e5c38b",
+          "258d84f5ef2ce77008648e51bccfc275d8d7508dfad958ad23580c9853a787b2",
+          "fc17fc38841be38e8d0374066403d2414e6f66db90888a14a24afda133425920"
+        ],
+        "schemaVersion": "whole-entity-original-statement-xbrl-v1",
+        "periodEnd": "2014-09-27",
+        "rootOpenTagSha256": "8bc54e59e9579382d8f6dce5bc147fef369620ddc75cad0adcdad195344af503",
+        "contextScope": "whole_entity_no_dimensions"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1001039/000100103914000228/0001001039-14-000228-index.html",
+        "documentSha256": "8ca9c6e2ea41b921dffb6a753c47fd77f01c846f785575d0782e0711c11910f7",
+        "headerTextSha256": "2db11791cae0e5bd1219c49a3b8193f5413833c4aa0e918893ca3b621a30a3fd"
+      }
+    },
+    "f567cace7e160e685d2f382756827fd295e3bdf584f5e686cdd556db3e5abb04": {
+      "ticker": "CSGP",
+      "cik": "0001057352",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1057352/000105735211000012/form_10-k.htm",
+      "accession": "0001057352-11-000012",
+      "availableAt": "2011-02-25",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "paragraphSha256": [
+        "d9940da4534fc51c3834f9287f6a99246178bf4c88733bfe7c89e08138aaa494",
+        "3d56791e3db35bf2ef2a4a369e496cbb69cbae678a245e65c4c97b2bdfde9a52"
+      ],
+      "sourceIds": [
+        "0add1d1207ac42ab57741994",
+        "108d93324ecc6a14a270bf4f",
+        "f4581e02e80dce16605d1249"
+      ],
+      "reviewClassification": "direct_primary_statement",
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1057352/000105735211000012/0001057352-11-000012-index.html",
+        "documentSha256": "c1e6aa3ec5f8cab1a3703070c7fc67f6127aded044b3aa8a5fb4f5732cba139c",
+        "headerTextSha256": "c8bd829b2c7a3ded874872b0f2aa8abb39fb931a88ca1729c2800e86fe413531"
+      }
+    },
+    "6dbd3a6e49948cfd6c300f9b6de37fc2c41ae7d93e0a13257f1d99e05b76ac1f": {
+      "ticker": "FERG",
+      "cik": "0001832433",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1832433/000183243323000066/ferg-20230731.htm",
+      "accession": "0001832433-23-000066",
+      "availableAt": "2023-09-26",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "paragraphSha256": [
+        "32d06e1c774101f497795860d4b205b430057b45bcc71d89fab3dd20f68d78d8",
+        "285dff1015147adacc696e2e1f6e51aca6681a94115cde360d9184ab4f13e4c8"
+      ],
+      "sourceIds": [
+        "deea2ad2293cb843d4e728f7",
+        "a57c4fe870a40a591ab7a8ee",
+        "6e659971614e5ed096f8eb36"
+      ],
+      "reviewClassification": "direct_primary_statement",
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1832433/000183243323000066/0001832433-23-000066-index.html",
+        "documentSha256": "926d7e9edd004ce46071e2067ae3d97f0a4e517f2174d3f1ed9ee640fc3b6207",
+        "headerTextSha256": "aefe7bf2d73ae17f4e2670e3c6e6c5e7bb063143bf5d8dccab0a3ae66f5f75b6"
+      }
+    },
+    "346b922f1793c12d999de0f96b2c9b3598034ccf1816abbe244e254722ba2627": {
+      "ticker": "APA",
+      "cik": "0000006769",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/6769/000173303720000004/apa10-k2019.htm",
+      "accession": "0001733037-20-000004",
+      "availableAt": "2020-02-28",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "paragraphSha256": [
+        "2fa4dca5379d4d2258733268028a8f0388e6f7df0abb3643c3c1dcfcac1e99a2",
+        "9c1e646103748f53092053afb5fcce10c6998e634a7db6fd0f2b827d3c31b8a0"
+      ],
+      "sourceIds": [
+        "e4fb30013be479d6b5c12e56"
+      ],
+      "reviewClassification": "direct_primary_statement",
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/6769/000173303720000004/0001733037-20-000004-index.html",
+        "documentSha256": "a281a4c80e529e0504ce3925d93f9c766689d98281f3978890bdc74ca58e339a",
+        "headerTextSha256": "3ee6a3502ec1551c5b97c9f2f6d13bb84e502afbfa6b4959173e2af30241a2b5"
+      }
+    },
+    "da455dd711a9f9fe16e113b176890520734d2714d3d8866207f7d44d710ffaae": {
+      "ticker": "AVAV",
+      "cik": "0001368622",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1368622/000155837020007720/avav-20200623x10k.htm",
+      "accession": "0001558370-20-007720",
+      "availableAt": "2020-06-24",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "paragraphSha256": [
+        "867c1cbca0b9df3b028f99781a36c8249e7aa1e692c2843428634390c4dfbf68"
+      ],
+      "sourceIds": [
+        "33ebc900d50cf6d3a1d43827",
+        "6bbbc785e0418ace65435f82",
+        "d6e609bbda362b97c6e51b39"
+      ],
+      "reviewClassification": "direct_primary_statement",
+      "xbrlStatementEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1368622/000155837020007720/avav-20200623x10k_htm.xml",
+        "documentSha256": "7f39b55efcfd9e50185a87b5e9c3ead53c1a8976e6552de4cce685fd7b6a14b7",
+        "fragmentsSha256": [
+          "fba2e1114fbbe40a0366bb88a06c4729c48a2b4cb367eac59bccdf5b73ae7902",
+          "0f927a3035ebfe4cce190977049d7d481728b1ae394d61f10bb0b7eb4ff2ecb7",
+          "fe23f42142439a4f6a6c01214b22fa97634e7b9ebc007eb8cefb2390659ae624",
+          "1e3658ec4847eb1cd397885c332b43b6ce0d21c0a3e2ea84bfe7736f71cd2fed",
+          "c158bd2f68ea771466ea997dd56dcb9d9adf703a09a528add041f9370b7d3d5f",
+          "41654d221371f4cdca1e4576dd4882033f440c5653605b0a2afd60808c63eb16",
+          "fec24edda91100e6b091acb95846dc7798d66738bdcd76955114a183080d91c9",
+          "d1de305e3ccb43d1b3273405a553b9cc9b863174bc5df2a75f2a293056afc7e4"
+        ],
+        "schemaVersion": "avav-original-parent-statement-currency-v1",
+        "periodEnd": "2020-04-30",
+        "rootOpenTagSha256": "b9e979b3431faa5ef9fb206daeb74fe2feac048319170063e46a88b467386401",
+        "contextScope": "whole_entity_no_dimensions"
+      },
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1368622/000155837020007720/0001558370-20-007720-index.html",
+        "documentSha256": "cba10d2258060de13390d043aca71101678e4a819e729bbd4efc7d4026ad6d7a",
+        "headerTextSha256": "ae1e73b0a8668f0264a374290852acf86c5d6c0b767def2a0a5a02810a8315be"
+      }
+    },
+    "a97ac86a15fbca60cc41d70d3a402c0e55420c21e287641caf24da58a696fbea": {
+      "ticker": "TSLA",
+      "cik": "0001318605",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1318605/000119312510259068/d10q.htm",
+      "accession": "0001193125-10-259068",
+      "availableAt": "2010-11-12",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "paragraphSha256": [
+        "fef8b7f581387d93515db73374f9c728c5dc0ce647dbb5431b768cc92b4cb70f",
+        "ae8f497ec0aefaf863851b7aac34b29be15318c7dc29cb770b9b70d5ab313f03",
+        "68387fff7a1cdb9649dc1bab09acebea746ccb434d7c751703015c9e48d67e64"
+      ],
+      "sourceIds": [
+        "e014ec20c2e590055f051a0f"
+      ],
+      "reviewClassification": "analyst_inference",
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1318605/000119312510259068/0001193125-10-259068-index.html",
+        "documentSha256": "6606b23c14aab6073b7898264ce2820dca5b1ec55d6a608db8f82a6f808ce45d",
+        "headerTextSha256": "94079754c5c78044e56b714c29609d5b733f9eefdc206bc4dd2be81d4f217c59"
+      }
+    },
+    "383cd668dfabad9715a4f6b81479382cad4eb783e8ed5257b44b03e185fbdab8": {
+      "ticker": "ABBV",
+      "cik": "0001551152",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1551152/000104746913002827/a2213529z10-k.htm",
+      "accession": "0001047469-13-002827",
+      "availableAt": "2013-03-15",
+      "evidenceType": "issuer_reviewed_consolidation_presentation_inference",
+      "paragraphSha256": [
+        "8ed788bdd1c6f1c631e6d6447d2bcc19c4e91ea58704f8e67e6f7a788fc8c1d8",
+        "568a5521883ad8d6db63deaf8cfdffbe5b59b714aa6a1f57579bfe59cc97e907",
+        "9e5c7a941a4ba9cf0b9cdc14506417503bba76edb089ec490758e4d5e89ba2cf"
+      ],
+      "sourceIds": [
+        "09d7e89471d35a5530129417"
+      ],
+      "reviewClassification": "analyst_inference",
+      "filingDateEvidence": {
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1551152/000104746913002827/0001047469-13-002827-index.html",
+        "documentSha256": "21f6a29a46fde35228fed2195640ac301b61092764664b70215f24ceeb6b7293",
+        "headerTextSha256": "73b846ced92c269de6bbe4ab75172ff41236414e364e205b8882f22f37b9bdd3"
+      }
+    }
+  }
+}

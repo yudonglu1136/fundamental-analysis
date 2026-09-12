@@ -1,0 +1,30 @@
+{
+  "ticker": "TBBB",
+  "source_url": "https://www.sec.gov/Archives/edgar/data/1978954/000119312526241914/tbbb-ex99_2.htm",
+  "source_locator": "Capital Expenditures, page 9; original MD&A paragraphs retained",
+  "document_name": "tbbb-ex99_2.htm",
+  "filing": {
+    "accession": "0001193125-26-241914",
+    "filing_date": "2026-05-27",
+    "report_date": "2026-05-27",
+    "primary": "trilogy_-_1q26_6-k.htm",
+    "form": "6-K",
+    "items": ""
+  },
+  "lines": [
+    "MANAGEMENT’S DISCUSSION AND ANALYSIS OF FINANCIAL CONDITION AND RESULTS OF OPERATIONS",
+    "Capital Expenditures",
+    "We make, and expect to continue to make, capital expenditures for store openings, renovation of existing stores and distribution centers, acquisitions of store equipment and transportation equipment, including as right-of-use assets, and investments in software.",
+    "For the year ending December 31, 2026, we have budgeted capital expenditures of approximately Ps.5,250,000 thousand, including approximately Ps.3,555,000 thousand for opening new stores and approximately Ps.490,000 thousand for opening four new distribution centers, which have been and will be funded through our operating activities. Out of that annual budget, we deployed Ps.1,089,705 thousand, or approximately 21% of the total, of which Ps.706,574 thousand was funded through cash for investing activities for the purchase of property, furniture, equipment and leasehold improvements, during the three months ended March 31, 2026. This compares to a deployment of Ps.736,305 thousand for the three months ended March 31, 2025, of which Ps.541,253 thousand was funded through cash for investing activities for the purchase of property, furniture, equipment and leasehold improvements. Our cash for investing activities for the purchase of property, furniture, equipment and leasehold improvements represented 3.1% and 3.2% of our total revenue for the three-month periods ended March 31, 2026 and 2025, respectively."
+  ],
+  "expected": {
+    "fiscal_period": "Q12026",
+    "guidance_target_year": 2026,
+    "guidance_scope": "full_year",
+    "metric_name": "capex_guidance",
+    "amount": 5250,
+    "currency": "MXN",
+    "quality_status": "research_only_cash_noncash_mapping",
+    "model_exclusion_reason": "cash-noncash-mapping-needed"
+  }
+}

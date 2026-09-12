@@ -1,0 +1,1220 @@
+{
+  "reviewScope": "Exactly the 45 semantic-classification conflicts from the 2026-09-05 isolated candidate source; no DB mutation.",
+  "events": [
+    {
+      "original": {
+        "index": 1,
+        "id": "1c5c276c718950e7a5a6f4b3",
+        "ticker": "ACVA",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Fourth quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-23",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1637873/000163787326000010/q4-25earningspressrelease.htm",
+        "evidence_excerpt": "Revenue Growth and Adjusted EBITDA Exceeding High-End of Guidance Fourth quarter revenue of $184 million and full-year revenue of $760 million"
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 2,
+        "id": "0114cf8bb9e37bb3c0841b9f",
+        "ticker": "ACVA",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Second quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": 214,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-08-10",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1637873/000163787326000031/q2-26earningspressrelease.htm",
+        "evidence_excerpt": "Reaffirms 2026 Guidance Second quarter revenue of $214 million"
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 3,
+        "id": "437b54cb8eb4b1e72fbca973",
+        "ticker": "CRDO",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q3",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q22025",
+        "observed_at": "2024-12-02",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/crdo/transcripts/228045-q2-2025/",
+        "evidence_excerpt": "As we enter the second half of fiscal year 2025, we expect double-digit sequential revenue growth from Q3 to Q4."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 4,
+        "id": "617d1c69c85a20ba150fea94",
+        "ticker": "CRDO",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q4 FY 2022",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": 39,
+        "growth_yoy": 97,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q32022",
+        "observed_at": "2022-03-09",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/crdo/transcripts/179339-q3-2022/",
+        "evidence_excerpt": "Now, turning to our guidance for the fourth quarter, we currently expect revenue in Q4 FY 2022 to be between $37 million and $41 million, up 97% year-over-year at the midpoint."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "valid_periodic_target"
+      }
+    },
+    {
+      "original": {
+        "index": 5,
+        "id": "5f36d3fbfa8892aa8b1fb3af",
+        "ticker": "CRDO",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q3",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q32024",
+        "observed_at": "2024-02-27",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/crdo/transcripts/145652-q3-2024/",
+        "evidence_excerpt": "Now, when it comes to Q4, the other thing I mentioned or alluded to, IP in Q3 was only 2% of our revenue mix, yet we said in our prepared remarks that we expect for the full year that IP as a percentage of the overall revenue mix will be at the high end of our long-term range of 10%-15%."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 6,
+        "id": "de86de5e2768b3738ed64080",
+        "ticker": "CRS",
+        "metric_name": "operating_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "third quarter of fiscal year 2026",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": 179.5,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-01-29",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/17843/000001784326000007/a2ndqtrfy2026results.htm",
+        "evidence_excerpt": "Guidance: For the third quarter of fiscal year 2026, anticipate between $177 million to $182 million in operating income"
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "valid_periodic_target"
+      }
+    },
+    {
+      "original": {
+        "index": 7,
+        "id": "0e258fbc8d8de2f3fbfc605b",
+        "ticker": "CRS",
+        "metric_name": "operating_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "third quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q3",
+        "observed_at": "2026-04-29",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/17843/000001784326000018/a3rdqtrfy2026results.htm",
+        "evidence_excerpt": "“With the record third quarter performance and strengthening outlook, we have raised our operating income and adjusted free cash flow expectations for fiscal year 2026. We expect operating income to be in the range of $700 million to $705 million, with adjusted free cash flow to be approximately $350 million.”"
+      },
+      "expected": {
+        "semanticConflict": true,
+        "classification": "incorrect_periodic_scope"
+      }
+    },
+    {
+      "original": {
+        "index": 8,
+        "id": "beba9f0d97e151505a553040",
+        "ticker": "CRS",
+        "metric_name": "operating_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "fourth quarter of fiscal year 2026",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": 207.5,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q3",
+        "observed_at": "2026-04-29",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/17843/000001784326000018/a3rdqtrfy2026results.htm",
+        "evidence_excerpt": "Guidance: For the fourth quarter of fiscal year 2026, anticipate between $205 million to $210 million in operating income"
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "valid_periodic_target"
+      }
+    },
+    {
+      "original": {
+        "index": 9,
+        "id": "7e45a57d650965932e84e4a6",
+        "ticker": "CRS",
+        "metric_name": "operating_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "first quarter of fiscal year 2027",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": 197.5,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q4",
+        "observed_at": "2026-07-30",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/17843/000001784326000030/a4thqtr2026resultspressrel.htm",
+        "evidence_excerpt": "Guidance: For first quarter of fiscal year 2027, anticipate between $195 million to $200 million in operating income"
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "valid_periodic_target"
+      }
+    },
+    {
+      "original": {
+        "index": 10,
+        "id": "d1a5b3e1d3f0087286255041",
+        "ticker": "CRWV",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "for the quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q12025",
+        "observed_at": "2025-05-14",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/crwv/transcripts/345230-q1-2025/",
+        "evidence_excerpt": "That is what is reflected in our increased revenue guidance for the quarter as well as for the year."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 11,
+        "id": "d7fbdfd2a9fa590a6b0247ce",
+        "ticker": "DUOL",
+        "metric_name": "gross_margin",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q1",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": 71,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-26",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1562088/000162828026012246/q4fy25duolingo12-31x25shar.htm",
+        "evidence_excerpt": "2026 Outlook. gross margin percentage to be approximately 71% in Q1 and roughly 69% for the rest of the year, driven primarily by expanding access to AI-powered features for all users."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "valid_periodic_target"
+      }
+    },
+    {
+      "original": {
+        "index": 12,
+        "id": "01bc3ba4866885627bba7494",
+        "ticker": "DUOL",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q3",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-08-05",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1562088/000162828026053299/q2fy26duolingo6-30x26share.htm",
+        "evidence_excerpt": "revenue , our outlook calls for Q3 growth of approximately 11.1% compared to the prior year and approximately 16.3% for the full year. Our outlook reflects exchange rates as of the end of July. As a reminder, over half of our bookings come from outside the US, and we estimate that every 1% change in the dollar versus our currency basket equates to about a $4 million impact on our H2 bookings."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "quantified_source_requires_extraction_review"
+      }
+    },
+    {
+      "original": {
+        "index": 13,
+        "id": "7247b5f79b20cfdc0937a2aa",
+        "ticker": "IOT",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q1 FY27",
+        "guidance_target_year": null,
+        "guidance_subject": "non_company_or_non_periodic",
+        "quality_status": "clear",
+        "amount": 5,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q4",
+        "observed_at": "2026-03-05",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1642896/000162828026015170/samsaraepr-q42026.htm",
+        "evidence_excerpt": "FY 2027 Outlook. Constant currency impact to revenue guidance is expected to be a $5M positive impact for Q1 FY27 and a $11M positive impact for FY27. See the section titled “Operating Metrics and Non-GAAP Financial Measures” for constant currency methodology."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 14,
+        "id": "02ea948437e69db044697d17",
+        "ticker": "IOT",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q2 FY27",
+        "guidance_target_year": null,
+        "guidance_subject": "non_company_or_non_periodic",
+        "quality_status": "clear",
+        "amount": 3,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2027-Q1",
+        "observed_at": "2026-06-04",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1642896/000162828026040788/samsaraepr-q12027.htm",
+        "evidence_excerpt": "FY 2027 Outlook. Constant currency impact to revenue guidance is expected to be a $3 million positive impact for Q2 FY27 and an $11 million positive impact for FY27. See the section titled “Operating Metrics and Non-GAAP Financial Measures” for constant currency methodology."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 15,
+        "id": "496cf58050c11e7b4a0078ec",
+        "ticker": "IOT",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q3 FY2027",
+        "guidance_target_year": null,
+        "guidance_subject": "non_company_or_non_periodic",
+        "quality_status": "clear",
+        "amount": 2,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q22027",
+        "observed_at": "2026-09-03",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1642896/000162828026060438/samsaraepr-q22027.htm",
+        "evidence_excerpt": "FY2027 Outlook. Constant currency impact to revenue guidance is $2 million for Q3 FY2027 and $10 million for FY2027. See the section titled “Operating Metrics and Non-GAAP Financial Measures” for constant currency methodology."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 16,
+        "id": "ba1ab62331756fe8f0cf7918",
+        "ticker": "MDB",
+        "metric_name": "net_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "second quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q12024",
+        "observed_at": "2023-06-01",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/58390-q1-2024/",
+        "evidence_excerpt": "Note that the non-GAAP net income per share guidance for the second quarter and full year fiscal 2024 includes a non-GAAP tax provision of approximately 20%."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 17,
+        "id": "18939413db3a2b2900845fba",
+        "ticker": "MDB",
+        "metric_name": "net_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "second quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q12025",
+        "observed_at": "2024-05-30",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/174775-q1-2025/",
+        "evidence_excerpt": "Note that the non-GAAP net income per share guidance for the second quarter and full fiscal year of 2025 include the non-GAAP tax provision of approximately 20%."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 18,
+        "id": "06cd7b563cf8c9bb33e90a0e",
+        "ticker": "MDB",
+        "metric_name": "net_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "second quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q12026",
+        "observed_at": "2025-06-04",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/324943-q1-2026/",
+        "evidence_excerpt": "Note that the non-GAAP net income per share guidance for the second quarter and fiscal year 2026 assumes a non-GAAP tax provision of approximately 20%."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 19,
+        "id": "bb842b7b91a9ef14b1f29121",
+        "ticker": "MDB",
+        "metric_name": "net_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "third quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q22024",
+        "observed_at": "2023-08-31",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/71844-q2-2024/",
+        "evidence_excerpt": "Note that the non-GAAP net income per share guidance for the third quarter and full fiscal year 2024 includes a non-GAAP tax provision of approximately 20%."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 20,
+        "id": "0a46b20da6888e3ba0d1420e",
+        "ticker": "MDB",
+        "metric_name": "operating_margin",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q2",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": 10,
+        "currency": null,
+        "fiscal_period": "Q22025",
+        "observed_at": "2024-08-29",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/201783-q2-2025/",
+        "evidence_excerpt": "Finally, thanks to the performance in Q2 and the increased revenue outlook, we now expect a 10% operating margin at the midpoint of our fiscal 2025 guidance."
+      },
+      "expected": {
+        "semanticConflict": true,
+        "classification": "incorrect_periodic_scope"
+      }
+    },
+    {
+      "original": {
+        "index": 21,
+        "id": "71c4f675149dc9f508b1aa42",
+        "ticker": "MDB",
+        "metric_name": "net_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q3",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q22025",
+        "observed_at": "2024-08-29",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/201783-q2-2025/",
+        "evidence_excerpt": "Note that the non-GAAP net income per share guidance for the Q3 and full fiscal year 2025 includes a non-GAAP tax provision of approximately 20%."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 22,
+        "id": "c147cf298cc6a2b7acff4c66",
+        "ticker": "MDB",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q2",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q22025",
+        "observed_at": "2024-08-29",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/201783-q2-2025/",
+        "evidence_excerpt": "Finally, thanks to the performance in Q2 and the increased revenue outlook, we now expect a 10% operating margin at the midpoint of our fiscal 2025 guidance."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 23,
+        "id": "80760a9e0ae235471dbae4a0",
+        "ticker": "MDB",
+        "metric_name": "net_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "third quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q22026",
+        "observed_at": "2025-08-26",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/353544-q2-2026/",
+        "evidence_excerpt": "Note that the non-GAAP net income per share guidance for the third quarter and fiscal year 2026 assumes a non-GAAP tax provision of 20%."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 24,
+        "id": "1db521e403f0e42f32dd419c",
+        "ticker": "MDB",
+        "metric_name": "net_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q4",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q32024",
+        "observed_at": "2023-12-05",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/93183-q3-2024/",
+        "evidence_excerpt": "Note that the non-GAAP net income per share guidance for the Q4 and full FY 2024 includes a non-GAAP tax provision of approximately 20%."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 25,
+        "id": "2ffec922a90557a94dd46f37",
+        "ticker": "MDB",
+        "metric_name": "net_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "fourth quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q32025",
+        "observed_at": "2024-12-09",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/225777-q3-2025/",
+        "evidence_excerpt": "Note that the non-GAAP net income per share guidance for the fourth quarter and full fiscal year 2025 includes a non-GAAP tax provision of approximately 20%."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 26,
+        "id": "ad386566e1c64cc541175477",
+        "ticker": "MDB",
+        "metric_name": "operating_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "fourth quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q32026",
+        "observed_at": "2025-12-01",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/378919-q3-2026/",
+        "evidence_excerpt": "We are raising our revenue and operating income guidance for the fourth quarter and full fiscal year 2026 and reiterating our commitment to the long-term financial model we outlined at Investor Day."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 27,
+        "id": "baa7f0b7f7fe55028f46d2b9",
+        "ticker": "MDB",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "fourth quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q32026",
+        "observed_at": "2025-12-01",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/378919-q3-2026/",
+        "evidence_excerpt": "We are raising our revenue and operating income guidance for the fourth quarter and full fiscal year 2026 and reiterating our commitment to the long-term financial model we outlined at Investor Day."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 28,
+        "id": "cda2662d20c5e1bc497b6cdf",
+        "ticker": "MDB",
+        "metric_name": "net_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "first quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q42023",
+        "observed_at": "2023-03-08",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/45083-q4-2023/",
+        "evidence_excerpt": "Note that the non-GAAP net income for share guidance for the first quarter and full year fiscal 2024 includes a non-GAAP tax provision of approximately 20%."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 29,
+        "id": "26ba63586234db604c00e1b2",
+        "ticker": "MDB",
+        "metric_name": "net_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q1",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q42024",
+        "observed_at": "2024-03-07",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/130032-q4-2024/",
+        "evidence_excerpt": "Note that the non-GAAP net income per share guidance for the Q1 and full fiscal year 2025 includes a non-GAAP tax provision of approximately 20%."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 30,
+        "id": "516b8691f84788671452b092",
+        "ticker": "MDB",
+        "metric_name": "net_income_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "first quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q42025",
+        "observed_at": "2025-03-05",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/mdb/transcripts/257675-q4-2025/",
+        "evidence_excerpt": "Note that the non-GAAP net income per share guidance for the first quarter and full fiscal year 2026 include a non-GAAP tax provision of approximately 20%."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 31,
+        "id": "a521dffbf865a6d867e5f35a",
+        "ticker": "MOD",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q4 FY26",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": 51,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q4",
+        "observed_at": "2026-05-26",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/67347/000110465926066291/mod-20260526xex99d2.htm",
+        "evidence_excerpt": "Guidance: HVAC Technologies revenue growth of 51% in Q4 FY26; driven by our recent acquisitions"
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 32,
+        "id": "77e365ad7da6480cb9a69d0d",
+        "ticker": "NBIS",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_scope_evidence": "Annual",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": 1200,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q42025",
+        "observed_at": "2026-02-12",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/nbis/transcripts/402284-q4-2025/",
+        "evidence_excerpt": "Annualized run rate revenue for the core business stood at $1.2 billion at the end of December, exceeding the high end of our Q3 guidance range of $1.1 billion."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 33,
+        "id": "4e2b434264439c46df519389",
+        "ticker": "NET",
+        "metric_name": "free_cash_flow_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "first quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q12023",
+        "observed_at": "2023-04-27",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/net/transcripts/53111-q1-2023/",
+        "evidence_excerpt": "After having achieved positive free cash flow in the second half of last year and again during the first quarter of this year, we continue to anticipate being free cash flow positive for the full year 2023."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 34,
+        "id": "68f2cf1bd4d3b6b2e761e741",
+        "ticker": "NET",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "fourth quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "non_company_or_non_periodic",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": 11,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q32024",
+        "observed_at": "2024-11-07",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/net/transcripts/218065-q3-2024/",
+        "evidence_excerpt": "As a result, we continue to expect network CapEx to increase again in the fourth quarter to reach 10%-12% of revenue for the full year 2024."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 35,
+        "id": "79ea1cbe7b18241bdd036b19",
+        "ticker": "NET",
+        "metric_name": "capex_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "fourth quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q32024",
+        "observed_at": "2024-11-07",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/net/transcripts/218065-q3-2024/",
+        "evidence_excerpt": "As a result, we continue to expect network CapEx to increase again in the fourth quarter to reach 10%-12% of revenue for the full year 2024."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 36,
+        "id": "8349979d7a0dc8afae298f7e",
+        "ticker": "NET",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "fourth quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": 589,
+        "growth_yoy": 28,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q32025",
+        "observed_at": "2025-10-30",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/net/transcripts/369434-q3-2025/",
+        "evidence_excerpt": "Moving to guidance for the fourth quarter and full year 2025, for the fourth quarter, we expect revenue in the range of $588.5 million- $589.5 million, representing an increase of 28% year-over-year."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "valid_periodic_target"
+      }
+    },
+    {
+      "original": {
+        "index": 37,
+        "id": "c77f7ddd06e772ede06fbe43",
+        "ticker": "NET",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "full_year",
+        "guidance_scope_evidence": "annual",
+        "guidance_target_year": null,
+        "guidance_subject": "non_company_or_non_periodic",
+        "quality_status": "clear",
+        "amount": 3000,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "Q32025",
+        "observed_at": "2025-10-30",
+        "actual_or_guidance": "guidance",
+        "source_type": "downloaded_online_earnings_transcript",
+        "source_url": "https://stockanalysis.com/stocks/net/transcripts/369434-q3-2025/",
+        "evidence_excerpt": "In fact, we expect to reach a $3 billion annualized revenue run rate in the fourth quarter of 2026 on our journey to $5 billion and beyond."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 38,
+        "id": "221b5f9dbb7285ac71ac5191",
+        "ticker": "PPLI",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "full_year",
+        "guidance_scope_evidence": "FY 2026",
+        "guidance_target_year": 2026,
+        "guidance_subject": "company_total",
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-03",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1800227/000162828026004988/iacq42025earningscallpre.htm",
+        "evidence_excerpt": "2026 Guidance 11 ($ in M) FY 2026 Outlook1,2 Adjusted EBITDA People Inc. $310-$340 Care.com 45-55 Search (5)-10 Emerging & Other 0-10 Corporate (90-80) Total Adjusted EBITDA $260-$335 Stock-based compensation expense (55-50) Depreciation (30-25) Amortization of intangibles (80-70) Total Operating income $95-$190 1 As of Q4 2025 Earnings on 2/3/2026 2 Guidance assumes no future expenses such as severance, transactions costs or non-cash lease impairments. Full Year 2026 Observations"
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "quantified_source_requires_extraction_review"
+      }
+    },
+    {
+      "original": {
+        "index": 39,
+        "id": "b775bb8d08396a20f2c9a26a",
+        "ticker": "PTON",
+        "metric_name": "revenue_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q4",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q4",
+        "observed_at": "2026-08-06",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1639825/000163982526000032/q4fy2026earningspressrelea.htm",
+        "evidence_excerpt": "Delivered Year-over-Year Revenue Growth in Q4 and Exceeded Full Year FY26 Free Cash Flow Target Full Year FY26 GAAP Net Cash Provided by Operating Activities was $388 million. Free Cash Flow* was $378 million,"
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 40,
+        "id": "e5f0bbfa8d7999b53e0c8248",
+        "ticker": "PTON",
+        "metric_name": "gross_margin",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q4",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": 56.7,
+        "currency": null,
+        "fiscal_period": "2026-Q4",
+        "observed_at": "2026-08-06",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1639825/000163982526000032/q4fy2026earningspressrelea.htm",
+        "evidence_excerpt": "Total Gross Margin was 56.7% in Q4, and 52.6% for Full Year FY26, representing year-over-year increases of 260 basis points and 170 basis points, respectively, and in line with guidance."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 41,
+        "id": "7ba443e8754d1e466bbe5e44",
+        "ticker": "QS",
+        "metric_name": "capex_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "fourth quarter",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": 12.3,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-11",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1811414/000119312526046623/qs-ex99_1.htm",
+        "evidence_excerpt": "2026 Outlook. Capital expenditures in the fourth quarter were $12.3M, and for full-year 2025 were $36.3M, within guidance. Q4 capex primarily supported facilities and equipment purchases for the Eagle Line. For 2026, we expect full-year capex to be between $40M and $60M."
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 42,
+        "id": "f494f9d9e555a5e7213ddb1f",
+        "ticker": "RIVN",
+        "metric_name": "capex_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q1",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "ambiguous",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-04-30",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1874178/000187417826000033/ex-9921q26rivianearnings.htm",
+        "evidence_excerpt": "Drive towards profitability 15 2026 Guidance Vehicles Delivered 62,000 – 67,000 Adjusted EBITDA $(2.10B) – $(1.80B) Capital Expenditures $1.95B – $2.05B Q1 2026 Earnings Presentation © 2026 Rivian. All rights reserved. Business Outlook"
+      },
+      "expected": {
+        "semanticConflict": true,
+        "classification": "incorrect_periodic_scope"
+      }
+    },
+    {
+      "original": {
+        "index": 43,
+        "id": "bad84e15d1d0e9e4f4a36fdb",
+        "ticker": "WCC",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q1",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2025-Q4",
+        "observed_at": "2026-02-10",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/929008/000092900826000004/wcc-4q2025slides.htm",
+        "evidence_excerpt": "Positive momentum continued in January with preliminary sales per workday up ~15% First Quarter 2026 Outlook 16 Q1 Outlook YOY Reported Sales Up HSD Adjusted EBITDA % Up YOY (5)% 5% 15% Oct 24 Nov 24 Dec 24 Jan 25 Feb 25 Mar 25 Apr 25 May 25 Jun 25 Jul 25 Aug 25 Sep 25 Oct 25 Nov 25 Dec 25 YOY Organic Sales Trends Q4-24 Q1-25 Q2-25 Q3-25 Q4-25 +2% +6% +7% +12% +9% © 2026 Wesco International"
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 44,
+        "id": "09ae297c0a87e3d6678d4d36",
+        "ticker": "WCC",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q2",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q1",
+        "observed_at": "2026-04-30",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/929008/000092900826000012/wcc-1q2026slides.htm",
+        "evidence_excerpt": "Solid start to Q2 with April preliminary sales per workday up ~10% Second Quarter 2026 Outlook 15 Q2 Outlook YOY Reported Sales Up HSD Adjusted EBITDA % ~ Flat 0% 5% 10% 15% 20% Jan 25 Feb 25 Mar 25 Apr 25 May 25 Jun 25 Jul 25 Aug 25 Sep 25 Oct 25 Nov 25 Dec 25 Jan 26 Feb 26 Mar 26 YOY Organic Sales Trends Q1-25 Q2-25 Q3-25 Q4-25 Q1-26 +6% +7% +12% +9% +12% © 2026 Wesco International"
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    },
+    {
+      "original": {
+        "index": 45,
+        "id": "3683070809976b9efd83c24d",
+        "ticker": "WCC",
+        "metric_name": "ebitda_guidance",
+        "guidance_scope": "quarter",
+        "guidance_scope_evidence": "Q3",
+        "guidance_target_year": null,
+        "guidance_subject": "company_total_or_unspecified",
+        "quality_status": "clear",
+        "amount": null,
+        "growth_yoy": null,
+        "margin_pct": null,
+        "currency": null,
+        "fiscal_period": "2026-Q2",
+        "observed_at": "2026-07-30",
+        "actual_or_guidance": "guidance",
+        "source_type": "official_issuer_sec_filing",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/929008/000092900826000021/wcc-2q2026slides.htm",
+        "evidence_excerpt": "Exceptional start to Q3 with July preliminary sales per workday up high-teens Third Quarter 2026 Outlook 16 Q3 Outlook YOY Reported Sales Up LDD Adjusted EBITDA % Slightly lower sequentially 0% 5% 10% 15% 20% Apr 25 May 25 Jun 25 Jul 25 Aug 25 Sep 25 Oct 25 Nov 25 Dec 25 Jan 26 Feb 26 Mar 26 Apr 26 May 26 Jun 26 YOY Organic Sales Trends Q2-25 Q3-25 Q4-25 Q1-26 Q2-26 +7% +12% +9% +12% +13% © 2026 Wesco International"
+      },
+      "expected": {
+        "semanticConflict": false,
+        "classification": "research_only"
+      }
+    }
+  ]
+}

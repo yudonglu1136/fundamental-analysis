@@ -1,0 +1,916 @@
+[
+  {
+    "ticker": "BG",
+    "sourceId": "dd95e7501f1f02307cf0b918",
+    "observedAt": "2019-05-08",
+    "evidence": "We continue to expect CapEx of approximately $550 million, DD&A of approximately $650 million, net interest expense in the range of $290 million-$310 million, and a full-year effective tax rate in the range of 22%-26% based on the anticipated mix of earnings.",
+    "currency": "USD",
+    "amount": 300,
+    "unit": "reported millions",
+    "metricName": "capex_guidance",
+    "fiscalPeriod": "Q12019",
+    "perShareValue": null,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "BG",
+      "sourceId": "dd95e7501f1f02307cf0b918",
+      "observedAt": "2019-05-08",
+      "originalQuoteSha256": "f8cd02940df97c23c35752fe48163e1efdfdd45bd088caece9f2375e383518d0",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "capex_guidance",
+      "fiscalPeriod": "Q12019",
+      "amountM": 300,
+      "unit": "reported millions",
+      "sourceLedgerSha256": "59eddc958612ff6437a86449b4674913e7b046ead3993bd0b8fba11d8ea9ba7b",
+      "preEnrichmentPayloadSha256": "0b5712e3e3c7bbf8651377b9974029953d9a132a55e9e07d20c3666567aeef9f",
+      "originalEvidencePayloadSha256": "0b5712e3e3c7bbf8651377b9974029953d9a132a55e9e07d20c3666567aeef9f",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "Bunge's reporting currency is the U.S. dollar.",
+          "BUNGE LIMITED"
+        ],
+        "availableAt": "2019-02-22",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451919000006/bg-12312018x10k.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/bg-dated-currency-primary/0001144519/000114451919000006/bg-12312018x10k.htm",
+        "documentSha256": "19cd39b1fcdf52235e17e4532fbd98896ab856d94bf0f6b15a202cef7a5dce48",
+        "form": "10-K",
+        "accession": "0001144519-19-000006",
+        "cik": "0001144519",
+        "inference": false,
+        "limitations": "Currency evidence only; original numeric values, ownership, dates, guidance and model reviews are not changed or approved.",
+        "paragraphSha256": [
+          "f853a3359c5073590d445fc737ddec22c8403d110ae87ae00bd333ca1e9434bf",
+          "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required."
+    }
+  },
+  {
+    "ticker": "BG",
+    "sourceId": "1226cfbacf41221b07a3e1ad",
+    "observedAt": "2023-05-03",
+    "evidence": "As Greg mentioned in his remarks, taking into account first quarter results and the current margin environment of forward curves, we continue to expect full year 2023 adjusted EPS of at least $11 per share.",
+    "currency": "USD",
+    "amount": null,
+    "unit": "currency_per_share",
+    "metricName": "eps_guidance",
+    "fiscalPeriod": "Q12023",
+    "perShareValue": 11,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "BG",
+      "sourceId": "1226cfbacf41221b07a3e1ad",
+      "observedAt": "2023-05-03",
+      "originalQuoteSha256": "aa2b6e048a214382a7472da1ace58042146c9fd52fa5f9ab8f2228a4f0cfb750",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "eps_guidance",
+      "fiscalPeriod": "Q12023",
+      "amountM": null,
+      "unit": "currency_per_share",
+      "sourceLedgerSha256": "59eddc958612ff6437a86449b4674913e7b046ead3993bd0b8fba11d8ea9ba7b",
+      "preEnrichmentPayloadSha256": "f6a208b5ca68925ba9dd4fa6bb0b1348674f28ee089c35a68e450089d3d0480d",
+      "originalEvidencePayloadSha256": "f6a208b5ca68925ba9dd4fa6bb0b1348674f28ee089c35a68e450089d3d0480d",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "Our reporting currency is the U.S. dollar.",
+          "BUNGE LIMITED"
+        ],
+        "availableAt": "2023-02-24",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451923000010/bg-20221231.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/bg-dated-currency-primary/0001144519/000114451923000010/bg-20221231.htm",
+        "documentSha256": "bcd8ce256925eb4663aab01f5c13211513eecb24966b03201e8acb226dfce967",
+        "form": "10-K",
+        "accession": "0001144519-23-000010",
+        "cik": "0001144519",
+        "inference": false,
+        "limitations": "Currency evidence only; original numeric values, ownership, dates, guidance and model reviews are not changed or approved.",
+        "paragraphSha256": [
+          "3ded3c8e036cbcbc360b54e71819cf16d606ca4787b95735a336ed22a655bab2",
+          "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+      "perShareValue": 11
+    }
+  },
+  {
+    "ticker": "BG",
+    "sourceId": "a37661ef168e81c725a1f889",
+    "observedAt": "2023-05-03",
+    "evidence": "Looking ahead, based on what we see in the market and the forward curves today, we are reaffirming our guidance for full-year adjusted EPS to be at least $11.",
+    "currency": "USD",
+    "amount": null,
+    "unit": "currency_per_share",
+    "metricName": "eps_guidance",
+    "fiscalPeriod": "Q12023",
+    "perShareValue": 11,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "BG",
+      "sourceId": "a37661ef168e81c725a1f889",
+      "observedAt": "2023-05-03",
+      "originalQuoteSha256": "eaf72efb52559bfc95a5f3e347ed45bd9e592fc3b927237b7afe38d04718276b",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "eps_guidance",
+      "fiscalPeriod": "Q12023",
+      "amountM": null,
+      "unit": "currency_per_share",
+      "sourceLedgerSha256": "59eddc958612ff6437a86449b4674913e7b046ead3993bd0b8fba11d8ea9ba7b",
+      "preEnrichmentPayloadSha256": "b84f8fd88121590c166f0a8f3e342e72d598e33b6d28db8cb6ca8e7359df6854",
+      "originalEvidencePayloadSha256": "b84f8fd88121590c166f0a8f3e342e72d598e33b6d28db8cb6ca8e7359df6854",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "Our reporting currency is the U.S. dollar.",
+          "BUNGE LIMITED"
+        ],
+        "availableAt": "2023-02-24",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451923000010/bg-20221231.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/bg-dated-currency-primary/0001144519/000114451923000010/bg-20221231.htm",
+        "documentSha256": "bcd8ce256925eb4663aab01f5c13211513eecb24966b03201e8acb226dfce967",
+        "form": "10-K",
+        "accession": "0001144519-23-000010",
+        "cik": "0001144519",
+        "inference": false,
+        "limitations": "Currency evidence only; original numeric values, ownership, dates, guidance and model reviews are not changed or approved.",
+        "paragraphSha256": [
+          "3ded3c8e036cbcbc360b54e71819cf16d606ca4787b95735a336ed22a655bab2",
+          "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+      "perShareValue": 11
+    }
+  },
+  {
+    "ticker": "BG",
+    "sourceId": "d2a4b56431dfc8b63c5e3965",
+    "observedAt": "2019-07-31",
+    "evidence": "We continue to expect CapEx of about $550 million for this year.",
+    "currency": "USD",
+    "amount": 550,
+    "unit": "reported millions",
+    "metricName": "capex_guidance",
+    "fiscalPeriod": "Q22019",
+    "perShareValue": null,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "BG",
+      "sourceId": "d2a4b56431dfc8b63c5e3965",
+      "observedAt": "2019-07-31",
+      "originalQuoteSha256": "bf3f2c00cbbc9c4356dc1e0d75da660ef77edfc33f91045c08072e8bfd24a701",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "capex_guidance",
+      "fiscalPeriod": "Q22019",
+      "amountM": 550,
+      "unit": "reported millions",
+      "sourceLedgerSha256": "59eddc958612ff6437a86449b4674913e7b046ead3993bd0b8fba11d8ea9ba7b",
+      "preEnrichmentPayloadSha256": "4f6218b7792f0a1b921cfefef8691f6203684c81c7ed8e7fac6b02b20c7ae595",
+      "originalEvidencePayloadSha256": "4f6218b7792f0a1b921cfefef8691f6203684c81c7ed8e7fac6b02b20c7ae595",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "Bunge's reporting currency is the U.S. dollar.",
+          "BUNGE LIMITED"
+        ],
+        "availableAt": "2019-02-22",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451919000006/bg-12312018x10k.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/bg-dated-currency-primary/0001144519/000114451919000006/bg-12312018x10k.htm",
+        "documentSha256": "19cd39b1fcdf52235e17e4532fbd98896ab856d94bf0f6b15a202cef7a5dce48",
+        "form": "10-K",
+        "accession": "0001144519-19-000006",
+        "cik": "0001144519",
+        "inference": false,
+        "limitations": "Currency evidence only; original numeric values, ownership, dates, guidance and model reviews are not changed or approved.",
+        "paragraphSha256": [
+          "f853a3359c5073590d445fc737ddec22c8403d110ae87ae00bd333ca1e9434bf",
+          "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required."
+    }
+  },
+  {
+    "ticker": "BG",
+    "sourceId": "d3710fbf47cc5a5187ffc7f3",
+    "observedAt": "2021-07-28",
+    "evidence": "Taking into account our year-to-date results and based on what we can see now in the forward curves, we are increasing our outlook for the year and expect to deliver adjusted EPS of at least $8.50 for the full year 2021.",
+    "currency": "USD",
+    "amount": null,
+    "unit": "currency_per_share",
+    "metricName": "eps_guidance",
+    "fiscalPeriod": "Q22021",
+    "perShareValue": 8.5,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "BG",
+      "sourceId": "d3710fbf47cc5a5187ffc7f3",
+      "observedAt": "2021-07-28",
+      "originalQuoteSha256": "27a89503774d92c979e9c6abc002ed8e07308a1ca09bb985428db85a7ea9f55c",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "eps_guidance",
+      "fiscalPeriod": "Q22021",
+      "amountM": null,
+      "unit": "currency_per_share",
+      "sourceLedgerSha256": "59eddc958612ff6437a86449b4674913e7b046ead3993bd0b8fba11d8ea9ba7b",
+      "preEnrichmentPayloadSha256": "6d443773a315f975e515a3d09549410faf3940f0f8cc345c3d680c3bfc1c2b28",
+      "originalEvidencePayloadSha256": "6d443773a315f975e515a3d09549410faf3940f0f8cc345c3d680c3bfc1c2b28",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "Our reporting currency is the U.S. dollar.",
+          "BUNGE LIMITED"
+        ],
+        "availableAt": "2021-02-19",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451921000006/bg-20201231.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/bg-dated-currency-primary/0001144519/000114451921000006/bg-20201231.htm",
+        "documentSha256": "a4610a75bd4d88371e544aae2e6844f9a29bdf3d99658ed9730f224661bbd0eb",
+        "form": "10-K",
+        "accession": "0001144519-21-000006",
+        "cik": "0001144519",
+        "inference": false,
+        "limitations": "Currency evidence only; original numeric values, ownership, dates, guidance and model reviews are not changed or approved.",
+        "paragraphSha256": [
+          "3ded3c8e036cbcbc360b54e71819cf16d606ca4787b95735a336ed22a655bab2",
+          "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+      "perShareValue": 8.5
+    }
+  },
+  {
+    "ticker": "BG",
+    "sourceId": "e194518208690ee3319608eb",
+    "observedAt": "2020-10-28",
+    "evidence": "Based on Q3 results and improving market trends, we now expect that we'll end the year with adjusted EPS in the range of $6.25 to $6.75.",
+    "currency": "USD",
+    "amount": null,
+    "unit": "currency_per_share",
+    "metricName": "eps_guidance",
+    "fiscalPeriod": "Q32020",
+    "perShareValue": 6.5,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "BG",
+      "sourceId": "e194518208690ee3319608eb",
+      "observedAt": "2020-10-28",
+      "originalQuoteSha256": "fa60441c14d5a0a7a958de5e872bb8b29498cfa9ac61c146e03ce3e96409d405",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "eps_guidance",
+      "fiscalPeriod": "Q32020",
+      "amountM": null,
+      "unit": "currency_per_share",
+      "sourceLedgerSha256": "59eddc958612ff6437a86449b4674913e7b046ead3993bd0b8fba11d8ea9ba7b",
+      "preEnrichmentPayloadSha256": "5d8ab461d1cc41f75eb1a62f497939ae0ad8648d5b5017cb3d3a87c3fd4d766d",
+      "originalEvidencePayloadSha256": "5d8ab461d1cc41f75eb1a62f497939ae0ad8648d5b5017cb3d3a87c3fd4d766d",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "Bunge's reporting currency is the U.S. dollar.",
+          "BUNGE LIMITED"
+        ],
+        "availableAt": "2020-02-21",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451920000004/bg-12312019x10k.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/bg-dated-currency-primary/0001144519/000114451920000004/bg-12312019x10k.htm",
+        "documentSha256": "0827e22a02107e7f27bd38d468129cf82638eeaa2f790c6d3430ed7095c31382",
+        "form": "10-K",
+        "accession": "0001144519-20-000004",
+        "cik": "0001144519",
+        "inference": false,
+        "limitations": "Currency evidence only; original numeric values, ownership, dates, guidance and model reviews are not changed or approved.",
+        "paragraphSha256": [
+          "f853a3359c5073590d445fc737ddec22c8403d110ae87ae00bd333ca1e9434bf",
+          "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+      "perShareValue": 6.5
+    }
+  },
+  {
+    "ticker": "BG",
+    "sourceId": "f59f8d2be54158e72b6285e1",
+    "observedAt": "2021-10-27",
+    "evidence": "For the full year, we now expect to deliver adjusted EPS of at least $11.50, and we expect the strong momentum to carry over into 2022.",
+    "currency": "USD",
+    "amount": null,
+    "unit": "currency_per_share",
+    "metricName": "eps_guidance",
+    "fiscalPeriod": "Q32021",
+    "perShareValue": 11.5,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "BG",
+      "sourceId": "f59f8d2be54158e72b6285e1",
+      "observedAt": "2021-10-27",
+      "originalQuoteSha256": "e9f67d54844cd11739fc0c81ceebb11a822dbb055240b7dcc243d25ecdcb035e",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "eps_guidance",
+      "fiscalPeriod": "Q32021",
+      "amountM": null,
+      "unit": "currency_per_share",
+      "sourceLedgerSha256": "59eddc958612ff6437a86449b4674913e7b046ead3993bd0b8fba11d8ea9ba7b",
+      "preEnrichmentPayloadSha256": "c11b295d8c1d1d491965187dc9df14c41834cd8748c134da0512dc85637a2923",
+      "originalEvidencePayloadSha256": "c11b295d8c1d1d491965187dc9df14c41834cd8748c134da0512dc85637a2923",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "Our reporting currency is the U.S. dollar.",
+          "BUNGE LIMITED"
+        ],
+        "availableAt": "2021-02-19",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451921000006/bg-20201231.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/bg-dated-currency-primary/0001144519/000114451921000006/bg-20201231.htm",
+        "documentSha256": "a4610a75bd4d88371e544aae2e6844f9a29bdf3d99658ed9730f224661bbd0eb",
+        "form": "10-K",
+        "accession": "0001144519-21-000006",
+        "cik": "0001144519",
+        "inference": false,
+        "limitations": "Currency evidence only; original numeric values, ownership, dates, guidance and model reviews are not changed or approved.",
+        "paragraphSha256": [
+          "3ded3c8e036cbcbc360b54e71819cf16d606ca4787b95735a336ed22a655bab2",
+          "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+      "perShareValue": 11.5
+    }
+  },
+  {
+    "ticker": "BG",
+    "sourceId": "8fa0465649cf445f97a83e55",
+    "observedAt": "2023-10-26",
+    "evidence": "Looking ahead to the remainder of the year, and based on what we see in the market and the forward curves today, we now expect full year 2023 adjusted EPS of at least $12.50, and depending on how market conditions continue to evolve, we see the potential for upside.",
+    "currency": "USD",
+    "amount": null,
+    "unit": "currency_per_share",
+    "metricName": "eps_guidance",
+    "fiscalPeriod": "Q32023",
+    "perShareValue": 12.5,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "BG",
+      "sourceId": "8fa0465649cf445f97a83e55",
+      "observedAt": "2023-10-26",
+      "originalQuoteSha256": "45b6cf03477f8aaf8031dcf69c85561af680ab2528b3d63ea3c8697b5ec59c67",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "eps_guidance",
+      "fiscalPeriod": "Q32023",
+      "amountM": null,
+      "unit": "currency_per_share",
+      "sourceLedgerSha256": "59eddc958612ff6437a86449b4674913e7b046ead3993bd0b8fba11d8ea9ba7b",
+      "preEnrichmentPayloadSha256": "c93289d1e7b614fc0a001c59ba2db5a362b6fb3c2b1c6f5a40ea94515173b2fb",
+      "originalEvidencePayloadSha256": "c93289d1e7b614fc0a001c59ba2db5a362b6fb3c2b1c6f5a40ea94515173b2fb",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "Our reporting currency is the U.S. dollar.",
+          "BUNGE LIMITED"
+        ],
+        "availableAt": "2023-02-24",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451923000010/bg-20221231.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/bg-dated-currency-primary/0001144519/000114451923000010/bg-20221231.htm",
+        "documentSha256": "bcd8ce256925eb4663aab01f5c13211513eecb24966b03201e8acb226dfce967",
+        "form": "10-K",
+        "accession": "0001144519-23-000010",
+        "cik": "0001144519",
+        "inference": false,
+        "limitations": "Currency evidence only; original numeric values, ownership, dates, guidance and model reviews are not changed or approved.",
+        "paragraphSha256": [
+          "3ded3c8e036cbcbc360b54e71819cf16d606ca4787b95735a336ed22a655bab2",
+          "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+      "perShareValue": 12.5
+    }
+  },
+  {
+    "ticker": "BG",
+    "sourceId": "4dafa6e596714255dc86dbae",
+    "observedAt": "2021-02-10",
+    "evidence": "As Greg mentioned in his remarks, taking into account the current margin environment and forward curves, we expect full year 2021 adjusted EPS of at least $6 per share.",
+    "currency": "USD",
+    "amount": null,
+    "unit": "currency_per_share",
+    "metricName": "eps_guidance",
+    "fiscalPeriod": "Q42020",
+    "perShareValue": 6,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "BG",
+      "sourceId": "4dafa6e596714255dc86dbae",
+      "observedAt": "2021-02-10",
+      "originalQuoteSha256": "a6d6e1cb19c5e855a4cefd742795c49751224c0fe50f5fb3d1c9768b9d236c10",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "eps_guidance",
+      "fiscalPeriod": "Q42020",
+      "amountM": null,
+      "unit": "currency_per_share",
+      "sourceLedgerSha256": "59eddc958612ff6437a86449b4674913e7b046ead3993bd0b8fba11d8ea9ba7b",
+      "preEnrichmentPayloadSha256": "c3e0a5ff60dab26b598f842b0c3c197f0e6092281673533135eeab9c0baa1ad6",
+      "originalEvidencePayloadSha256": "c3e0a5ff60dab26b598f842b0c3c197f0e6092281673533135eeab9c0baa1ad6",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "Bunge's reporting currency is the U.S. dollar.",
+          "BUNGE LIMITED"
+        ],
+        "availableAt": "2020-02-21",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451920000004/bg-12312019x10k.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/bg-dated-currency-primary/0001144519/000114451920000004/bg-12312019x10k.htm",
+        "documentSha256": "0827e22a02107e7f27bd38d468129cf82638eeaa2f790c6d3430ed7095c31382",
+        "form": "10-K",
+        "accession": "0001144519-20-000004",
+        "cik": "0001144519",
+        "inference": false,
+        "limitations": "Currency evidence only; original numeric values, ownership, dates, guidance and model reviews are not changed or approved.",
+        "paragraphSha256": [
+          "f853a3359c5073590d445fc737ddec22c8403d110ae87ae00bd333ca1e9434bf",
+          "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+      "perShareValue": 6
+    }
+  },
+  {
+    "ticker": "BG",
+    "sourceId": "93a540b972b25c0df579717b",
+    "observedAt": "2022-02-09",
+    "evidence": "Based on what we see in the forward curves, we expect to deliver adjusted EPS of at least $9.50 for the full year, which will be the second highest earnings result in Bunge's history.",
+    "currency": "USD",
+    "amount": null,
+    "unit": "currency_per_share",
+    "metricName": "eps_guidance",
+    "fiscalPeriod": "Q42021",
+    "perShareValue": 9.5,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "BG",
+      "sourceId": "93a540b972b25c0df579717b",
+      "observedAt": "2022-02-09",
+      "originalQuoteSha256": "ee7ec233be1b455e8ff6f6a59b72d550747627cb6c608f9fa4a2bf2c18f14fe0",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "eps_guidance",
+      "fiscalPeriod": "Q42021",
+      "amountM": null,
+      "unit": "currency_per_share",
+      "sourceLedgerSha256": "59eddc958612ff6437a86449b4674913e7b046ead3993bd0b8fba11d8ea9ba7b",
+      "preEnrichmentPayloadSha256": "8f3319c4ecff2e1ba126e34aa1ac8cfe87e2649232e0092db222ea761fc4905d",
+      "originalEvidencePayloadSha256": "8f3319c4ecff2e1ba126e34aa1ac8cfe87e2649232e0092db222ea761fc4905d",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "Our reporting currency is the U.S. dollar.",
+          "BUNGE LIMITED"
+        ],
+        "availableAt": "2021-02-19",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451921000006/bg-20201231.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/bg-dated-currency-primary/0001144519/000114451921000006/bg-20201231.htm",
+        "documentSha256": "a4610a75bd4d88371e544aae2e6844f9a29bdf3d99658ed9730f224661bbd0eb",
+        "form": "10-K",
+        "accession": "0001144519-21-000006",
+        "cik": "0001144519",
+        "inference": false,
+        "limitations": "Currency evidence only; original numeric values, ownership, dates, guidance and model reviews are not changed or approved.",
+        "paragraphSha256": [
+          "3ded3c8e036cbcbc360b54e71819cf16d606ca4787b95735a336ed22a655bab2",
+          "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+      "perShareValue": 9.5
+    }
+  },
+  {
+    "ticker": "BG",
+    "sourceId": "b5ba49fd6fbcf12fa7bfb418",
+    "observedAt": "2022-02-09",
+    "evidence": "As Greg mentioned in his remarks, taking into account the current margin environment and forward curves, we expect full-year 2022 Adjusted EPS of at least $9.50 per share.",
+    "currency": "USD",
+    "amount": null,
+    "unit": "currency_per_share",
+    "metricName": "eps_guidance",
+    "fiscalPeriod": "Q42021",
+    "perShareValue": 9.5,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "BG",
+      "sourceId": "b5ba49fd6fbcf12fa7bfb418",
+      "observedAt": "2022-02-09",
+      "originalQuoteSha256": "850cced15ad27803f2e480a98f9afdaa102d74d75769d2dbfe57d12ba056bb60",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "eps_guidance",
+      "fiscalPeriod": "Q42021",
+      "amountM": null,
+      "unit": "currency_per_share",
+      "sourceLedgerSha256": "59eddc958612ff6437a86449b4674913e7b046ead3993bd0b8fba11d8ea9ba7b",
+      "preEnrichmentPayloadSha256": "54430c0242fb80a882a7ae9f3949f2f478697bc69f38f9f4b79c8b6b7e139927",
+      "originalEvidencePayloadSha256": "54430c0242fb80a882a7ae9f3949f2f478697bc69f38f9f4b79c8b6b7e139927",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "Our reporting currency is the U.S. dollar.",
+          "BUNGE LIMITED"
+        ],
+        "availableAt": "2021-02-19",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451921000006/bg-20201231.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/bg-dated-currency-primary/0001144519/000114451921000006/bg-20201231.htm",
+        "documentSha256": "a4610a75bd4d88371e544aae2e6844f9a29bdf3d99658ed9730f224661bbd0eb",
+        "form": "10-K",
+        "accession": "0001144519-21-000006",
+        "cik": "0001144519",
+        "inference": false,
+        "limitations": "Currency evidence only; original numeric values, ownership, dates, guidance and model reviews are not changed or approved.",
+        "paragraphSha256": [
+          "3ded3c8e036cbcbc360b54e71819cf16d606ca4787b95735a336ed22a655bab2",
+          "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+      "perShareValue": 9.5
+    }
+  },
+  {
+    "ticker": "BG",
+    "sourceId": "59e813f09a960554bf4922d2",
+    "observedAt": "2023-02-08",
+    "evidence": "Based on what we see in the market and the forward curves today, we expect full-year adjusted EPS of at least $11 per share for 2023.",
+    "currency": "USD",
+    "amount": null,
+    "unit": "currency_per_share",
+    "metricName": "eps_guidance",
+    "fiscalPeriod": "Q42022",
+    "perShareValue": 11,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "BG",
+      "sourceId": "59e813f09a960554bf4922d2",
+      "observedAt": "2023-02-08",
+      "originalQuoteSha256": "1857efe71989ecc80a34aed1afe5811ef1a60c010e9a7203340370071fad7f96",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "eps_guidance",
+      "fiscalPeriod": "Q42022",
+      "amountM": null,
+      "unit": "currency_per_share",
+      "sourceLedgerSha256": "59eddc958612ff6437a86449b4674913e7b046ead3993bd0b8fba11d8ea9ba7b",
+      "preEnrichmentPayloadSha256": "021aab7b6fdbd15ef049b11992fe0e763e23d8242e890ebb9983991214518090",
+      "originalEvidencePayloadSha256": "021aab7b6fdbd15ef049b11992fe0e763e23d8242e890ebb9983991214518090",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "Our reporting currency is the U.S. dollar.",
+          "BUNGE LIMITED"
+        ],
+        "availableAt": "2022-02-24",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451922000017/bg-20211231.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/bg-dated-currency-primary/0001144519/000114451922000017/bg-20211231.htm",
+        "documentSha256": "d0e768af3043103f80d4cdcb68948e651988b4ec5a169334f7836d278c2b4f32",
+        "form": "10-K",
+        "accession": "0001144519-22-000017",
+        "cik": "0001144519",
+        "inference": false,
+        "limitations": "Currency evidence only; original numeric values, ownership, dates, guidance and model reviews are not changed or approved.",
+        "paragraphSha256": [
+          "3ded3c8e036cbcbc360b54e71819cf16d606ca4787b95735a336ed22a655bab2",
+          "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+      "perShareValue": 11
+    }
+  },
+  {
+    "ticker": "BG",
+    "sourceId": "f5271d02782476d398b7602a",
+    "observedAt": "2023-02-08",
+    "evidence": "As Greg mentioned in his remarks, taking into account the current margin environment and forward curves, we expect full-year 2023 adjusted EPS of at least $11 per share.",
+    "currency": "USD",
+    "amount": null,
+    "unit": "currency_per_share",
+    "metricName": "eps_guidance",
+    "fiscalPeriod": "Q42022",
+    "perShareValue": 11,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "BG",
+      "sourceId": "f5271d02782476d398b7602a",
+      "observedAt": "2023-02-08",
+      "originalQuoteSha256": "d1af8f1c42e607d31b561dc0482d371e64497c38d3d1844add7a4c6e6901792d",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_company_reporting_currency_declaration",
+      "reportingCurrencyOverride": false,
+      "metricName": "eps_guidance",
+      "fiscalPeriod": "Q42022",
+      "amountM": null,
+      "unit": "currency_per_share",
+      "sourceLedgerSha256": "59eddc958612ff6437a86449b4674913e7b046ead3993bd0b8fba11d8ea9ba7b",
+      "preEnrichmentPayloadSha256": "e70a1aa6fb8f1c4e882f3d2230a8ad20255365941e686e7da5e880490daacbae",
+      "originalEvidencePayloadSha256": "e70a1aa6fb8f1c4e882f3d2230a8ad20255365941e686e7da5e880490daacbae",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_company_reporting_currency_declaration",
+        "quotes": [
+          "Our reporting currency is the U.S. dollar.",
+          "BUNGE LIMITED"
+        ],
+        "availableAt": "2022-02-24",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1144519/000114451922000017/bg-20211231.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/bg-dated-currency-primary/0001144519/000114451922000017/bg-20211231.htm",
+        "documentSha256": "d0e768af3043103f80d4cdcb68948e651988b4ec5a169334f7836d278c2b4f32",
+        "form": "10-K",
+        "accession": "0001144519-22-000017",
+        "cik": "0001144519",
+        "inference": false,
+        "limitations": "Currency evidence only; original numeric values, ownership, dates, guidance and model reviews are not changed or approved.",
+        "paragraphSha256": [
+          "3ded3c8e036cbcbc360b54e71819cf16d606ca4787b95735a336ed22a655bab2",
+          "e29e560ff8db118dc59e80ceed935fc26dfeff69e59a57b68ff640aeb2847dfa"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+      "perShareValue": 11
+    }
+  },
+  {
+    "ticker": "BG",
+    "sourceId": "1636a1cdb25756132545ffd5",
+    "observedAt": "2024-02-07",
+    "evidence": "For the full year, we expect to generate Adjusted EPS of approximately $9.",
+    "currency": "USD",
+    "amount": null,
+    "unit": "currency_per_share",
+    "metricName": "eps_guidance",
+    "fiscalPeriod": "Q42023",
+    "perShareValue": 9,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "BG",
+      "sourceId": "1636a1cdb25756132545ffd5",
+      "observedAt": "2024-02-07",
+      "originalQuoteSha256": "8134d661ce4c2e3103172ab7696bfd4e6d09145d144f73e8a216612e95a78e38",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_consolidated_statement_currency_units",
+      "reportingCurrencyOverride": false,
+      "metricName": "eps_guidance",
+      "fiscalPeriod": "Q42023",
+      "amountM": null,
+      "unit": "currency_per_share",
+      "sourceLedgerSha256": "59eddc958612ff6437a86449b4674913e7b046ead3993bd0b8fba11d8ea9ba7b",
+      "preEnrichmentPayloadSha256": "022404e8346f86a98197ae15fe7d697b71a6d5e2aff995d28858751afcc60ebd",
+      "originalEvidencePayloadSha256": "022404e8346f86a98197ae15fe7d697b71a6d5e2aff995d28858751afcc60ebd",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_consolidated_statement_currency_units",
+        "quotes": [
+          "Consolidated Earnings Data (Unaudited) Quarter Ended December 31, Year Ended December 31, (US$ in millions, except per share data)",
+          "Condensed Consolidated Balance Sheets (Unaudited) December 31, (US$ in millions)",
+          "On November 1, 2023 Bunge Global SA completed the change of its jurisdiction of incorporation of its group holding company from Bermuda to Switzerland (the “Redomestication”). The Redomestication, which was approved by Bunge Limited shareholders on October 5, 2023, was effected pursuant to a scheme of arrangement under Bermuda law. Each common share of Bunge Limited was cancelled in exchange for an equal number and par value of registered shares of Bunge Global SA (the “registered shares”)."
+        ],
+        "availableAt": "2024-02-07",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1996862/000199686224000002/epr12312023.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/currency-lane-bg-maa-primary-v2-20260906/BG/epr12312023.htm",
+        "documentSha256": "092691ad95090d8695d1e22aff68b62edd983269e5e40024e17af66e9fd86119",
+        "form": "8-K",
+        "accession": "0001996862-24-000002",
+        "cik": "0001996862",
+        "inference": false,
+        "limitations": "Currency evidence only; original numeric values, ownership, dates, guidance and model reviews are not changed or approved.",
+        "paragraphSha256": [
+          "33bbd1c871dd6138103ead56585e7b85c0d604c89edab351e96b1e940e3f1ab6",
+          "35f7366601c18f7e45663df23f16e7c074a7f58cb4b5099d36d45a1693eb4d4b",
+          "bcb98aea00e0872a3b9ef7f7b84e2e36fb265bbd9f9dc39e59e68b715e045c1b"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+      "perShareValue": 9
+    }
+  },
+  {
+    "ticker": "BG",
+    "sourceId": "9329936463a9c506e59d0691",
+    "observedAt": "2024-02-07",
+    "evidence": "As Greg mentioned in his remarks, taking into account the current margin environment and forward curves, we expect full year 2024 adjusted EPS of approximately $9.",
+    "currency": "USD",
+    "amount": null,
+    "unit": "currency_per_share",
+    "metricName": "eps_guidance",
+    "fiscalPeriod": "Q42023",
+    "perShareValue": 9,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "BG",
+      "sourceId": "9329936463a9c506e59d0691",
+      "observedAt": "2024-02-07",
+      "originalQuoteSha256": "65ed22d872f650336a510851916f8872972fa18e9d4c5b99328dfba3f0e670e6",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "explicit_consolidated_statement_currency_units",
+      "reportingCurrencyOverride": false,
+      "metricName": "eps_guidance",
+      "fiscalPeriod": "Q42023",
+      "amountM": null,
+      "unit": "currency_per_share",
+      "sourceLedgerSha256": "59eddc958612ff6437a86449b4674913e7b046ead3993bd0b8fba11d8ea9ba7b",
+      "preEnrichmentPayloadSha256": "255dd0db84fa911371a6a5f8431a5514b5fef636960ba21b50c094fcb3d5aa74",
+      "originalEvidencePayloadSha256": "255dd0db84fa911371a6a5f8431a5514b5fef636960ba21b50c094fcb3d5aa74",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "explicit_consolidated_statement_currency_units",
+        "quotes": [
+          "Consolidated Earnings Data (Unaudited) Quarter Ended December 31, Year Ended December 31, (US$ in millions, except per share data)",
+          "Condensed Consolidated Balance Sheets (Unaudited) December 31, (US$ in millions)",
+          "On November 1, 2023 Bunge Global SA completed the change of its jurisdiction of incorporation of its group holding company from Bermuda to Switzerland (the “Redomestication”). The Redomestication, which was approved by Bunge Limited shareholders on October 5, 2023, was effected pursuant to a scheme of arrangement under Bermuda law. Each common share of Bunge Limited was cancelled in exchange for an equal number and par value of registered shares of Bunge Global SA (the “registered shares”)."
+        ],
+        "availableAt": "2024-02-07",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1996862/000199686224000002/epr12312023.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/currency-lane-bg-maa-primary-v2-20260906/BG/epr12312023.htm",
+        "documentSha256": "092691ad95090d8695d1e22aff68b62edd983269e5e40024e17af66e9fd86119",
+        "form": "8-K",
+        "accession": "0001996862-24-000002",
+        "cik": "0001996862",
+        "inference": false,
+        "limitations": "Currency evidence only; original numeric values, ownership, dates, guidance and model reviews are not changed or approved.",
+        "paragraphSha256": [
+          "33bbd1c871dd6138103ead56585e7b85c0d604c89edab351e96b1e940e3f1ab6",
+          "35f7366601c18f7e45663df23f16e7c074a7f58cb4b5099d36d45a1693eb4d4b",
+          "bcb98aea00e0872a3b9ef7f7b84e2e36fb265bbd9f9dc39e59e68b715e045c1b"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+      "perShareValue": 9
+    }
+  },
+  {
+    "ticker": "MAA",
+    "sourceId": "0af4b2954039a743afdaeb74",
+    "observedAt": "2019-05-02",
+    "evidence": "We now expect net income per diluted common share to be $2.19-$2.43 per share for the full year.",
+    "currency": "USD",
+    "amount": null,
+    "unit": "currency_per_share",
+    "metricName": "eps_guidance",
+    "fiscalPeriod": "Q12019",
+    "perShareValue": 2.31,
+    "contract": {
+      "version": "event-specific-official-currency-v1-2026-09-06",
+      "ticker": "MAA",
+      "sourceId": "0af4b2954039a743afdaeb74",
+      "observedAt": "2019-05-02",
+      "originalQuoteSha256": "f3354e79c49ba00ee7dee7e2ca3af144e021bf11314d39442c30e9c42b35362c",
+      "originalQuotedCurrency": null,
+      "resolvedCurrency": "USD",
+      "evidenceType": "dated_parent_statement_xbrl_currency",
+      "reportingCurrencyOverride": false,
+      "metricName": "eps_guidance",
+      "fiscalPeriod": "Q12019",
+      "amountM": null,
+      "unit": "currency_per_share",
+      "sourceLedgerSha256": "59eddc958612ff6437a86449b4674913e7b046ead3993bd0b8fba11d8ea9ba7b",
+      "preEnrichmentPayloadSha256": "d3d4bb3d025cf684acc2d9772d9a588c305b29d6822434f129b4730be4104d0b",
+      "originalEvidencePayloadSha256": "d3d4bb3d025cf684acc2d9772d9a588c305b29d6822434f129b4730be4104d0b",
+      "proof": {
+        "currency": "USD",
+        "evidenceType": "dated_parent_statement_xbrl_currency",
+        "quotes": [
+          "Mid-America Apartment Communities, Inc. Consolidated Balance Sheets December 31, 2018 and 2017 ( Dollars in thousands, except share and per share data)"
+        ],
+        "availableAt": "2019-02-21",
+        "sourceUrl": "https://www.sec.gov/Archives/edgar/data/912595/000091259519000015/maa12312018-10k.htm",
+        "documentPath": "output/guru-valuation-expansion-2026-09-05/currency-lane-bg-maa-primary-v2-20260906/MAA/maa12312018-10k.htm",
+        "documentSha256": "dd92bab934c9c0694f7f9025b760e17f815385ffef26a7ad7a4617f27a060989",
+        "form": "10-K",
+        "accession": "0000912595-19-000015",
+        "cik": "0000912595",
+        "inference": false,
+        "limitations": "Currency evidence only; original numeric values, ownership, dates, guidance and model reviews are not changed or approved.",
+        "xbrlStatementEvidence": {
+          "sourceUrl": "https://www.sec.gov/Archives/edgar/data/912595/000091259519000015/maa-20181231.xml",
+          "documentPath": "output/guru-valuation-expansion-2026-09-05/currency-lane-bg-maa-primary-v2-20260906/MAA/maa-20181231.xml",
+          "documentSha256": "29b937f29516f0cbe72f9cfa6d727ea6dbd615c75f66e82d5ce16de94e76d068",
+          "fragments": [
+            {
+              "key": "unit:usd",
+              "raw": "<xbrli:unit id=\"usd\">\n\t\t<xbrli:measure>iso4217:USD</xbrli:measure>\n\t</xbrli:unit>"
+            },
+            {
+              "key": "unit:usdPerShare",
+              "raw": "<xbrli:unit id=\"usdPerShare\">\n\t\t<xbrli:divide>\n\t\t\t<xbrli:unitNumerator>\n\t\t\t\t<xbrli:measure>iso4217:USD</xbrli:measure>\n\t\t\t</xbrli:unitNumerator>\n\t\t\t<xbrli:unitDenominator>\n\t\t\t\t<xbrli:measure>xbrli:shares</xbrli:measure>\n\t\t\t</xbrli:unitDenominator>\n\t\t</xbrli:divide>\n\t</xbrli:unit>"
+            },
+            {
+              "key": "context:FI2018Q4_srt_ConsolidatedEntitiesAxis_srt_ParentCompanyMember",
+              "raw": "<xbrli:context id=\"FI2018Q4_srt_ConsolidatedEntitiesAxis_srt_ParentCompanyMember\">\n\t\t<xbrli:entity>\n\t\t\t<xbrli:identifier scheme=\"http://www.sec.gov/CIK\">0000912595</xbrli:identifier>\n\t\t\t<xbrli:segment>\n\t\t\t\t<xbrldi:explicitMember dimension=\"srt:ConsolidatedEntitiesAxis\">srt:ParentCompanyMember</xbrldi:explicitMember>\n\t\t\t</xbrli:segment>\n\t\t</xbrli:entity>\n\t\t<xbrli:period>\n\t\t\t<xbrli:instant>2018-12-31</xbrli:instant>\n\t\t</xbrli:period>\n\t</xbrli:context>"
+            },
+            {
+              "key": "context:FD2018Q4YTD_srt_ConsolidatedEntitiesAxis_srt_ParentCompanyMember",
+              "raw": "<xbrli:context id=\"FD2018Q4YTD_srt_ConsolidatedEntitiesAxis_srt_ParentCompanyMember\">\n\t\t<xbrli:entity>\n\t\t\t<xbrli:identifier scheme=\"http://www.sec.gov/CIK\">0000912595</xbrli:identifier>\n\t\t\t<xbrli:segment>\n\t\t\t\t<xbrldi:explicitMember dimension=\"srt:ConsolidatedEntitiesAxis\">srt:ParentCompanyMember</xbrldi:explicitMember>\n\t\t\t</xbrli:segment>\n\t\t</xbrli:entity>\n\t\t<xbrli:period>\n\t\t\t<xbrli:startDate>2018-01-01</xbrli:startDate>\n\t\t\t<xbrli:endDate>2018-12-31</xbrli:endDate>\n\t\t</xbrli:period>\n\t</xbrli:context>"
+            },
+            {
+              "key": "fact:Assets",
+              "raw": "<us-gaap:Assets contextRef=\"FI2018Q4_srt_ConsolidatedEntitiesAxis_srt_ParentCompanyMember\" decimals=\"-3\" id=\"Fact-9ADDE4000123502ABDE4E8F765B02DE8\" unitRef=\"usd\">11323781000</us-gaap:Assets>"
+            },
+            {
+              "key": "fact:Revenues",
+              "raw": "<us-gaap:Revenues contextRef=\"FD2018Q4YTD_srt_ConsolidatedEntitiesAxis_srt_ParentCompanyMember\" decimals=\"-3\" id=\"Fact-853E534DC17158A88C12A268F4496505\" unitRef=\"usd\">1571346000</us-gaap:Revenues>"
+            },
+            {
+              "key": "fact:NetCashProvidedByUsedInOperatingActivities",
+              "raw": "<us-gaap:NetCashProvidedByUsedInOperatingActivities contextRef=\"FD2018Q4YTD_srt_ConsolidatedEntitiesAxis_srt_ParentCompanyMember\" decimals=\"-3\" id=\"Fact-D2E30FCD8D7D56F6847886C5184C8D0B\" unitRef=\"usd\">734292000</us-gaap:NetCashProvidedByUsedInOperatingActivities>"
+            },
+            {
+              "key": "fact:EarningsPerShareDiluted",
+              "raw": "<us-gaap:EarningsPerShareDiluted contextRef=\"FD2018Q4YTD_srt_ConsolidatedEntitiesAxis_srt_ParentCompanyMember\" decimals=\"2\" id=\"Fact-2183A5F3254B5DA3A60A1D6F6A4C92F9\" unitRef=\"usdPerShare\">1.93</us-gaap:EarningsPerShareDiluted>"
+            }
+          ],
+          "fragmentsSha256": [
+            "8c1bc42fb0610a89dca19e8f47b034c54ac69593569837b00a39f65662d31b77",
+            "61e6eb7243a66db67d21dbf36c435dbc4f0863448aeb3fa59625e64805ff9866",
+            "09d394310b1cf9cc5050976b9583caa9c7c8f1c7c6110e49a54fe3ef1bd9a9ca",
+            "7d62439458b5ca0b710c0699afed780a8b85faa44daa27da9594f26d88e3ec3c",
+            "fe729b75b97b3cc25995832b07daf7af1f12a08a057d5a7f53f59a8c16e7c11d",
+            "e2da90a5b6b435499220e95277005d16fa3db7104e31d0fc64d785f07f0f0bc1",
+            "7d23b8cc138a0485a5cd6cb29ddc64ac5a41d9a325bda6b67f6d8bba8344e588",
+            "0df5f9a1037a2fd0d85ef198c47527faf7c7e52541c0923c0bc1d56caa3457f4"
+          ],
+          "unitScope": "Exact MAA ParentCompanyMember: aggregate Assets, Revenues, operating cash, and diluted EPS; excludes LP and all business-segment axes."
+        },
+        "paragraphSha256": [
+          "a24c0987621f15bdff2c9527fd0146bc748d08ae081051b8e0c84828fd696e7c"
+        ],
+        "documentVerification": "frozen_original_html_sha256_and_exact_normalized_paragraphs_verified"
+      },
+      "policy": "Currency-only event evidence; original quote, financial reporting currency, source ownership, scope, amounts, growth and model review state unchanged. Full independent source/model audits still required.",
+      "perShareValue": 2.31
+    }
+  }
+]

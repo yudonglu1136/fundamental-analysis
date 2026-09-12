@@ -1,5 +1,6 @@
 import { XMLParser } from "fast-xml-parser";
 import {reportAnalysisAccounts} from './portfolioReport.js';
+import {ibkrReportRange} from './ibkrReportRange.js';
 import { AsyncUserCache } from './asyncUserCache.js';
 import {
   readPriceSeriesFromDb,
@@ -804,7 +805,8 @@ function safeUrlLocation(url) {
   }
 }
 
-async function loadIbkrFlexXml(queryId = ibkrFlexQueryId, connection = {}) {
+export async function loadIbkrFlexXml(queryId = ibkrFlexQueryId, connection = {}, range = {}) {
+  const dates = ibkrReportRange(range);
   const flexToken = connection.ibkrFlexToken || ibkrFlexToken;
   const flexBaseUrl = String(connection.ibkrFlexBaseUrl || ibkrFlexBaseUrl).replace(/\/+$/, "");
   if (!flexToken || !queryId) {
@@ -817,13 +819,14 @@ async function loadIbkrFlexXml(queryId = ibkrFlexQueryId, connection = {}) {
   sendUrl.searchParams.set("t", flexToken);
   sendUrl.searchParams.set("q", queryId);
   sendUrl.searchParams.set("v", "3");
+  for (const [key, value] of Object.entries(dates)) sendUrl.searchParams.set(key, value);
 
   const sendXml = await fetchXml(sendUrl, "IBKR Flex SendRequest");
   const sendParsed = xmlParser.parse(sendXml);
   const sendRoot = flexResponseRoot(sendParsed);
   const status = textValue(sendRoot.Status || sendRoot.status).toLowerCase();
   if (status && status !== "success" && status !== "ok") {
-    throw new Error(flexErrorMessage(sendRoot, "IBKR Flex SendRequest failed."));
+    throw new Error(`IBKR SendRequest: ${flexErrorMessage(sendRoot, "Request failed.")}`);
   }
 
   const referenceCode = textValue(
@@ -860,7 +863,7 @@ async function loadIbkrFlexXml(queryId = ibkrFlexQueryId, connection = {}) {
     if (parsed.FlexQueryResponse || parsed.FlexStatementResponse) {
       const root = flexResponseRoot(parsed);
       const rootStatus = textValue(root.Status || root.status).toLowerCase();
-      lastError = new Error(flexErrorMessage(root, "IBKR Flex statement is not ready."));
+      lastError = new Error(`IBKR GetStatement: ${flexErrorMessage(root, "Statement is not ready.")}`);
       if (rootStatus === "success" || rootStatus === "ok") continue;
       if (/not ready|processing|try again|temporarily/i.test(lastError.message)) continue;
       throw lastError;
@@ -1670,6 +1673,14 @@ async function loadIbkrAccountPortfolio(connection, accountConfig, {
   ) {
     try {
       historyParsed = await loadIbkrFlexXml(accountConfig.ibkrFlexHistoryQueryId, accountConnection);
+    } catch (error) {
+      historyError = error;
+    }
+  } else {
+    // The existing template can return daily NAV and trades without a second
+    // query ID. A failed history request must not erase the current holdings.
+    try {
+      historyParsed = await loadIbkrFlexXml(accountConfig.ibkrFlexQueryId, accountConnection, {periodDays:365});
     } catch (error) {
       historyError = error;
     }

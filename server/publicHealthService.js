@@ -56,7 +56,7 @@ export function createPublicHealthService({
     const pending = (async () => {
       const ontology = await resolveOntology();
       const generatedAt = Number(now());
-      const health = buildHealth({
+      const health = await buildHealth({
         ontology,
         ...(Number.isFinite(generatedAt) ? { now: generatedAt } : {})
       });

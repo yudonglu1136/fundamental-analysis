@@ -214,7 +214,7 @@ export function resolveTrailingCommonPriceEnd({
   };
 }
 
-function allocateAtClose(rebalance, portfolioValue, priceMaps) {
+export function allocateAtClose(rebalance, portfolioValue, priceMaps, allowExplicitCash = false) {
   const weights = normalizedWeights(rebalance);
   const weightSum = weights.reduce((sum, holding) => sum + holding.weight, 0);
   const explicitCashWeight = Number(rebalance?.cashWeight);
@@ -226,7 +226,9 @@ function allocateAtClose(rebalance, portfolioValue, priceMaps) {
       resolution?.considerationType === "cash" &&
       resolution?.timing === "before_modeled_execution"
     );
-  if ((!weights.length && !auditedCashOnly) || weightSum > 1 + reconciliationTolerance) {
+  const explicitStrategyCash = allowExplicitCash && weights.length === 0 &&
+    explicitCashWeight === 1 && rebalance.cashReason === 'strategy_rules';
+  if ((!weights.length && !auditedCashOnly && !explicitStrategyCash) || weightSum > 1 + reconciliationTolerance) {
     return {
       ok: false,
       failure: {
@@ -320,7 +322,7 @@ function allocateAtClose(rebalance, portfolioValue, priceMaps) {
   };
 }
 
-function markPositions(active, date, priceMaps) {
+export function markPositions(active, date, priceMaps) {
   const missing = [];
   const transitionPending = [];
   const values = [];
@@ -583,7 +585,8 @@ export function simulateDriftedPortfolio({
   tradingDates,
   priceMaps,
   benchmarkSymbol = "SPY",
-  endDate = null
+  endDate = null,
+  allowExplicitCash = false
 }) {
   const orderedRebalances = [...(rebalances || [])]
     .filter((rebalance) => rebalance?.executionDate)
@@ -622,7 +625,7 @@ export function simulateDriftedPortfolio({
   let benchmarkValue = 1;
   let priorBenchmarkPrice = firstBenchmarkPrice;
   let rebalanceIndex = 0;
-  let active = allocateAtClose(orderedRebalances[0], portfolioValue, priceMaps);
+  let active = allocateAtClose(orderedRebalances[0], portfolioValue, priceMaps, allowExplicitCash);
   if (!active.ok) {
     return simulationFailure(active.failure, {
       equity: [], portfolioReturns: [], benchmarkReturns: [], coverage: [], quarterContributions: []
@@ -677,7 +680,7 @@ export function simulateDriftedPortfolio({
         finishInterval(active, marked, date, benchmarkPrice, nextRebalance.executionDate)
       );
       rebalanceIndex += 1;
-      active = allocateAtClose(nextRebalance, portfolioValue, priceMaps);
+      active = allocateAtClose(nextRebalance, portfolioValue, priceMaps, allowExplicitCash);
       if (!active.ok) {
         return simulationFailure(active.failure, {
           equity, portfolioReturns, benchmarkReturns, coverage, quarterContributions

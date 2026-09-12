@@ -1,0 +1,17 @@
+{
+  "ticker": "TBBB",
+  "fiscal_period": "Q42025",
+  "observed_at": "2026-03-11",
+  "source_url": "https://www.sec.gov/Archives/edgar/data/1978954/000119312526102363/tbbb_4q25_earnings_relea.htm",
+  "source_location": "2026 guidance, release page 12",
+  "source_kind": "official_issuer_sec_filing",
+  "evidence": "2026 Guidance. total revenue is forecast to grow by 29% to 32%.",
+  "expected": {
+    "guidance_scope": "full_year",
+    "guidance_target_year": 2026,
+    "growth_yoy": 30.5,
+    "amount": null,
+    "currency": null
+  },
+  "notes": "Verified official heading and short excerpt, joined for the regression fixture. FY2025/Q4 is the reported fiscal period; FY2026 is the forward target. There is no monetary revenue guidance in this excerpt."
+}

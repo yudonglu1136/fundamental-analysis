@@ -5,6 +5,10 @@ import test from "node:test";
 import { gurus } from "./gurus.js";
 
 const addedManagers = new Map([
+  ["william-heard", {name: "William Heard", chineseName: "威廉·赫德", entityName: "Heard Capital LLC", cik: "0001796409", alternateCiks: []}],
+  ["evan-mcgoff", {name: "Evan McGoff", chineseName: "埃文·麦戈夫", entityName: "DOCK STREET ASSET MANAGEMENT INC", cik: "0001172779", alternateCiks: []}],
+  ["michael-cuggino", {name: "Michael Cuggino", chineseName: "迈克尔·库吉诺", entityName: "PACIFIC HEIGHTS ASSET MANAGEMENT LLC", cik: "0001323414", alternateCiks: []}],
+  ["john-stamas", {name: "John Stamas", chineseName: "约翰·斯塔马斯", entityName: "Defender Capital, LLC.", cik: "0001766929", alternateCiks: []}],
   [
     "chris-hohn",
     {
@@ -101,9 +105,9 @@ test("guru catalog has the audited manager population", () => {
   const managers = gurus.filter((guru) => guru.type === "manager13f");
   const enabledManagers = managers.filter((guru) => !guru.disableSimulation);
 
-  assert.equal(gurus.length, 38);
-  assert.equal(managers.length, 29);
-  assert.equal(enabledManagers.length, 28);
+  assert.equal(gurus.length, 42);
+  assert.equal(managers.length, 33);
+  assert.equal(enabledManagers.length, 32);
   assert.deepEqual(
     managers.filter((guru) => guru.disableSimulation).map((guru) => guru.id).sort(),
     ["nick-sleep-qais-zakaria"]
@@ -140,7 +144,7 @@ test("every profile has a real Chinese display name instead of an English placeh
   }
 });
 
-test("the nine added managers have complete bilingual and strategy metadata", () => {
+test("the added managers have complete bilingual and strategy metadata", () => {
   for (const [id, expected] of addedManagers) {
     const guru = gurus.find((candidate) => candidate.id === id);
     assert.ok(guru, `${id} is configured`);

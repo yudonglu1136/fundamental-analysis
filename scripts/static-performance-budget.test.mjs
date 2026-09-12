@@ -154,8 +154,10 @@ test('entry resources revalidate and versioned assets use immutable caching', ()
   assert.match(cacheHeaderFor(vercel, '/guru-avatars/warren-buffett.png'), /immutable/i);
   assert.match(cacheHeaderFor(vercel, '/ontology/app.js'), /immutable/i);
   const mainSource = fs.readFileSync(mainPath, 'utf8');
-  assert.match(mainSource, /_guruAvatarAssetVersion\s*=\s*'144-\d{8}'/);
-  assert.match(mainSource, /versionedGuruAvatarUrl\(guru\['avatarUrl'\]\)/);
+  assert.match(mainSource, /_guruAvatarAssetVersion\s*=\s*'144-\d{8}(?:r[1-9]\d*)?'/);
+  assert.match(mainSource, /final url = resolvedGuruAvatarUrl\(guru\)/);
+  assert.match(mainSource, /return versionedGuruAvatarUrl\(value\)/);
+  assert.match(mainSource, /return versionedGuruAvatarUrl\('\/guru-avatars\/\$id\.png'\)/);
 });
 
 test('UI avatar payload stays within the 144px and 1 MiB performance budgets', () => {
