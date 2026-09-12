@@ -8,12 +8,17 @@ process.env.ONTOLOGY_API_ORIGIN = "https://ontology.example";
 
 const {
   default: proxyHandler,
+  config,
   createProxyHandler,
   forwardedHeaders,
   forwardedResponseHeaders,
   isPrivateInternalPath,
   targetUrl
 } = await import(`../api/proxy.js?test=${Date.now()}`);
+
+test("explicit platform duration accommodates the bounded 90-second strategy worker", () => {
+  assert.deepEqual(config, { maxDuration: 120 });
+});
 
 function request(path, search = "") {
   return {

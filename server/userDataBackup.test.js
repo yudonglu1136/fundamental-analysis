@@ -8,9 +8,10 @@ import { DatabaseSync } from 'node:sqlite';
 import { backupUserData,restoreUserData,discoverUserDatabases } from './userDataBackup.js';
 
 const key='ab'.repeat(32);
-function fixture(t) {
+function fixture(t, { investmentInPortfolioRoot = false } = {}) {
   const temp=fs.mkdtempSync(path.join(os.tmpdir(),'tf-backup-test-'));
-  const portfolios=path.join(temp,'live'),investment=path.join(temp,'investment.sqlite');
+  const portfolios=path.join(temp,'live');
+  const investment=path.join(investmentInPortfolioRoot?portfolios:temp,'investment.sqlite');
   fs.mkdirSync(portfolios);
   const dbs=[];
   for(const [n,nav] of [[1,100],[2,900]]) {
@@ -112,4 +113,36 @@ test('hard links and research aliases cannot duplicate or mix store identities',
   fs.unlinkSync(f.paths.registry);
   fs.symlinkSync(f.paths.investment,f.paths.research);
   assert.throws(()=>discoverUserDatabases(f.paths),/Research data/);
+});
+
+test('explicit investment journal in portfolio root backs up once with live WAL and restores all owner events',async t=>{
+  const f=fixture(t,{investmentInPortfolioRoot:true});
+  f.store.exec('PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0;');
+  f.store.prepare('INSERT INTO investment_events VALUES(?,?,?)').run('event-c','synthetic-owner-c','{"value":"private-synthetic-event"}');
+  assert.ok(fs.existsSync(f.paths.investment+'-wal'));
+  assert.ok(fs.existsSync(f.paths.investment+'-shm'));
+  const inventory=discoverUserDatabases(f.paths);
+  assert.equal(inventory.length,3);
+  assert.equal(inventory.filter(entry=>entry.logical==='investment.sqlite').length,1);
+  assert.equal(new Set(inventory.map(entry=>entry.file)).size,3);
+  const result=await backupUserData({...f,key});assert.equal(result.databases,3);
+  const restored=path.join(f.temp,'restored-root-journal');
+  assert.equal((await restoreUserData({input:f.output,output:restored,key})).databases,3);
+  const db=new DatabaseSync(path.join(restored,'investment.sqlite'),{readOnly:true});
+  try {
+    assert.equal(db.prepare('SELECT count(*) AS n FROM investment_events').get().n,3);
+    assert.equal(db.prepare('SELECT payload_json FROM investment_events WHERE owner_id=? AND id=?')
+      .get('synthetic-owner-c','event-c').payload_json,'{"value":"private-synthetic-event"}');
+  } finally {db.close();}
+});
+
+test('portfolio-root journal exception rejects unconfigured files, lookalikes and duplicate identities',t=>{
+  const f=fixture(t,{investmentInPortfolioRoot:true});
+  assert.throws(()=>discoverUserDatabases({...f.paths,investment:null}),/Unknown file/);
+  const unknown=path.join(f.paths.portfolios,'investment.sqlite-copy');
+  fs.writeFileSync(unknown,'synthetic-unknown');
+  assert.throws(()=>discoverUserDatabases(f.paths),/Unknown file/);
+  fs.unlinkSync(unknown);
+  fs.linkSync(f.paths.investment,f.paths.registry);
+  assert.throws(()=>discoverUserDatabases(f.paths),/overlap/);
 });

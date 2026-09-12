@@ -1,6 +1,10 @@
 import http from "node:http";
 import https from "node:https";
 
+// Explicit platform budget for the existing upstream deadline. The backend
+// bounds mixed-strategy workers at 90s; current Hobby Fluid supports 120s.
+export const config = { maxDuration: 120 };
+
 const LEGACY_AWS_ORIGIN =
   process.env.AWS_API_ORIGIN ||
   "https://backend.thesisforge.tech";

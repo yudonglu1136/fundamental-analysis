@@ -49,6 +49,11 @@ function newDirectory(dir) {
 }
 export function discoverUserDatabases(paths) {
   const entries = [];
+  // A configured private investment journal may share the portfolio root.
+  // Recognize only that exact file and its SQLite sidecars here; enumerate
+  // the database once, below, under its existing investment logical name.
+  const investmentFiles = new Set(paths.investment
+    ? ['', '-wal', '-shm'].map(suffix=>path.resolve(paths.investment)+suffix) : []);
   const add = (file, logical) => {
     if (!fs.existsSync(file)) return;
     fileStat(file);
@@ -65,7 +70,8 @@ export function discoverUserDatabases(paths) {
           if (!nested.isFile() || !/^portfolio\.sqlite(?:-wal|-shm)?$/.test(nested.name)) fail('Unknown file in user database inventory');
         }
         add(path.join(full,'portfolio.sqlite'),`portfolios/${item.name}/portfolio.sqlite`);
-      } else if (!/^(?:portfolio-admin|login-activity)\.sqlite(?:-wal|-shm)?$/.test(item.name)) {
+      } else if (!/^(?:portfolio-admin|login-activity)\.sqlite(?:-wal|-shm)?$/.test(item.name)
+        && !(item.isFile() && investmentFiles.has(path.resolve(full)))) {
         fail('Unknown file in user database inventory');
       }
     }
