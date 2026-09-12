@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "user-data": "node scripts/user-data-maintenance.mjs",
     "dev": "concurrently -k \"npm run server\" \"npm run client\"",
     "client": "bash scripts/flutter-dev.sh",
     "server": "API_AUTH_DEV_BYPASS=true node server/index.js",

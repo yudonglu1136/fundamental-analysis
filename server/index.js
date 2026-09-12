@@ -12,9 +12,11 @@ import { loadOperationCommentary } from "./commentarySearch.js";
 import { gurus } from "./gurus.js";
 import { registerOntologyRoutes } from "./ontologyClient.js";
 import { clearPortfolioCache, loadPortfolioDashboard, startPortfolioNavRecorder } from "./portfolioClient.js";
+import { portfolioResponsePrivacy, respondPortfolioBusy } from "./portfolioHttp.js";
+import { portfolioSyncResult } from "./portfolioSyncResult.js";
 import { registerAdminPortfolioUsersRoute } from "./adminPortfolioUsersRoute.js";
 import { requireAuth } from "./auth/requireAuth.js";
-import { requireAdmin } from "./auth/requireAdmin.js";
+import { ADMIN_OWNER_EMAIL, adminResponsePrivacy, requireAdmin } from "./auth/requireAdmin.js";
 import { recordLoginActivity, registerLoginActivityRoutes } from "./loginActivityRoutes.js";
 import {
   guruBacktestRefreshStatus,
@@ -82,6 +84,7 @@ const allowedOrigins = String(process.env.API_ALLOWED_ORIGINS || defaultAllowedO
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+app.use("/api/portfolio", portfolioResponsePrivacy);
 app.use(cors({
   origin(origin, callback) {
     const isLocalDevOrigin =
@@ -397,15 +400,11 @@ app.post("/api/internal/gurus/refresh", requireLoopbackRequest, requireInternalC
   }
 });
 
+app.use("/api/admin", adminResponsePrivacy);
 app.use("/api", requireAuth);
+// Apply the owner gate to every current and future Admin route, before reads.
+app.use("/api/admin", requireAdmin);
 app.use("/api", recordLoginActivity);
-
-const adminEmails = new Set(
-  String(process.env.ADMIN_EMAILS || "luyudong1136@gmail.com")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean)
-);
 
 function recordPortfolioRequestUser(request) {
   try {
@@ -448,6 +447,7 @@ app.get("/api/portfolio", async (request, response) => {
     const payload = await loadPortfolioDashboard({ forceRefresh, user: request.user });
     response.json(payload);
   } catch (error) {
+    if (respondPortfolioBusy(error, response)) return;
     response.status(500).json({ error: error.message });
   }
 });
@@ -473,6 +473,7 @@ app.post("/api/portfolio/connection", async (request, response) => {
       portfolio: payload
     });
   } catch (error) {
+    if (respondPortfolioBusy(error, response)) return;
     response.status(400).json({ error: "portfolio_connection_invalid", message: error.message });
   }
 });
@@ -489,6 +490,7 @@ app.post("/api/portfolio/accounts", async (request, response) => {
       portfolio: payload
     });
   } catch (error) {
+    if (respondPortfolioBusy(error, response)) return;
     response.status(400).json({ error: "portfolio_account_invalid", message: error.message });
   }
 });
@@ -507,12 +509,12 @@ app.post("/api/portfolio/sync", async (request, response) => {
   });
   try {
     recordPortfolioRequestUser(request);
-    clearPortfolioCache(request.user);
     const payload = await loadPortfolioDashboard({ forceRefresh: true, user: request.user });
+    const result = portfolioSyncResult(payload);
     writeBackgroundJobRun("portfolio_sync", {
       startedAt,
       finishedAt: new Date().toISOString(),
-      status: "success",
+      status: result.status,
       payload: {
         userHash,
         email: request.user?.email || "",
@@ -523,13 +525,8 @@ app.post("/api/portfolio/sync", async (request, response) => {
         connectionStatus: payload.connection?.status || ""
       }
     });
-    response.json({
-      ok: true,
-      syncedAt: new Date().toISOString(),
-      connection: payload.connection,
-      summary: payload.summary,
-      portfolio: payload
-    });
+    response.setHeader("Cache-Control", "no-store");
+    response.json(result.response);
   } catch (error) {
     writeBackgroundJobRun("portfolio_sync", {
       startedAt,
@@ -542,6 +539,7 @@ app.post("/api/portfolio/sync", async (request, response) => {
         error: error.message
       }
     });
+    if (respondPortfolioBusy(error, response)) return;
     response.status(500).json({ error: "portfolio_sync_failed", message: error.message });
   }
 });
@@ -585,6 +583,7 @@ app.post("/api/portfolio/connection/restore", async (request, response) => {
       portfolio: payload
     });
   } catch (error) {
+    if (respondPortfolioBusy(error, response)) return;
     response.status(500).json({ error: error.message });
   }
 });
@@ -596,6 +595,7 @@ app.post("/api/portfolio/dividends/refresh", async (_request, response) => {
     const result = await refreshDividendCalendarForTickers(payload.holdings || [], { force: true });
     response.json(result);
   } catch (error) {
+    if (respondPortfolioBusy(error, response)) return;
     response.status(500).json({ error: error.message });
   }
 });
@@ -604,10 +604,10 @@ registerAdminPortfolioUsersRoute(app);
 
 app.get("/api/admin/system-health", requireAdmin, async (_request, response) => {
   try {
-    response.setHeader("Cache-Control", "private, max-age=10");
+    response.setHeader("Cache-Control", "no-store");
     response.json(buildAdminSystemHealth({
       allowedOrigins,
-      adminEmails: [...adminEmails]
+      adminEmails: [ADMIN_OWNER_EMAIL]
     }));
   } catch (error) {
     response.status(500).json({
@@ -626,13 +626,14 @@ app.get("/api/admin/portfolio-users/:hash", requireAdmin, async (request, respon
     }
     const forceRefresh = request.query.refresh === "1" || request.query.refresh === "true";
     const portfolio = await loadPortfolioDashboard({ forceRefresh, user: target.user });
-    response.setHeader("Cache-Control", forceRefresh ? "no-store" : "private, max-age=30");
+    response.setHeader("Cache-Control", "no-store");
     response.json({
       generatedAt: new Date().toISOString(),
       user: target.publicUser,
       portfolio
     });
   } catch (error) {
+    if (respondPortfolioBusy(error, response)) return;
     response.status(500).json({ error: "admin_portfolio_detail_failed", message: error.message });
   }
 });

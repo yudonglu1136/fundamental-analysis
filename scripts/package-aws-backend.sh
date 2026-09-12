@@ -8,6 +8,10 @@ ontology_snapshot_path="${ONTOLOGY_SNAPSHOT_PATH:-server/data/ontology-snapshot.
 pit_migration_path="${PIT_MIGRATION_PATH:-server/data/valuation-pit-migration.sqlite.gz}"
 include_sqlite_db="${INCLUDE_SQLITE_DB:-0}"
 
+# Reject an unverified working tree before replacing any existing package.
+# git archive HEAD otherwise silently omits locally tested fixes/new modules.
+node scripts/check-production-source.mjs >&2
+
 rm -f "$zip_path"
 git archive --format=zip --output="$zip_path" HEAD
 

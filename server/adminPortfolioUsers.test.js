@@ -103,7 +103,7 @@ test("real auth protects directory and auth-shell visits record without trusting
   const keys = ["SUPABASE_JWT_SECRET", "SUPABASE_URL", "SUPABASE_ANON_KEY", "ADMIN_EMAILS", "API_AUTH_DEV_BYPASS"];
   const old = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   process.env.SUPABASE_JWT_SECRET = "synthetic-auth-key";
-  process.env.ADMIN_EMAILS = "owner@example.test";
+  process.env.ADMIN_EMAILS = "owner@example.test,luyudong1136@gmail.com";
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_ANON_KEY;
   process.env.API_AUTH_DEV_BYPASS = "false";
@@ -122,7 +122,7 @@ test("real auth protects directory and auth-shell visits record without trusting
     const body = [Buffer.from(JSON.stringify({ alg: "HS256" })).toString("base64url"), Buffer.from(JSON.stringify({
       sub: email, email, exp: Date.now() / 1000 + 300,
       amr: [{ method: "oauth", timestamp: Date.parse("2026-09-05T13:00:00Z") / 1000 }],
-      user_metadata: { email: "owner@example.test", role: "admin" }
+      user_metadata: { email: "luyudong1136@gmail.com", role: "admin" }
     })).toString("base64url")].join(".");
     return `${body}.${crypto.createHmac("sha256", process.env.SUPABASE_JWT_SECRET).update(body).digest("base64url")}`;
   };
@@ -130,8 +130,9 @@ test("real auth protects directory and auth-shell visits record without trusting
   assert.equal((await fetch(url)).status, 401);
   assert.equal((await fetch(url, { headers: { authorization: "Bearer invalid" } })).status, 401);
   assert.equal((await fetch(url, { headers: { authorization: `Bearer ${token("member@example.test")}` } })).status, 403);
+  assert.equal((await fetch(url, { headers: { authorization: `Bearer ${token("owner@example.test")}` } })).status, 403);
   await fetch(`${origin}/api/auth/activity`, { method: "POST", headers: { authorization: `Bearer ${token("visitor@example.test")}`, "content-type": "application/json" }, body: JSON.stringify({ lastSignInAt: "2099-01-01T00:00:00Z", userId: "spoofed" }) });
-  const headers = { authorization: `Bearer ${token("owner@example.test")}` };
+  const headers = { authorization: `Bearer ${token("luyudong1136@gmail.com")}` };
   const response = await fetch(url, { headers });
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store");

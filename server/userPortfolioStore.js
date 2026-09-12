@@ -1,18 +1,17 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import { verifiedLoginTime } from "./auth/loginTime.js";
+import { resolveUserDataPaths } from './userDataPaths.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const bundledDbPath = path.join(__dirname, "data", "guru-analysis.sqlite");
-const defaultDataDir = path.dirname(process.env.SQLITE_DB_PATH || bundledDbPath);
-const userPortfolioRoot = process.env.USER_PORTFOLIO_DATA_DIR || path.join(defaultDataDir, "user-portfolios");
-const adminRegistryDbPath = path.join(userPortfolioRoot, "portfolio-admin.sqlite");
+const userPaths = resolveUserDataPaths();
+const userPortfolioRoot = userPaths.portfolios;
+const adminRegistryDbPath = userPaths.registry;
 const encryptionAad = Buffer.from("thesisforge-portfolio-connection-v1");
 
 const dbCache = new Map();
+const userDbCacheMaxEntries = 128;
 let adminRegistryDb = null;
 const portfolioUserRecordCache = new Map();
 const portfolioUserRecordTtlMs = Math.max(
@@ -159,25 +158,65 @@ function initUserDb(db) {
 
     CREATE INDEX IF NOT EXISTS idx_user_portfolio_nav_points_account_date
       ON portfolio_nav_points (account_id, date);
+
+    CREATE TABLE IF NOT EXISTS portfolio_report_snapshots (
+      provider TEXT NOT NULL,
+      connection_revision TEXT NOT NULL,
+      report_date TEXT NOT NULL,
+      retrieved_at TEXT NOT NULL,
+      payload_sha256 TEXT NOT NULL,
+      encrypted_json TEXT NOT NULL,
+      PRIMARY KEY (provider, connection_revision, report_date)
+    );
   `);
 }
 
 function openUserDb(user) {
   const dbPath = userDbPath(user);
   const cached = dbCache.get(dbPath);
-  if (cached) return cached;
+  if (cached) {
+    dbCache.delete(dbPath);
+    dbCache.set(dbPath, cached);
+    return cached;
+  }
 
   fs.mkdirSync(path.dirname(dbPath), { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(dbPath);
-  initUserDb(db);
+  try {
+    initUserDb(db);
+    fs.chmodSync(dbPath, 0o600);
+  } catch (error) {
+    db.close();
+    throw error;
+  }
   dbCache.set(dbPath, db);
+  // All callers use the handle synchronously and do not retain statements or
+  // transactions across awaits. Close least-recently-used idle user handles.
+  while (dbCache.size > userDbCacheMaxEntries) {
+    const oldest = dbCache.keys().next().value;
+    const expired = dbCache.get(oldest);
+    dbCache.delete(oldest);
+    expired.close();
+  }
   return db;
 }
 
-function encryptJson(payload) {
+export function userPortfolioDbCacheStats() {
+  return { entries: dbCache.size, maxEntries: userDbCacheMaxEntries };
+}
+
+export function closeUserPortfolioStores() {
+  for (const db of dbCache.values()) db.close();
+  dbCache.clear();
+  adminRegistryDb?.close();
+  adminRegistryDb = null;
+  portfolioUserRecordCache.clear();
+}
+
+function encryptJson(payload, aad = encryptionAad) {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", encryptionKey(), iv);
-  cipher.setAAD(encryptionAad);
+  cipher.setAAD(aad);
   const ciphertext = Buffer.concat([
     cipher.update(JSON.stringify(payload), "utf8"),
     cipher.final()
@@ -186,17 +225,90 @@ function encryptJson(payload) {
   return [iv, tag, ciphertext].map((part) => part.toString("base64url")).join(".");
 }
 
-function decryptJson(value) {
+function decryptJson(value, aad = encryptionAad) {
   const [ivText, tagText, ciphertextText] = String(value || "").split(".");
   if (!ivText || !tagText || !ciphertextText) throw new Error("Stored connection payload is malformed.");
   const decipher = crypto.createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(ivText, "base64url"));
-  decipher.setAAD(encryptionAad);
+  decipher.setAAD(aad);
   decipher.setAuthTag(Buffer.from(tagText, "base64url"));
   const plaintext = Buffer.concat([
     decipher.update(Buffer.from(ciphertextText, "base64url")),
     decipher.final()
   ]);
   return JSON.parse(plaintext.toString("utf8"));
+}
+
+const reportHash = value => crypto.createHash("sha256").update(value).digest("hex");
+const reportAad = user => Buffer.from(`thesisforge-portfolio-report-v1:${userHashFromUser(user)}`);
+const reportError = code => Object.assign(new Error(code), { code });
+const reportDate = value => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value ? value : null;
+};
+
+// Connection revisions are server-derived from the encrypted configuration,
+// not timestamps that are changed by a normal sync. A replaced/disconnected
+// connection cannot publish an in-flight old report or expose an old account.
+export function portfolioConnectionRevision(user) {
+  const row = openUserDb(user).prepare("SELECT encrypted_json FROM portfolio_connections WHERE provider = ?").get("ibkr_flex");
+  return row ? reportHash(row.encrypted_json) : null;
+}
+
+export function writeUserPortfolioReport(user, payload, { connectionRevision, now = new Date() } = {}) {
+  const asOf = reportDate(payload?.source?.asOf);
+  const retrievedAt = normalizedNow(now).toISOString();
+  if (!payload?.source?.userScoped || !["live", "multi_account_live"].includes(payload.source.mode)
+    || !["linked", "linked_empty"].includes(payload.connection?.status)
+    || !asOf || asOf > retrievedAt.slice(0, 10) || !payload.accounts?.length
+    || !payload.analysisAccounts?.length
+    || payload.analysisAccounts.some(account => !reportDate(account.reportDate))) {
+    throw reportError("portfolio_report_not_verified");
+  }
+  // Persist broker inputs, never credentials, connection configuration, or a
+  // newly calculated market/valuation overlay. Preserve report dates verbatim.
+  const stored = Object.fromEntries([
+    "generatedAt", "source", "summary", "accounts", "holdings", "sectors",
+    "transactions", "performance", "performanceStatus", "dividends",
+    "dividendStatus", "analysisAccounts"
+  ].filter(key => payload[key] !== undefined).map(key => [key, payload[key]]));
+  const json = JSON.stringify(stored);
+  if (Buffer.byteLength(json) > 8 * 1024 * 1024) throw reportError("portfolio_report_too_large");
+  const db = openUserDb(user);
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    if (!connectionRevision || portfolioConnectionRevision(user) !== connectionRevision) throw reportError("portfolio_connection_changed");
+    const previous = db.prepare("SELECT max(report_date) AS report_date FROM portfolio_report_snapshots WHERE provider = ? AND connection_revision = ?")
+      .get("ibkr_flex", connectionRevision);
+    if (previous.report_date && previous.report_date > asOf) throw reportError("portfolio_report_older_than_saved");
+    db.prepare(`INSERT INTO portfolio_report_snapshots
+      (provider, connection_revision, report_date, retrieved_at, payload_sha256, encrypted_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(provider, connection_revision, report_date) DO UPDATE SET
+        retrieved_at = excluded.retrieved_at,
+        payload_sha256 = excluded.payload_sha256,
+        encrypted_json = excluded.encrypted_json`)
+      .run("ibkr_flex", connectionRevision, asOf, retrievedAt, reportHash(json), encryptJson(stored, reportAad(user)));
+    db.exec("COMMIT");
+    return { reportAsOf: asOf, retrievedAt };
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+export function readUserPortfolioReport(user) {
+  const revision = portfolioConnectionRevision(user);
+  if (!revision) return null;
+  const row = openUserDb(user).prepare(`SELECT report_date, retrieved_at, payload_sha256, encrypted_json
+    FROM portfolio_report_snapshots WHERE provider = ? AND connection_revision = ?
+    ORDER BY report_date DESC, retrieved_at DESC LIMIT 1`).get("ibkr_flex", revision);
+  if (!row) return null;
+  const payload = decryptJson(row.encrypted_json, reportAad(user));
+  if (reportHash(JSON.stringify(payload)) !== row.payload_sha256 || payload.source?.asOf !== row.report_date) {
+    throw reportError("portfolio_report_integrity_failure");
+  }
+  return { payload, reportAsOf: row.report_date, retrievedAt: row.retrieved_at };
 }
 
 function cleanString(value) {
@@ -409,6 +521,7 @@ export function readPortfolioConnection(user) {
   return {
     configured: true,
     config,
+    revision: reportHash(row.encrypted_json),
     status: publicConnectionStatus(row, config)
   };
 }

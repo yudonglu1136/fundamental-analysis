@@ -1,9 +1,9 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import { verifiedLoginTime } from "./auth/loginTime.js";
+import { resolveUserDataPaths } from './userDataPaths.js';
 
 // Separate private, additive store: no valuation or portfolio data is changed.
 export function createLoginActivityStore(db, { now = Date.now } = {}) {
@@ -71,9 +71,7 @@ export function createLoginActivityStore(db, { now = Date.now } = {}) {
 let store;
 export function loginActivityStore() {
   if (store) return store;
-  const serverDir = path.dirname(fileURLToPath(import.meta.url));
-  const dataDir = path.dirname(process.env.SQLITE_DB_PATH || path.join(serverDir, "data", "guru-analysis.sqlite"));
-  const file = process.env.LOGIN_ACTIVITY_DB_PATH || path.join(process.env.USER_PORTFOLIO_DATA_DIR || path.join(dataDir, "user-portfolios"), "login-activity.sqlite");
+  const file = resolveUserDataPaths().login;
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(file);
   fs.chmodSync(file, 0o600);

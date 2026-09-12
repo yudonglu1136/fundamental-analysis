@@ -95,7 +95,7 @@ test("recording failure backs off for one minute instead of blocking every API r
 test("real auth + admin guard block anonymous, invalid and ordinary users; admin response is no-store", async (t) => {
   const old = Object.fromEntries(["SUPABASE_JWT_SECRET", "SUPABASE_URL", "SUPABASE_ANON_KEY", "ADMIN_EMAILS"].map((key) => [key, process.env[key]]));
   process.env.SUPABASE_JWT_SECRET = "synthetic-test-secret";
-  process.env.ADMIN_EMAILS = "owner@example.test";
+  process.env.ADMIN_EMAILS = "owner@example.test,luyudong1136@gmail.com";
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_ANON_KEY;
   t.after(() => { for (const [key, value] of Object.entries(old)) if (value === undefined) delete process.env[key]; else process.env[key] = value; });
@@ -109,14 +109,14 @@ test("real auth + admin guard block anonymous, invalid and ordinary users; admin
   const url = `http://127.0.0.1:${server.address().port}/api/admin/login-activity`;
   const sign = (email) => {
     const body = [Buffer.from(JSON.stringify({ alg: "HS256" })).toString("base64url"), Buffer.from(JSON.stringify({ sub: email, email, exp: Date.now() / 1000 + 300,
-      user_metadata: { email: "owner@example.test", role: "admin" }, amr: [{ method: "oauth", timestamp: time / 1000 - 3600 }] })).toString("base64url")].join(".");
+      user_metadata: { email: "luyudong1136@gmail.com", role: "admin" }, amr: [{ method: "oauth", timestamp: time / 1000 - 3600 }] })).toString("base64url")].join(".");
     return `${body}.${crypto.createHmac("sha256", process.env.SUPABASE_JWT_SECRET).update(body).digest("base64url")}`;
   };
   assert.equal((await fetch(url)).status, 401);
   assert.equal((await fetch(url, { headers: { authorization: "Bearer invalid" } })).status, 401);
   assert.equal(store.list().total, 0);
   assert.equal((await fetch(url, { headers: { authorization: `Bearer ${sign("member@example.test")}` } })).status, 403);
-  const response = await fetch(url, { headers: { authorization: `Bearer ${sign("owner@example.test")}` } });
+  const response = await fetch(url, { headers: { authorization: `Bearer ${sign("luyudong1136@gmail.com")}` } });
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store");
   const result = await response.json();

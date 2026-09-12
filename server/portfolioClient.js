@@ -1,4 +1,6 @@
 import { XMLParser } from "fast-xml-parser";
+import {reportAnalysisAccounts} from './portfolioReport.js';
+import { AsyncUserCache } from './asyncUserCache.js';
 import {
   readPriceSeriesFromDb,
   readPortfolioNavPoints,
@@ -18,9 +20,12 @@ import {
 } from "./tickerAliases.js";
 import {
   markPortfolioConnectionSync,
+  portfolioConnectionRevision,
   portfolioConnectionAccounts,
   readPortfolioConnection,
+  readUserPortfolioReport,
   readUserPortfolioNavPoints,
+  writeUserPortfolioReport,
   writeUserPortfolioNavPoint
 } from "./userPortfolioStore.js";
 
@@ -49,7 +54,7 @@ const xmlParser = new XMLParser({
   trimValues: true
 });
 
-const portfolioCache = new Map();
+const portfolioCache = new AsyncUserCache();
 let portfolioNavRecorderStarted = false;
 
 const ibkrFlexEndpointHosts = new Set([
@@ -916,7 +921,17 @@ function normalizeIbkrPosition(row) {
     fxRateToBase,
     currency,
     logoUrl: logoUrlForTicker(logoTicker, name),
-    dayChange: 0
+    dayChange: 0,
+    analysisPosition: {
+      // Preserve reported inputs separately from legacy display heuristics.
+      ticker: displayTicker, name, assetCategory,
+      currency: textValue(pick(row, ["currency", "currencyPrimary"], "")),
+      cusip: textValue(row.cusip || ""),
+      quantity: finiteNumber(pick(row, ["quantity", "position", "shares", "units"]), NaN),
+      price: finiteNumber(pick(row, ["markPrice", "price", "closePrice", "reportDatePrice"]), NaN),
+      fxRateToBase: finiteNumber(pick(row, ["fxRateToBase", "fxRate"]), NaN),
+      localValue: finiteNumber(pick(row, ["positionValue", "marketValue", "value", "currentValue"]), NaN)
+    }
   };
 }
 
@@ -1193,7 +1208,7 @@ function attachStoredNavHistory(payload, options = {}) {
       new Date()
   );
   const nav = finiteNumber(payload.summary?.totalValue);
-  if (nav > 0) {
+  if (nav > 0 && options.captureNav !== false) {
     const point = {
       accountId,
       date,
@@ -1256,12 +1271,13 @@ function truthyPerformanceStatus(status) {
   return status?.real === true || status?.real === "true";
 }
 
-function normalizeIbkrFlexPortfolio(parsed, {
+export function normalizeIbkrFlexPortfolio(parsed, {
   historyParsed = null,
   historyError = null,
   user = null,
   connectionStatus = null,
-  accountConfig = null
+  accountConfig = null,
+  captureNav = true
 } = {}) {
   const statement = collectByKey(parsed, "FlexStatement")[0] || {};
   const accountInfo = collectByKey(parsed, "AccountInformation")[0] || {};
@@ -1361,14 +1377,17 @@ function normalizeIbkrFlexPortfolio(parsed, {
       fromDate: statement.fromDate ? normalizeReportDate(statement.fromDate) : undefined,
       toDate: statement.toDate ? normalizeReportDate(statement.toDate) : undefined,
       generatedAt: statement.whenGenerated || statement.generatedAt,
+      historyQueryStatus: historyError ? "error" : historyParsed ? "available" : "not_requested",
       warnings: sourceWarnings
     }
   });
+  payload.analysisAccounts = reportAnalysisAccounts(parsed,{historyParsed});
   return attachStoredNavHistory(attachStoredDividendCalendar(payload), {
     accountId,
     date: statement.toDate || statement.fromDate,
     source: "IBKR Third-Party Reports / Yodlee",
     sourceDate: statement.toDate || statement.fromDate,
+    captureNav,
     user: user || null
   });
 }
@@ -1554,7 +1573,8 @@ function aggregateDividendEvents(payloads = []) {
 function aggregateIbkrPortfolios(payloads = [], {
   user = null,
   connectionStatus = null,
-  errors = []
+  errors = [],
+  captureNav = true
 } = {}) {
   const accountCount = payloads.reduce((sum, payload) => sum + (payload.accounts?.length || 0), 0);
   const performance = aggregatePerformanceSeries(payloads);
@@ -1608,10 +1628,12 @@ function aggregateIbkrPortfolios(payloads = [], {
       warnings: errorMessages
     }
   });
+  payload.analysisAccounts = payloads.flatMap(p => p.analysisAccounts || []);
   return attachStoredNavHistory(attachStoredDividendCalendar(payload), {
     accountId: "portfolio",
     date: new Date(),
     source: "IBKR/Yodlee multi-account aggregate",
+    captureNav,
     user: user || null
   });
 }
@@ -1631,7 +1653,8 @@ function withConnectionStatus(payload, status = {}) {
 
 async function loadIbkrAccountPortfolio(connection, accountConfig, {
   user = null,
-  connectionStatus = null
+  connectionStatus = null,
+  captureNav = true
 } = {}) {
   const accountConnection = {
     ...connection,
@@ -1656,13 +1679,15 @@ async function loadIbkrAccountPortfolio(connection, accountConfig, {
     historyError,
     user,
     connectionStatus,
+    captureNav,
     accountConfig
   });
 }
 
-async function loadFreshPortfolioDashboard({ user = null } = {}) {
+async function loadFreshPortfolioDashboard({ user = null, captureNav = true } = {}) {
   let connection = null;
   let connectionStatus = null;
+  let connectionRevision = null;
 
   if (isRealUser(user)) {
     const userConnection = readPortfolioConnection(user);
@@ -1671,6 +1696,7 @@ async function loadFreshPortfolioDashboard({ user = null } = {}) {
       return onboardingPortfolio(user, connectionStatus);
     }
     connection = userConnection.config;
+    connectionRevision = userConnection.revision;
   } else {
     connection = legacyPortfolioConnection();
   }
@@ -1689,7 +1715,8 @@ async function loadFreshPortfolioDashboard({ user = null } = {}) {
       accounts.map((account) =>
         loadIbkrAccountPortfolio(connection, account, {
           user: scopedUser,
-          connectionStatus
+          connectionStatus,
+          captureNav
         })
       )
     );
@@ -1700,19 +1727,37 @@ async function loadFreshPortfolioDashboard({ user = null } = {}) {
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason);
     if (!payloads.length) throw errors[0] || new Error("All IBKR/Yodlee accounts failed to refresh.");
+    const reportErrors = [...errors, ...payloads
+      .filter(payload => payload.source?.historyQueryStatus === "error")
+      .map(() => new Error("Broker history query failed; current holdings are a partial report."))];
     let latestStatus = connectionStatus;
     if (isRealUser(user)) {
-      markPortfolioConnectionSync(user, { ok: true });
+      if (portfolioConnectionRevision(user) !== connectionRevision) {
+        throw Object.assign(new Error("Portfolio connection changed during synchronization."), {code:"portfolio_connection_changed"});
+      }
+      if (reportErrors.length) {
+        markPortfolioConnectionSync(user, {ok:false,error:"Some broker accounts could not refresh; saved report retained."});
+        const saved = savedPortfolioReportPayload(user);
+        if (saved) return saved;
+      } else {
+        markPortfolioConnectionSync(user, { ok: true });
+      }
       latestStatus = readPortfolioConnection(user).status;
     }
     const syncedPayloads = payloads.map((payload) => withConnectionStatus(payload, latestStatus));
-    return syncedPayloads.length === 1 && accounts.length === 1
+    const result = syncedPayloads.length === 1 && accounts.length === 1 && !reportErrors.length
       ? syncedPayloads[0]
       : aggregateIbkrPortfolios(payloads, {
           user: scopedUser,
           connectionStatus: latestStatus,
-          errors
+          captureNav,
+          errors: reportErrors
         });
+    if (scopedUser && !reportErrors.length) {
+      const saved = writeUserPortfolioReport(scopedUser, result, {connectionRevision});
+      result.freshness = {status:"current_report",basis:"last_successful_broker_report",...saved,live:false};
+    }
+    return result;
   }
   if (connection.provider === "yodlee_core") {
     return loadYodleeDashboard(connection, { user: isRealUser(user) ? user : null });
@@ -1721,23 +1766,34 @@ async function loadFreshPortfolioDashboard({ user = null } = {}) {
   return isRealUser(user) ? onboardingPortfolio(user, connectionStatus) : portfolioSample();
 }
 
-export async function loadPortfolioDashboard({ forceRefresh = false, user = null } = {}) {
-  const cacheKey = portfolioCacheKey(user);
-  const cached = portfolioCache.get(cacheKey);
-  if (!forceRefresh && cached && cached.expiresAt > Date.now()) {
-    return cached.payload;
-  }
+function savedPortfolioReportPayload(user) {
+  const saved = readUserPortfolioReport(user);
+  if (!saved) return null;
+  const status = readPortfolioConnection(user).status;
+  const message = `Broker refresh unavailable. Showing the saved report dated ${saved.reportAsOf}; not live quotes.`;
+  return {
+    ...saved.payload,
+    connection: {...status, status:"stale_report", lastError:message, message},
+    source: {...saved.payload.source, mode:"saved_broker_report", stale:true,
+      retrievedAt:saved.retrievedAt, warnings:[...(saved.payload.source.warnings || []),message]},
+    freshness:{status:"stale",basis:"last_successful_broker_report",
+      reportAsOf:saved.reportAsOf,retrievedAt:saved.retrievedAt,live:false}
+  };
+}
 
+export async function loadPortfolioDashboard({ forceRefresh = false, user = null, captureNav = true } = {}) {
+  const cacheKey = portfolioCacheKey(user);
+  return portfolioCache.load(cacheKey, async () => {
   try {
-    const payload = await attachPortfolioAnalytics(await loadFreshPortfolioDashboard({ user }));
-    portfolioCache.set(cacheKey, {
-      expiresAt: Date.now() + portfolioCacheTtlMs,
-      payload
-    });
-    return payload;
+    const payload = await attachPortfolioAnalytics(await loadFreshPortfolioDashboard({ user, captureNav }));
+    return { value: payload, ttlMs: portfolioCacheTtlMs };
   } catch (error) {
-    if (isRealUser(user)) {
+    if (isRealUser(user) && error.code !== "portfolio_connection_changed") {
       markPortfolioConnectionSync(user, { ok: false, error: error.message });
+    }
+    if (isRealUser(user)) {
+      const saved = savedPortfolioReportPayload(user);
+      if (saved) return {value:await attachPortfolioAnalytics(saved),ttlMs:Math.min(portfolioCacheTtlMs,60_000)};
     }
     const status = isRealUser(user) ? readPortfolioConnection(user).status : {};
     const fallbackPayload = isRealUser(user)
@@ -1759,12 +1815,9 @@ export async function loadPortfolioDashboard({ forceRefresh = false, user = null
           }
         };
     const payload = await attachPortfolioAnalytics(fallbackPayload);
-    portfolioCache.set(cacheKey, {
-      expiresAt: Date.now() + Math.min(portfolioCacheTtlMs, 60_000),
-      payload
-    });
-    return payload;
+    return { value: payload, ttlMs: Math.min(portfolioCacheTtlMs, 60_000) };
   }
+  }, { forceRefresh });
 }
 
 export function clearPortfolioCache(user = null) {

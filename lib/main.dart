@@ -27,6 +27,13 @@ bool get _authConfigured =>
 
 bool isAdminEmail(String value) => value.trim().toLowerCase() == _adminEmail;
 
+// This controls presentation only. The API independently verifies the session
+// and owner email before returning any administration data.
+bool canShowAdmin({required String email, required String accessToken}) =>
+    accessToken.trim().isNotEmpty &&
+    accessToken != _localDevToken &&
+    isAdminEmail(email);
+
 enum AppLanguage { zh, en }
 
 AppLanguage parseAppLanguage(String? value) =>
@@ -493,6 +500,11 @@ const _uiChinese = <String, String>{
   'read-only detail': '详情只读',
   'encrypted tokens hidden': '加密 Token 已隐藏',
   'linked': '已连接',
+  'stale_report': '已保存报告（同步暂不可用）',
+  'linked_partial': '部分账户同步失败',
+  'Saved broker report': '已保存的券商报告',
+  'Saved portfolio report': '已保存的组合报告',
+  'Report day P/L': '报告日盈亏',
   'IBKR/Yodlee saved': '已保存 IBKR/Yodlee',
   'sum of latest stored NAV': '最新已存净值合计',
   'sync or decrypt issues': '同步或解密问题',
@@ -1140,7 +1152,9 @@ class _AuthGateState extends State<AuthGate> {
           ? 'local-dev@guru-analysis.test'
           : (_session?.user.email ?? '');
       content = TerminalHome(
+        key: ValueKey(_localWorkspace ? 'local-workspace' : _session!.user.id),
         accessToken: token,
+        userId: _localWorkspace ? '' : _session!.user.id,
         userName: user,
         userEmail: userEmail,
         language: widget.language,
@@ -1353,6 +1367,8 @@ class TerminalHome extends StatefulWidget {
   const TerminalHome({
     super.key,
     required this.accessToken,
+    this.userId = '',
+    this.api,
     required this.userName,
     required this.userEmail,
     required this.language,
@@ -1362,6 +1378,8 @@ class TerminalHome extends StatefulWidget {
   });
 
   final String accessToken;
+  final String userId;
+  final ApiClient? api;
   final String userName;
   final String userEmail;
   final AppLanguage language;
@@ -1375,7 +1393,20 @@ class TerminalHome extends StatefulWidget {
 
 class _TerminalHomeState extends State<TerminalHome>
     with WidgetsBindingObserver {
-  late final ApiClient _api = ApiClient(() => widget.accessToken);
+  late ApiClient _api = _createApi();
+  int _identityEpoch = 0;
+
+  ApiClient _createApi() {
+    final epoch = _identityEpoch;
+    return widget.api ??
+        ApiClient(
+          () => widget.accessToken,
+          sessionUserId: widget.userId,
+          isSessionActive: () =>
+              mounted && epoch == _identityEpoch && _hasSession,
+        );
+  }
+
   final TextEditingController _guruSearchController = TextEditingController();
   Map<String, dynamic>? _guruPayload;
   Map<String, dynamic>? _ontologyPayload;
@@ -1401,7 +1432,9 @@ class _TerminalHomeState extends State<TerminalHome>
   int _secondaryRequestSerial = 0;
 
   Palette get palette => Palette(_colorBlind);
-  bool get _adminEnabled => isAdminEmail(widget.userEmail);
+  bool get _hasSession => widget.accessToken.trim().isNotEmpty;
+  bool get _adminEnabled =>
+      canShowAdmin(email: widget.userEmail, accessToken: widget.accessToken);
 
   @override
   void initState() {
@@ -1441,6 +1474,32 @@ class _TerminalHomeState extends State<TerminalHome>
   @override
   void didUpdateWidget(covariant TerminalHome oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final identityChanged =
+        oldWidget.userId != widget.userId ||
+        oldWidget.userEmail.trim().toLowerCase() !=
+            widget.userEmail.trim().toLowerCase() ||
+        oldWidget.accessToken.isEmpty != widget.accessToken.isEmpty ||
+        (oldWidget.accessToken == _localDevToken) !=
+            (widget.accessToken == _localDevToken);
+    if (identityChanged) {
+      // Never retain a prior account's admin, portfolio or research widget
+      // state. Invalidating serials also rejects responses already in flight.
+      _identityEpoch++;
+      _guruRequestSerial++;
+      _secondaryRequestSerial++;
+      _api = _createApi();
+      _guruPayload = null;
+      _ontologyPayload = null;
+      _portfolioPayload = null;
+      _valuationPayload = null;
+      _adminPayload = null;
+      _loadingGurus = false;
+      _loadingSecondary = false;
+      _error = null;
+      _secondaryError = null;
+      _restoreBrowserRoute(widget.routeUri);
+      return;
+    }
     if (oldWidget.accessToken != widget.accessToken) {
       _recoverSecondaryIfNeeded(forceWhenEmpty: true);
     }
@@ -1505,6 +1564,7 @@ class _TerminalHomeState extends State<TerminalHome>
   }
 
   Future<void> _loadGurus({bool refresh = false}) async {
+    if (!_hasSession) return;
     final requestId = ++_guruRequestSerial;
     setState(() {
       _loadingGurus = true;
@@ -1578,6 +1638,7 @@ class _TerminalHomeState extends State<TerminalHome>
   }
 
   Future<void> _loadSecondary(String mode, {bool refresh = false}) async {
+    if (!_hasSession) return;
     if (!refresh && mode == 'ontology' && _ontologyPayload != null) return;
     if (!refresh && mode == 'portfolio' && _portfolioPayload != null) return;
     if (!refresh && mode == 'valuation' && _valuationPayload != null) return;
@@ -1761,6 +1822,7 @@ class _TerminalHomeState extends State<TerminalHome>
 
   @override
   Widget build(BuildContext context) {
+    if (!_hasSession) return const SizedBox.shrink();
     _scheduleSecondaryRecoveryIfStale();
     final headerPayload = _mode == 'guru'
         ? _guruPayload
@@ -1797,6 +1859,7 @@ class _TerminalHomeState extends State<TerminalHome>
               ),
               Expanded(
                 child: AnimatedSwitcher(
+                  key: ValueKey('terminal-$_identityEpoch'),
                   duration: const Duration(milliseconds: 250),
                   child: _mode == 'guru'
                       ? _buildGuruMode()
@@ -2099,7 +2162,9 @@ ModuleHeaderState moduleHeaderState({
       ? 'sample'
       : (error?.trim().isNotEmpty ?? false)
       ? 'error'
-      : explicitStatus.contains('stale') || computedStale
+      : explicitStatus.contains('stale') ||
+            (mode == 'portfolio' && isSavedPortfolioReport(payload)) ||
+            computedStale
       ? 'stale'
       : loading && payload != null
       ? 'cached'
@@ -2334,12 +2399,16 @@ class TerminalHeader extends StatelessWidget {
                     ),
                     const SizedBox(width: 18),
                     StatusDot(status: moduleState.status, palette: palette),
-                    const Spacer(),
-                    ModeSegment(
-                      mode: mode,
-                      onMode: onMode,
-                      palette: palette,
-                      showAdmin: showAdmin,
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: ModeSegment(
+                          mode: mode,
+                          onMode: onMode,
+                          palette: palette,
+                          showAdmin: showAdmin,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 10),
                     LanguageSegment(
@@ -13222,6 +13291,33 @@ class _AdminPortfolioDetailPanel extends StatelessWidget {
   }
 }
 
+bool isSavedPortfolioReport(Map<String, dynamic>? data) =>
+    asMap(data?['freshness'])['status'] == 'stale' ||
+    asMap(data?['source'])['mode'] == 'saved_broker_report' ||
+    truthy(asMap(data?['source'])['stale']) ||
+    data?['source'] == 'saved_authenticated_broker_report';
+
+String savedPortfolioReportNotice(
+  Map<String, dynamic>? data,
+  AppLanguage language,
+) {
+  final freshness = asMap(data?['freshness']);
+  final source = asMap(data?['source']);
+  String date(dynamic value) {
+    final parsed = DateTime.tryParse(text(value));
+    return parsed == null
+        ? trFor(language, '日期未记录', 'date not recorded')
+        : parsed.toIso8601String().substring(0, 10);
+  }
+  final report = date(freshness['reportAsOf'] ?? source['asOf']);
+  final retrieved = date(freshness['retrievedAt'] ?? source['retrievedAt']);
+  return trFor(
+    language,
+    '券商同步暂不可用。当前显示已保存的 $report 报告（读取于 $retrieved）。持仓、余额和盈亏可能已过时；本次没有完成新的同步。',
+    'Broker sync is unavailable. Showing the last saved report dated $report (retrieved $retrieved). Holdings, balances and P&L may be out of date; no new sync completed.',
+  );
+}
+
 class PortfolioDashboard extends StatelessWidget {
   const PortfolioDashboard({
     super.key,
@@ -13259,6 +13355,7 @@ class PortfolioDashboard extends StatelessWidget {
     final tone = dayPnl >= 0 ? palette.positive : palette.negative;
     final realPerformance = truthy(performanceStatus['real']);
     final source = asMap(data['source']);
+    final savedReport = isSavedPortfolioReport(data);
     final sampleMode =
         text(source['mode']).toLowerCase() == 'sample' ||
         accounts.any(
@@ -13272,9 +13369,16 @@ class PortfolioDashboard extends StatelessWidget {
           kicker: 'PORTFOLIO MANAGEMENT',
           title: sampleMode
               ? 'Sample portfolio — not an account'
+              : savedReport
+              ? 'Saved portfolio report'
               : 'Portfolio cockpit',
           subtitle: sampleMode
               ? 'Illustrative local data only. It is not connected to your brokerage account.'
+              : savedReport
+              ? context.tr(
+                  '券商同步暂不可用，下方数据来自上次保存的报告。',
+                  'Broker sync is unavailable. Values below are from the last saved report.',
+                )
               : configured
               ? text(
                   connection['message'],
@@ -13301,7 +13405,11 @@ class PortfolioDashboard extends StatelessWidget {
               palette: palette,
             ),
             _GuruHeaderMetric(
-              label: sampleMode ? 'Sample day P/L' : 'Day P/L',
+              label: sampleMode
+                  ? 'Sample day P/L'
+                  : savedReport
+                  ? 'Report day P/L'
+                  : 'Day P/L',
               value: formatMoney(dayPnl),
               sub: formatReturn(number(summary['dayPnlPct'])),
               palette: palette,
@@ -13330,6 +13438,14 @@ class PortfolioDashboard extends StatelessWidget {
           palette: palette,
         ),
         const SizedBox(height: 10),
+        if (savedReport) ...[
+          PortfolioDataNotice(
+            icon: Icons.history_rounded,
+            text: savedPortfolioReportNotice(data, context.language),
+            palette: palette,
+          ),
+          const SizedBox(height: 10),
+        ],
         if (sampleMode) ...[
           PortfolioSampleNotice(palette: palette),
           const SizedBox(height: 10),
@@ -13716,6 +13832,37 @@ class _PortfolioConnectionStatusPanelState
     });
     try {
       final payload = await widget.api.postJson('/api/portfolio/sync', {});
+      if (!mounted) return;
+      final nestedPortfolio = asMap(payload['portfolio']);
+      final report = nestedPortfolio.isNotEmpty ? nestedPortfolio : payload;
+      final statuses = [
+        text(asMap(payload['connection'])['status']),
+        text(asMap(report['connection'])['status']),
+      ];
+      final savedReport =
+          isSavedPortfolioReport(report) || statuses.contains('stale_report');
+      final partial = statuses.contains('linked_partial');
+      if (savedReport ||
+          partial ||
+          statuses.contains('error') ||
+          payload['ok'] != true) {
+        setState(() {
+          _error = savedReport
+              ? savedPortfolioReportNotice(report, context.language)
+              : partial
+              ? context.tr(
+                  '仅部分账户同步成功，其他账户未能刷新。组合可能不完整；请检查账户状态后重试。已保存的报告会保留。',
+                  'Only some accounts synced; other accounts could not be refreshed. The portfolio may be incomplete. Review account status and retry. Saved reports are retained.',
+                )
+              : context.tr(
+                  '券商同步未完成。请检查账户状态后重试。已保存的报告会保留。',
+                  'Broker sync did not complete. Review account status and retry. Saved reports are retained.',
+                );
+          _message = null;
+        });
+        await widget.onRefresh();
+        return;
+      }
       final summary = asMap(payload['summary']);
       final accountCount = number(summary['accounts']).round();
       final holdings = number(summary['holdings']).round();
@@ -13727,7 +13874,9 @@ class _PortfolioConnectionStatusPanelState
       });
       await widget.onRefresh();
     } catch (error) {
-      setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      if (mounted) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
     } finally {
       if (mounted) setState(() => _updating = false);
     }
@@ -13751,7 +13900,10 @@ class _PortfolioConnectionStatusPanelState
     final savedAccounts = asList(connection['accounts']);
     final status = text(connection['status'], 'linked');
     final failed =
-        status == 'error' || text(connection['lastError']).isNotEmpty;
+        status == 'error' ||
+        status == 'stale_report' ||
+        status == 'linked_partial' ||
+        text(connection['lastError']).isNotEmpty;
     final updatedAt = formatDate(text(connection['updatedAt']));
     final lastConnectedAt = formatDate(text(connection['lastConnectedAt']));
     final queryId = text(connection['queryId']);
@@ -26175,16 +26327,29 @@ class ApiRequestException implements Exception {
 }
 
 class ApiClient {
-  ApiClient(this._accessTokenProvider);
+  ApiClient(
+    this._accessTokenProvider, {
+    this.sessionUserId = '',
+    this.isSessionActive,
+  });
 
   static const Duration _requestTimeout = Duration(seconds: 95);
   static const Duration _retryDelay = Duration(milliseconds: 450);
 
   final String Function() _accessTokenProvider;
+  final String sessionUserId;
+  final bool Function()? isSessionActive;
 
   String get accessToken {
+    if (isSessionActive?.call() == false) {
+      throw StateError('This account session is no longer active.');
+    }
     if (_authConfigured && _supabaseReady) {
-      final token = Supabase.instance.client.auth.currentSession?.accessToken;
+      final session = Supabase.instance.client.auth.currentSession;
+      if (sessionUserId.isNotEmpty && session?.user.id != sessionUserId) {
+        throw StateError('This account session is no longer active.');
+      }
+      final token = session?.accessToken;
       if (token != null && token.isNotEmpty) return token;
     }
     return _accessTokenProvider();
@@ -26232,6 +26397,12 @@ class ApiClient {
 
   Future<bool> _refreshSession() async {
     if (!_authConfigured || !_supabaseReady) return false;
+    if (isSessionActive?.call() == false) return false;
+    if (sessionUserId.isNotEmpty &&
+        Supabase.instance.client.auth.currentSession?.user.id !=
+            sessionUserId) {
+      return false;
+    }
     try {
       final response = await Supabase.instance.client.auth.refreshSession();
       return response.session?.accessToken.isNotEmpty == true;
