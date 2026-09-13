@@ -1,0 +1,163 @@
+{
+  "auditVersion": "guru-cache-sync-scoped-v1",
+  "status": "scoped_compatibility_pass_with_known_failures",
+  "checkedAt": "2026-09-13T05:04:44.318Z",
+  "asOf": "2026-09-13",
+  "scope": "Four added Guru profiles and compatible cached simulations. Exactly John Stamas 5Y/10Y remain unavailable; two source-error quarters stay visible. Not a full data release certificate.",
+  "artifact": {
+    "label": "reviewed-public-research-candidate",
+    "sha256": "92665cbd7e9c7f6464ade2a657af4fefeae86c1f917f6adfc610f2db91b9ec10",
+    "bytes": 2956435456
+  },
+  "fullDataReady": false,
+  "strictReleasePass": false,
+  "fullReadinessStatus": "failed",
+  "identity": {
+    "strict": "manager13f-drifted-total-return-v9",
+    "proxy": "manager13f-public-holdings-proxy-v1",
+    "security": "holding-resolution-v1-cb446ae272b57a41"
+  },
+  "population": {
+    "profiles": 33,
+    "enabledManagers": 32,
+    "expectedCurves": 64,
+    "compatibleCurves": 62,
+    "deferredCurves": 2
+  },
+  "readerEvidence": [
+    {
+      "guruId": "william-heard",
+      "name": "William Heard",
+      "entityName": "Heard Capital LLC",
+      "avatar": "/guru-avatars/william-heard.png",
+      "availableFilings": 27,
+      "latestReportDate": "2026-06-30",
+      "latestAccession": "0001172661-26-003256",
+      "fullCurrentBook": true,
+      "commonHoldings": 21
+    },
+    {
+      "guruId": "evan-mcgoff",
+      "name": "Evan McGoff",
+      "entityName": "DOCK STREET ASSET MANAGEMENT INC",
+      "avatar": "/guru-avatars/evan-mcgoff.png",
+      "availableFilings": 40,
+      "latestReportDate": "2026-06-30",
+      "latestAccession": "0001172779-26-000003",
+      "fullCurrentBook": true,
+      "commonHoldings": 64
+    },
+    {
+      "guruId": "michael-cuggino",
+      "name": "Michael Cuggino",
+      "entityName": "PACIFIC HEIGHTS ASSET MANAGEMENT LLC",
+      "avatar": "/guru-avatars/michael-cuggino.png",
+      "availableFilings": 40,
+      "latestReportDate": "2026-06-30",
+      "latestAccession": "0001193125-26-353582",
+      "fullCurrentBook": true,
+      "commonHoldings": 77
+    },
+    {
+      "guruId": "john-stamas",
+      "name": "John Stamas",
+      "entityName": "Defender Capital, LLC.",
+      "avatar": "/guru-avatars/john-stamas.png",
+      "availableFilings": 31,
+      "latestReportDate": "2026-06-30",
+      "latestAccession": "0001766929-26-000003",
+      "fullCurrentBook": true,
+      "commonHoldings": 37
+    }
+  ],
+  "comparison": {
+    "managers": 31,
+    "expectedManagers": 32,
+    "commonObservations": 1145,
+    "start": "2022-02-15",
+    "end": "2026-09-10",
+    "failures": [
+      "study_population_incomplete"
+    ]
+  },
+  "knownFailures": [
+    {
+      "guruId": "john-stamas",
+      "years": 5,
+      "status": "insufficient_data",
+      "generatedAt": "2026-09-12T15:47:03.208Z",
+      "reason": "proxy_coverage_below_minimum",
+      "reportDate": "2022-03-31",
+      "executionDate": "2022-04-25",
+      "curvePresent": false
+    },
+    {
+      "guruId": "john-stamas",
+      "years": 10,
+      "status": "insufficient_data",
+      "generatedAt": "2026-09-12T15:47:41.621Z",
+      "reason": "proxy_coverage_below_minimum",
+      "reportDate": "2022-03-31",
+      "executionDate": "2022-04-25",
+      "curvePresent": false
+    }
+  ],
+  "quarantinedFilings": [
+    {
+      "reportDate": "2022-03-31",
+      "accessionNumber": "0001766929-22-000002",
+      "code": "reported_value_error",
+      "nextQuarter": "2022-06-30",
+      "status": "source_error"
+    },
+    {
+      "reportDate": "2025-09-30",
+      "accessionNumber": "0001766929-25-000005",
+      "code": "invalid_13f_identifier",
+      "nextQuarter": "2025-12-31",
+      "status": "source_error"
+    }
+  ],
+  "failures": [],
+  "attestation": "Existing computation timestamps are preserved. No root refresh generation is asserted or synthesized.",
+  "frontend": {
+    "change": "Bilingual source-error notice; suppress invalid quarter values and trajectory; retain good adjacent holdings with unavailable QoQ explanation.",
+    "focusedTests": 5,
+    "guruAndWorkflowTests": 110,
+    "analyzer": "passed",
+    "i18n": "passed"
+  },
+  "validation": {
+    "readOnlyGateTests": 22,
+    "baseline": "failed: four missing profiles and incompatible existing curve identities",
+    "fullGate": "Not passed; criteria unchanged"
+  },
+  "liveAnonymousChecks": {
+    "domains": [
+      "thesisforge.tech",
+      "www.thesisforge.tech"
+    ],
+    "workflowEnabled": true,
+    "mainDartJsSha256": "817cc6b776adef75d3ada775a9df1fdfab671b6b14be08a485425b64d511e8f3",
+    "fourAvatars": "200 image/png on both domains; matching bytes/hashes",
+    "guruDetailUnauthenticated": "401, Cache-Control:no-store"
+  },
+  "strategySelectorReadCheck": {
+    "sourceLabel": "existing-strategy-final-candidate",
+    "cutoff": "2026-09-11",
+    "enabledManagers": 32,
+    "addedManagers": [
+      {"id": "william-heard", "filings": 27, "firstFiling": "2020-02-11", "lastFiling": "2026-08-11"},
+      {"id": "evan-mcgoff", "filings": 61, "firstFiling": "2002-05-15", "lastFiling": "2026-07-30"},
+      {"id": "michael-cuggino", "filings": 82, "firstFiling": "2006-02-14", "lastFiling": "2026-08-17"},
+      {"id": "john-stamas", "filings": 31, "firstFiling": "2019-02-08", "lastFiling": "2026-07-09"}
+    ],
+    "identityStatus": "All four retain existing configured_unreviewed warehouse status; no identity status changed.",
+    "scope": "Actual storedStrategyCatalog read verified. Does not certify arbitrary new strategy runs or repair deferred filing errors."
+  },
+  "remaining": {
+    "authenticatedBrowserAcceptance": "Not verified: sign-in screen / Chrome connection timeout; no authentication bypass used.",
+    "deployment": "Parent agent owns deployment; this report is candidate and read-adapter evidence, not proof that candidate data is already live.",
+    "cacheRefresh": "Restart Node after switching immutable research file; reload browser to clear retained discovery view state."
+  }
+}

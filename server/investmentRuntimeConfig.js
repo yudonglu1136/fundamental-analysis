@@ -1,10 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { resolveUserDataPaths } from './userDataPaths.js';
 import { openStrategyDatabase } from './strategyDatabase.js';
 
 export const INVESTMENT_RELEASE_VERSION = 'investment-runtime-release-v1';
+export const INVESTMENT_REUSED_RELEASE_VERSION = 'investment-runtime-release-v2';
 export const INVESTMENT_REQUIRED_SOURCE_TABLES = Object.freeze(['valuation_pit_model_runs', 'valuation_pit_financials', 'valuation_pit_guidance',
   'valuation_ticker_snapshots', 'guru_snapshots', 'guru_exposure_snapshots', 'guru_backtests', 'price_points',
   'investment_quality_annual', 'investment_quality_metadata']);
@@ -22,7 +24,8 @@ const canonicalExisting = file => fs.realpathSync(file);
 // process restart. The private installer owns SHA-256 and integrity_check and
 // writes the root-owned attestation only after those checks have passed.
 export function validateInvestmentRelease(manifest, paths, { manifestPath, stat = fs.statSync, trustedUid = 0 } = {}) {
-  if (manifest?.version !== INVESTMENT_RELEASE_VERSION || manifest.state !== 'verified'
+  const reused = manifest?.version === INVESTMENT_REUSED_RELEASE_VERSION;
+  if ((!reused && manifest?.version !== INVESTMENT_RELEASE_VERSION) || manifest.state !== 'verified'
     || manifest.releaseId !== paths.releaseId || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{5,100}$/.test(manifest.releaseId ?? '')
     || !/^\d{4}-\d{2}-\d{2}$/.test(manifest.cutoff ?? '')
     || Number.isNaN(Date.parse(manifest.cutoff)) || new Date(manifest.cutoff).toISOString().slice(0,10) !== manifest.cutoff
@@ -31,14 +34,43 @@ export function validateInvestmentRelease(manifest, paths, { manifestPath, stat 
   const manifestStat = stat(manifestPath);
   if (!manifestStat.isFile() || manifestStat.uid !== trustedUid || (manifestStat.mode & 0o022)) fail('investment_release_manifest_permissions');
   const directory = canonicalExisting(path.dirname(manifestPath));
+  let base;
+  if (reused) {
+    if (!/^guru-sync-\d{8}-v[1-9]\d*$/.test(manifest.releaseId)) fail('investment_reuse_release_id_invalid');
+    const ownDirectory = stat(directory);
+    if (manifestStat.nlink !== 1 || (manifestStat.mode & 0o222) || ownDirectory.uid !== trustedUid
+      || !ownDirectory.isDirectory() || (ownDirectory.mode & 0o222)) fail('investment_reuse_manifest_permissions');
+    const reuse = manifest.reuse, basePath = absolute(reuse?.baseManifestPath, 'investment_reuse_manifest_invalid');
+    if (path.basename(basePath) !== 'manifest.json' || canonicalExisting(basePath) !== basePath
+      || path.dirname(path.dirname(basePath)) !== path.dirname(directory) || path.dirname(basePath) === directory
+      || Object.keys(reuse?.files ?? {}).sort().join(',') !== 'composition,strategy') fail('investment_reuse_manifest_invalid');
+    const info = stat(basePath), parent = stat(path.dirname(basePath));
+    if (!info.isFile() || info.size > 65536 || info.uid !== trustedUid || info.nlink !== 1 || (info.mode & 0o222)
+      || !parent.isDirectory() || parent.uid !== trustedUid || (parent.mode & 0o222)) fail('investment_reuse_manifest_permissions');
+    const bytes = fs.readFileSync(basePath);
+    if (crypto.createHash('sha256').update(bytes).digest('hex') !== reuse.baseManifestSha256) fail('investment_reuse_manifest_changed');
+    base = JSON.parse(bytes);
+    if (base.version !== INVESTMENT_RELEASE_VERSION || base.releaseId !== reuse.baseReleaseId || base.cutoff !== manifest.cutoff)
+      fail('investment_reuse_base_mismatch');
+    validateInvestmentRelease(base, { releaseId: base.releaseId, ...Object.fromEntries(
+      ['research', 'strategy', 'composition'].map(key => [key, base.files?.[key]?.path])) },
+    { manifestPath: basePath, stat, trustedUid });
+  }
   const seen = new Set();
   for (const key of ['research', 'strategy', 'composition']) {
     const entry = manifest.files?.[key];
     if (!entry || !Number.isSafeInteger(entry.bytes) || entry.bytes <= 0 || !/^[a-f0-9]{64}$/.test(entry.sha256 ?? '')) fail('investment_release_file_invalid');
     const file = absolute(entry.path, 'investment_release_file_invalid');
-    if (file !== paths[key] || canonicalExisting(file) !== file || !within(directory, file)) fail('investment_release_path_mismatch');
+    const external = reused && key !== 'research';
+    if (file !== paths[key] || canonicalExisting(file) !== file || (!external && !within(directory, file))) fail('investment_release_path_mismatch');
     const info = stat(file), identity = `${info.dev}:${info.ino}`;
     if (!info.isFile() || info.size !== entry.bytes || (info.mode & 0o022) || seen.has(identity)) fail('investment_release_file_mismatch');
+    if (reused && (info.uid !== trustedUid || info.nlink !== 1 || (info.mode & 0o222))) fail('investment_reuse_file_permissions');
+    if (external) {
+      const original = base.files[key], pin = manifest.reuse.files[key];
+      if (entry.path !== original.path || entry.bytes !== original.bytes || entry.sha256 !== original.sha256
+        || pin.device !== info.dev || pin.inode !== info.ino) fail('investment_reuse_file_mismatch');
+    }
     if (fs.existsSync(`${file}-wal`) && stat(`${file}-wal`).size > 0) fail('investment_release_pending_wal');
     seen.add(identity);
   }

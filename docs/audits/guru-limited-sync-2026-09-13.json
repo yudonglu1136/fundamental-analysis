@@ -1,0 +1,1265 @@
+{
+  "version": "guru-limited-sync-audit-v1",
+  "status": "offline_candidate_verified_not_deployed",
+  "verifiedAt": "2026-09-13T04:58:28.227Z",
+  "authorization": {
+    "scope": "limited-guru-release-2026-09-13",
+    "userInstruction": "四个新guru和缓存 同步 发布上线 申报错误不要管了",
+    "status": "limited_release_with_deferred_source_errors",
+    "full13fRefreshSuccess": false,
+    "fullMatrixPass": false,
+    "waived": [
+      "single_root_refresh_generation",
+      "all_enabled_curves_displayable",
+      "source_filing_repairs"
+    ],
+    "retained": [
+      "current_method_and_security_master",
+      "strict_and_proxy_coverage_floors",
+      "real_source_generation_times",
+      "public_only_exact_row_delta"
+    ]
+  },
+  "scope": {
+    "snapshotGuruIds": [
+      "evan-mcgoff",
+      "john-stamas",
+      "michael-cuggino",
+      "william-heard"
+    ],
+    "cacheGuruIds": [
+      "andreas-halvorsen",
+      "baillie-gifford",
+      "bill-ackman",
+      "brad-gerstner",
+      "chamath-palihapitiya",
+      "chase-coleman",
+      "chris-bloomstran",
+      "chris-hohn",
+      "chuck-akre",
+      "dan-loeb",
+      "david-einhorn",
+      "david-tepper",
+      "dev-kantesaria",
+      "evan-mcgoff",
+      "gavin-baker",
+      "george-soros",
+      "john-stamas",
+      "li-lu",
+      "michael-cuggino",
+      "mohnish-pabrai",
+      "nelson-peltz",
+      "pat-dorsey",
+      "philippe-laffont",
+      "renaissance-technologies",
+      "samantha-mclemore",
+      "seth-klarman",
+      "stan-moss",
+      "stanley-druckenmiller",
+      "terry-smith",
+      "tom-gayner",
+      "warren-buffett",
+      "william-heard"
+    ],
+    "years": [
+      5,
+      10
+    ]
+  },
+  "baseResearch": {
+    "bytes": 2952052736,
+    "sha256": "1eb637ca72dab198075b92f1a72b6536fff0e5c4da18be1578bc2c8e922bfce9"
+  },
+  "delta": {
+    "bytes": 50774016,
+    "sha256": "c91433a8c1fee7d45d41b8f7f29a226bcd613eea68991a9055c1bbbedcd69fa0",
+    "file": "guru-delta.sqlite"
+  },
+  "research": {
+    "bytes": 2956435456,
+    "sha256": "92665cbd7e9c7f6464ade2a657af4fefeae86c1f917f6adfc610f2db91b9ec10",
+    "tables": [
+      "guru_backtest_proxies",
+      "guru_backtests",
+      "guru_exposure_snapshots",
+      "guru_snapshots",
+      "investment_quality_annual",
+      "investment_quality_metadata",
+      "price_points",
+      "valuation_pit_financials",
+      "valuation_pit_guidance",
+      "valuation_pit_model_runs",
+      "valuation_pit_price_observations",
+      "valuation_pit_source_metadata",
+      "valuation_snapshots",
+      "valuation_ticker_snapshots"
+    ],
+    "producerValidation": {
+      "version": "sqlite-full-validation-v1",
+      "bytes": 2956435456,
+      "sha256": "92665cbd7e9c7f6464ade2a657af4fefeae86c1f917f6adfc610f2db91b9ec10",
+      "integrityCheck": "ok",
+      "foreignKeyCheck": "ok",
+      "schema": "pass",
+      "privateDataExcluded": true,
+      "verifiedAt": "2026-09-13T04:58:28.227Z",
+      "nonGuruTablesUnchanged": true,
+      "nonTargetGuruRowsUnchanged": true,
+      "baseResearchSha256": "1eb637ca72dab198075b92f1a72b6536fff0e5c4da18be1578bc2c8e922bfce9",
+      "deltaSha256": "c91433a8c1fee7d45d41b8f7f29a226bcd613eea68991a9055c1bbbedcd69fa0"
+    }
+  },
+  "operations": {
+    "guru_snapshots": {
+      "upserts": 4,
+      "explicitDeletes": 0
+    },
+    "guru_exposure_snapshots": {
+      "upserts": 4,
+      "explicitDeletes": 0
+    },
+    "guru_backtests": {
+      "upserts": 64,
+      "explicitDeletes": 0
+    },
+    "guru_backtest_proxies": {
+      "upserts": 33,
+      "explicitDeletes": 31
+    }
+  },
+  "profiles": [
+    {
+      "guruId": "william-heard",
+      "cik": "0001796409",
+      "entityName": "Heard Capital LLC",
+      "reportDate": "2026-06-30",
+      "filingDate": "2026-08-11",
+      "accession": "0001172661-26-003256",
+      "holdings": 21,
+      "activity": 17,
+      "generatedAt": "2026-09-12T10:10:38.351Z",
+      "exposureGeneratedAt": "2026-09-12T10:10:54.804Z",
+      "historyRows": 27,
+      "parsedAvailableQuarters": 27,
+      "olderParseFailures": 0,
+      "excludedAmendments": 1,
+      "latestSource": {
+        "url": "https://www.sec.gov/Archives/edgar/data/1796409/000117266126003256/infotable.xml",
+        "sha256": "856b0ccc1797a84bcd72e41757775ae715da0dcb78473c8529a1c01369f97d61",
+        "fetchedAt": "2026-09-12T09:22:39.637Z"
+      },
+      "previousSource": {
+        "url": "https://www.sec.gov/Archives/edgar/data/1796409/000117266126002072/infotable.xml",
+        "sha256": "b4eeaed9119eef4d01c3853fb27ca631bd6d3ce4727017afcf96f7eb0f15e70b",
+        "fetchedAt": "2026-09-12T09:22:38.682Z"
+      },
+      "validation": "latest_current_sm_official_values_shares_rank_weight_activity_pass"
+    },
+    {
+      "guruId": "evan-mcgoff",
+      "cik": "0001172779",
+      "entityName": "DOCK STREET ASSET MANAGEMENT INC",
+      "reportDate": "2026-06-30",
+      "filingDate": "2026-07-30",
+      "accession": "0001172779-26-000003",
+      "holdings": 64,
+      "activity": 57,
+      "generatedAt": "2026-09-12T10:11:59.160Z",
+      "exposureGeneratedAt": "2026-09-12T10:12:31.984Z",
+      "historyRows": 40,
+      "parsedAvailableQuarters": 61,
+      "olderParseFailures": 36,
+      "excludedAmendments": 7,
+      "latestSource": {
+        "url": "https://www.sec.gov/Archives/edgar/data/1172779/000117277926000003/DockStreetAssetManagement.xml",
+        "sha256": "94dbe8f17876c9df28b231f0d5b7ae7d4d0e12dcedca215e83703c06b8f49641",
+        "fetchedAt": "2026-09-12T09:25:33.909Z"
+      },
+      "previousSource": {
+        "url": "https://www.sec.gov/Archives/edgar/data/1172779/000117277926000002/DockStreetAssetManagement.xml",
+        "sha256": "b080bca5a6e437b40bce66b7474bf97156471d34d4c5f3840fd7b417721ae3dd",
+        "fetchedAt": "2026-09-12T09:25:32.254Z"
+      },
+      "validation": "latest_current_sm_official_values_shares_rank_weight_activity_pass"
+    },
+    {
+      "guruId": "michael-cuggino",
+      "cik": "0001323414",
+      "entityName": "PACIFIC HEIGHTS ASSET MANAGEMENT LLC",
+      "reportDate": "2026-06-30",
+      "filingDate": "2026-08-17",
+      "accession": "0001193125-26-353582",
+      "holdings": 77,
+      "activity": 36,
+      "generatedAt": "2026-09-12T10:13:23.054Z",
+      "exposureGeneratedAt": "2026-09-12T10:13:52.825Z",
+      "historyRows": 40,
+      "parsedAvailableQuarters": 82,
+      "olderParseFailures": 1,
+      "excludedAmendments": 1,
+      "latestSource": {
+        "url": "https://www.sec.gov/Archives/edgar/data/1323414/000119312526353582/55950.xml",
+        "sha256": "350c3c196703636f6ccbead8f5e95ca33fc570badd3f31c876bb87a042d77090",
+        "fetchedAt": "2026-09-12T09:28:07.915Z"
+      },
+      "previousSource": {
+        "url": "https://www.sec.gov/Archives/edgar/data/1323414/000119312526214483/53335.xml",
+        "sha256": "c43d0fca83fda897c868199619d3ba251a1f8bee70e1a5b6d6baa1c09c58670a",
+        "fetchedAt": "2026-09-12T09:28:06.359Z"
+      },
+      "validation": "latest_current_sm_official_values_shares_rank_weight_activity_pass"
+    },
+    {
+      "guruId": "john-stamas",
+      "cik": "0001766929",
+      "entityName": "Defender Capital, LLC.",
+      "reportDate": "2026-06-30",
+      "filingDate": "2026-07-09",
+      "accession": "0001766929-26-000003",
+      "holdings": 37,
+      "activity": 32,
+      "generatedAt": "2026-09-12T10:14:18.572Z",
+      "exposureGeneratedAt": "2026-09-12T10:14:44.398Z",
+      "historyRows": 31,
+      "parsedAvailableQuarters": 31,
+      "olderParseFailures": 0,
+      "excludedAmendments": 4,
+      "latestSource": {
+        "url": "https://www.sec.gov/Archives/edgar/data/1766929/000176692926000003/dc26630.13f.xml",
+        "sha256": "78f5221e14c6f68e5a9e7962d8fc3052571782e1d855172a430d84df77411708",
+        "fetchedAt": "2026-09-12T09:29:36.140Z"
+      },
+      "previousSource": {
+        "url": "https://www.sec.gov/Archives/edgar/data/1766929/000176692926000002/dc260331.13f.xml",
+        "sha256": "637da0a54d0728d1a3ff2872132c71e2e0e6740123ebe3c64fa20faf48acfe08",
+        "fetchedAt": "2026-09-12T09:29:34.717Z"
+      },
+      "validation": "latest_current_sm_official_values_shares_rank_weight_activity_pass"
+    }
+  ],
+  "sourceProof": {
+    "stages": [
+      {
+        "guruId": "william-heard",
+        "stageFileSha256": "6cc99a2f36605f057e17dcf83e726a639088e806dcbc6b82dbe8387dd512b570",
+        "stagedAt": "2026-09-12T10:10:54.804Z"
+      },
+      {
+        "guruId": "evan-mcgoff",
+        "stageFileSha256": "fac2e83e33403790eecaf605f423fbb375287aefa17dfd1b83e94d492cc6f3b7",
+        "stagedAt": "2026-09-12T10:12:31.985Z"
+      },
+      {
+        "guruId": "michael-cuggino",
+        "stageFileSha256": "d541592dc61a91d002d5f3762cac0933fd79a06a72b08f4b991341cfa3859366",
+        "stagedAt": "2026-09-12T10:13:52.825Z"
+      },
+      {
+        "guruId": "john-stamas",
+        "stageFileSha256": "fe4b4cc9d5ed40acc274376c211555a461b5b782f2479a061ab41ba421f0a60c",
+        "stagedAt": "2026-09-12T10:14:44.399Z"
+      }
+    ],
+    "curveIdentity": {
+      "strict": "manager13f-drifted-total-return-v9",
+      "proxy": "manager13f-public-holdings-proxy-v1",
+      "security": "holding-resolution-v1-cb446ae272b57a41"
+    },
+    "curveRows": [
+      {
+        "guruId": "gavin-baker",
+        "years": 5,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:10:06.371Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "fbc614a3336de52785d133865a99e4a4fd31235fe5feb1c0210ba96ebf7c03b6",
+        "outputStrictRowSha256": "fbc614a3336de52785d133865a99e4a4fd31235fe5feb1c0210ba96ebf7c03b6",
+        "sourceProxyRowSha256": "1e029c9eb38bc03f2d4f88f7a2467fefa46b4221b1e51f0b0126f99d1362545b",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "gavin-baker",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:10:48.255Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "2e2f0ddbc6929e7d8b7b67040785169b2d5b6489eef40ee59dd903836485b621",
+        "outputStrictRowSha256": "2e2f0ddbc6929e7d8b7b67040785169b2d5b6489eef40ee59dd903836485b621",
+        "sourceProxyRowSha256": "63c501a75393bcfd70bdeb9bcf5e9e7aa5dcc2f3d6831a0295d4a69ef8147822",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "renaissance-technologies",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:11:16.452Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "57f93b82e5073e6facdf46b2f6a62ce0192ed636128d5c72315934a49ed6fb97",
+        "outputStrictRowSha256": "57f93b82e5073e6facdf46b2f6a62ce0192ed636128d5c72315934a49ed6fb97",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "renaissance-technologies",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:12:08.844Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "e7bc61207006d7721800d4cd99ac2b2b6ee87d95de023868797dc37a7bfe9a88",
+        "outputStrictRowSha256": "e7bc61207006d7721800d4cd99ac2b2b6ee87d95de023868797dc37a7bfe9a88",
+        "sourceProxyRowSha256": "4a374a027a8063b0e3e0532c6d7733a189daf4da0fbec8f64871e73d09d2781f",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "chamath-palihapitiya",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:12:52.241Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "3599129b54772a3386f9a997a1830910b9e178d619008634350f4961a408dbb2",
+        "outputStrictRowSha256": "3599129b54772a3386f9a997a1830910b9e178d619008634350f4961a408dbb2",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "chamath-palihapitiya",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:13:48.507Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "39bb28232148e4e0f977cd4d3f3f299b43be2b2ac0503c1fc0d99427467a20c9",
+        "outputStrictRowSha256": "39bb28232148e4e0f977cd4d3f3f299b43be2b2ac0503c1fc0d99427467a20c9",
+        "sourceProxyRowSha256": "86da39791ca04d1a0e1113d2cadf3dead758cdfeb1c406eb630dc7fd993f58ff",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "bill-ackman",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:14:20.108Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "2a3a276da9047acc12a93cde5713d6018f3c92ab69c45df4af070f5ef62d936e",
+        "outputStrictRowSha256": "2a3a276da9047acc12a93cde5713d6018f3c92ab69c45df4af070f5ef62d936e",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "bill-ackman",
+        "years": 10,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:15:07.787Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "e71db219fc055d500a6e9c8d0aee48abf5846dc0790d223c00d19c11ba014985",
+        "outputStrictRowSha256": "e71db219fc055d500a6e9c8d0aee48abf5846dc0790d223c00d19c11ba014985",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "stanley-druckenmiller",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:15:36.851Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "2b8f0d8d35f85d0475eaa7c7c82f4f1f888822a5b96c12eb46844e4cd07f7d16",
+        "outputStrictRowSha256": "2b8f0d8d35f85d0475eaa7c7c82f4f1f888822a5b96c12eb46844e4cd07f7d16",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "stanley-druckenmiller",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:16:24.095Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "4bd5d9ad62be4eda4af58ffa43c773366fa7ed65e726c7eb82102c8d503e48ad",
+        "outputStrictRowSha256": "4bd5d9ad62be4eda4af58ffa43c773366fa7ed65e726c7eb82102c8d503e48ad",
+        "sourceProxyRowSha256": "eef08c0c380788b005f9d16f31509138b34bba0699e271f7fa0ec3e3a5050820",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "brad-gerstner",
+        "years": 5,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:16:49.866Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "41911e9fdddcba3a7712af73d8911d9e259c22bdeedd9dfd33b39bd1a4dbcc2d",
+        "outputStrictRowSha256": "41911e9fdddcba3a7712af73d8911d9e259c22bdeedd9dfd33b39bd1a4dbcc2d",
+        "sourceProxyRowSha256": "430cd91c16fa2f0c8516ddd0e61549a6ccdb1b9c734b38c3109b5dd7899b9521",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "brad-gerstner",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:17:39.156Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "f9026feec916181c9c76777c4e3f3e10562d8cb6e8a1a72e6500bcb25f2bf319",
+        "outputStrictRowSha256": "f9026feec916181c9c76777c4e3f3e10562d8cb6e8a1a72e6500bcb25f2bf319",
+        "sourceProxyRowSha256": "dd1ed2dc6ee917dd2671bf357dcabf44953d92922b529021b4009a02f440b1af",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "chase-coleman",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:18:07.757Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "6dda9aecd8e3452c27b9d25f2af42191e071edec85030069fa08c8db045e9ec2",
+        "outputStrictRowSha256": "6dda9aecd8e3452c27b9d25f2af42191e071edec85030069fa08c8db045e9ec2",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "chase-coleman",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:18:55.324Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "5f3d6a6f57ea7d043ef59b76f4b055afb3d171ec9c00da40510dac6d48732ab2",
+        "outputStrictRowSha256": "5f3d6a6f57ea7d043ef59b76f4b055afb3d171ec9c00da40510dac6d48732ab2",
+        "sourceProxyRowSha256": "395c1a205240887046cc65fd9ebcda84b39dec446edaf813f279f2a57321df4f",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "philippe-laffont",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:19:24.557Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "af956f2eb3ece316888309569207e38b4b3e1fa02fe4a978c4d10360981286c4",
+        "outputStrictRowSha256": "af956f2eb3ece316888309569207e38b4b3e1fa02fe4a978c4d10360981286c4",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "philippe-laffont",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:20:11.145Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "a432d152c582058e849af70d8dbe41250ed03fad2c961179b1b7f6d02284667f",
+        "outputStrictRowSha256": "a432d152c582058e849af70d8dbe41250ed03fad2c961179b1b7f6d02284667f",
+        "sourceProxyRowSha256": "0ad6b5c09120be3e4c8603b18074108dfeaafa55fa1853ea5941614399e250d5",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "li-lu",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:20:42.393Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "2e107ad0b25c59e9982e2baade3be07c2636a8c01653a4be294b0973e67e4650",
+        "outputStrictRowSha256": "2e107ad0b25c59e9982e2baade3be07c2636a8c01653a4be294b0973e67e4650",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "li-lu",
+        "years": 10,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:21:20.957Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "c53ff9e5d31ff413f5c3e263a7e5a63131caacfbaa9876bd54db572edcf177aa",
+        "outputStrictRowSha256": "c53ff9e5d31ff413f5c3e263a7e5a63131caacfbaa9876bd54db572edcf177aa",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "chuck-akre",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:21:48.768Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "eb4438764ef93361717d366d816a36299425a73699471ecf9633d69fcbbe39be",
+        "outputStrictRowSha256": "eb4438764ef93361717d366d816a36299425a73699471ecf9633d69fcbbe39be",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "chuck-akre",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:22:33.591Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "e67dd9ce9ebaece4e91c42cb71940e610b6ad9847dcc3dbb04b149a782ba3383",
+        "outputStrictRowSha256": "e67dd9ce9ebaece4e91c42cb71940e610b6ad9847dcc3dbb04b149a782ba3383",
+        "sourceProxyRowSha256": "dacb78f4fe67e8947d91d79d8e75e3cced2286b0c036cb90486e12195957d99b",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "dev-kantesaria",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:22:59.902Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "eadd913280fa19b72bd3817eadd46c5e549d1faedb122f8d8e4806800c4da6c1",
+        "outputStrictRowSha256": "eadd913280fa19b72bd3817eadd46c5e549d1faedb122f8d8e4806800c4da6c1",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "dev-kantesaria",
+        "years": 10,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:23:40.902Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "375fb9815f5ece6e5a7bcfcbd0d00ff1d33cbf5e07ddbaece85a09e7c7c038d0",
+        "outputStrictRowSha256": "375fb9815f5ece6e5a7bcfcbd0d00ff1d33cbf5e07ddbaece85a09e7c7c038d0",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "chris-bloomstran",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:24:08.944Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "836cc30419a2d0b9560dc998d84c9d6599c9eeddacedc09eb227d7d72ad9a8f4",
+        "outputStrictRowSha256": "836cc30419a2d0b9560dc998d84c9d6599c9eeddacedc09eb227d7d72ad9a8f4",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "chris-bloomstran",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:24:53.001Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "d51ddc030bc909f05fcf1642d1dd3e90fb45d31d286c43da21477acbcf17b706",
+        "outputStrictRowSha256": "d51ddc030bc909f05fcf1642d1dd3e90fb45d31d286c43da21477acbcf17b706",
+        "sourceProxyRowSha256": "85315b285bb42df13b6314a01818735bf3269adc626ef89c019d4fafd2fac8a5",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "samantha-mclemore",
+        "years": 5,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:25:21.737Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "3a03dac23b7f28daefa486606d3513a14cd7e5fa5346d81f7cfb1bf5d2c5b8dc",
+        "outputStrictRowSha256": "3a03dac23b7f28daefa486606d3513a14cd7e5fa5346d81f7cfb1bf5d2c5b8dc",
+        "sourceProxyRowSha256": "0345e2a6c0242086fceb900bee62da0e23d6d2594fabe82bf7c6e28f86cc1f55",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "samantha-mclemore",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:25:39.414Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "0411bddee96cd9fdd3926b40bd29cbed2efb33b434be449b44035b809a9f643a",
+        "outputStrictRowSha256": "0411bddee96cd9fdd3926b40bd29cbed2efb33b434be449b44035b809a9f643a",
+        "sourceProxyRowSha256": "2c400b9adc7aea8bf6dd7227aadf08365fbd7980f88888a57db17826abd7cf31",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "terry-smith",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:26:07.263Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "28485509d44a0c15c46b85511e0f67728e7770fe3cb4a98fb776ede87c3a1684",
+        "outputStrictRowSha256": "28485509d44a0c15c46b85511e0f67728e7770fe3cb4a98fb776ede87c3a1684",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "terry-smith",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:26:56.709Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "e89e45fc8ebb99acc470965ca9855c73e4df1cec1fcdc5a1fe46663c1c72fdc5",
+        "outputStrictRowSha256": "e89e45fc8ebb99acc470965ca9855c73e4df1cec1fcdc5a1fe46663c1c72fdc5",
+        "sourceProxyRowSha256": "ccdbee536f717494dbda440e11de550c410b9e9e930708524dc80d2259dd4ff0",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "stan-moss",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:27:23.978Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "b08d20fc7dd54a135660c289c3622da39ffb55ac77ac974289685e56a7bb8278",
+        "outputStrictRowSha256": "b08d20fc7dd54a135660c289c3622da39ffb55ac77ac974289685e56a7bb8278",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "stan-moss",
+        "years": 10,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:28:11.473Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "38b8a9d6c0787903d8bcee41d712823e8bd923f456200d9374cb188efc0acefd",
+        "outputStrictRowSha256": "38b8a9d6c0787903d8bcee41d712823e8bd923f456200d9374cb188efc0acefd",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "baillie-gifford",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:28:58.913Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "e4a91d5e3f1cbaed505c1d04ee7284e0037b1a0dc1c6fb3d81c636def81b0876",
+        "outputStrictRowSha256": "e4a91d5e3f1cbaed505c1d04ee7284e0037b1a0dc1c6fb3d81c636def81b0876",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "baillie-gifford",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:30:10.289Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "1fbfa520303735fd096825e72fd573957f1083d5790b85eaa885d3f18ec4d883",
+        "outputStrictRowSha256": "1fbfa520303735fd096825e72fd573957f1083d5790b85eaa885d3f18ec4d883",
+        "sourceProxyRowSha256": "a2cb258c45af8d07ddca88cea0665725d2fbc9aaa7f44c2ee0c4c65260a03c7b",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "warren-buffett",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:30:39.950Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "a14f386ff39cae371083951ded9f349491eb815ba86d2c3d93771334c002e393",
+        "outputStrictRowSha256": "a14f386ff39cae371083951ded9f349491eb815ba86d2c3d93771334c002e393",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "warren-buffett",
+        "years": 10,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:31:31.372Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "2ceb26b51eaac9d8f7695ac6c977f676a5c59c225ab2cf0d1681b22b876fecf5",
+        "outputStrictRowSha256": "2ceb26b51eaac9d8f7695ac6c977f676a5c59c225ab2cf0d1681b22b876fecf5",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "tom-gayner",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:32:01.895Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "a6d7947b93f5391fbbaaa8d6d3d8225db25a925506e67b5e58e566ce8de297e6",
+        "outputStrictRowSha256": "a6d7947b93f5391fbbaaa8d6d3d8225db25a925506e67b5e58e566ce8de297e6",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "tom-gayner",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:32:51.466Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "a8c7ceb44dd9abc675121a5056475f410ffa9ef821eaa5df12b7205b2d103fc7",
+        "outputStrictRowSha256": "a8c7ceb44dd9abc675121a5056475f410ffa9ef821eaa5df12b7205b2d103fc7",
+        "sourceProxyRowSha256": "0ee3386571efd0dae47c794dd54dc9e82c82a39bc70525bddcb8a99d50952c1e",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "chris-hohn",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:33:13.849Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "cccfcffcdec5c4598dc65360eade571b03d1ad94c5388b11d4a269e888e46228",
+        "outputStrictRowSha256": "cccfcffcdec5c4598dc65360eade571b03d1ad94c5388b11d4a269e888e46228",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "chris-hohn",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:33:57.916Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "c9ffd5b420e2c123f9390429948f8fdad35b022661dad7778ddbb8125ab56006",
+        "outputStrictRowSha256": "c9ffd5b420e2c123f9390429948f8fdad35b022661dad7778ddbb8125ab56006",
+        "sourceProxyRowSha256": "06cff7f385659c36b4ed77ba1a6b17c7b51fd49c2308cf9e55f2f4e9ebe62741",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "david-tepper",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:34:18.041Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "975cb5a4cd325c172f4707b5e08ef4c9357ca61a9cad76de78537495d6a0bde0",
+        "outputStrictRowSha256": "975cb5a4cd325c172f4707b5e08ef4c9357ca61a9cad76de78537495d6a0bde0",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "david-tepper",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:35:01.906Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "f451461a7b083914f72d25f0028f47e1b0b581e468b8daa663575f1b0634929d",
+        "outputStrictRowSha256": "f451461a7b083914f72d25f0028f47e1b0b581e468b8daa663575f1b0634929d",
+        "sourceProxyRowSha256": "ed29cd0c49a8601c81e4fceec103942d8e99050fc9a3957ddbf35d05acf7f5f1",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "dan-loeb",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:35:25.589Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "2c4d876a42836e9da3b7933d4e70fa2a4973f7f16de058dc1438221bf028a937",
+        "outputStrictRowSha256": "2c4d876a42836e9da3b7933d4e70fa2a4973f7f16de058dc1438221bf028a937",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "dan-loeb",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:36:05.771Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "9d86e77e5237c84260164aa3e0ea74f994ded822819efd44d16d0cdc130424cb",
+        "outputStrictRowSha256": "9d86e77e5237c84260164aa3e0ea74f994ded822819efd44d16d0cdc130424cb",
+        "sourceProxyRowSha256": "baccb94d0391914ed19bc99c834e9af88b53dbfb8cdba0ce0f4444758bc63389",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "seth-klarman",
+        "years": 5,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:36:34.115Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "94d3b71cff5ae7427cef301bae3dd28a1b3324dba59052536a20eb2c4341a589",
+        "outputStrictRowSha256": "94d3b71cff5ae7427cef301bae3dd28a1b3324dba59052536a20eb2c4341a589",
+        "sourceProxyRowSha256": "4a3c7aa4c02d67155eecf797faca8ffbf4bc5f691b382c40d59afe2e28ee0b11",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "seth-klarman",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:37:11.688Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "ccf56dacd8b868d2c4a01af8c6060e046a2c5c2a0f559c7e4fe53d4efa8aa9a3",
+        "outputStrictRowSha256": "ccf56dacd8b868d2c4a01af8c6060e046a2c5c2a0f559c7e4fe53d4efa8aa9a3",
+        "sourceProxyRowSha256": "bb6ef815b6bea3ba31074d3b99a4f3488d0a9c468cfab3db9ae8180043f45ed7",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "nelson-peltz",
+        "years": 5,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:37:39.058Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "4282922bd5e959a77bbcd93daae2b1d8d7726ed0096fae112b89e108382e3672",
+        "outputStrictRowSha256": "4282922bd5e959a77bbcd93daae2b1d8d7726ed0096fae112b89e108382e3672",
+        "sourceProxyRowSha256": "6ad2011f250cca4229b7196b31bbc4d32cbdd1a01d73b8737a6d2c3803df8237",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "nelson-peltz",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:38:35.855Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "e92cf48f20e72a353dd4273668acd83b25ad87bc45dae1712a438fb32dedb59f",
+        "outputStrictRowSha256": "e92cf48f20e72a353dd4273668acd83b25ad87bc45dae1712a438fb32dedb59f",
+        "sourceProxyRowSha256": "92e6539be6821e4e737114651be1b0ea6f280bb31c52261186517da71195b86b",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "andreas-halvorsen",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:39:08.054Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "bf09fac5b4b9d5e019e8ff6361b996079a159e5500defb59a7c926afabbda243",
+        "outputStrictRowSha256": "bf09fac5b4b9d5e019e8ff6361b996079a159e5500defb59a7c926afabbda243",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "andreas-halvorsen",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:40:04.298Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "12bc826b3f51fffbe5ef45d4282b7f16cf2079125fcc7df8458bfaa947d74cf9",
+        "outputStrictRowSha256": "12bc826b3f51fffbe5ef45d4282b7f16cf2079125fcc7df8458bfaa947d74cf9",
+        "sourceProxyRowSha256": "040d3c68e8ece68675ce3dbb57f8945a514bf55d120869450b35992c561a5ad8",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "david-einhorn",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:40:24.186Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "ebb71a6947d27116e45793f68ed0bef18a332a0dc0a2a775e44fcf11d7efa873",
+        "outputStrictRowSha256": "ebb71a6947d27116e45793f68ed0bef18a332a0dc0a2a775e44fcf11d7efa873",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "david-einhorn",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:41:09.630Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "f711ef5f69bfed3cc60d81aef3f6199bb91c67e557a009c49edd078206c3f0ce",
+        "outputStrictRowSha256": "f711ef5f69bfed3cc60d81aef3f6199bb91c67e557a009c49edd078206c3f0ce",
+        "sourceProxyRowSha256": "532ce55bea5b1b324d3c2a5685669820333648880ccd55a762827b4029ff62bd",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "mohnish-pabrai",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:41:31.207Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "0b2a2d3032741b0794b4a1257bc959213e1cc282c606a1d7f165ce9d554e6730",
+        "outputStrictRowSha256": "0b2a2d3032741b0794b4a1257bc959213e1cc282c606a1d7f165ce9d554e6730",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "mohnish-pabrai",
+        "years": 10,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:42:11.519Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "ec27cf87b9e741ecb1a2cdadaaa663fa2b8fe2ef54475f3033953e498ea8aa5c",
+        "outputStrictRowSha256": "ec27cf87b9e741ecb1a2cdadaaa663fa2b8fe2ef54475f3033953e498ea8aa5c",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "pat-dorsey",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:42:45.724Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "975e8fab3f39c0a638ab7d1beec930c45fc958f4e32dc2899ad5dcf0a49f9283",
+        "outputStrictRowSha256": "975e8fab3f39c0a638ab7d1beec930c45fc958f4e32dc2899ad5dcf0a49f9283",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "pat-dorsey",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:43:48.838Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "fa669134f541d493cc36fd3b06947be570f388d7f7cdb98a79fac3cd75fc8bfb",
+        "outputStrictRowSha256": "fa669134f541d493cc36fd3b06947be570f388d7f7cdb98a79fac3cd75fc8bfb",
+        "sourceProxyRowSha256": "9ad56082b85c9f4df5d81fe8e7ea42ddbd5dfc4b846103702f8531193506317c",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "william-heard",
+        "years": 5,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:44:05.442Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "b0cdb015f8b7d9e832ad371e3fa2710d42b49ea0d16d885ed407ce64f9aa8c8c",
+        "outputStrictRowSha256": "b0cdb015f8b7d9e832ad371e3fa2710d42b49ea0d16d885ed407ce64f9aa8c8c",
+        "sourceProxyRowSha256": "f9a7b5be4ce6e97f68cc254c2aedf165e83c1264dfa267e4c1efff12b1eb854c",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "william-heard",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:44:27.142Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "f68393d126a5e8f2c06541c8a042d3bc486d558ab95b71ee8d3f63c8d25f1da8",
+        "outputStrictRowSha256": "f68393d126a5e8f2c06541c8a042d3bc486d558ab95b71ee8d3f63c8d25f1da8",
+        "sourceProxyRowSha256": "b3ef4b811828a9f8b1f7690e84ceadd8f1f0f81b2964c6832a88e9a51154a963",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "evan-mcgoff",
+        "years": 5,
+        "basis": "strict",
+        "generatedAt": "2026-09-12T15:44:50.962Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "ready",
+        "sourceStrictRowSha256": "b9f72a734f9cbd709265e1e257389585baa3f70b27635fba8ee7dbecaf1c778d",
+        "outputStrictRowSha256": "b9f72a734f9cbd709265e1e257389585baa3f70b27635fba8ee7dbecaf1c778d",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "evan-mcgoff",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:45:36.622Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "04c07f5df5bc51809effa040a22a2f52621812661fedc96f91d0b65e172874a1",
+        "outputStrictRowSha256": "04c07f5df5bc51809effa040a22a2f52621812661fedc96f91d0b65e172874a1",
+        "sourceProxyRowSha256": "9eb52a908b0e6a93acf6dd58508ceab07289794e6385039399316fbcf32f6663",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "michael-cuggino",
+        "years": 5,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:46:00.005Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "af31bc4b8803a4ba42c79906e54ad3c155d6c3557f034371de495851214ba4c4",
+        "outputStrictRowSha256": "af31bc4b8803a4ba42c79906e54ad3c155d6c3557f034371de495851214ba4c4",
+        "sourceProxyRowSha256": "18ca5db1b0fa4b57e2047577c1df8b4dea33354916f74689cc848150eb45ab15",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "michael-cuggino",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:46:39.866Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "46663029f9bc35f60d714e7200006e6031f830a67120b7c410bde051a51538fe",
+        "outputStrictRowSha256": "46663029f9bc35f60d714e7200006e6031f830a67120b7c410bde051a51538fe",
+        "sourceProxyRowSha256": "129283b15d332c9d29b6980bf8a3f7593f3ff7d52dfc37732e00338034b47b21",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "john-stamas",
+        "years": 5,
+        "basis": "deferred_source_error",
+        "generatedAt": "2026-09-12T15:47:03.208Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "3cb6f1f0446df45958b778aa2c974f4244c78788edd384e6f9ba55909954a699",
+        "outputStrictRowSha256": "d0a1976b7afa88d7f6127b99fb1ad5e81d5c1a771aa85c348415c44c394bfdb8",
+        "endDate": "2026-09-12",
+        "displayable": false
+      },
+      {
+        "guruId": "john-stamas",
+        "years": 10,
+        "basis": "deferred_source_error",
+        "generatedAt": "2026-09-12T15:47:41.621Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "dc3e6abfa91ee9592e93007caee55ad3e2d2bfdc17b42d9a425e4ce9ac35d370",
+        "outputStrictRowSha256": "b20f266e33f3f8f1270a591ad2f2f94027633d4ef33225d3089d5f86eae75225",
+        "endDate": "2026-09-12",
+        "displayable": false
+      },
+      {
+        "guruId": "george-soros",
+        "years": 5,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:48:09.555Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "3e9b35cbbc40917822d0d6f63e84180d894a3cf09fce45b77ec18a45265a2c1c",
+        "outputStrictRowSha256": "3e9b35cbbc40917822d0d6f63e84180d894a3cf09fce45b77ec18a45265a2c1c",
+        "sourceProxyRowSha256": "06a877d6976b16c20738b6e64a4f1973c6873c1d9b27eb09145e4bec847245fb",
+        "endDate": "2026-09-10",
+        "displayable": true
+      },
+      {
+        "guruId": "george-soros",
+        "years": 10,
+        "basis": "proxy",
+        "generatedAt": "2026-09-12T15:49:00.142Z",
+        "refreshGeneration": null,
+        "securityMasterVersion": "holding-resolution-v1-cb446ae272b57a41",
+        "strictStatus": "insufficient_data",
+        "sourceStrictRowSha256": "362d1e93dd8832196ac087c76f01ef990d799c71f859615f36116d0ac874e786",
+        "outputStrictRowSha256": "362d1e93dd8832196ac087c76f01ef990d799c71f859615f36116d0ac874e786",
+        "sourceProxyRowSha256": "ed6daeeff3cae586a107ccf1915b723a2130d9fa9cc5a3cdeeeddb0e8825a778",
+        "endDate": "2026-09-10",
+        "displayable": true
+      }
+    ]
+  },
+  "deferredSourceErrors": [
+    {
+      "code": "reported_value_error",
+      "reportDate": "2022-03-31",
+      "accessionNumber": "0001766929-22-000002",
+      "cusip": "60471A101",
+      "reason": "Original reported value is erroneous. A later restatement exists; it is not backdated or substituted in this limited release."
+    },
+    {
+      "code": "invalid_13f_identifier",
+      "reportDate": "2025-09-30",
+      "accessionNumber": "0001766929-25-000005",
+      "cusip": "000000NAN",
+      "reason": "The original table repeats a placeholder CUSIP across unrelated issuers. Holdings and economic results are unavailable, not zero."
+    }
+  ],
+  "measurements": {
+    "measuredJournalBytes": 46346776,
+    "pageSize": 4096,
+    "sqliteVersion": "3.51.3",
+    "nodeVersion": "v22.22.3",
+    "journalSampleMilliseconds": 5,
+    "idempotent": true,
+    "applyResult": {
+      "status": "applied",
+      "upserts": 105,
+      "deletes": 21,
+      "nonTargetWrites": 0
+    },
+    "nonTargetSemanticProof": {
+      "schemaSha256": "3075c9d75f958c4a6be4af8df39220786fc1a16232a682e4140fab96caa9098f",
+      "tables": {
+        "guru_backtest_proxies": {
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "guru_backtests": {
+          "rows": 22,
+          "sha256": "6515bfce82d97650112e07172d4e7047aedb427af55d43116e6a62fd5950efb7"
+        },
+        "guru_exposure_snapshots": {
+          "rows": 29,
+          "sha256": "8a180a2b85ad4c17f695f10057e5e45772fb6ca669e660f4fae6755b69b4c14c"
+        },
+        "guru_snapshots": {
+          "rows": 38,
+          "sha256": "b49473e902a8b385b5d605fbbf9c3ec8f455591c90fbd211f9982a5abb6b8e03"
+        },
+        "investment_quality_annual": {
+          "rows": 13688,
+          "sha256": "cbdc72f3ee5ecd92ca66eee6403f5f9601eba0ec3892ed0fb5eb70704be87924"
+        },
+        "investment_quality_metadata": {
+          "rows": 7,
+          "sha256": "9863056e4895c81ab9adccc7a58ab241e6c52e778c6b5d2f5d7ae8fb683b4371"
+        },
+        "price_points": {
+          "rows": 4463919,
+          "sha256": "2b02a9b3686bc6fd8d2ab3b36630d29abfb1745e95612c59ced77f471758c824"
+        },
+        "valuation_pit_financials": {
+          "rows": 65038,
+          "sha256": "4308bf9f8adc400bb886036105b85b4de04ef9ab04898ef08c71a1386e448338"
+        },
+        "valuation_pit_guidance": {
+          "rows": 85312,
+          "sha256": "e9c089e1b61f06bc31cc3ce070e305d1cb1f1e1cdd9685e9ffc8b73bd334d5a8"
+        },
+        "valuation_pit_model_runs": {
+          "rows": 31953,
+          "sha256": "13063bf62142ea395ba2e103b3036ece8090ce0e6bc65063a579a0188a428c8c"
+        },
+        "valuation_pit_price_observations": {
+          "rows": 31636,
+          "sha256": "afce78385e2ca6ca6e371315c6cb8bcbd9f295c3c559da564bc44e521c9f6687"
+        },
+        "valuation_pit_source_metadata": {
+          "rows": 31,
+          "sha256": "f9b7a2567a3da1d3811d5bff4b0585c3221bed4bd703e9de124fc33d7180d150"
+        },
+        "valuation_snapshots": {
+          "rows": 1,
+          "sha256": "a179c8c68d399f05feb01f44490a55d3bfa00843a76bbe64abc767b688ee7fbe"
+        },
+        "valuation_ticker_snapshots": {
+          "rows": 533,
+          "sha256": "cd177a31c37424e0040e1bcff8eba16def787379c1371140bb631f47cff40f05"
+        }
+      },
+      "pageSize": 4096,
+      "sqliteVersion": "3.51.3"
+    }
+  },
+  "tests": {
+    "builder": 8,
+    "scopedGate": 6,
+    "passes": 14
+  },
+  "scopedAcceptance": {
+    "asOf": [
+      "2026-09-10",
+      "2026-09-11"
+    ],
+    "status": "scoped_compatibility_pass_with_known_failures",
+    "profiles": 33,
+    "enabledManagers": 32,
+    "requiredCacheSlots": 64,
+    "strictReady": 29,
+    "proxyReady": 33,
+    "deferredSourceError": 2,
+    "commonHistory": {
+      "managers": 31,
+      "sessions": 1145,
+      "start": "2022-02-15",
+      "end": "2026-09-10"
+    },
+    "fullDataReady": false,
+    "strictReleasePass": false
+  },
+  "limitations": [
+    "No filing source or security-master repair was performed.",
+    "The two Defender windows remain insufficient_data; no curve, proxy, or zero return is substituted.",
+    "Two corrupt Defender quarter nodes retain dates/source metadata with unknown economic data. Next-quarter comparisons are unavailable.",
+    "Older unparsed originals and excluded amendments remain explicit; this is not a complete historical backfill.",
+    "Valid caches preserve their original payload JSON, method identity, generatedAt, and refreshGeneration; no new computation is claimed.",
+    "No price, financial, strategy-warehouse, portfolio, user, credential, or dashboard rows are in this delta.",
+    "Three older Heard original cover totals (2021 Q1/Q2/Q3) disagree with summed source rows; this limited sync does not repair or certify those covers.",
+    "No AWS data write, production restart, frontend promotion, or public-health success is attested by this offline artifact."
+  ]
+}
