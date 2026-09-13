@@ -70,19 +70,6 @@ function healthyFixture() {
       sourceAt: latestAt,
       status: "ok"
     })),
-    ontology: {
-      ok: true,
-      exists: true,
-      sizeBytes: 4096,
-      updatedAt: latestAt,
-      manifest: {
-        schema_version: 2,
-        generated_at: latestAt,
-        financial_as_of: latestAt,
-        decision_latest: latestAt,
-        responses: 10
-      }
-    },
     guruCurves: {
       ok: true,
       expectedManagers: expectedManagerCount,
@@ -692,39 +679,28 @@ test("quarterly Guru data remains healthy inside its filing cadence", () => {
   assert.equal(health.modules.find((entry) => entry.id === "guru_data").state, "failed");
 });
 
-test("Ontology uses the oldest required economic source date, not generated_at", () => {
+test("current-product health has no retired-module requirement or response field", () => {
   const fixture = healthyFixture();
-  fixture.ontology.manifest.generated_at = new Date(now - 60 * 60 * 1000).toISOString();
-  fixture.ontology.manifest.financial_as_of = new Date(now - 10 * 24 * 60 * 60 * 1000).toISOString();
-  fixture.ontology.manifest.decision_latest = "2026-07-17T12:00:00";
   const health = buildPublicSystemHealth(fixture);
-  const module = health.modules.find((entry) => entry.id === "ontology");
-  assert.equal(module.state, "stale");
-  assert.equal(module.freshness.sourceAsOf, "2026-07-17T12:00:00.000Z");
-  assert.equal(module.freshness.observedAt, fixture.ontology.manifest.generated_at);
-  assert.equal(module.freshness.basis, "oldest_required_source_as_of");
+  assert.equal(health.ok, true);
+  assert.equal(Object.hasOwn(health, 'ontology'), false);
+  assert.deepEqual(health.modules.map(module=>module.id),['database','guru_data','guru_backtests','valuation','market_prices']);
 });
 
-test("Ontology fails when either required economic source date is in the future", () => {
+test("a stale retired-module caller argument is ignored, not presented as a healthy module", () => {
   const fixture = healthyFixture();
-  fixture.ontology.manifest.financial_as_of = new Date(now + 24 * 60 * 60 * 1000).toISOString();
+  Object.defineProperty(fixture,'ontology',{get(){assert.fail('Retired module read');}});
   const health = buildPublicSystemHealth(fixture);
-  const module = health.modules.find((entry) => entry.id === "ontology");
-  assert.equal(health.ok, false);
-  assert.equal(module.state, "failed");
-  assert.match(module.message, /future economic source date/);
+  assert.equal(health.ok,true);
+  assert.equal(health.modules.some(module=>module.id==='ontology'),false);
 });
 
-test("external Ontology is required to carry a verified delegation result", () => {
-  const unverifiedFixture = healthyFixture();
-  unverifiedFixture.ontology.mode = "external";
-  unverifiedFixture.ontology.verified = false;
-  const failed = buildPublicSystemHealth(unverifiedFixture);
-  assert.equal(failed.modules.find((entry) => entry.id === "ontology").state, "failed");
-
-  const verifiedFixture = healthyFixture();
-  verifiedFixture.ontology.mode = "external";
-  verifiedFixture.ontology.verified = true;
-  const healthy = buildPublicSystemHealth(verifiedFixture);
-  assert.equal(healthy.modules.find((entry) => entry.id === "ontology").state, "healthy");
+test("removing the retired module does not weaken Guru and valuation readiness", () => {
+  const fixture=healthyFixture();
+  fixture.guruCurves={...fixture.guruCurves,ok:false,displayable:0};
+  fixture.tables.find(row=>row.table==='valuation_ticker_snapshots').sourceAt='2000-01-01T00:00:00Z';
+  const health=buildPublicSystemHealth(fixture);
+  assert.equal(health.ok,false);
+  assert.equal(health.modules.find(module=>module.id==='guru_backtests').state,'failed');
+  assert.equal(health.modules.find(module=>module.id==='valuation').state,'failed');
 });

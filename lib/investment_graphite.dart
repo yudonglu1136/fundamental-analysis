@@ -204,8 +204,6 @@ extension _GraphiteWorkspace on _InvestmentWorkspaceState {
     ('research', 'Research', '研究', Icons.search),
     ('book', 'Portfolio', '组合', Icons.bar_chart_outlined),
     ('strategies', 'Strategies', '策略', Icons.layers_outlined),
-    if (widget.onLegacyView != null)
-      ('ontology', 'Ontology', '图谱', Icons.hub_outlined),
     if (widget.showAdmin && widget.onLegacyView != null)
       ('admin', 'Admin', '管理', Icons.admin_panel_settings_outlined),
   ];

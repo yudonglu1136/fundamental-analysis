@@ -4,9 +4,15 @@ set -euo pipefail
 version="${1:-$(git rev-parse --short HEAD)}"
 zip_path="${AWS_PACKAGE_PATH:-/tmp/guru-dashboard-${version}.zip}"
 db_path="${SQLITE_DB_PATH:-server/data/guru-analysis.sqlite}"
-ontology_snapshot_path="${ONTOLOGY_SNAPSHOT_PATH:-server/data/ontology-snapshot.sqlite}"
 pit_migration_path="${PIT_MIGRATION_PATH:-server/data/valuation-pit-migration.sqlite.gz}"
 include_sqlite_db="${INCLUDE_SQLITE_DB:-0}"
+
+# The standalone module is retired. Reject stale release flags before reading
+# source data or replacing an existing archive; never bundle a hidden service.
+if [ "${INCLUDE_ONTOLOGY_SNAPSHOT:-0}" = "1" ]; then
+  echo "error: Ontology is retired; INCLUDE_ONTOLOGY_SNAPSHOT is not supported" >&2
+  exit 1
+fi
 
 # Reject an unverified working tree before replacing any existing package.
 # git archive HEAD otherwise silently omits locally tested fixes/new modules.
@@ -37,25 +43,6 @@ elif [ -f "$db_path" ]; then
   fi
 else
   echo "warning: SQLite DB not found at $db_path; AWS package will start with an empty local DB" >&2
-fi
-
-if [ "${INCLUDE_ONTOLOGY_SNAPSHOT:-0}" = "1" ]; then
-  if [ ! -f "$ontology_snapshot_path" ]; then
-    echo "error: ontology snapshot not found at $ontology_snapshot_path" >&2
-    exit 1
-  fi
-  node scripts/verify-ontology-module.mjs --snapshot "$ontology_snapshot_path"
-  tmp_ontology_dir="$(mktemp -d)"
-  mkdir -p "$tmp_ontology_dir/server/data"
-  cp "$ontology_snapshot_path" "$tmp_ontology_dir/server/data/ontology-snapshot.sqlite"
-  if [ -f "${ontology_snapshot_path}.manifest.json" ]; then
-    cp "${ontology_snapshot_path}.manifest.json" \
-      "$tmp_ontology_dir/server/data/ontology-snapshot.sqlite.manifest.json"
-  fi
-  (cd "$tmp_ontology_dir" && zip -q -u "$zip_path" server/data/ontology-snapshot.sqlite*)
-  rm -rf "$tmp_ontology_dir"
-else
-  echo "info: skipping ontology snapshot; set INCLUDE_ONTOLOGY_SNAPSHOT=1 for an Ontology release" >&2
 fi
 
 if [ "${INCLUDE_PIT_MIGRATION:-0}" = "1" ]; then

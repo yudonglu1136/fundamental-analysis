@@ -55,9 +55,16 @@ The Supabase key is browser-publishable. Never use or expose a Supabase service-
 
 ## Build And Deploy
 
-DBMF is retired. Ontology is the only production replacement for that module.
-Do not restore a DBMF tab, screen, API route, build artifact, or deployment.
-Legacy `mode=dbmf`, `/dbmf`, and `/api/dbmf` requests must resolve to Ontology.
+The standalone Ontology module and its earlier DBMF replacement are retired by
+the user's explicit request on 2026-09-13. This supersedes earlier requirements
+to ship Ontology. Do not restore either module's tab, screen, API, build
+artifact, service start, snapshot export, or deployment dependency. Legacy page
+links may return to the current application, never to the retired module.
+Retired API paths must return 410/no-store before auth/body reads or forwarding;
+Vercel and AWS share `server/retiredProductRoutes.js` as their route predicate.
+The redesigned `/api/investment/*` workspace, Value Flow, strategies/CTA, and
+`/api/valuation/*` are not retired. Preserve historical snapshot databases and
+dated research/brand artifacts; those archives do not require a live module.
 Never promote a Vercel deployment built from a branch other than `trunk`.
 
 For frontend changes:
@@ -77,8 +84,9 @@ See `docs/deployment-contract.md` for the full runbook.
 
 ## Performance Regression Contract (2026-08-30)
 
-- Measure backend changes with `npm run bench:api` against the same SQLite and
-  Ontology snapshots, runtime, sample count, and concurrency. Use at least 60
+- Measure backend changes with `npm run bench:api` against the same SQLite
+  snapshot, runtime, sample count, and concurrency. Current schema-v3 artifacts
+  cover active modules; archived v2 reports are not comparable to v3. Use at least 60
   samples and concurrency 20 for a release comparison; run both revisions three
   times and compare the median results.
 - A performance optimization is complete only when at least one critical path
@@ -88,7 +96,7 @@ See `docs/deployment-contract.md` for the full runbook.
   return 304. Run `npm run check:performance` for the machine-readable gate.
 - Run `npm run test:performance` for every transport, cache, payload-shaping,
   proxy, or static-cache change. This is additive to the normal server, Flutter,
-  Ontology, i18n, and production-build checks.
+  i18n, and production-build checks.
 - The Vercel API proxy must preserve streaming, `Accept-Encoding`,
   `Content-Encoding`, `Content-Length`, `ETag`, and `If-None-Match`; do not
   re-buffer an upstream response or silently discard its compression metadata.
@@ -96,8 +104,8 @@ See `docs/deployment-contract.md` for the full runbook.
   `detail=full&pricePoints=900` only after the user opens full research. A
   non-Guru initial route must not fetch `/api/gurus` until Guru is opened.
 - Use immutable caching only for content-versioned URLs. When an immutable
-  avatar or Ontology asset changes, update its URL version in the same release.
-  Keep HTML, Flutter bootstrap/main/service-worker files, and Ontology HTML on
+  avatar or active static asset changes, update its URL version in the same release.
+  Keep HTML and Flutter bootstrap/main/service-worker files on
   revalidation. Legacy service-worker cache cleanup must run once per migration,
   not on every visit.
 - Store the reproducible benchmark inputs, before/after results, tests, and
@@ -106,8 +114,8 @@ See `docs/deployment-contract.md` for the full runbook.
   audit unless the user explicitly requests deployment.
 - Keep the public `/api/health` aggregate behind its bounded in-process cache
   and single in-flight verification. A health burst must not synchronously
-  parse and audit every Guru curve once per caller or starve the delegated
-  Ontology check. Cache successes for no more than 30 seconds and failures for
+  parse and audit every Guru curve once per caller or starve authentication and
+  other API requests. Cache successes for no more than 30 seconds and failures for
   no more than five seconds; after expiry, a failed revalidation must replace
   the older healthy result rather than serving stale green status. Start the
   TTL only after the full audit completes so an upstream outage cannot drive a
@@ -387,7 +395,7 @@ every enabled `manager13f`. It is complete only when all of these gates pass:
   zero failures. The EB origin, `thesisforge.tech`, and
   `www.thesisforge.tech` must all agree. Burst-test at least eight concurrent
   health calls after the cache expires; all must return the same healthy curve
-  matrix without Ontology timeout or request failure.
+  matrix without health-audit timeout or request failure.
 
 ### Release stop conditions
 
@@ -430,7 +438,7 @@ When valuation financials, management guidance, or historical fair values are re
 - Apply the same official-rate contract to financial statements. A cross-listed/ADR price ratio is not FX and must never convert financials; fixed currency fallbacks are forbidden. Store the paid source currency, target model currency, ECB rate pair/date/value/URL, conversion formula, and raw provider FX field at every converted PIT row, and fail closed when the event-visible official rate is unavailable.
 - If official filings have been reviewed but contain no quantified group-level guidance, record `no_quantified_official_guidance`; do not manufacture a value. Private companies without public quarterly guidance remain explicitly uncovered.
 - Missing values remain `null`. Never use zero, market price, a later filing, or a future share count to fill a historical financial input. A carried prior disclosed value must be explicitly recorded in `sourceRecord.metricDerivation`.
-- Preserve Transcript/Q&A, users, portfolios, Guru/Ontology, prices, dividends, and podcast data. A production valuation refresh may replace only `valuation_pit_source_metadata`, `valuation_pit_financials`, `valuation_pit_guidance`, `valuation_pit_model_runs`, `valuation_ticker_snapshots`, and `valuation_snapshots`.
+- Preserve Transcript/Q&A, users, portfolios, Guru, archived Ontology, prices, dividends, and podcast data. A production valuation refresh may replace only `valuation_pit_source_metadata`, `valuation_pit_financials`, `valuation_pit_guidance`, `valuation_pit_model_runs`, `valuation_ticker_snapshots`, and `valuation_snapshots`.
 - Before replacing valuation snapshots, carry forward stored transcript Q&A and its bilingual fields only when the normalized fiscal period matches exactly; never carry guidance or model inputs from the prior snapshot. First rebuild English coverage with `TRANSCRIPT_QA_TRANSLATE_ZH=false`. Then generate and audit the local Qwen cache, and attach Chinese only with `TRANSCRIPT_QA_TRANSLATE_ZH=true`, a fixed `TRANSCRIPT_QA_GENERATED_AT`, and a persistent `TRANSCRIPT_QA_TRANSLATION_CACHE_PATH`. Translation is opt-in and cache-only; a missing cache item must fail the run instead of calling an online translator. Every modeled history row must have an explicit Q&A coverage status, every `has_qa` row must contain complete stored English and Chinese Q&A, and transcript research must be marked `includedInValuationInputs: false` so it cannot alter historical fair value.
 - Transcript Q&A extraction must begin strictly after a detected Q&A boundary. Reject prepared-remarks questions, audio checks, procedural handoffs, name-only fragments, and answers without substantive management context. Rebuild Chinese fields with `scripts/translate-valuation-qa-mlx.py`; its deterministic number protection and audit sidecar must pass before enrichment, and the strict verifier must show every attached Q&A row is bilingual.
 - Back up the AWS runtime database before the transaction. Abort and roll back if any required ticker is blocked, SQLite integrity fails, guidance is dated after its model node, or non-valuation table counts change.
@@ -451,7 +459,7 @@ When valuation financials, management guidance, or historical fair values are re
 - Run the strict release verifier before production: `node server/verifyPitValuationRelease.js <baseline.sqlite> <run1.sqlite> <run2.sqlite>`. It must report `status: pass`, identical model and snapshot signatures across both runs, zero unexplained temporal jumps, zero unexpected modelable gaps, zero source-date failures, zero non-positive stored prices, and unchanged non-valuation table counts.
 - Generate the persistent all-ticker audit ledger with `SQLITE_DB_PATH=<candidate.sqlite> npm run audit:valuation:ledger`. Commit `server/reports/valuation-audit-ledger.json` and `.md`; production is blocked while the ledger contains any unresolved P0/P1 finding. Price/fair-value divergence is a watch item, never a reason to feed market price into fair value.
 - Build the production artifact from one audited candidate with `python3 scripts/build-pit-migration-artifact.py --database <run1.sqlite> --release-audit <release-audit.json> --output <valuation-pit-migration.sqlite.gz>`. The generated manifest owns the artifact SHA-256, model version, strict-audit signatures, and expected table counts; never hand-edit those release values into the deployment hook.
-- Deploy only a strict-audit candidate. Record the pre-deploy Elastic Beanstalk version, create a fresh compressed database backup and EBS snapshot, stage the six valuation tables, replace them in one `BEGIN IMMEDIATE` transaction, and retain the prior version and backup for rollback. Re-run health, coverage, valuation, Portfolio, Guru, Ontology, and Transcript checks against production before declaring the update complete.
+- Deploy only a strict-audit candidate. Record the pre-deploy Elastic Beanstalk version, create a fresh compressed database backup and EBS snapshot, stage the six valuation tables, replace them in one `BEGIN IMMEDIATE` transaction, and retain the prior version and backup for rollback. Re-run health, coverage, valuation, Portfolio, Guru, and Transcript checks against production before declaring the update complete.
 
 ## Guru Terminal Visual Baseline (2026-09-02)
 
@@ -496,19 +504,18 @@ When valuation financials, management guidance, or historical fair values are re
 
 Chinese and English are release-critical product modes, not best-effort labels.
 
-- Route all Flutter UI copy through `context.tr`, `context.ui`, or the shared localization helpers. Route all standalone Ontology copy through `web/ontology/i18n.js`. Do not add visible hard-coded copy outside those layers.
+- Route all Flutter UI copy through `context.tr`, `context.ui`, or the shared localization helpers. Do not add visible hard-coded copy outside those layers.
 - Translate API-supplied statuses, sectors, industries, strategy names, model labels, error messages, and dynamic sentence templates in both directions. Do not assume a backend value is already presentation-ready.
 - English mode must contain zero CJK UI copy. Chinese mode must contain zero untranslated interface copy; official company names, tickers, brands, source titles, and standard financial acronyms are the only allowed exceptions.
 - Include navigation, filters, buttons, charts, tables, dialogs, tooltips, placeholders, loading, empty, disabled, warning, and error states in every language review.
-- Preserve language across Flutter/Ontology navigation and URL state. The compact mobile header must always expose a language switch without requiring horizontal scrolling.
-- Whenever `web/ontology/styles.css`, `web/ontology/i18n.js`, or `web/ontology/app.js` changes, bump their shared query-string asset version in `web/ontology/index.html` to prevent stale mixed-language clients.
-- Before publishing a UI change, run `npm run audit:i18n`, `flutter analyze`, `flutter test`, `npm run verify:ontology-module`, `npm run test:ontology`, and `npm run build`. Verify both languages on desktop and a 390x844 mobile viewport, including dynamically opened Ontology panels and dialogs.
+- Preserve language across active application navigation and URL state, including retired-page redirects. The compact mobile header must always expose a language switch without requiring horizontal scrolling.
+- Before publishing a UI change, run `npm run audit:i18n`, `flutter analyze`, `flutter test`, and `npm run build`. Verify both languages on desktop and a 390x844 mobile viewport, including dynamically opened panels and dialogs.
 - Keep the current release ledger in `docs/audits/bilingual-coverage-2026-08-30.md` and update it whenever a new user-facing surface is added.
 
 ### Public research entry (2026-09-05)
 
 - First-time terminal visitors default to English; preserve an explicit
-  `lang=zh` across Flutter/Ontology routes and legacy redirects. Do not encode
+  `lang=zh` across active routes and legacy redirects. Do not encode
   Chinese by deleting `lang` now that omission means English.
 - `/research/isrg/` is an intentionally English-only, unauthenticated public
   case requested by the user. It is not a replacement for the bilingual

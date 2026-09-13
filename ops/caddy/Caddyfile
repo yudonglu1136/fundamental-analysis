@@ -27,27 +27,14 @@ www.thesisforge.tech {
 }
 
 api.thesisforge.tech {
-  handle /ontology-health {
-    rewrite * /health
-    reverse_proxy 127.0.0.1:8791
-  }
-
-  @ontology path \
-    /api/ontology/* \
-    /api/decision/* \
-    /api/strategies \
-    /api/strategies/* \
-    /api/market/* \
-    /api/overview \
-    /api/graph \
-    /api/methodology \
-    /api/timeline \
-    /api/rankings \
-    /api/company/* \
-    /api/snapshot
-
-  handle @ontology {
-    reverse_proxy 127.0.0.1:8791
+  # Keep this boundary aligned with server/retiredProductRoutes.js. Match
+  # whole path segments, including case variants, without retiring the new
+  # /api/investment/* strategies, Value Flow, valuation or Guru endpoints.
+  @retired_product path_regexp retired_product (?i)^/(ontology-health/*|api/((ontology|dbmf|strategies|decision|market)(/.*)?|(overview|graph|methodology|timeline|rankings|snapshot)/*|company/[^/]+/*))$
+  handle @retired_product {
+    header Cache-Control "no-store"
+    header Content-Type "application/json"
+    respond `{"error":"module_retired"}` 410
   }
 
   handle {

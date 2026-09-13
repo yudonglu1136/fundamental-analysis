@@ -10,9 +10,7 @@ const requiredRoutes = [
   "/api/valuation/LSEG?pricePoints=300&detail=summary",
   "/api/valuation/LSEG?pricePoints=900",
   "/api/gurus",
-  "/api/backtests?years=all&detail=compact",
-  "/api/ontology/overview",
-  "/api/graph"
+  "/api/backtests?years=all&detail=compact"
 ];
 
 function routeFixture(route, value) {
@@ -52,7 +50,7 @@ function routeFixture(route, value) {
 
 function fixture(value, routes = ["/api/test"]) {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     label: "fixture",
     generatedAt: "2026-08-30T00:00:00.000Z",
     commit: "abc123",
@@ -62,8 +60,6 @@ function fixture(value, routes = ["/api/test"]) {
     inputs: {
       databaseBytes: 1,
       databaseSha256: "d".repeat(64),
-      ontologyBytes: 1,
-      ontologySha256: "e".repeat(64),
       samples: 60,
       concurrency: 20
     },
@@ -96,6 +92,40 @@ test("API benchmark refuses undersampled runs before starting a server", () => {
   const result = runScript("scripts/benchmark-api.mjs", ["--samples", "59"]);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /--samples must be at least 60/);
+});
+
+test("API benchmark rejects retired snapshot flags before reading source data", () => {
+  const result = runScript("scripts/benchmark-api.mjs", ["--ontology", "/not-an-input.sqlite"]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /--ontology is retired/);
+});
+
+test("active benchmark and budget have the same five-route contract without retired assets", () => {
+  for (const script of ["scripts/benchmark-api.mjs", "scripts/check-performance-budget.mjs"]) {
+    const source = fs.readFileSync(path.resolve(script), "utf8");
+    const paths = JSON.parse(source.match(/const REQUIRED_ROUTES = (\[[\s\S]*?\]);/)[1]);
+    assert.deepEqual(paths, requiredRoutes);
+    assert.doesNotMatch(source, /ontologyBytes|ontologySha256|ONTOLOGY_SNAPSHOT_PATH/);
+  }
+  assert.doesNotMatch(fs.readFileSync(path.resolve("scripts/benchmark-bundle.mjs"), "utf8"), /["']ontology["']/);
+});
+
+test("legacy benchmark schemas cannot masquerade as a comparable active-module release", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "performance-retired-schema-test-"));
+  try {
+    const old = aggregateFixture(100);
+    old.schemaVersion = 2;
+    const legacy = writeReport(directory, "legacy.json", old);
+    const current = writeReport(directory, "current.json", aggregateFixture(60));
+    const summarized = runScript("scripts/summarize-performance-runs.mjs", ["--input", [legacy, legacy, legacy].join(",")]);
+    assert.notEqual(summarized.status, 0);
+    assert.match(summarized.stderr, /obsolete benchmark schema/);
+    const comparison = runScript("scripts/check-performance-budget.mjs", ["--baseline", legacy, "--current", current]);
+    assert.notEqual(comparison.status, 0);
+    assert.match(comparison.stdout, /obsolete benchmark schema/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("API benchmark forces persisted backtest caches to remain offline", () => {

@@ -11,7 +11,7 @@ import {
 } from "./secClient.js";
 import { loadOperationCommentary } from "./commentarySearch.js";
 import { gurus } from "./gurus.js";
-import { registerOntologyRoutes } from "./ontologyClient.js";
+import { registerRetiredProductRoutes } from "./retiredProductRoutes.js";
 import { clearPortfolioCache, loadPortfolioDashboard, startPortfolioNavRecorder } from "./portfolioClient.js";
 import { portfolioResponsePrivacy, respondPortfolioBusy } from "./portfolioHttp.js";
 import { portfolioSyncResult } from "./portfolioSyncResult.js";
@@ -54,7 +54,6 @@ import {
   startDividendCalendarRefresher
 } from "./dividendClient.js";
 import { buildAdminSystemHealth } from "./systemHealth.js";
-import { resolvePublicOntologyHealth } from "./publicOntologyHealth.js";
 import { createPublicHealthService } from "./publicHealthService.js";
 import { createPublicHealthWorkerBuilder } from "./publicHealthWorkerRunner.js";
 import { installJsonTransport } from "./jsonTransport.js";
@@ -82,7 +81,6 @@ const publicHealthWorker = createPublicHealthWorkerBuilder({
   }
 });
 const publicHealthService = createPublicHealthService({
-  resolveOntology: resolvePublicOntologyHealth,
   buildHealth: publicHealthWorker.buildHealth
 });
 
@@ -114,6 +112,7 @@ app.use(cors({
   allowedHeaders: ["authorization", "content-type", "if-none-match"]
 }));
 installJsonTransport(app);
+registerRetiredProductRoutes(app);
 registerGuruPriceRepairRoute(app, {
   requireInternalCron,
   requireLoopbackRequest,
@@ -435,7 +434,6 @@ app.use("/api", (request, _response, next) => {
 enableInvestmentPreview(app);
 registerLoginActivityRoutes(app);
 
-registerOntologyRoutes(app);
 
 app.get("/api/gurus/config", (_request, response) => {
   response.json({ gurus });

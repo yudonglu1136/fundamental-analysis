@@ -33,7 +33,7 @@ function timingMedian(rows) {
 
 function validateRun(report, index) {
   const label = `run ${index + 1}`;
-  if (Number(report?.schemaVersion) < 2) {
+  if (Number(report?.schemaVersion) !== 3) {
     throw new Error(`${label} uses an obsolete benchmark schema`);
   }
   const samples = Number(report?.inputs?.samples);
@@ -50,10 +50,10 @@ function validateRun(report, index) {
   if (!/^[a-f0-9]{64}$/.test(String(report?.sourceSha256 || ""))) {
     throw new Error(`${label} is missing runtime source identity`);
   }
-  for (const field of ["databaseBytes", "ontologyBytes"]) {
+  for (const field of ["databaseBytes"]) {
     if (!(Number(report?.inputs?.[field]) > 0)) throw new Error(`${label} has invalid ${field}`);
   }
-  for (const field of ["databaseSha256", "ontologySha256"]) {
+  for (const field of ["databaseSha256"]) {
     if (!String(report?.inputs?.[field] || "").trim()) throw new Error(`${label} is missing ${field}`);
   }
   if (!Array.isArray(report?.routes) || !report.routes.length) {
@@ -94,8 +94,6 @@ const inputIdentity = Object.fromEntries(
   [
     "databaseBytes",
     "databaseSha256",
-    "ontologyBytes",
-    "ontologySha256",
     "samples",
     "concurrency"
   ].map((key) => [

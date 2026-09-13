@@ -540,26 +540,47 @@ void main() {
     expect(portfolioRecoveryMinutesRemaining('invalid', now: now), 0);
   });
 
-  test('accepts only local ontology return paths', () {
-    expect(ontologyReturnPath('/ontology/'), '/ontology/');
+  test('retired local login returns open Discover without obsolete state', () {
+    expect(retiredModuleReturnPath('/ontology/'), '/?view=discover&lang=en');
     expect(
-      ontologyReturnPath('/ontology/?view=market#latest'),
-      '/ontology/?view=market#latest',
+      retiredModuleReturnPath('/ontology/?view=market#latest'),
+      '/?view=discover&lang=en',
     );
-    expect(ontologyReturnPath('https://example.com/ontology/'), isNull);
-    expect(ontologyReturnPath('//example.com/ontology/'), isNull);
-    expect(ontologyReturnPath('/ontology-admin'), isNull);
-    expect(ontologyReturnPath('/dbmf'), '/ontology/');
+    expect(retiredModuleReturnPath('https://example.com/ontology/'), isNull);
+    expect(retiredModuleReturnPath('//example.com/ontology/'), isNull);
+    expect(retiredModuleReturnPath('/ontology-admin'), isNull);
+    expect(retiredModuleReturnPath('/ontology/?lang=%FF'), isNull);
+    expect(retiredModuleReturnPath('/dbmf'), '/?view=discover&lang=en');
     expect(
-      ontologyReturnPath('/dbmf/?view=market#latest'),
-      '/ontology/?view=market#latest',
+      retiredModuleReturnPath('/dbmf/?view=market#latest'),
+      '/?view=discover&lang=en',
     );
+    for (final value in <String?>[
+      null,
+      '',
+      '/portfolio',
+      '/dbmfund',
+      '/research/isrg/',
+    ]) {
+      expect(retiredModuleReturnPath(value), isNull);
+    }
   });
 
-  test('redirects retired DBMF routes to the Ontology module', () {
-    expect(normalizeRouteMode('dbmf'), 'ontology');
-    expect(normalizeRouteMode(null, path: '/dbmf'), 'ontology');
-    expect(normalizeRouteMode(null, path: '/dbmf/history'), 'ontology');
+  test('retired routes use Discover with a safe legacy-flag fallback', () {
+    final destination = investmentWorkflowEnabled ? 'discover' : 'guru';
+    for (final mode in ['dbmf', 'ontology', ' ONTOLOGY ']) {
+      expect(normalizeRouteMode(mode), destination);
+    }
+    for (final path in [
+      '/dbmf',
+      '/dbmf/history',
+      '/ontology',
+      '/ontology/',
+      '/ontology/index.html',
+    ]) {
+      expect(normalizeRouteMode(null, path: path), destination);
+      expect(normalizeRouteMode('market', path: path), destination);
+    }
     expect(normalizeRouteMode('valuation', path: '/'), 'valuation');
   });
 
@@ -2890,21 +2911,34 @@ void main() {
     expect(appLanguageCode(AppLanguage.zh), 'zh');
   });
 
-  test('keeps language while entering the Ontology explorer', () {
-    expect(ontologyPathForLanguage(AppLanguage.zh), '/ontology/?lang=zh');
-    expect(ontologyPathForLanguage(AppLanguage.en), '/ontology/?lang=en');
-    expect(
-      ontologyPathForLanguage(AppLanguage.en, '/ontology/?view=market#latest'),
-      '/ontology/?view=market&lang=en#latest',
-    );
-    expect(
-      ontologyPathForLanguage(
-        AppLanguage.zh,
-        '/ontology/?view=market&lang=en&returnTo=%2F%3Fvaluation%3DISRG#latest',
-      ),
-      '/ontology/?view=market&lang=zh&returnTo=%2F%3Fvaluation%3DISRG#latest',
-    );
-  });
+  test(
+    'retired login returns retain language without forwarding other state',
+    () {
+      expect(
+        retiredModuleReturnPath('/ontology/', fallbackLanguage: AppLanguage.zh),
+        '/?view=discover&lang=zh',
+      );
+      expect(
+        retiredModuleReturnPath(
+          '/ontology/?view=market&lang=en&returnTo=%2F%3Fvaluation%3DISRG#latest',
+          fallbackLanguage: AppLanguage.zh,
+        ),
+        '/?view=discover&lang=en',
+      );
+      expect(
+        retiredModuleReturnPath('/dbmf/history?lang=zh-CN'),
+        '/?view=discover&lang=zh',
+      );
+      expect(
+        retiredModuleReturnPath('/?view=ontology&lang=zh'),
+        '/?view=discover&lang=zh',
+      );
+      expect(
+        retiredModuleReturnPath('/?mode=dbmf&lang=en'),
+        '/?view=discover&lang=en',
+      );
+    },
+  );
 
   test('localizes shared and dynamic UI labels', () {
     expect(localizeUiText(AppLanguage.zh, 'Dividend calendar'), '股息日历');

@@ -33,27 +33,6 @@
       "continue": true
     },
     {
-      "src": "^/ontology/?$",
-      "headers": {
-        "Cache-Control": "public, max-age=0, must-revalidate"
-      },
-      "continue": true
-    },
-    {
-      "src": "^/ontology/index\\.html$",
-      "headers": {
-        "Cache-Control": "public, max-age=0, must-revalidate"
-      },
-      "continue": true
-    },
-    {
-      "src": "^/ontology/(app\\.js|i18n\\.js|styles\\.css)$",
-      "headers": {
-        "Cache-Control": "public, max-age=31536000, immutable"
-      },
-      "continue": true
-    },
-    {
       "src": "^/guru-avatars/[^/]+\\.png$",
       "headers": {
         "Cache-Control": "public, max-age=31536000, immutable"
@@ -73,8 +52,12 @@
       "continue": true
     },
     {
-      "src": "^/dbmf(?:/.*)?$",
-      "dest": "/?view=ontology"
+      "src": "^/(ontology|dbmf)(?:/.*)?$",
+      "headers": {
+        "Cache-Control": "public, max-age=0, must-revalidate",
+        "X-Content-Type-Options": "nosniff"
+      },
+      "dest": "/index.html"
     },
     {
       "src": "/api/(.*)",

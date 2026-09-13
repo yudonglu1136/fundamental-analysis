@@ -11,9 +11,7 @@ const REQUIRED_ROUTES = [
   "/api/valuation/LSEG?pricePoints=300&detail=summary",
   "/api/valuation/LSEG?pricePoints=900",
   "/api/gurus",
-  "/api/backtests?years=all&detail=compact",
-  "/api/ontology/overview",
-  "/api/graph"
+  "/api/backtests?years=all&detail=compact"
 ];
 
 function argument(name) {
@@ -40,7 +38,7 @@ function validHash(value) {
 }
 
 function validateReport(report, label, failures) {
-  if (Number(report?.schemaVersion) < 2) failures.push(`${label}: obsolete benchmark schema`);
+  if (Number(report?.schemaVersion) !== 3) failures.push(`${label}: obsolete benchmark schema`);
   if (report?.aggregate !== "median") failures.push(`${label}: report is not a median aggregate`);
   if (!Number.isInteger(report?.inputs?.runs) || report.inputs.runs < MIN_RUNS) {
     failures.push(`${label}: requires at least ${MIN_RUNS} runs`);
@@ -53,9 +51,6 @@ function validateReport(report, label, failures) {
   }
   if (!(Number(report?.inputs?.databaseBytes) > 0) || !validHash(report?.inputs?.databaseSha256)) {
     failures.push(`${label}: invalid database identity`);
-  }
-  if (!(Number(report?.inputs?.ontologyBytes) > 0) || !validHash(report?.inputs?.ontologySha256)) {
-    failures.push(`${label}: invalid ontology identity`);
   }
   if (!report?.runtime?.node || !report?.runtime?.platform || !report?.runtime?.arch) {
     failures.push(`${label}: incomplete runtime identity`);
@@ -120,8 +115,6 @@ validateReport(current, "current", failures);
 for (const field of [
   "databaseBytes",
   "databaseSha256",
-  "ontologyBytes",
-  "ontologySha256",
   "samples",
   "concurrency"
 ]) {

@@ -18,9 +18,7 @@ const REQUIRED_ROUTES = [
   "/api/valuation/LSEG?pricePoints=300&detail=summary",
   "/api/valuation/LSEG?pricePoints=900",
   "/api/gurus",
-  "/api/backtests?years=all&detail=compact",
-  "/api/ontology/overview",
-  "/api/graph"
+  "/api/backtests?years=all&detail=compact"
 ];
 
 function argument(name, fallback = "") {
@@ -243,7 +241,7 @@ function runtimeSourceHash(project) {
 
 const project = path.resolve(argument("project", process.cwd()));
 const database = path.resolve(argument("database", path.join(project, "server/data/guru-analysis.sqlite")));
-const ontology = path.resolve(argument("ontology", path.join(project, "server/data/ontology-snapshot.sqlite")));
+if (process.argv.includes("--ontology")) throw new Error("--ontology is retired; benchmark the active API with --database only");
 const output = argument("output");
 const label = argument("label", "unlabeled");
 const samples = integerArgument("samples", MIN_SAMPLES);
@@ -253,14 +251,10 @@ if (samples < MIN_SAMPLES) {
 }
 const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "guru-api-benchmark-"));
 const benchmarkDatabase = path.join(temporaryDirectory, "guru-analysis.sqlite");
-const benchmarkOntology = path.join(temporaryDirectory, "ontology-snapshot.sqlite");
 fs.copyFileSync(database, benchmarkDatabase);
-fs.copyFileSync(ontology, benchmarkOntology);
 const inputIdentity = {
   databaseBytes: fs.statSync(benchmarkDatabase).size,
-  databaseSha256: await hashFile(benchmarkDatabase),
-  ontologyBytes: fs.statSync(benchmarkOntology).size,
-  ontologySha256: await hashFile(benchmarkOntology)
+  databaseSha256: await hashFile(benchmarkDatabase)
 };
 const sourceSha256 = runtimeSourceHash(project);
 const commit = execFileSync("git", ["rev-parse", "HEAD"], {
@@ -292,8 +286,7 @@ const child = spawn(process.execPath, ["server/index.js"], {
     SYNC_BUNDLED_GURU_BACKTESTS: "false",
     SYNC_BUNDLED_DIVIDEND_CALENDAR: "false",
     SYNC_BUNDLED_PODCAST_INSIGHTS: "false",
-    SQLITE_DB_PATH: benchmarkDatabase,
-    ONTOLOGY_SNAPSHOT_PATH: benchmarkOntology
+    SQLITE_DB_PATH: benchmarkDatabase
   },
   stdio: ["ignore", "pipe", "pipe"]
 });
@@ -312,7 +305,7 @@ try {
     throw new Error("Runtime source files changed during the benchmark run");
   }
   const report = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     label,
     generatedAt: new Date().toISOString(),
     commit,

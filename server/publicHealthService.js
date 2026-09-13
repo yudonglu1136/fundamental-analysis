@@ -13,22 +13,17 @@ function boundedTtl(value, maximum) {
  *
  * Building the aggregate verifies every required Guru curve and reads the
  * large production SQLite catalog. Running that synchronous audit once per
- * concurrent load-balancer/browser probe can starve the event loop long
- * enough for the delegated Ontology verification to time out. The service
+ * concurrent load-balancer/browser probe can starve the event loop. The service
  * shares one in-flight verification and only reuses a completed result for a
  * bounded interval. It never serves an older healthy result after a failed
  * revalidation.
  */
 export function createPublicHealthService({
-  resolveOntology,
   buildHealth,
   now = Date.now,
   successTtlMs = process.env.PUBLIC_HEALTH_SUCCESS_TTL_MS || DEFAULT_SUCCESS_TTL_MS,
   failureTtlMs = process.env.PUBLIC_HEALTH_FAILURE_TTL_MS || DEFAULT_FAILURE_TTL_MS
 } = {}) {
-  if (typeof resolveOntology !== "function") {
-    throw new TypeError("resolveOntology must be a function");
-  }
   if (typeof buildHealth !== "function") {
     throw new TypeError("buildHealth must be a function");
   }
@@ -54,10 +49,8 @@ export function createPublicHealthService({
     if (inFlight) return inFlight;
 
     const pending = (async () => {
-      const ontology = await resolveOntology();
       const generatedAt = Number(now());
       const health = await buildHealth({
-        ontology,
         ...(Number.isFinite(generatedAt) ? { now: generatedAt } : {})
       });
       const ttl = health?.ok === true ? healthyTtl : failedTtl;

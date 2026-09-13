@@ -1,5 +1,6 @@
 import http from "node:http";
 import https from "node:https";
+import { isRetiredApiPath } from "../server/retiredProductRoutes.js";
 
 // Explicit platform budget for the existing upstream deadline. The backend
 // bounds mixed-strategy workers at 90s; current Hobby Fluid supports 120s.
@@ -8,28 +9,7 @@ export const config = { maxDuration: 120 };
 const LEGACY_AWS_ORIGIN =
   process.env.AWS_API_ORIGIN ||
   "https://backend.thesisforge.tech";
-const ONTOLOGY_API_ORIGIN =
-  process.env.ONTOLOGY_API_ORIGIN ||
-  "https://api.thesisforge.tech";
 const PRODUCTION = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
-
-const RETIRED_PATH_ALIASES = new Map([
-  ["/api/dbmf", "/api/ontology/overview"]
-]);
-
-const ONTOLOGY_PATHS = [
-  "/api/ontology",
-  "/api/decision",
-  "/api/strategies",
-  "/api/market",
-  "/api/overview",
-  "/api/graph",
-  "/api/methodology",
-  "/api/timeline",
-  "/api/rankings",
-  "/api/company",
-  "/api/snapshot"
-];
 
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",
@@ -70,16 +50,10 @@ export function targetUrl(request, origins = {}) {
   }
   normalizedPath = new URL(normalizedPath, "https://thesisforge.tech").pathname;
   if (!/^\/api(?:\/|$)/i.test(normalizedPath)) throw new Error("Invalid API path");
-  const targetPath = RETIRED_PATH_ALIASES.get(normalizedPath) || normalizedPath;
-  const ontologyRequest = ONTOLOGY_PATHS.some((prefix) => (
-    targetPath === prefix || targetPath.startsWith(`${prefix}/`)
-  ));
-  const origin = new URL(ontologyRequest
-    ? (origins.ontologyOrigin || ONTOLOGY_API_ORIGIN)
-    : (origins.legacyOrigin || LEGACY_AWS_ORIGIN));
+  const origin = new URL(origins.legacyOrigin || LEGACY_AWS_ORIGIN);
   if (!["http:", "https:"].includes(origin.protocol) || origin.username || origin.password
       || origin.pathname !== "/" || origin.search || origin.hash) throw new Error("Invalid API origin");
-  const target = new URL(targetPath, origin);
+  const target = new URL(normalizedPath, origin);
   if (target.origin !== origin.origin) throw new Error("Invalid API path");
   target.search = requestUrl.searchParams.toString();
   return target;
@@ -197,6 +171,12 @@ export function createProxyHandler({ production = PRODUCTION, maxBodyBytes = 102
     response.setHeader("cache-control", "no-store");
     response.setHeader("content-length", body.length);
     response.end(body);
+    return;
+  }
+  // Retirement precedes body parsing and upstream creation, including for
+  // authenticated legacy clients. Never redirect credentials to another host.
+  if (isRetiredApiPath(target.pathname)) {
+    sendProxyError(response, "module_retired", new Error("This module has been retired."), 410);
     return;
   }
   if (production && target.protocol !== "https:") {

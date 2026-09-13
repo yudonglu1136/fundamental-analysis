@@ -613,78 +613,10 @@ export function createSystemHealth({
     };
   }
 
-  function ontologyModuleHealth(ontology, now) {
-    const observedAt = isoOrEmpty(ontology?.manifest?.generated_at) || isoOrEmpty(ontology?.updatedAt);
-    const financialAsOf = isoOrEmpty(ontology?.manifest?.financial_as_of);
-    const decisionLatest = isoOrEmpty(ontology?.manifest?.decision_latest);
-    const sourceAsOf = earliestTimestamp([financialAsOf, decisionLatest]);
-    const warningHours = 45 * DAY_HOURS;
-    const failedHours = 120 * DAY_HOURS;
-    const ageHours = hoursSince(sourceAsOf, now);
-    const delegated = ontology?.mode === "external";
-    const delegationVerified = !delegated || ontology?.verified === true;
-    const sourceDatesComplete = Boolean(financialAsOf && decisionLatest);
-    const sourceDatesPlausible = sourceDatesComplete && [financialAsOf, decisionLatest]
-      .every((value) => {
-        const age = hoursSince(value, now);
-        return age !== null && age >= -FUTURE_TOLERANCE_HOURS;
-      });
-    const available = Boolean(
-      ontology?.ok &&
-      ontology?.exists &&
-      Number(ontology?.sizeBytes || 0) > 0 &&
-      delegationVerified &&
-      sourceDatesPlausible
-    );
-    const state = available
-      ? publicStateForAge(sourceAsOf, warningHours, failedHours, now)
-      : "failed";
-    return {
-      id: "ontology",
-      label: "Ontology snapshot",
-      state,
-      message: !available
-        ? delegated && !delegationVerified
-          ? "Delegated Ontology service could not be verified."
-          : !sourceDatesComplete
-            ? "Ontology manifest is missing required economic source dates."
-            : !sourceDatesPlausible
-              ? "Ontology manifest has an invalid or future economic source date."
-              : "Ontology snapshot is missing or unreadable."
-        : state === "failed"
-          ? "Ontology economic data is beyond the failure cadence threshold."
-          : state === "stale"
-            ? "Ontology economic data is beyond the warning cadence threshold."
-            : state === "unknown"
-              ? "Ontology economic source dates are invalid."
-              : "",
-      freshness: {
-        basis: "oldest_required_source_as_of",
-        cadence: "quarterly_company_event",
-        sourceAsOf,
-        observedAt,
-        latestAt: sourceAsOf,
-        ageHours: roundedHours(ageHours),
-        warningHours,
-        failedHours
-      },
-      details: {
-        sizeBytes: Number(ontology?.sizeBytes || 0),
-        schemaVersion: ontology?.manifest?.schema_version ?? null,
-        responseCount: Number(ontology?.manifest?.responses || 0),
-        financialAsOf,
-        decisionLatest,
-        deploymentMode: ontology?.mode || "local",
-        delegationVerified
-      }
-    };
-  }
-
   function buildPublicSystemHealth({
     database: databaseOverride,
     tables: tablesOverride,
     guruCurves: guruCurvesOverride,
-    ontology = {},
     now = Date.now()
   } = {}) {
     const rawDatabase = databaseOverride || databaseHealth();
@@ -733,8 +665,7 @@ export function createSystemHealth({
       databaseModule,
       ...publicDataModules.map((spec) => spec.id === "guru_backtests"
         ? guruBacktestModuleHealth(spec, tableRows, guruCurves, now)
-        : tableModuleHealth(spec, tableRows, now)),
-      ontologyModuleHealth(ontology, now)
+        : tableModuleHealth(spec, tableRows, now))
     ];
     const status = publicOverallState(modules.map((module) => module.state));
     const { path: _path, ...publicDatabase } = rawDatabase;
@@ -750,10 +681,6 @@ export function createSystemHealth({
         state: databaseState,
         missingTables,
         failedTables
-      },
-      ontology: {
-        ...ontology,
-        state: modules.at(-1).state
       },
       modules
     };

@@ -38,9 +38,7 @@ const commit = argument("commit", "unknown");
 const files = filesUnder(directory);
 const importantPaths = new Set([
   "main.dart.js",
-  "flutter_bootstrap.js",
-  path.join("ontology", "app.js"),
-  path.join("ontology", "styles.css")
+  "flutter_bootstrap.js"
 ]);
 const important = files
   .filter((file) => {

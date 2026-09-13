@@ -27,14 +27,14 @@ function request(path, search = "") {
   };
 }
 
-test("routes strategy catalog and detail requests to Ontology", () => {
+test("active strategy requests use the existing AWS backend despite a stale retired origin", () => {
   assert.equal(
-    targetUrl(request("/api/strategies")).href,
-    "https://ontology.example/api/strategies"
+    targetUrl(request("/api/investment/strategy-lab/catalog")).href,
+    "https://legacy.example/api/investment/strategy-lab/catalog"
   );
   assert.equal(
-    targetUrl(request("/api/strategies/integrated-ml-ontology", "?period=evaluation_2018_2026")).href,
-    "https://ontology.example/api/strategies/integrated-ml-ontology?period=evaluation_2018_2026"
+    targetUrl(request("/api/investment/strategy-lab/backtest", "?asOf=2026-09-11")).href,
+    "https://legacy.example/api/investment/strategy-lab/backtest?asOf=2026-09-11"
   );
 });
 
@@ -90,11 +90,29 @@ test("rejects internal routes before reading a body or forwarding credentials", 
   });
 });
 
-test("rewrites the retired DBMF endpoint to Ontology", () => {
+test("retired DBMF has no replacement rewrite or dedicated origin", () => {
   assert.equal(
     targetUrl(request("/api/dbmf", "?refresh=1")).href,
-    "https://ontology.example/api/ontology/overview?refresh=1"
+    "https://legacy.example/api/dbmf?refresh=1"
   );
+});
+
+test("retired paths return 410 before reading bodies or forwarding credentials", async () => {
+  const paths = ["/api/dbmf", "/api/ontology/overview", "/API/ONTOLOGY/graph", "/api/%256fntology/overview",
+    "/api/investment/../ontology/overview", "/api/strategies", "/api/strategies/legacy", "/api/decision/latest",
+    "/api/market/latest", "/api/overview", "/api/graph", "/api/methodology", "/api/timeline",
+    "/api/rankings", "/api/snapshot", "/api/company/PLTR"];
+  for (const path of paths) {
+    const headers = new Map();
+    const response = { setHeader: (name, value) => headers.set(name, value), end(value) { this.body = value; } };
+    await proxyHandler({ ...request(path), method: "POST", headers: { authorization: "Bearer must-not-leave" },
+      on() { assert.fail("Retired requests must not read the body or open an upstream"); }
+    }, response);
+    assert.equal(response.statusCode, 410, path);
+    assert.equal(headers.get("cache-control"), "no-store");
+    assert.equal(JSON.parse(response.body).error, "module_retired");
+    assert.doesNotMatch(String(response.body), /must-not-leave|ontology.example/);
+  }
 });
 
 test("forwards compression negotiation and preserves end-to-end response headers", () => {

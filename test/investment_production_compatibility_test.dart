@@ -36,14 +36,17 @@ class _CompatibilityApi extends ApiClient {
 }
 
 void main() {
-  test('the nonvisual build marker identifies the compiled workflow branch', () {
-    expect(
-      investmentWorkflowBuildMarker,
-      investmentWorkflowEnabled
-          ? 'thesisforge-workflow-enabled-v1'
-          : 'thesisforge-workflow-disabled-v1',
-    );
-  });
+  test(
+    'the nonvisual build marker identifies the compiled workflow branch',
+    () {
+      expect(
+        investmentWorkflowBuildMarker,
+        investmentWorkflowEnabled
+            ? 'thesisforge-workflow-enabled-v1'
+            : 'thesisforge-workflow-disabled-v1',
+      );
+    },
+  );
   for (final width in [390.0, 1280.0]) {
     for (final language in AppLanguage.values) {
       testWidgets('production navigation is usable at $width / $language', (
@@ -78,10 +81,12 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Local preview · Historical PIT'), findsNothing);
         expect(find.text('本地预览 · 历史 PIT'), findsNothing);
-        final ontology = language == AppLanguage.en ? 'Ontology' : '图谱';
-        await tester.tap(find.text(ontology));
+        expect(find.text('Ontology'), findsNothing);
+        expect(find.text('图谱'), findsNothing);
+        final admin = language == AppLanguage.en ? 'Admin' : '管理';
+        await tester.tap(find.text(admin));
         await tester.pumpAndSettle();
-        expect(destination, 'ontology');
+        expect(destination, 'admin');
         final signOut = language == AppLanguage.en ? 'Sign out' : '退出登录';
         await tester.tap(find.byTooltip(signOut));
         await tester.pumpAndSettle();
@@ -98,7 +103,10 @@ void main() {
       expect(normalizeRouteMode('portfolio'), 'portfolio');
       expect(normalizeRouteMode('valuation'), 'valuation');
       expect(normalizeRouteMode('guru'), 'guru');
-      expect(normalizeRouteMode('dbmf'), 'ontology');
+      expect(
+        normalizeRouteMode('dbmf'),
+        investmentWorkflowEnabled ? 'discover' : 'guru',
+      );
       expect(
         normalizeRouteMode(null),
         investmentWorkflowEnabled ? 'home' : 'guru',
@@ -107,6 +115,58 @@ void main() {
   );
 
   if (investmentWorkflowEnabled) {
+    testWidgets('retired bookmarks render Discover without retired API calls', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final api = _CompatibilityApi();
+      for (final path in [
+        '/?view=ontology&lang=zh',
+        '/?mode=dbmf&lang=en',
+        '/ontology/?view=market&lang=zh',
+        '/ontology/index.html?code=oauth-callback&lang=en',
+        '/dbmf/history?lang=en',
+      ]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: TerminalHome(
+              key: ValueKey(path),
+              api: api,
+              accessToken: 'synthetic-session',
+              userId: 'user-a',
+              userName: 'Test user',
+              userEmail: 'user@example.com',
+              language: AppLanguage.en,
+              routeUri: Uri.parse('https://thesisforge.tech$path'),
+              onLanguage: (_) {},
+              onLogout: () {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<InvestmentWorkspace>(find.byType(InvestmentWorkspace))
+              .initialPage,
+          'discover',
+        );
+        expect(find.text('Ontology'), findsNothing);
+        expect(
+          api.paths.where(
+            (path) =>
+                path.startsWith('/api/ontology') ||
+                path.startsWith('/api/dbmf'),
+          ),
+          isEmpty,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    });
+
     testWidgets('browser Back waits for the current account worksheet save', (
       tester,
     ) async {

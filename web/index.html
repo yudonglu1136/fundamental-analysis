@@ -42,21 +42,24 @@
         currentUrl.searchParams.get('view') ||
         currentUrl.searchParams.get('mode') ||
         ''
-      ).toLowerCase();
-      const isLegacyOntologyRoute =
-        requestedView === 'ontology' ||
-        window.location.pathname === '/dbmf' ||
-        window.location.pathname.startsWith('/dbmf/');
+      ).trim().toLowerCase();
+      const isRetiredModuleRoute =
+        ['ontology', 'dbmf'].includes(requestedView) ||
+        ['/ontology', '/dbmf'].some((prefix) =>
+          currentUrl.pathname.toLowerCase() === prefix ||
+          currentUrl.pathname.toLowerCase().startsWith(`${prefix}/`),
+        );
       const isAuthCallback =
         currentUrl.searchParams.has('code') ||
         currentUrl.searchParams.has('error') ||
         window.location.hash.includes('access_token=');
 
-      if (isLegacyOntologyRoute && !isAuthCallback) {
-        const ontologyUrl = new URL('/ontology/', currentUrl);
+      if (isRetiredModuleRoute && !isAuthCallback) {
+        const discoverUrl = new URL('/', currentUrl);
+        discoverUrl.searchParams.set('view', 'discover');
         const language = currentUrl.searchParams.get('lang');
-        if (language) ontologyUrl.searchParams.set('lang', language);
-        window.location.replace(ontologyUrl.pathname + ontologyUrl.search);
+        if (language) discoverUrl.searchParams.set('lang', language);
+        window.location.replace(discoverUrl.pathname + discoverUrl.search);
         return;
       }
 

@@ -25,7 +25,7 @@ function unavailableHealth(methodIdentity, options, code) {
     exists: null, sizeBytes: null, updatedAt: "", status: "failed", state: "failed",
     missingTables: [], failedTables: [], message
   };
-  health.modules = health.modules.map((module) => module.id === "ontology" ? module : {
+  health.modules = health.modules.map((module) => ({
     ...module,
     state: "failed",
     message,
@@ -33,7 +33,7 @@ function unavailableHealth(methodIdentity, options, code) {
       verificationError: code,
       ...(module.id === "guru_backtests" ? { curveAvailability: curves } : {})
     }
-  });
+  }));
   return health;
 }
 

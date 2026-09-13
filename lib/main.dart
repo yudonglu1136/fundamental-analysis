@@ -106,35 +106,45 @@ String appLanguageCode(AppLanguage language) =>
 String trFor(AppLanguage language, String zh, String en) =>
     language == AppLanguage.en ? en : zh;
 
-String ontologyPathForLanguage(
-  AppLanguage language, [
-  String value = '/ontology/',
-]) {
-  final uri = Uri.tryParse(value) ?? Uri(path: '/ontology/');
-  final params = Map<String, String>.from(uri.queryParameters);
-  params['lang'] = appLanguageCode(language);
-  return uri
-      .replace(queryParameters: params.isEmpty ? null : params)
-      .toString();
+bool isRetiredModuleRoute(String? value, {String? path}) {
+  final mode = value?.trim().toLowerCase() ?? '';
+  final normalizedPath = path?.trim().toLowerCase() ?? '';
+  return const {'ontology', 'dbmf'}.contains(mode) ||
+      const ['/ontology', '/dbmf'].any(
+        (prefix) =>
+            normalizedPath == prefix || normalizedPath.startsWith('$prefix/'),
+      );
 }
 
-String? ontologyReturnPath(String? value) {
+String? retiredModuleReturnPath(
+  String? value, {
+  AppLanguage fallbackLanguage = AppLanguage.en,
+}) {
   final candidate = value?.trim() ?? '';
   if (candidate.isEmpty) return null;
   final uri = Uri.tryParse(candidate);
   if (uri == null || uri.hasScheme || uri.hasAuthority) return null;
-  if (uri.path == '/dbmf' || uri.path.startsWith('/dbmf/')) {
-    final suffix = uri.path.substring('/dbmf'.length);
-    return Uri(
-      path: '/ontology${suffix.isEmpty ? '/' : suffix}',
-      query: uri.hasQuery ? uri.query : null,
-      fragment: uri.hasFragment ? uri.fragment : null,
-    ).toString();
-  }
-  if (uri.path != '/ontology' && !uri.path.startsWith('/ontology/')) {
+  final Map<String, String> params;
+  try {
+    params = uri.queryParameters;
+  } on FormatException {
     return null;
   }
-  return uri.toString();
+  if (!isRetiredModuleRoute(
+    params['view'] ?? params['mode'],
+    path: uri.path,
+  )) {
+    return null;
+  }
+  // Old login return links are local-only. Retired module state and fragments
+  // are not forwarded; the authenticated account opens the current workspace.
+  final language = params.containsKey('lang')
+      ? parseAppLanguage(params['lang'])
+      : fallbackLanguage;
+  return Uri(
+    path: '/',
+    queryParameters: {'view': 'discover', 'lang': appLanguageCode(language)},
+  ).toString();
 }
 
 class LanguageScope extends InheritedWidget {
@@ -469,8 +479,6 @@ const _uiChinese = <String, String>{
   'HOLDINGS': '持仓',
   'No holdings from Yodlee yet.': 'Yodlee 尚未返回持仓。',
   'FV gap': '估值差距',
-  'EVENT ONTOLOGY V2': '事件 ONTOLOGY V2',
-  'Ontology Intelligence': 'Ontology 智能研究',
   'PIT fundamentals, peer value capture, and graph-confirmed decisions.':
       'PIT 基本面、同行价值捕获与图谱确认决策。',
   'Current Signals': '当前信号',
@@ -1052,8 +1060,9 @@ class _AuthGateState extends State<AuthGate> {
   String? _authMessageEn;
   Session? _session;
   StreamSubscription<AuthState>? _authSub;
-  late final String? _returnTo = ontologyReturnPath(
+  late final String? _returnTo = retiredModuleReturnPath(
     readBrowserQuery()['returnTo'],
+    fallbackLanguage: widget.language,
   );
 
   @override
@@ -1485,7 +1494,6 @@ class _TerminalHomeState extends State<TerminalHome>
 
   final TextEditingController _guruSearchController = TextEditingController();
   Map<String, dynamic>? _guruPayload;
-  Map<String, dynamic>? _ontologyPayload;
   Map<String, dynamic>? _portfolioPayload;
   Map<String, dynamic>? _valuationPayload;
   Map<String, dynamic>? _adminPayload;
@@ -1525,24 +1533,16 @@ class _TerminalHomeState extends State<TerminalHome>
       route['view'] ?? route['mode'],
       path: widget.routeUri.path,
     );
-    final redirectingToOntology = _mode == 'ontology';
-    if (redirectingToOntology) {
-      _mode = 'guru';
-      scheduleMicrotask(
-        () => openBrowserPath(ontologyPathForLanguage(widget.language)),
-      );
-    }
     if (_mode == 'admin' && !_adminEnabled) _mode = 'guru';
     _selectedGuruId = cleanRouteValue(route['guru']);
     _guruModule = guruModuleIndex(route['module']);
     _guruTradeTicker = cleanRouteValue(route['trade'])?.toUpperCase() ?? '';
     _guruQuarterId = cleanRouteValue(route['quarter']) ?? '';
     _valuationTicker = cleanRouteValue(route['valuation'])?.toUpperCase() ?? '';
-    if (!redirectingToOntology &&
-        shouldLoadGuruDashboard(_mode, _guruPayload)) {
+    if (shouldLoadGuruDashboard(_mode, _guruPayload)) {
       unawaited(_loadGurus());
     }
-    if (!redirectingToOntology && _mode != 'guru') {
+    if (_mode != 'guru') {
       unawaited(_loadSecondary(_mode));
     }
   }
@@ -1565,7 +1565,6 @@ class _TerminalHomeState extends State<TerminalHome>
       _secondaryRequestSerial++;
       _api = _createApi();
       _guruPayload = null;
-      _ontologyPayload = null;
       _portfolioPayload = null;
       _valuationPayload = null;
       _adminPayload = null;
@@ -1614,10 +1613,6 @@ class _TerminalHomeState extends State<TerminalHome>
       route['view'] ?? route['mode'],
       path: uri.path,
     );
-    if (nextMode == 'ontology') {
-      openBrowserPath(ontologyPathForLanguage(widget.language, uri.toString()));
-      return;
-    }
     if (nextMode == 'admin' && !_adminEnabled) nextMode = 'guru';
     final nextGuru = cleanRouteValue(route['guru']);
     final nextModule = guruModuleIndex(route['module']);
@@ -1702,7 +1697,6 @@ class _TerminalHomeState extends State<TerminalHome>
   }
 
   Map<String, dynamic>? _secondaryPayloadFor(String mode) => switch (mode) {
-    'ontology' => _ontologyPayload,
     'portfolio' => _portfolioPayload,
     'admin' => _adminPayload,
     _ => _valuationPayload,
@@ -1741,7 +1735,6 @@ class _TerminalHomeState extends State<TerminalHome>
   Future<void> _loadSecondary(String mode, {bool refresh = false}) async {
     if (!_hasSession) return;
     if (isInvestmentMode(mode)) return;
-    if (!refresh && mode == 'ontology' && _ontologyPayload != null) return;
     if (!refresh && mode == 'portfolio' && _portfolioPayload != null) return;
     if (!refresh && mode == 'valuation' && _valuationPayload != null) return;
     if (!refresh && mode == 'admin' && _adminPayload != null) return;
@@ -1753,7 +1746,6 @@ class _TerminalHomeState extends State<TerminalHome>
     });
     try {
       final basePath = switch (mode) {
-        'ontology' => '/api/ontology/overview',
         'portfolio' => '/api/portfolio',
         'admin' => '/api/admin/portfolio-users',
         _ => '/api/valuation',
@@ -1762,7 +1754,6 @@ class _TerminalHomeState extends State<TerminalHome>
       final payload = await _api.getJson(path);
       if (!mounted || requestId != _secondaryRequestSerial) return;
       setState(() {
-        if (mode == 'ontology') _ontologyPayload = payload;
         if (mode == 'portfolio') _portfolioPayload = payload;
         if (mode == 'valuation') _valuationPayload = payload;
         if (mode == 'admin') _adminPayload = payload;
@@ -1781,18 +1772,6 @@ class _TerminalHomeState extends State<TerminalHome>
 
   void _changeMode(String mode) {
     if (mode == 'admin' && !_adminEnabled) return;
-    if (mode == 'ontology') {
-      openBrowserPath(
-        ontologyPathForLanguage(
-          widget.language,
-          Uri(
-            path: '/ontology/',
-            queryParameters: {'returnTo': _terminalRoutePath()},
-          ).toString(),
-        ),
-      );
-      return;
-    }
     setState(() {
       _mode = mode;
       _secondaryError = null;
@@ -1824,31 +1803,6 @@ class _TerminalHomeState extends State<TerminalHome>
           : null,
       'lang': appLanguageCode(widget.language),
     }, replaceCurrent: replaceCurrent);
-  }
-
-  String _terminalRoutePath() {
-    final params = <String, String>{};
-    if (_mode != 'guru' || investmentWorkflowEnabled) params['view'] = _mode;
-    if (_mode == 'guru' && (_selectedGuruId?.isNotEmpty ?? false)) {
-      params['guru'] = _selectedGuruId!;
-    }
-    if (_mode == 'guru' && _guruModule > 0) {
-      params['module'] = guruModuleRouteName(_guruModule);
-    }
-    if (_mode == 'guru' && _guruTradeTicker.isNotEmpty) {
-      params['trade'] = _guruTradeTicker;
-    }
-    if (_mode == 'guru' && _guruModule == 2 && _guruQuarterId.isNotEmpty) {
-      params['quarter'] = _guruQuarterId;
-    }
-    if (_mode == 'valuation' && _valuationTicker.isNotEmpty) {
-      params['valuation'] = _valuationTicker;
-    }
-    params['lang'] = appLanguageCode(widget.language);
-    return Uri(
-      path: '/',
-      queryParameters: params.isEmpty ? null : params,
-    ).toString();
   }
 
   void _selectGuru(String id) {
@@ -1990,7 +1944,6 @@ class _TerminalHomeState extends State<TerminalHome>
                           mode: _mode,
                           api: _api,
                           data: switch (_mode) {
-                            'ontology' => _ontologyPayload,
                             'portfolio' => _portfolioPayload,
                             'admin' => _adminPayload,
                             _ => _valuationPayload,
@@ -2250,12 +2203,6 @@ ModuleHeaderState moduleHeaderState({
       payload?['asOf'],
       summary['asOf'],
     ]),
-    'ontology' => firstValidAsOf([
-      source['asOf'],
-      source['generatedAt'],
-      payload?['asOf'],
-      summary['asOf'],
-    ]),
     _ => firstValidAsOf([source['asOf'], payload?['asOf'], summary['asOf']]),
   };
   final explicitStatus = text(
@@ -2263,7 +2210,7 @@ ModuleHeaderState moduleHeaderState({
     text(source['mode'], text(source['status'], text(cache['status']))),
   ).toLowerCase();
   final freshnessValue = switch (mode) {
-    'valuation' || 'ontology' => text(asOf, text(payload?['generatedAt'])),
+    'valuation' => text(asOf, text(payload?['generatedAt'])),
     'guru' => text(payload?['generatedAt'], asOf),
     _ => text(asOf, text(payload?['generatedAt'])),
   };
@@ -2272,7 +2219,6 @@ ModuleHeaderState moduleHeaderState({
     'guru' => const Duration(hours: 48),
     'valuation' => const Duration(hours: 72),
     'portfolio' => const Duration(hours: 48),
-    'ontology' => const Duration(days: 7),
     _ => null,
   };
   final referenceNow = (now ?? DateTime.now()).toUtc();
@@ -2673,7 +2619,6 @@ class ModeSegment extends StatelessWidget {
     final modes = [
       if (investmentWorkflowEnabled) ('home', context.tr('工作区', 'Workspace')),
       ('guru', 'Guru'),
-      ('ontology', 'Ontology'),
       ('valuation', context.tr('估值', 'Valuation')),
       ('portfolio', context.tr('组合', 'Portfolio')),
       if (showAdmin) ('admin', context.tr('管理', 'Admin')),
@@ -8334,7 +8279,6 @@ class QuickLinksPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final links = const [
-      ('Ontology Intelligence', 'ontology', Icons.hub_rounded),
       ('Fair Value Matrix', 'valuation', Icons.query_stats_rounded),
     ];
     return Panel(
@@ -12071,11 +12015,6 @@ class SecondaryDashboard extends StatelessWidget {
               const SizedBox(height: 10),
             ],
             switch (mode) {
-              'ontology' => OntologyCompactDashboard(
-                data: data!,
-                api: api,
-                palette: palette,
-              ),
               'portfolio' => PortfolioDashboard(
                 data: data!,
                 api: api,
@@ -19411,1595 +19350,6 @@ class _HoldingMiniLine extends StatelessWidget {
   }
 }
 
-class OntologyCompactDashboard extends StatefulWidget {
-  const OntologyCompactDashboard({
-    super.key,
-    required this.data,
-    required this.api,
-    required this.palette,
-  });
-
-  final Map<String, dynamic> data;
-  final ApiClient api;
-  final Palette palette;
-
-  @override
-  State<OntologyCompactDashboard> createState() =>
-      _OntologyCompactDashboardState();
-}
-
-class _OntologyCompactDashboardState extends State<OntologyCompactDashboard> {
-  int _timelineIndex = 0;
-  int _snapshotRequest = 0;
-  bool _snapshotLoading = false;
-  String? _snapshotError;
-  String _navPeriod = 'evaluation';
-  List<Map<String, dynamic>> _historicalSignals = const [];
-  Map<String, dynamic> _historicalPortfolio = const {};
-  String _selectedNavDate = '';
-
-  Map<String, dynamic> get data => widget.data;
-  Palette get palette => widget.palette;
-
-  List<Map<String, dynamic>> get _timeline => asList(data['timeline']);
-
-  bool get _showingLatest =>
-      _timeline.isEmpty || _timelineIndex >= _timeline.length - 1;
-
-  List<Map<String, dynamic>> get _visibleSignals =>
-      _showingLatest ? asList(data['current_signals']) : _historicalSignals;
-
-  Map<String, dynamic> get _visiblePortfolio =>
-      _showingLatest ? asMap(data['portfolio']) : _historicalPortfolio;
-
-  @override
-  void initState() {
-    super.initState();
-    _timelineIndex = math.max(0, _timeline.length - 1).toInt();
-  }
-
-  @override
-  void didUpdateWidget(covariant OntologyCompactDashboard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.data, widget.data)) {
-      _snapshotRequest += 1;
-      _timelineIndex = math.max(0, _timeline.length - 1).toInt();
-      _historicalSignals = const [];
-      _historicalPortfolio = const {};
-      _selectedNavDate = '';
-      _snapshotLoading = false;
-      _snapshotError = null;
-    }
-  }
-
-  Future<void> _selectTimeline(
-    int requestedIndex, {
-    String selectedNavDate = '',
-  }) async {
-    if (_timeline.isEmpty) return;
-    final index = requestedIndex.clamp(0, _timeline.length - 1).toInt();
-    final requestId = ++_snapshotRequest;
-    if (index == _timeline.length - 1) {
-      setState(() {
-        _timelineIndex = index;
-        _historicalSignals = const [];
-        _historicalPortfolio = const {};
-        _selectedNavDate = selectedNavDate.isEmpty
-            ? text(_timeline[index]['month']).split('T').first
-            : selectedNavDate;
-        _snapshotLoading = false;
-        _snapshotError = null;
-      });
-      return;
-    }
-
-    final asOf = text(_timeline[index]['month']).split('T').first;
-    setState(() {
-      _timelineIndex = index;
-      _selectedNavDate = selectedNavDate.isEmpty ? asOf : selectedNavDate;
-      _historicalPortfolio = const {};
-      _snapshotLoading = true;
-      _snapshotError = null;
-    });
-    try {
-      final payload = await widget.api.getJson(
-        '/api/decision/snapshot?as_of=${Uri.encodeQueryComponent(asOf)}&limit=80',
-      );
-      if (!mounted || requestId != _snapshotRequest) return;
-      setState(() {
-        _historicalSignals = asList(payload['signals']);
-        _historicalPortfolio = asMap(payload['portfolio']);
-        _snapshotLoading = false;
-      });
-    } catch (error) {
-      if (!mounted || requestId != _snapshotRequest) return;
-      setState(() {
-        _historicalSignals = const [];
-        _historicalPortfolio = const {};
-        _snapshotLoading = false;
-        _snapshotError = error.toString().replaceFirst('Exception: ', '');
-      });
-    }
-  }
-
-  bool _timelineDateInPeriod(String value, String period) {
-    final year = value.length >= 4 ? int.tryParse(value.substring(0, 4)) : null;
-    if (year == null) return false;
-    return period == 'development' ? year <= 2016 : year >= 2018;
-  }
-
-  int? _timelineAtOrBefore(String date, String period) {
-    int? selected;
-    for (var index = 0; index < _timeline.length; index += 1) {
-      final candidate = text(_timeline[index]['month']).split('T').first;
-      if (!_timelineDateInPeriod(candidate, period)) continue;
-      if (candidate.compareTo(date) <= 0) selected = index;
-    }
-    return selected;
-  }
-
-  void _selectNavPoint(Map<String, dynamic> point) {
-    final date = text(point['date']).split('T').first;
-    final index = _timelineAtOrBefore(date, _navPeriod);
-    if (index == null) return;
-    unawaited(_selectTimeline(index, selectedNavDate: date));
-  }
-
-  void _selectNavPeriod(String period) {
-    if (_navPeriod == period) return;
-    setState(() => _navPeriod = period);
-    int? index;
-    for (var candidate = 0; candidate < _timeline.length; candidate += 1) {
-      final date = text(_timeline[candidate]['month']).split('T').first;
-      if (_timelineDateInPeriod(date, period)) index = candidate;
-    }
-    if (index != null) unawaited(_selectTimeline(index));
-  }
-
-  Color _stateColor(String state) => switch (state) {
-    'green_graph_confirmed' => palette.accent,
-    'green_peer_capture' => palette.positive,
-    _ => palette.secondary,
-  };
-
-  String _stateLabel(String state, AppLanguage language) => switch (state) {
-    'green_graph_confirmed' => trFor(language, '图谱确认', 'Graph confirmed'),
-    'green_peer_capture' => trFor(language, '同行确认', 'Peer confirmed'),
-    _ => state.isEmpty ? trFor(language, '观察', 'Observe') : state,
-  };
-
-  Widget _signalRow(BuildContext context, Map<String, dynamic> signal) {
-    final state = text(signal['signal_state']);
-    final color = _stateColor(state);
-    return Container(
-      constraints: const BoxConstraints(minHeight: 54),
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-      decoration: BoxDecoration(
-        color: palette.card.withValues(alpha: .68),
-        border: Border(bottom: BorderSide(color: palette.border)),
-      ),
-      child: Row(
-        children: [
-          Container(width: 4, height: 32, color: color),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: 66,
-            child: Text(
-              text(signal['ticker']),
-              style: TextStyle(
-                color: palette.text,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  text(signal['name'], text(signal['industry'], '-')),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: palette.muted, fontSize: 11),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${_stateLabel(state, context.language)} · ${context.ui(text(signal['stage_name'], text(signal['sector'], '-')))}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                number(signal['ontology_score']).toStringAsFixed(2),
-                style: TextStyle(
-                  color: palette.text,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              Text(
-                '${number(signal['context_position_multiplier']).toStringAsFixed(2)}x',
-                style: TextStyle(color: palette.faint, fontSize: 9),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _holdingRow(Map<String, dynamic> holding) {
-    final weight = number(holding['weight']);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 58,
-            child: Text(
-              text(holding['ticker']),
-              style: TextStyle(
-                color: palette.text,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: (weight / .12).clamp(0.0, 1.0).toDouble(),
-                minHeight: 5,
-                backgroundColor: palette.border,
-                valueColor: AlwaysStoppedAnimation(palette.accent),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: 48,
-            child: Text(
-              formatReturn(weight),
-              textAlign: TextAlign.end,
-              style: TextStyle(
-                color: palette.accent,
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _performanceRow(String label, Map<String, dynamic> result) {
-    final cagr = number(result['cagr']);
-    final spyCagr = number(result['spy_cagr']);
-    final excess = number(result['excess_cagr_vs_spy']);
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: palette.border)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: palette.muted,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              formatReturn(cagr),
-              textAlign: TextAlign.end,
-              style: TextStyle(
-                color: palette.text,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              formatReturn(spyCagr),
-              textAlign: TextAlign.end,
-              style: TextStyle(color: palette.muted),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              formatReturn(excess),
-              textAlign: TextAlign.end,
-              style: TextStyle(
-                color: excess >= 0 ? palette.accent : palette.negative,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _navLegend(BuildContext context, Color color, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(width: 18, height: 3, color: color),
-        const SizedBox(width: 6),
-        Text(
-          context.ui(label),
-          style: TextStyle(
-            color: palette.muted,
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _navPeriodButton(BuildContext context, String value, String label) {
-    final active = _navPeriod == value;
-    return InkWell(
-      borderRadius: BorderRadius.circular(6),
-      onTap: () => _selectNavPeriod(value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: active
-              ? palette.accent.withValues(alpha: .18)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          context.ui(label),
-          style: TextStyle(
-            color: active ? palette.accent : palette.muted,
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showStrategyHelp(
-    BuildContext context,
-    Map<String, dynamic> development,
-    Map<String, dynamic> evaluation,
-  ) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        Widget point(IconData icon, String title, String body, Color color) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, color: color, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: palette.text,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        body,
-                        style: TextStyle(
-                          color: palette.muted,
-                          height: 1.45,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return AlertDialog(
-          backgroundColor: palette.panel,
-          surfaceTintColor: Colors.transparent,
-          title: Row(
-            children: [
-              Icon(Icons.hub_rounded, color: palette.accent),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  dialogContext.tr('Ontology 6M 策略说明', 'Ontology 6M strategy'),
-                ),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: 650,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  point(
-                    Icons.account_tree_rounded,
-                    dialogContext.tr('信号在做什么', 'What the signal does'),
-                    dialogContext.tr(
-                      '它只使用当时已经公开的财报和价格，先识别经营、现金流、质量和估值改善，再检查同行价值捕获与上下游图谱是否确认。信息公开后的下一交易日开盘执行，最多20只股票，最长持有126个交易日。',
-                      'It uses only then-public filings and prices, scores operating, cash-flow, quality, and valuation improvement, then asks whether peers and adjacent value-chain stages confirm it. Trades execute at the next market open, with at most 20 names and a 126-trading-day maximum life.',
-                    ),
-                    palette.accent,
-                  ),
-                  point(
-                    Icons.calculate_rounded,
-                    dialogContext.tr('分数如何形成', 'How the score is built'),
-                    dialogContext.tr(
-                      '公司分 = 50%经营超预期 + 20%现金确认 + 20%持续质量 + 5%估值 + 5%资产负债/稀释安全；同行分再加入25%同行上下文；最终 Ontology 分再加入15%上下游图谱确认。',
-                      'Company score = 50% operating surprise + 20% cash confirmation + 20% durable quality + 5% valuation + 5% balance-sheet/dilution safety. Peer score adds 25% peer context; final Ontology score adds 15% graph confirmation.',
-                    ),
-                    palette.secondary,
-                  ),
-                  point(
-                    Icons.verified_rounded,
-                    dialogContext.tr(
-                      '历史证据支持它具有长期信息价值',
-                      'Historical evidence supports durable information value',
-                    ),
-                    dialogContext.tr(
-                      '开发段 2010–2016 年化 ${formatReturn(number(development['cagr']))}，同期 SPY ${formatReturn(number(development['spy_cagr']))}：策略赚钱但没有跑赢。独立评估段 2018–2026 年化 ${formatReturn(number(evaluation['cagr']))}，同期 SPY ${formatReturn(number(evaluation['spy_cagr']))}。这说明信号在长样本中有经济价值，并不要求每个阶段都超过 SPY。',
-                      'The 2010–2016 development CAGR was ${formatReturn(number(development['cagr']))} versus ${formatReturn(number(development['spy_cagr']))} for SPY: positive, but behind the benchmark. The separate 2018–2026 evaluation CAGR was ${formatReturn(number(evaluation['cagr']))} versus ${formatReturn(number(evaluation['spy_cagr']))} for SPY. This supports economic value over long samples without requiring outperformance in every regime.',
-                    ),
-                    palette.positive,
-                  ),
-                  point(
-                    Icons.tune_rounded,
-                    dialogContext.tr('怎样更好地利用', 'How to use it better'),
-                    dialogContext.tr(
-                      '可在不改动 PIT 信号定义的前提下研究集中度、持有缓冲、仓位上限、市场风险预算或与指数底仓组合。微调必须使用新的滚动验证，不能根据已经看过的 2018–2026 结果反向挑参数。',
-                      'Without changing the PIT signal definition, research can adjust concentration, holding buffers, position caps, market-risk budgets, or combine it with an index core. Tuning should use new rolling validation rather than selecting parameters after seeing 2018–2026.',
-                    ),
-                    palette.accent,
-                  ),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: palette.secondary.withValues(alpha: .08),
-                      border: Border.all(
-                        color: palette.secondary.withValues(alpha: .35),
-                      ),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      dialogContext.tr(
-                        '重要：历史长期为正和独立样本超额是有效性证据，不是未来收益保证。当前评估最大回撤为 ${formatReturn(number(evaluation['max_drawdown']))}，仍需真实风险控制。',
-                        'Important: positive long-run returns and separate-sample excess are evidence, not a guarantee of future returns. Evaluation max drawdown was ${formatReturn(number(evaluation['max_drawdown']))}, so real risk control remains necessary.',
-                      ),
-                      style: TextStyle(
-                        color: palette.secondary,
-                        fontWeight: FontWeight.w800,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(dialogContext.tr('关闭', 'Close')),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final stats = asMap(data['stats']);
-    final currentSignals = asList(data['current_signals']);
-    final signals = _visibleSignals;
-    final portfolio = _visiblePortfolio;
-    final holdings = asList(data['holdings']);
-    final performance = asMap(data['performance']);
-    final development = asMap(performance['development']);
-    final evaluation = asMap(performance['evaluation']);
-    final nav = asMap(performance['nav']);
-    final navPoints = asList(nav[_navPeriod]);
-    final navSummary = _navPeriod == 'development' ? development : evaluation;
-    final timeline = _timeline;
-    final selectedTimeline = timeline.isEmpty
-        ? const <String, dynamic>{}
-        : timeline[_timelineIndex.clamp(0, timeline.length - 1).toInt()];
-    final selectedMonth = text(selectedTimeline['month']).split('T').first;
-    final asOf = text(stats['latest_information_date']).split('T').first;
-
-    final header = SecondaryModeHeader(
-      icon: Icons.hub_rounded,
-      kicker: 'EVENT ONTOLOGY V2',
-      title: 'Ontology Intelligence',
-      subtitle:
-          'PIT fundamentals, peer value capture, and graph-confirmed decisions.',
-      chips: [
-        context.tr(
-          'PIT 截至 ${formatDate(asOf)}',
-          'PIT as of ${formatDate(asOf)}',
-        ),
-        context.tr(
-          '${(number(stats['tickers'])).round()} 家公司',
-          '${(number(stats['tickers'])).round()} companies',
-        ),
-      ],
-      metrics: [
-        _GuruHeaderMetric(
-          label: 'Current Signals',
-          value: '${currentSignals.length}',
-          sub: 'tradable candidates',
-          palette: palette,
-        ),
-        _GuruHeaderMetric(
-          label: 'Model Holdings',
-          value: '${holdings.length}',
-          sub: 'current 12M book',
-          palette: palette,
-        ),
-        _GuruHeaderMetric(
-          label: 'Evaluation CAGR',
-          value: formatReturn(number(evaluation['cagr'])),
-          sub: 'SPY ${formatReturn(number(evaluation['spy_cagr']))}',
-          palette: palette,
-        ),
-        _GuruHeaderMetric(
-          label: 'Max Drawdown',
-          value: formatReturn(number(evaluation['max_drawdown'])),
-          sub: 'evaluation period',
-          palette: palette,
-        ),
-      ],
-      palette: palette,
-    );
-
-    final timelinePanel = Panel(
-      palette: palette,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          PanelTitle(
-            icon: Icons.history_rounded,
-            kicker: 'PIT REPLAY',
-            title: 'Decision history',
-            trailing: Text(
-              _showingLatest
-                  ? context.tr(
-                      '最新 · ${formatDate(selectedMonth)}',
-                      'Latest · ${formatDate(selectedMonth)}',
-                    )
-                  : context.tr(
-                      '历史 · ${formatDate(selectedMonth)}',
-                      'Historical · ${formatDate(selectedMonth)}',
-                    ),
-              style: TextStyle(
-                color: _showingLatest ? palette.accent : palette.secondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            palette: palette,
-          ),
-          const SizedBox(height: 10),
-          if (timeline.isEmpty)
-            EmptyState(text: 'No PIT history is available.', palette: palette)
-          else ...[
-            Row(
-              children: [
-                IconButton(
-                  tooltip: context.ui('Previous month'),
-                  onPressed: _timelineIndex <= 0
-                      ? null
-                      : () => _selectTimeline(_timelineIndex - 1),
-                  icon: const Icon(Icons.chevron_left_rounded),
-                ),
-                Expanded(
-                  child: Slider(
-                    min: 0,
-                    max: math.max(1, timeline.length - 1).toDouble(),
-                    divisions: math.max(1, timeline.length - 1),
-                    value: _timelineIndex.toDouble(),
-                    onChanged: (value) =>
-                        setState(() => _timelineIndex = value.round()),
-                    onChangeEnd: (value) => _selectTimeline(value.round()),
-                  ),
-                ),
-                IconButton(
-                  tooltip: context.ui('Next month'),
-                  onPressed: _timelineIndex >= timeline.length - 1
-                      ? null
-                      : () => _selectTimeline(_timelineIndex + 1),
-                  icon: const Icon(Icons.chevron_right_rounded),
-                ),
-                IconButton(
-                  tooltip: context.ui('Latest snapshot'),
-                  onPressed: _showingLatest
-                      ? null
-                      : () => _selectTimeline(timeline.length - 1),
-                  icon: const Icon(Icons.today_rounded),
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Wrap(
-                spacing: 16,
-                runSpacing: 6,
-                children: [
-                  Text(
-                    context.tr(
-                      '${(number(selectedTimeline['events'])).round()} 个事件',
-                      '${(number(selectedTimeline['events'])).round()} events',
-                    ),
-                    style: TextStyle(color: palette.muted, fontSize: 11),
-                  ),
-                  Text(
-                    context.tr(
-                      '${(number(selectedTimeline['peer_confirmed'])).round()} 个同行确认',
-                      '${(number(selectedTimeline['peer_confirmed'])).round()} peer-confirmed',
-                    ),
-                    style: TextStyle(color: palette.accent, fontSize: 11),
-                  ),
-                  Text(
-                    context.tr(
-                      '${(number(selectedTimeline['graph_confirmed'])).round()} 个图谱确认',
-                      '${(number(selectedTimeline['graph_confirmed'])).round()} graph-confirmed',
-                    ),
-                    style: TextStyle(color: palette.secondary, fontSize: 11),
-                  ),
-                  Text(
-                    context.tr(
-                      '${timeline.length} 个月度快照',
-                      '${timeline.length} monthly snapshots',
-                    ),
-                    style: TextStyle(color: palette.faint, fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-            if (_snapshotLoading) ...[
-              const SizedBox(height: 10),
-              LinearProgressIndicator(
-                minHeight: 2,
-                color: palette.accent,
-                backgroundColor: palette.border,
-              ),
-            ],
-            if (_snapshotError != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                context.ui(_snapshotError!),
-                style: TextStyle(color: palette.negative, fontSize: 11),
-              ),
-            ],
-          ],
-        ],
-      ),
-    );
-
-    final navPanel = Panel(
-      palette: palette,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          PanelTitle(
-            icon: Icons.stacked_line_chart_rounded,
-            kicker: 'REALIZED BACKTEST',
-            title: 'Historical NAV vs SPY',
-            palette: palette,
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 14,
-            runSpacing: 10,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: palette.card,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: palette.border),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _navPeriodButton(
-                      context,
-                      'evaluation',
-                      '2018–2026 evaluation',
-                    ),
-                    _navPeriodButton(
-                      context,
-                      'development',
-                      '2010–2016 development',
-                    ),
-                  ],
-                ),
-              ),
-              _navLegend(context, palette.positive, 'Ontology 6M'),
-              _navLegend(context, palette.secondary, 'SPY'),
-              Text(
-                context.ui('Daily · net of modeled costs'),
-                style: TextStyle(color: palette.faint, fontSize: 10),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (navPoints.length < 2)
-            SizedBox(
-              height: 240,
-              child: EmptyState(
-                text: 'Historical NAV is not present in this snapshot.',
-                palette: palette,
-              ),
-            )
-          else ...[
-            GridWrap(
-              minTileWidth: 145,
-              spacing: 8,
-              children: [
-                MiniMetric(
-                  'Strategy return',
-                  formatReturn(number(navPoints.last['value']) - 1),
-                  Icons.trending_up_rounded,
-                  palette,
-                ),
-                MiniMetric(
-                  'SPY return',
-                  formatReturn(number(navPoints.last['benchmark']) - 1),
-                  Icons.show_chart_rounded,
-                  palette,
-                ),
-                MiniMetric(
-                  'Strategy CAGR',
-                  formatReturn(number(navSummary['cagr'])),
-                  Icons.speed_rounded,
-                  palette,
-                ),
-                MiniMetric(
-                  'Max drawdown',
-                  formatReturn(number(navSummary['max_drawdown'])),
-                  Icons.south_east_rounded,
-                  palette,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 300,
-              child: EquityChart(
-                equity: navPoints,
-                palette: palette,
-                onPointSelected: _selectNavPoint,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-
-    final positionSnapshot = OntologyPositionSnapshot(
-      portfolio: portfolio,
-      selectedNavDate: _selectedNavDate.isEmpty
-          ? selectedMonth
-          : _selectedNavDate,
-      development: development,
-      evaluation: evaluation,
-      loading: _snapshotLoading,
-      error: _snapshotError,
-      palette: palette,
-      onHelp: () => _showStrategyHelp(context, development, evaluation),
-    );
-
-    final signalPanel = Panel(
-      palette: palette,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          PanelTitle(
-            icon: Icons.bolt_rounded,
-            kicker: 'DECISION BOARD',
-            title: _showingLatest
-                ? 'Latest PIT signals'
-                : 'Historical PIT signals',
-            trailing: Text(
-              '${signals.length} · ${formatDate(selectedMonth)}',
-              style: TextStyle(
-                color: palette.accent,
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            palette: palette,
-          ),
-          const SizedBox(height: 10),
-          if (_snapshotLoading && !_showingLatest)
-            const SizedBox(
-              height: 160,
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (signals.isEmpty)
-            EmptyState(
-              text: _snapshotError ?? 'No tradable PIT signals for this month.',
-              palette: palette,
-            )
-          else
-            for (final signal in signals.take(12)) _signalRow(context, signal),
-        ],
-      ),
-    );
-
-    final rightRail = Column(
-      children: [
-        Panel(
-          palette: palette,
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              PanelTitle(
-                icon: Icons.pie_chart_outline_rounded,
-                kicker: 'CURRENT BOOK',
-                title: 'Model holdings',
-                palette: palette,
-              ),
-              const SizedBox(height: 8),
-              for (final holding in holdings.take(10)) _holdingRow(holding),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        Panel(
-          palette: palette,
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              PanelTitle(
-                icon: Icons.query_stats_rounded,
-                kicker: 'VALIDATION',
-                title: 'Strategy vs SPY',
-                palette: palette,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      context.ui('Period'),
-                      style: TextStyle(color: palette.faint, fontSize: 9),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      context.ui('Model'),
-                      textAlign: TextAlign.end,
-                      style: TextStyle(color: palette.faint, fontSize: 9),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'SPY',
-                      textAlign: TextAlign.end,
-                      style: TextStyle(color: palette.faint, fontSize: 9),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      context.ui('Alpha'),
-                      textAlign: TextAlign.end,
-                      style: TextStyle(color: palette.faint, fontSize: 9),
-                    ),
-                  ),
-                ],
-              ),
-              _performanceRow('2010-2016', development),
-              _performanceRow('2018-2026', evaluation),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => openBrowserPath(
-                    ontologyPathForLanguage(context.language),
-                  ),
-                  icon: const Icon(Icons.open_in_new_rounded),
-                  label: Text(
-                    context.tr('打开完整行业图谱', 'Open full ontology explorer'),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        header,
-        const SizedBox(height: 10),
-        timelinePanel,
-        const SizedBox(height: 10),
-        navPanel,
-        const SizedBox(height: 10),
-        positionSnapshot,
-        const SizedBox(height: 10),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth < 1080) {
-              return Column(
-                children: [signalPanel, const SizedBox(height: 10), rightRail],
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: signalPanel),
-                const SizedBox(width: 10),
-                SizedBox(width: 340, child: rightRail),
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class OntologyPositionSnapshot extends StatelessWidget {
-  const OntologyPositionSnapshot({
-    super.key,
-    required this.portfolio,
-    required this.selectedNavDate,
-    required this.development,
-    required this.evaluation,
-    required this.loading,
-    required this.error,
-    required this.palette,
-    required this.onHelp,
-  });
-
-  final Map<String, dynamic> portfolio;
-  final String selectedNavDate;
-  final Map<String, dynamic> development;
-  final Map<String, dynamic> evaluation;
-  final bool loading;
-  final String? error;
-  final Palette palette;
-  final VoidCallback onHelp;
-
-  static const double _actionColumnWidth = 88;
-  static const double _companyColumnWidth = 165;
-
-  Color _actionColor(String action) => switch (action) {
-    'BUY' => palette.accent,
-    'SELL' => palette.negative,
-    _ => palette.secondary,
-  };
-
-  String _actionLabel(BuildContext context, String action) => switch (action) {
-    'BUY' => context.tr('买入', 'BUY'),
-    'SELL' => context.tr('卖出', 'SELL'),
-    _ => context.tr('持有', 'HOLD'),
-  };
-
-  String _signalLabel(BuildContext context, String state) => switch (state) {
-    'green_graph_confirmed' => context.tr('图谱确认', 'Graph confirmed'),
-    'green_peer_capture' => context.tr('同行确认', 'Peer confirmed'),
-    'blue_company_event' => context.tr('公司改善', 'Company event'),
-    _ => context.tr('观察', 'Watch'),
-  };
-
-  Color _signalColor(String state) => switch (state) {
-    'green_graph_confirmed' => palette.accent,
-    'green_peer_capture' => palette.positive,
-    'blue_company_event' => palette.secondary,
-    _ => palette.muted,
-  };
-
-  String _price(dynamic value) {
-    final parsed = firstNumber([value]);
-    return parsed == null ? '-' : '\$${parsed.toStringAsFixed(2)}';
-  }
-
-  String _score(dynamic value) {
-    final parsed = firstNumber([value]);
-    return parsed == null ? '-' : parsed.toStringAsFixed(2);
-  }
-
-  String _decisionReason(BuildContext context, Map<String, dynamic> row) {
-    return switch (text(row['action_reason'], text(row['decision_reason']))) {
-      'new_top_ranked_eligible_signal' => context.tr(
-        '当期通过 PIT、价格和流动性门槛，并在可用名额中按 Ontology 分数进入；仓位再由同行与图谱上下文调整。',
-        'Passed PIT, price, and liquidity gates and entered an available slot by Ontology rank; peer and graph context then sized the position.',
-      ),
-      'signal_invalidated' => context.tr(
-        '最新公开信息使基础资格或可交易条件失效，策略按下一交易日开盘退出。',
-        'New public information invalidated base eligibility or tradability, so the strategy exited at the next market open.',
-      ),
-      'max_life_or_rank_buffer_exit' => context.tr(
-        '达到126个交易日持有上限，或排名跌出 Rank-40 缓冲区，按规则退出。',
-        'Exited after reaching the 126-trading-day life or falling outside the Rank-40 buffer.',
-      ),
-      _ => context.tr(
-        '信号仍有效，未触发失效、126交易日上限或 Rank-40 缓冲退出条件，因此继续持有。',
-        'The signal remains active and has not hit invalidation, the 126-day life, or the Rank-40 exit buffer, so the position remains held.',
-      ),
-    };
-  }
-
-  Widget _badge(BuildContext context, String action) {
-    final color = _actionColor(action);
-    return Container(
-      width: 58,
-      height: 24,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .13),
-        border: Border.all(color: color.withValues(alpha: .42)),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        _actionLabel(context, action),
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-
-  Widget _tableCell(
-    String value,
-    double width, {
-    Color? color,
-    FontWeight weight = FontWeight.w700,
-    TextAlign align = TextAlign.left,
-  }) {
-    return SizedBox(
-      width: width,
-      child: Text(
-        value,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: align,
-        style: TextStyle(color: color ?? palette.muted, fontWeight: weight),
-      ),
-    );
-  }
-
-  Widget _scoreDetails(BuildContext context, Map<String, dynamic> row) {
-    final signal = text(row['signal_state']);
-    final action = text(row['action'], 'HOLD');
-    final daysHeld = number(row['trading_days_held']).round();
-    final daysRemaining = number(row['days_to_max_exit']).round();
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-      color: palette.card.withValues(alpha: .45),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _decisionReason(context, row),
-            style: TextStyle(
-              color: _actionColor(action),
-              fontWeight: FontWeight.w800,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              InfoChip(
-                '${context.tr('经营', 'Operating')} ${_score(row['operating_surprise'])}',
-                palette: palette,
-              ),
-              InfoChip(
-                '${context.tr('现金', 'Cash')} ${_score(row['cash_confirmation'])}',
-                palette: palette,
-              ),
-              InfoChip(
-                '${context.tr('持续质量', 'Durable quality')} ${_score(row['durable_quality'])}',
-                palette: palette,
-              ),
-              InfoChip(
-                '${context.tr('估值', 'Valuation')} ${_score(row['valuation_support'])}',
-                palette: palette,
-              ),
-              InfoChip(
-                '${context.tr('负债/稀释', 'Balance/dilution')} ${_score(row['balance_dilution_safety'])}',
-                palette: palette,
-              ),
-              InfoChip(
-                '${context.tr('同行上下文', 'Peer context')} ${_score(row['peer_context'])}',
-                palette: palette,
-              ),
-              InfoChip(
-                '${context.tr('图谱上下文', 'Graph context')} ${_score(row['graph_context'])}',
-                palette: palette,
-              ),
-              InfoChip(
-                '${context.tr('仓位倍数', 'Sizing')} ${_score(row['context_position_multiplier'])}x',
-                palette: palette,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            context.tr(
-              '公司分 ${_score(row['company_score'])} = 50%经营 + 20%现金 + 20%持续质量 + 5%估值 + 5%负债/稀释；同行分 ${_score(row['peer_score'])} 再加入25%同行上下文；最终 Ontology 分 ${_score(row['ontology_score'])} 再加入15%上下游图谱确认。',
-              'Company ${_score(row['company_score'])} = 50% operating + 20% cash + 20% durable quality + 5% valuation + 5% balance/dilution; peer ${_score(row['peer_score'])} adds 25% peer context; final Ontology ${_score(row['ontology_score'])} adds 15% graph confirmation.',
-            ),
-            style: TextStyle(color: palette.muted, height: 1.4, fontSize: 12),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            context.tr(
-              '${_signalLabel(context, signal)} · 已持有 $daysHeld 个交易日 · 距最大持有期约 $daysRemaining 个交易日 · 财报信息日 ${formatDate(text(row['information_date']))}',
-              '${_signalLabel(context, signal)} · held $daysHeld trading days · about $daysRemaining days to maximum life · filing information date ${formatDate(text(row['information_date']))}',
-            ),
-            style: TextStyle(color: _signalColor(signal), fontSize: 11),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _positionRow(
-    BuildContext context,
-    Map<String, dynamic> row,
-    bool compact,
-  ) {
-    final action = text(row['action'], 'HOLD');
-    final signal = text(row['signal_state']);
-    final pnl = firstNumber([row['unrealized_pnl']]);
-    final pnlPct = firstNumber([row['unrealized_pnl_pct']]);
-    final pnlColor = (pnl ?? 0) >= 0 ? palette.positive : palette.negative;
-    final ticker = text(row['ticker']);
-    final company = text(row['name'], text(row['sector'], '-'));
-
-    final title = compact
-        ? Row(
-            children: [
-              _badge(context, action),
-              const SizedBox(width: 10),
-              SizedBox(
-                width: 62,
-                child: Text(
-                  ticker,
-                  style: TextStyle(
-                    color: palette.text,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  company,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: palette.muted, fontSize: 11),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                pnlPct == null ? '-' : formatReturn(pnlPct),
-                style: TextStyle(color: pnlColor, fontWeight: FontWeight.w900),
-              ),
-            ],
-          )
-        : Row(
-            children: [
-              SizedBox(
-                width: _actionColumnWidth,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: _badge(context, action),
-                ),
-              ),
-              SizedBox(
-                width: _companyColumnWidth,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      ticker,
-                      style: TextStyle(
-                        color: palette.text,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      company,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: palette.faint, fontSize: 10),
-                    ),
-                  ],
-                ),
-              ),
-              _tableCell(
-                formatReturn(number(row['weight'])),
-                70,
-                color: palette.accent,
-                weight: FontWeight.w900,
-              ),
-              _tableCell('${number(row['shares']).round()}', 65),
-              _tableCell(formatDate(text(row['entry_date'])), 98),
-              _tableCell(_price(row['cost_basis']), 86),
-              _tableCell(_price(row['current_price']), 86),
-              _tableCell(
-                pnl == null ? '-' : formatMoney(pnl),
-                98,
-                color: pnlColor,
-                weight: FontWeight.w900,
-              ),
-              _tableCell(
-                _signalLabel(context, signal),
-                120,
-                color: _signalColor(signal),
-                weight: FontWeight.w900,
-              ),
-              _tableCell(
-                '#${number(row['book_score_rank']).round()} · ${_score(row['ontology_score'])}',
-                88,
-                color: palette.text,
-                weight: FontWeight.w900,
-              ),
-            ],
-          );
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: palette.border)),
-      ),
-      child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-        childrenPadding: EdgeInsets.zero,
-        iconColor: palette.accent,
-        collapsedIconColor: palette.faint,
-        shape: const Border(),
-        collapsedShape: const Border(),
-        title: title,
-        subtitle: compact
-            ? Text(
-                '${formatDate(text(row['entry_date']))} · ${_price(row['cost_basis'])} → ${_price(row['current_price'])} · ${formatReturn(number(row['weight']))}',
-                style: TextStyle(color: palette.faint, fontSize: 10),
-              )
-            : null,
-        children: [_scoreDetails(context, row)],
-      ),
-    );
-  }
-
-  Widget _positionsTable(
-    BuildContext context,
-    List<Map<String, dynamic>> positions,
-  ) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 800;
-        if (compact) {
-          return Column(
-            children: [
-              for (final position in positions)
-                _positionRow(context, position, true),
-            ],
-          );
-        }
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: 1090,
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 9,
-                  ),
-                  color: palette.card.withValues(alpha: .72),
-                  child: Row(
-                    children: [
-                      _tableCell(
-                        context.tr('决策', 'Action'),
-                        _actionColumnWidth,
-                      ),
-                      _tableCell(
-                        context.tr('公司', 'Company'),
-                        _companyColumnWidth,
-                      ),
-                      _tableCell(context.tr('权重', 'Weight'), 70),
-                      _tableCell(context.tr('股数', 'Shares'), 65),
-                      _tableCell(context.tr('买入日', 'Entry'), 98),
-                      _tableCell(context.tr('成本', 'Cost'), 86),
-                      _tableCell(context.tr('现价', 'Price'), 86),
-                      _tableCell(context.tr('未实现盈亏', 'Unrealized'), 98),
-                      _tableCell(context.tr('信号', 'Signal'), 120),
-                      _tableCell(context.tr('分数排名', 'Score rank'), 88),
-                    ],
-                  ),
-                ),
-                for (final position in positions)
-                  _positionRow(context, position, false),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _exitRow(BuildContext context, Map<String, dynamic> row) {
-    final pnl = firstNumber([row['realized_pnl']]);
-    final pnlPct = firstNumber([row['realized_pnl_pct']]);
-    final color = (pnl ?? 0) >= 0 ? palette.positive : palette.negative;
-    final pnlLabel =
-        '${_price(row['fill_price'])} · ${pnl == null ? '-' : formatMoney(pnl)} (${pnlPct == null ? '-' : formatReturn(pnlPct)})';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: palette.border)),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final ticker = Text(
-            text(row['ticker']),
-            style: TextStyle(color: palette.text, fontWeight: FontWeight.w900),
-          );
-          final reason = Text(
-            _decisionReason(context, row),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: palette.muted, fontSize: 11),
-          );
-          final realized = Text(
-            pnlLabel,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.end,
-            style: TextStyle(color: color, fontWeight: FontWeight.w900),
-          );
-          if (constraints.maxWidth < 720) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    _badge(context, 'SELL'),
-                    const SizedBox(width: 10),
-                    SizedBox(width: 54, child: ticker),
-                    Expanded(child: realized),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 92,
-                      child: Text(
-                        formatDate(text(row['date'])),
-                        style: TextStyle(color: palette.faint, fontSize: 11),
-                      ),
-                    ),
-                    Expanded(child: reason),
-                  ],
-                ),
-              ],
-            );
-          }
-          return Row(
-            children: [
-              _badge(context, 'SELL'),
-              const SizedBox(width: 10),
-              SizedBox(width: 62, child: ticker),
-              SizedBox(
-                width: 94,
-                child: Text(
-                  formatDate(text(row['date'])),
-                  style: TextStyle(color: palette.muted, fontSize: 11),
-                ),
-              ),
-              Expanded(child: reason),
-              const SizedBox(width: 10),
-              SizedBox(width: 230, child: realized),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final positions = asList(portfolio['positions']);
-    final exits = asList(
-      portfolio['activity'],
-    ).where((row) => text(row['action']) == 'SELL').toList();
-    final snapshotDate = text(portfolio['snapshot_date']);
-    final requestedDate = selectedNavDate.isEmpty
-        ? text(portfolio['requested_date'])
-        : selectedNavDate;
-    final snapped =
-        requestedDate.isNotEmpty &&
-        snapshotDate.isNotEmpty &&
-        requestedDate != snapshotDate;
-    return Panel(
-      palette: palette,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          PanelTitle(
-            icon: Icons.inventory_2_outlined,
-            kicker: 'POINT-IN-TIME BOOK',
-            title: context.tr('历史仓位与决策快照', 'Historical position snapshot'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (snapshotDate.isNotEmpty)
-                  Text(
-                    formatDate(snapshotDate),
-                    style: TextStyle(
-                      color: palette.accent,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                IconButton(
-                  tooltip: context.tr('策略说明', 'Strategy methodology'),
-                  onPressed: onHelp,
-                  icon: const Icon(Icons.help_outline_rounded),
-                ),
-              ],
-            ),
-            palette: palette,
-          ),
-          if (loading) ...[
-            const SizedBox(height: 10),
-            LinearProgressIndicator(
-              minHeight: 2,
-              color: palette.accent,
-              backgroundColor: palette.border,
-            ),
-          ] else if (portfolio.isEmpty) ...[
-            const SizedBox(height: 12),
-            EmptyState(
-              text:
-                  error ??
-                  context.tr(
-                    '该日期之前没有可用的历史仓位快照。',
-                    'No historical position snapshot is available before this date.',
-                  ),
-              palette: palette,
-            ),
-          ] else ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 12,
-              runSpacing: 6,
-              children: [
-                Text(
-                  snapped
-                      ? context.tr(
-                          'NAV ${formatDate(requestedDate)} · 使用最近已完成账本 ${formatDate(snapshotDate)}',
-                          'NAV ${formatDate(requestedDate)} · nearest completed book ${formatDate(snapshotDate)}',
-                        )
-                      : context.tr(
-                          'NAV 与账本日期 ${formatDate(snapshotDate)}',
-                          'NAV and book date ${formatDate(snapshotDate)}',
-                        ),
-                  style: TextStyle(color: palette.muted, fontSize: 11),
-                ),
-                Text(
-                  context.tr(
-                    'PIT · 次日开盘执行 · 调整价格口径',
-                    'PIT · next-open execution · adjusted-price basis',
-                  ),
-                  style: TextStyle(color: palette.faint, fontSize: 11),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            GridWrap(
-              minTileWidth: 145,
-              spacing: 8,
-              children: [
-                MiniMetric(
-                  context.tr('账户权益', 'Equity'),
-                  formatMoney(number(portfolio['equity'])),
-                  Icons.account_balance_wallet_outlined,
-                  palette,
-                ),
-                MiniMetric(
-                  context.tr('现金', 'Cash'),
-                  formatMoney(number(portfolio['cash'])),
-                  Icons.payments_outlined,
-                  palette,
-                ),
-                MiniMetric(
-                  context.tr('总仓位', 'Gross exposure'),
-                  formatReturn(number(portfolio['gross_exposure'])),
-                  Icons.pie_chart_outline_rounded,
-                  palette,
-                ),
-                MiniMetric(
-                  context.tr('持仓未实现盈亏', 'Open P&L'),
-                  formatMoney(number(portfolio['unrealized_pnl'])),
-                  Icons.query_stats_rounded,
-                  palette,
-                ),
-                MiniMetric(
-                  context.tr('区间买入 / 卖出', 'Interval buys / sells'),
-                  '${number(portfolio['buys_since_previous_snapshot']).round()} / ${number(portfolio['sells_since_previous_snapshot']).round()}',
-                  Icons.swap_horiz_rounded,
-                  palette,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _positionsTable(context, positions),
-            if (exits.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Text(
-                context.tr('自上次快照以来的卖出', 'Exits since the previous snapshot'),
-                style: TextStyle(
-                  color: palette.text,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 6),
-              for (final exit in exits) _exitRow(context, exit),
-            ],
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class ValuationCompactDashboard extends StatefulWidget {
   const ValuationCompactDashboard({
     super.key,
@@ -27346,21 +25696,13 @@ String shortText(String value, [int length = 10]) {
 
 String normalizeRouteMode(String? value, {String? path}) {
   final mode = value?.trim().toLowerCase() ?? '';
-  if (isInvestmentMode(mode)) return mode;
-  // Preserve old bookmarks without retaining the retired DBMF screen.
-  final normalizedPath = path?.trim().toLowerCase() ?? '';
-  if (mode == 'dbmf' ||
-      normalizedPath == '/dbmf' ||
-      normalizedPath.startsWith('/dbmf/')) {
-    return 'ontology';
+  // Production uses Discover. Legacy-flag builds remain on a supported page,
+  // never issue retired API requests or treat Discover as a valuation module.
+  if (isRetiredModuleRoute(mode, path: path)) {
+    return investmentWorkflowEnabled ? 'discover' : 'guru';
   }
-  return const {
-        'guru',
-        'ontology',
-        'valuation',
-        'portfolio',
-        'admin',
-      }.contains(mode)
+  if (isInvestmentMode(mode)) return mode;
+  return const {'guru', 'valuation', 'portfolio', 'admin'}.contains(mode)
       ? mode
       : investmentWorkflowEnabled
       ? 'home'

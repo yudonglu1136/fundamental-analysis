@@ -15,6 +15,4 @@ fi
 
 flutter --version
 flutter pub get
-node scripts/verify-ontology-module.mjs
 npm run build
-node scripts/verify-ontology-module.mjs --built

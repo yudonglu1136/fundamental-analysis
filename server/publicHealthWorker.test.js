@@ -22,7 +22,7 @@ const identity = {
   manager13fProxyMethodVersion: "fixture-current-proxy",
   manager13fSecurityMasterVersion: "fixture-security-master"
 };
-const options = { ontology: {}, now: Date.parse("2026-09-12T00:00:00Z") };
+const options = { now: Date.parse("2026-09-12T00:00:00Z") };
 const expectedRows = enabledManager13fGurus.length * requiredGuruCurveWindows.length;
 const curveModule = (health) => health.modules.find((module) => module.id === "guru_backtests");
 const sha = (file) => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
@@ -133,7 +133,7 @@ test("eight health callers share one blocked audit while anonymous portfolio den
       return worker;
     }
   });
-  const service = createPublicHealthService({ resolveOntology: async () => ({}), buildHealth: builder.buildHealth });
+  const service = createPublicHealthService({ buildHealth: builder.buildHealth });
   let completed = false;
   const pending = Promise.all(Array.from({ length: 8 }, () => service.read())).then((results) => {
     completed = true;
@@ -173,7 +173,7 @@ test("worker timeout replaces an expired healthy result with bounded failure cac
     }
   });
   const service = createPublicHealthService({
-    resolveOntology: async () => ({}), buildHealth: builder.buildHealth,
+    buildHealth: builder.buildHealth,
     successTtlMs: 100, failureTtlMs: 50, now: () => time
   });
   const first = service.read();

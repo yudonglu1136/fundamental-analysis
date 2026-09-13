@@ -84,33 +84,3 @@ else
 fi
 flutter build web --release --base-href / --output "$build_output" --no-wasm-dry-run "${defines[@]}"
 node scripts/verify-workflow-artifact.mjs "$build_output" "$resolved_investment_workflow"
-
-if [ -f "$build_output/ontology/app.js" ]; then
-  ontology_project_ref=""
-  if [ -n "$resolved_supabase_url" ]; then
-    ontology_project_ref="$(python3 - "$resolved_supabase_url" <<'PY'
-import sys
-from urllib.parse import urlparse
-
-host = urlparse(sys.argv[1]).hostname or ""
-print(host.split(".", 1)[0])
-PY
-)"
-  fi
-  ONTOLOGY_BUILD_OUTPUT="$build_output" ONTOLOGY_PROJECT_REF="$ontology_project_ref" ONTOLOGY_AUTH_DEV_BYPASS="$resolved_auth_bypass" python3 - <<'PY'
-import os
-from pathlib import Path
-
-path = Path(os.environ["ONTOLOGY_BUILD_OUTPUT"]) / "ontology" / "app.js"
-source = path.read_text(encoding="utf-8")
-markers = {
-    "__GURU_SUPABASE_PROJECT_REF__": os.environ["ONTOLOGY_PROJECT_REF"],
-    "__GURU_AUTH_DEV_BYPASS__": os.environ["ONTOLOGY_AUTH_DEV_BYPASS"],
-}
-for marker, value in markers.items():
-    if marker not in source:
-        raise SystemExit(f"Ontology build marker is missing: {marker}")
-    source = source.replace(marker, value)
-path.write_text(source, encoding="utf-8")
-PY
-fi

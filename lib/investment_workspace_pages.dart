@@ -41,10 +41,6 @@ extension _InvestmentWorkspacePages on _InvestmentWorkspaceState {
       if (mounted && widget.showAdmin) widget.onLegacyView?.call('admin');
       return;
     }
-    if (next == 'ontology') {
-      if (mounted) widget.onLegacyView?.call('ontology');
-      return;
-    }
     if (next == 'research' &&
         company == null &&
         opportunityCompany != null &&

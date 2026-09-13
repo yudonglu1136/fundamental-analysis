@@ -8,9 +8,23 @@ Guru Intelligence is split into a Vercel frontend and an AWS backend.
 | --- | --- | --- |
 | Frontend | Vercel | Builds Flutter Web into `dist/` and serves the product UI. |
 | API backend | AWS Elastic Beanstalk | Runs `server/index.js` and owns SQLite/runtime data. |
-| Ontology read service | AWS Lightsail | Runs `server/ontologyServer.js`; EB verifies it through the dedicated public metadata probe. |
 | Public app domain | Vercel DNS + Vercel deployment | `www.thesisforge.tech` must not point to Lightsail. |
-| API path | Vercel proxy | Guru/Valuation routes go to EB; Ontology routes go to the Lightsail read service. |
+| API path | Vercel proxy | All active API routes go to EB; retired standalone-module routes return 410 without forwarding. |
+
+## Standalone Module Retirement (2026-09-13)
+
+The user has retired the standalone Ontology module and its earlier DBMF UI/API
+replacement. Do not build, package, start, probe, or route traffic to that service.
+The shared `server/retiredProductRoutes.js` predicate defines the retired API
+namespace for both Vercel and direct AWS requests; responses are 410 with
+`module_retired` and `Cache-Control: no-store`, before authentication/body reads
+or upstream forwarding. The redesigned `/api/investment/*` workspace, including
+Value Flow and strategy/CTA features, and `/api/valuation/*` remain active.
+
+Legacy page links may return to the current application; they must never revive
+the old module. Old snapshot files and historical release/brand artifacts are
+preserved as archives, not deployment dependencies. Removing the runtime code
+does not authorize deleting historical databases or unrelated infrastructure.
 
 ## DNS Rules
 
@@ -18,7 +32,8 @@ Keep these rules intact:
 
 - `www.thesisforge.tech` -> Vercel frontend.
 - `thesisforge.tech` -> Vercel frontend or redirect to `www`.
-- `api.thesisforge.tech` remains the separate Lightsail Ontology read service.
+- The former `api.thesisforge.tech` Ontology host is not an active application
+  dependency; no frontend or proxy route may send traffic or credentials there.
 - `backend.thesisforge.tech` points to the existing EB instance's Elastic IP; Caddy terminates HTTPS on that instance.
 - Do not create `A` records for `www` or apex pointing to the Lightsail IP.
 
@@ -45,15 +60,14 @@ VITE_SUPABASE_ANON_KEY=<browser publishable key>
 VITE_AUTH_DEV_BYPASS=false
 VITE_AUTH_PROVIDER=supabase
 AWS_API_ORIGIN=https://backend.thesisforge.tech
-ONTOLOGY_API_ORIGIN=https://api.thesisforge.tech
 VITE_INVESTMENT_WORKFLOW_ENABLED=true
 ```
 
-`api/proxy.js` keeps a single browser-facing `/api/*` contract while routing
-Ontology paths to the Lightsail read service and existing Guru, Portfolio,
-Valuation, and Admin paths to the established Elastic Beanstalk service. Both
-origin variables have checked-in fallbacks, but setting them in Vercel makes
-the runtime contract explicit.
+`api/proxy.js` keeps a single browser-facing `/api/*` contract for existing Guru,
+Portfolio, Valuation, Admin, and investment-workspace paths on the established
+Elastic Beanstalk service. `AWS_API_ORIGIN` has a checked-in fallback, but setting
+it in Vercel makes the runtime contract explicit. `ONTOLOGY_API_ORIGIN` is no
+longer read; remove the obsolete variable during reviewed configuration cleanup.
 
 The public proxy and EB nginx deliberately reject the case-insensitive
 `/api/internal/*` namespace before reading the request body or forwarding
@@ -66,24 +80,20 @@ on `127.0.0.1`; HTTPS does not expose or authorize internal routes.
 Backend TLS uses the existing instance, EIP and security group, not an additional
 load balancer. `THESISFORGE_BACKEND_TLS_ENABLED=true` enables the pinned Caddy
 postdeploy installer; certificate renewal is automatic. Preserve the original
-port-80 nginx service and the separate Ontology host.
+port-80 nginx service.
 
 AWS backend production env must also include both frontend origins:
 
 ```bash
 API_ALLOWED_ORIGINS=https://www.thesisforge.tech,https://thesisforge.tech
-ONTOLOGY_HEALTH_URL=https://api.thesisforge.tech/ontology-health
 ```
 
 Do not omit the `www` origin. Stale or diagnostic frontend builds may call the AWS API directly, and Express will return an HTML 500 for a disallowed CORS origin before the JSON API handler runs.
 
-`ONTOLOGY_HEALTH_URL` is explicit delegation, not an optional fallback. Caddy
-must route the exact public path `/ontology-health` to the Ontology service's
-local `/health` endpoint before this variable is enabled. EB accepts the
-delegated module only when the response identifies `ontology-api` and carries a
-non-empty, schema-v2, internally consistent snapshot manifest. A timeout,
-wrong service, malformed metadata, or non-HTTPS production URL fails closed;
-EB never falls back to a bundled local snapshot after delegation is configured.
+`ONTOLOGY_HEALTH_URL` and `ONTOLOGY_SNAPSHOT_PATH` are retired configuration, not
+readiness requirements. The active health matrix must continue to validate all
+Guru slots, prices, and valuation source dates without querying the retired
+host or opening an Ontology snapshot.
 
 ## Frontend Deploy
 
@@ -131,7 +141,7 @@ Expected:
   is green. HTTP 200 with `status: stale`, `ok: true`, and `degraded: true` is
   explicit but still serviceable. HTTP 503 is reserved for `unknown` or `failed`
   readiness: a missing/empty database, a missing/unreadable required table, an
-  unverifiable delegated Ontology service, invalid source dates, or data beyond
+  invalid source dates, failed required Guru cache checks, or data beyond
   the module's failure cadence.
 - Inspect `status`, `ok`, `degraded`, and every entry in `modules[]`. Data modules
   expose `freshness.basis`, `cadence`, `sourceAsOf`, `observedAt`, `ageHours`,
@@ -147,11 +157,10 @@ Public readiness uses economic dates and source-specific cadence:
 | Guru simulations | Latest completed filing-window end date | 100 days | 130 days |
 | Valuation | Latest point-in-time model `asOfDate` | 45 days | 120 days |
 | Market prices | Latest stored market date | 5 days | 12 days |
-| Ontology | Older of `financial_as_of` and `decision_latest` | 45 days | 120 days |
 
 The quarterly thresholds cover filing and issuer-event cadence. The market
-threshold includes a weekend/holiday buffer. The conservative Ontology date
-prevents a new export timestamp from hiding an old required input family.
+threshold includes a weekend/holiday buffer. Retirement does not relax any
+remaining source-date or complete Guru cache-matrix gate.
 
 ## Backend Deploy
 
@@ -162,15 +171,10 @@ bash scripts/package-aws-backend.sh <version>
 ```
 
 Production must set `SQLITE_DB_PATH` to the intended persistent runtime database.
-When Ontology is deployed separately, production must also set the verified
-delegation URL:
-
-```text
-ONTOLOGY_HEALTH_URL=https://api.thesisforge.tech/ontology-health
-```
-
-Deploy and verify the Caddy `/ontology-health` route before setting this value;
-otherwise `/api/health` correctly returns HTTP 503.
+No standalone Ontology service or snapshot is required. The package script
+rejects the retired `INCLUDE_ONTOLOGY_SNAPSHOT=1` flag before reading data or
+replacing an archive. This does not change the existing explicit SQLite seed,
+valuation migration, or emergency frontend-fallback controls.
 
 Normal startup must not seed or overwrite that database from the database bundled
 inside the deployment package. Keep these variables unset or explicitly `false`:

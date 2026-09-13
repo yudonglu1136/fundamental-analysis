@@ -140,7 +140,7 @@ use Supabase authentication and must never ship development bypass settings.
 flutter analyze
 flutter test
 node --test server/*.test.js
-npm run test:ontology
+node --test server/retiredProductRoutes.test.js server/backendPackaging.test.js server/caddyRetirement.test.js
 npm run test:proxy
 npm run build
 ```
