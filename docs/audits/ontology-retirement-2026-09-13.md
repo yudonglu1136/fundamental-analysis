@@ -36,11 +36,21 @@ Test groups overlap and must not be summed into a unique total.
 | Full Flutter suite, workflow enabled | Passed |
 | Flutter analyzer; i18n; static regression | Passed; 8 static tests |
 | Production-like frontend build | Passed, real public auth config, auth bypass false |
-| Caddy contract plus route predicate | 6 passing; real Caddy parser requires an operator-supplied binary |
+| Caddy contract plus route predicate | 6 passing; candidate also parsed with the actual Lightsail Caddy binary |
 | Whitespace/diff validation | Passed |
 
 The validated local frontend bundle SHA-256 is `fd1cfe5b2f8dcabf94466aae4296b10e82d613494d733b193af354c19125afb1`. No old standalone assets or API calls remain; 42 Guru portraits and the public research page remain.
 
 ## Release status
+
+Initial Git-triggered Vercel deployment exposed a remote-source packaging omission:
+`.vercelignore` still allowed the deleted validator, not the new shared retirement
+module. The resulting `ERR_MODULE_NOT_FOUND` caused proxy HTTP 500 responses.
+The dependency whitelist was corrected and two remote-upload dependency tests
+added. A validated prebuilt deployment restored service: both app domains return
+410/no-store for the retired APIs and 401/no-store for anonymous private portfolio
+requests. This was a deployment defect, not a database issue. Old page links were
+verified in the browser to preserve `lang=en`/`lang=zh` and resolve to Discover;
+the live session was logged out, so this is not a signed-in portfolio UI test.
 
 These are pre-release checks, not proof of live deployment or a performance-optimization claim. Production acceptance must separately record the published commit, AWS application version, Vercel deployment, both app domains, retired-route 410 responses and current private-route protection. Any remaining public-health failure must be reported, not hidden by module retirement.

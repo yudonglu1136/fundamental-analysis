@@ -8,7 +8,7 @@ node_modules
 coverage
 prototypes
 server/*
-!server/ontologySnapshotValidation.js
+!server/retiredProductRoutes.js
 *.log
 *.tmp
 .DS_Store
