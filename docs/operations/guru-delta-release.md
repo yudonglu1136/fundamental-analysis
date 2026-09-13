@@ -48,6 +48,18 @@ Use the normal operator SSH helper, low I/O priority, and a bounded Node heap
 (384 MiB old-generation is sufficient for the measured ~275 MiB RSS validation
 run; measure the actual install process independently).
 
+On Linux, the installer exclusively creates the new candidate, fixes its EOF at
+the exact source length, and calls `/usr/bin/fallocate --keep-size --length
+<max(source bytes, result bytes)>` before copying. It verifies the same inode,
+exact logical source length, and allocated blocks within 1 MiB of that reserved
+length. Copy writes stay inside the fixed EOF; the subsequent SQLite growth also
+uses already-reserved blocks. No padding is added to the byte-exact source copy.
+This prevents XFS's speculative post-EOF allocation from temporarily using
+several additional gigabytes. Allocation errors never fall back to append;
+the actual 10 GiB free-space checks remain unchanged. See the
+[XFS FAQ](https://xfs.org/index.php/XFS_FAQ) and
+[fallocate(2)](https://www.man7.org/linux/man-pages/man2/fallocate.2.html).
+
 The installer verifies/copies the exact base bytes at 32 MiB/s, applies one
 guarded transaction to a private candidate, then checks the complete candidate
 SHA/size and schema against the producer's full integrity/FK and semantic proof.
@@ -84,6 +96,14 @@ These are a preflight, streaming-copy check and final check, not a filesystem
 quota. Re-read actual free bytes immediately before install and do not run other
 large data writers concurrently. No old research deletion/compression or health
 index installation is required or authorized by this procedure.
+
+The first AWS attempt stopped before activation at the unchanged disk floor.
+The host was XFS; after the writer closed, its unfinished candidate had
+2,017,460,224 logical/allocated bytes and free space recovered to
+12,486,479,872 bytes. This is consistent with speculative allocation being
+released on close, not evidence of an incorrect `statfs` reading. The old v1
+release remained active. Failed candidate cleanup is an independently reviewed
+exact-path operator action, never an automatic installer deletion.
 
 ## Validation
 

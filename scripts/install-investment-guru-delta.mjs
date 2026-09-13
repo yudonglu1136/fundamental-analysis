@@ -87,8 +87,40 @@ function readBase(p,releaseRoot,uid) {
   return base;
 }
 
-async function copyOrHash(file,{output,uid,maxBytesPerSecond=rate,space=()=>Infinity,progress=()=>{}}={}) {
+function allocateCopyFile({file,fd,bytes,allocationBytes,platform}) {
+  if (platform === 'linux') {
+    // Fixed EOF and allocated extents prevent XFS's speculative allocation for
+    // an ever-growing buffered append. KEEP_SIZE also reserves the already
+    // budgeted SQLite growth without appending zeros to the byte-exact source.
+    // Explicit fallocate reservations survive close, unlike speculative EOF
+    // allocation. Never operate on an existing target.
+    fs.ftruncateSync(fd,bytes);
+    execFileSync('/usr/bin/fallocate',['--keep-size','--length',String(allocationBytes),'--',file],{timeout:10000,stdio:'pipe'});
+  } else {
+    // Local fixtures run on macOS. Production installation is Linux-only and
+    // requires real allocation; sparse pre-sizing is not its fallback.
+    fs.ftruncateSync(fd,bytes);
+  }
+}
+
+export async function copyGuruReleaseFile(file,{output,uid=process.getuid(),maxBytesPerSecond=rate,space=()=>Infinity,
+  progress=()=>{},allocate=allocateCopyFile,platform=process.platform,allocationBytes}={}) {
   const before = regular(file,uid), hash = crypto.createHash('sha256');
+  let outputFd, reservedBytes, copyCompleted = false;
+  try {
+    if (output) {
+      reservedBytes = allocationBytes ?? before.size;
+      if (!Number.isSafeInteger(reservedBytes) || reservedBytes < before.size) fail('guru_copy_allocation_size_invalid');
+      if (space() - reservedBytes < minimumReleaseHeadroomBytes + 16 * 1024**2) fail('guru_copy_disk_headroom_exhausted');
+      outputFd = fs.openSync(output,'wx',0o600);
+      const created = fs.fstatSync(outputFd);
+      allocate({file:output,fd:outputFd,bytes:before.size,allocationBytes:reservedBytes,platform});
+      const allocated = regular(output,uid), blocks = allocated.blocks * 512;
+      if (allocated.dev !== created.dev || allocated.ino !== created.ino || allocated.size !== before.size
+        || blocks > reservedBytes + 1024**2 || (platform === 'linux' && blocks < reservedBytes)) fail('guru_copy_allocation_mismatch');
+      if (space() < minimumReleaseHeadroomBytes + 16 * 1024**2) fail('guru_copy_disk_headroom_exhausted');
+      progress({phase:'allocated_copy',bytes:before.size,reservedBytes,allocatedBytes:blocks});
+    }
   let bytes = 0, last = Date.now(); const started = performance.now();
   const meter = new Transform({highWaterMark:1024**2,transform(chunk,_encoding,done) {
     bytes += chunk.length; hash.update(chunk);
@@ -97,11 +129,24 @@ async function copyOrHash(file,{output,uid,maxBytesPerSecond=rate,space=()=>Infi
     const wait = Math.max(0,bytes / maxBytesPerSecond * 1000 - (performance.now() - started));
     if (wait) delay(wait).then(() => done(null,chunk),done); else done(null,chunk);
   }});
-  if (output) await pipeline(fs.createReadStream(file,{highWaterMark:1024**2}),meter,fs.createWriteStream(output,{flags:'wx',mode:0o600}));
+  if (output) await pipeline(fs.createReadStream(file,{highWaterMark:1024**2}),meter,
+    fs.createWriteStream(output,{fd:outputFd,autoClose:false,start:0}));
   else await pipeline(fs.createReadStream(file,{highWaterMark:1024**2}),meter,async function*(chunks){for await (const _ of chunks) { /* bounded sink */ }});
   const after = regular(file,uid);
   if (['dev','ino','size','mtimeMs','ctimeMs'].some(k => before[k] !== after[k]) || bytes !== before.size) fail('guru_source_changed_during_read');
+  if (outputFd !== undefined) fs.fsyncSync(outputFd);
+  copyCompleted = true;
   return {bytes,sha256:hash.digest('hex')};
+  } finally {
+    if (outputFd !== undefined) {
+      fs.closeSync(outputFd);
+      if (copyCompleted && platform === 'linux') {
+        const completed = regular(output,uid);
+        if (completed.size !== before.size || completed.blocks * 512 < reservedBytes
+          || completed.blocks * 512 > reservedBytes + 1024**2) fail('guru_copy_allocation_not_retained');
+      }
+    }
+  }
 }
 
 // Public for isolated fixture tests. The production entry below supplies fixed
@@ -133,13 +178,14 @@ export async function stageGuruDeltaRelease(p,{releaseRoot=defaultRoot,uid=proce
     fs.mkdirSync(directory,{mode:0o700});
     await installPublicFile(directory,'delta',p.delta,{fetchFile,maxBytesPerSecond,progress});
     const candidate = path.join(directory,'research.sqlite.part');
-    const copied = await copyOrHash(base.files.research.path,{output:candidate,uid,maxBytesPerSecond,space,progress});
+    const copied = await copyGuruReleaseFile(base.files.research.path,{output:candidate,uid,maxBytesPerSecond,space,progress,
+      allocationBytes:Math.max(p.patch.baseResearch.bytes,p.research.bytes)});
     if (copied.bytes !== p.patch.baseResearch.bytes || copied.sha256 !== p.patch.baseResearch.sha256) fail('guru_base_research_sha_mismatch');
     const beforePatch = space();
     if (beforePatch - projection.journalReserveBytes - projection.operationalReserveBytes < minimumReleaseHeadroomBytes) fail('guru_patch_disk_headroom_exhausted');
     progress({phase:'apply_guru_rows'});
     const applied = applyGuruDelta(candidate,path.join(directory,'delta.sqlite'),p.patch);
-    const actual = await copyOrHash(candidate,{uid,maxBytesPerSecond,progress});
+    const actual = await copyGuruReleaseFile(candidate,{uid,maxBytesPerSecond,progress});
     if (actual.bytes !== p.research.bytes || actual.sha256 !== p.research.sha256) fail('guru_result_sha_mismatch');
     checkDownloadedSchema(candidate,p.research,'research');
     if (space() < minimumReleaseHeadroomBytes) fail('guru_final_disk_headroom_exhausted');

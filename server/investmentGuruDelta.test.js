@@ -8,7 +8,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { enabledManager13fGurus } from './gurus.js';
 import { validateInvestmentRelease } from './investmentRuntimeConfig.js';
 import { applyGuruDelta, guruDeltaRowSha256, guruDeltaTables, newGuruIds, validateGuruDeltaContract } from '../scripts/investment-guru-delta.mjs';
-import { stageGuruDeltaRelease, validateGuruReleaseInstall, guruDeltaDiskProjection } from '../scripts/install-investment-guru-delta.mjs';
+import { stageGuruDeltaRelease, validateGuruReleaseInstall, guruDeltaDiskProjection, copyGuruReleaseFile } from '../scripts/install-investment-guru-delta.mjs';
 
 const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 const info = file => ({bytes:fs.statSync(file).size,sha256:hash(file)});
@@ -70,6 +70,65 @@ function installPayload(f) {
 }
 const installOptions = f => ({releaseRoot:f.root,space:()=>20*1024**3,maxBytesPerSecond:Infinity,
   fetchFile:async () => new Response(fs.readFileSync(f.deltaFile),{status:200,headers:{'content-length':String(fs.statSync(f.deltaFile).size)}})});
+
+test('bounded copy allocates an exclusive exact-length target before copying inside its fixed EOF',async t => {
+  const f = fixture(t), output = path.join(f.root,'allocated-copy.sqlite'), sourceHash = hash(f.baseFile), sourceSize = fs.statSync(f.baseFile).size;
+  let allocations = 0; const sizes = [], events = [];
+  const result = await copyGuruReleaseFile(f.baseFile,{output,platform:'linux',maxBytesPerSecond:Infinity,
+    space:() => { if (fs.existsSync(output)) sizes.push(fs.statSync(output).size); return 20*1024**3; },
+    allocate:({file,fd,bytes,platform}) => {
+      allocations++; a.equal(platform,'linux'); a.equal(file,output); a.equal(fs.fstatSync(fd).size,0); a.equal(bytes,sourceSize);
+      // Deterministic fixture for real allocated extents; Linux production uses
+      // fallocate, not this write and not a sparse ftruncate fallback.
+      fs.writeFileSync(fd,Buffer.alloc(bytes,0x7e));
+    },progress:event => events.push(event)});
+  a.equal(allocations,1); a.ok(sizes.length > 1); a.ok(sizes.every(size => size === sourceSize));
+  a.equal(events[0].phase,'allocated_copy'); a.ok(events[0].allocatedBytes >= sourceSize);
+  a.equal(result.sha256,sourceHash); a.equal(hash(output),sourceHash); a.equal(hash(f.baseFile),sourceHash);
+  a.equal(fs.statSync(output).nlink,1);
+});
+
+test('bounded copy cannot clobber existing files or allocate before passing the unchanged disk floor',async t => {
+  const f = fixture(t), output = path.join(f.root,'exclusive-copy.sqlite'); fs.writeFileSync(output,'preserve me');
+  let allocations = 0; const allocate = () => allocations++;
+  await a.rejects(copyGuruReleaseFile(f.baseFile,{output,allocate,maxBytesPerSecond:Infinity}),/EEXIST/);
+  a.equal(fs.readFileSync(output,'utf8'),'preserve me'); a.equal(allocations,0);
+  const absent = path.join(f.root,'insufficient-copy.sqlite');
+  await a.rejects(copyGuruReleaseFile(f.baseFile,{output:absent,allocate,space:()=>10*1024**3}),/disk_headroom_exhausted/);
+  a.equal(fs.existsSync(absent),false); a.equal(allocations,0);
+});
+
+test('bounded copy reserves approved SQLite growth while preserving exact source EOF and checksum',async t => {
+  const f = fixture(t), output = path.join(f.root,'growth-copy.sqlite'), size = fs.statSync(f.baseFile).size;
+  let reservation;
+  const result = await copyGuruReleaseFile(f.baseFile,{output,allocationBytes:size+4*1024**2,platform:'darwin',maxBytesPerSecond:Infinity,
+    allocate:({fd,bytes,allocationBytes}) => { a.equal(bytes,size); reservation=allocationBytes; fs.ftruncateSync(fd,bytes); }});
+  a.equal(reservation,size+4*1024**2); a.equal(fs.statSync(output).size,size); a.equal(result.sha256,hash(f.baseFile));
+  const invalid = path.join(f.root,'too-small-copy.sqlite');
+  await a.rejects(copyGuruReleaseFile(f.baseFile,{output:invalid,allocationBytes:size-1}),/allocation_size_invalid/);
+  a.equal(fs.existsSync(invalid),false);
+});
+
+test('Linux copy rejects unsupported, incomplete or excess allocation instead of reverting to append writes',async t => {
+  const f = fixture(t); const before = hash(f.baseFile);
+  for (const [name,allocate] of [
+    ['unsupported',() => { throw Error('allocation_not_supported'); }],
+    ['incomplete',({fd,bytes}) => fs.ftruncateSync(fd,bytes)],
+    ['excess',({fd,bytes}) => fs.writeFileSync(fd,Buffer.alloc(bytes+2*1024**2,0x7e))]
+  ]) {
+    const output = path.join(f.root,`${name}-copy.sqlite`);
+    await a.rejects(copyGuruReleaseFile(f.baseFile,{output,platform:'linux',allocate,maxBytesPerSecond:Infinity}),/allocation_/);
+    a.equal(hash(f.baseFile),before);
+  }
+});
+
+test('a real drop below the 10 GiB floor after allocation stops before copying source bytes',async t => {
+  const f = fixture(t), output = path.join(f.root,'space-loss-copy.sqlite'); let allocated = false;
+  await a.rejects(copyGuruReleaseFile(f.baseFile,{output,platform:'linux',maxBytesPerSecond:Infinity,
+    space:() => allocated ? 10*1024**3 : 20*1024**3,
+    allocate:({fd,bytes}) => { fs.writeFileSync(fd,Buffer.alloc(bytes,0x7e)); allocated=true; }}),/disk_headroom_exhausted/);
+  a.ok(fs.readFileSync(output).every(byte => byte === 0x7e));
+});
 
 test('exact public Guru delta atomically preserves unrelated data, failed caches, and idempotent file bytes',t => {
   const f = fixture(t), beforeBase = hash(f.baseFile), beforeDelta = hash(f.deltaFile);
